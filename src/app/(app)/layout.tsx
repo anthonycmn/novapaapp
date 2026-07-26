@@ -58,7 +58,9 @@ export default async function AppLayout({
           <ThemeToggle />
           <MoreMenu isStaff={hasRoleAtLeast(user, "staff")} />
           <form action={signOut}>
-            <Button variant="ghost" size="sm" type="submit">
+            {/* Default size, not sm: the header is thumb territory and a
+                36px control is below the 44px minimum tap target. */}
+            <Button variant="ghost" type="submit" className="px-3">
               Sign out
             </Button>
           </form>
