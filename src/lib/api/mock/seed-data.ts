@@ -201,7 +201,9 @@ export const students: Student[] = [
     school: "Willow Springs ES",
     tshirtSize: "YL",
     allergies: "Peanuts (EpiPen in bag)",
-    consents: { photoUse: true, faceMatching: true, directoryVisible: true },
+    // Face matching defaults OFF for every student (PRIVACY.md): consent is
+    // granted through the explanation + reference-photo flow, never seeded on.
+    consents: { photoUse: true, faceMatching: false, directoryVisible: true },
     resumeCredits: [
       { id: "rc-1", category: "role", title: "Young Anna — Frozen Jr. (2025)", organization: "NOVA PA", year: "2025" },
       { id: "rc-2", category: "training", title: "Ballet — 3 years", organization: "Fairfax Dance Academy" },
@@ -238,7 +240,7 @@ export const students: Student[] = [
     school: "Liberty MS",
     tshirtSize: "AM",
     medicalFlags: "Asthma — inhaler in backpack",
-    consents: { photoUse: true, faceMatching: true, directoryVisible: true },
+    consents: { photoUse: true, faceMatching: false, directoryVisible: true },
     resumeCredits: [
       { id: "rc-3", category: "role", title: "Sebastian — The Little Mermaid Jr. (2024)", organization: "NOVA PA", year: "2024" },
       { id: "rc-4", category: "special_skill", title: "Beatboxing" },

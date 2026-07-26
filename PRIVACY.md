@@ -28,14 +28,43 @@ mirrored by the application data layer.
 
 ## Facial recognition (photo matching)
 
-- **Opt-in only**, per student, by a parent/guardian, after a plain-English
-  explanation screen.
-- We store **face embeddings only** (numerical vectors), never raw
-  biometric templates; embeddings are encrypted at rest.
-- Revoking consent deletes the stored embeddings **within 24 hours** and
-  stops all future matching. This is enforced by a deletion job and covered
-  by an automated test.
-- Match results are visible only to the student's own family and admins.
+- **Opt-in only**, per student, by a parent/guardian of that child, after a
+  plain-English explanation screen. Staff and admins cannot grant consent on
+  a family's behalf. The default for every student is OFF.
+- Consent requires 2–4 reference photos. If no face can be detected in them,
+  consent is refused and the uploaded photos are discarded — we don't retain
+  photos of a child that serve no purpose.
+- We store **face embeddings only** — 512-number vectors derived from a
+  face. We never retain a cropped face image from a gallery photo, and
+  gallery images themselves stay on SmugMug (we store links, not copies).
+- Revoking consent deletes the embeddings, the reference photos, and all
+  matches **immediately** — well inside the 24-hour commitment. The parent
+  is shown the counts of what was deleted. A database trigger provides a
+  second line of defence if the consent flag is cleared by any other path.
+- Match results are visible to the student's own family and to admins.
+  Teaching staff do not browse them.
+- Matching accuracy is imperfect, especially with stage makeup and theater
+  lighting. The threshold is set conservatively (a false positive would show
+  one family another family's child), and every match has a "not my child"
+  correction that is never re-asserted on later runs.
+
+### On "encrypted at rest" — a precise statement
+
+Embeddings are stored as plaintext vectors in Postgres, because similarity
+search has to operate on them; encrypting the column would make the feature
+impossible. The actual protections are:
+
+1. **No client role can read the table.** `face_embeddings` has row-level
+   security enabled with *no* permissive policies and privileges revoked
+   from `anon` and `authenticated`, so only the service role (the background
+   job) and audited `SECURITY DEFINER` functions can touch it.
+2. **Supabase encrypts the underlying storage at rest** (disk-level).
+3. **The vectors are not invertible** into a viewable photograph.
+
+We state it this way rather than claiming column-level encryption we don't
+have. If the org later requires cryptographic protection of the vectors
+themselves, that means moving similarity search into a trusted enclave or
+accepting exact-match-only encrypted search — a significant redesign.
 
 ## Who can see what
 

@@ -42,6 +42,20 @@ import type {
   SyncRun,
 } from "../registration/types";
 import { reconcile } from "../registration/reconcile";
+import type {
+  ConsentEvent,
+  FaceEmbedding,
+  Gallery,
+  GalleryPhoto,
+  PhotoMatch,
+  ReferencePhoto,
+} from "../photos/types";
+import {
+  MAX_REFERENCE_PHOTOS,
+  MIN_REFERENCE_PHOTOS,
+} from "../photos/types";
+import { matchFace, type CandidateStudent } from "../photos/matching";
+import { getFaceMatchProvider } from "../photos/face-provider";
 import * as seed from "./seed-data";
 
 /**
@@ -88,6 +102,13 @@ interface Store {
   carts: Map<string, CartItem[]>;
   orders: ButtonOrder[];
   orderSequence: number;
+  galleries: Gallery[];
+  galleryPhotos: GalleryPhoto[];
+  referencePhotos: ReferencePhoto[];
+  /** The only biometric artifacts we hold. Deleted on revocation. */
+  embeddings: FaceEmbedding[];
+  matches: PhotoMatch[];
+  consentEvents: ConsentEvent[];
 }
 
 function deepClone<T>(value: T): T {
@@ -137,6 +158,12 @@ function buildStore(): Store {
     carts: new Map(),
     orders: [],
     orderSequence: 1042,
+    galleries: [],
+    galleryPhotos: [],
+    referencePhotos: [],
+    embeddings: [],
+    matches: [],
+    consentEvents: [],
   };
 }
 
@@ -1479,6 +1506,370 @@ export class MockDataProvider implements DataProvider {
       }
     }
     return deepClone(order);
+  }
+
+  /* ── photos & face matching (#6) ──────────────────────────────────── */
+
+  async grantFaceConsent(
+    actorId: string,
+    studentId: string,
+    referenceImageUrls: string[]
+  ): Promise<{ embeddingsCreated: number }> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) throw new Error("Student not found");
+    // Only a parent of this child may consent — never staff, never admin.
+    if (actor.role !== "parent" || actor.familyId !== student.familyId) {
+      throw new AccessDeniedError(
+        "Only a parent or guardian of this student can give face-matching consent"
+      );
+    }
+    if (
+      referenceImageUrls.length < MIN_REFERENCE_PHOTOS ||
+      referenceImageUrls.length > MAX_REFERENCE_PHOTOS
+    ) {
+      throw new Error(
+        `Upload between ${MIN_REFERENCE_PHOTOS} and ${MAX_REFERENCE_PHOTOS} reference photos`
+      );
+    }
+
+    const faceProvider = getFaceMatchProvider();
+    let created = 0;
+
+    for (const imageUrl of referenceImageUrls) {
+      store.referencePhotos.push({
+        id: nextId("ref"),
+        studentId,
+        imageUrl,
+        uploadedAt: nowIso(),
+      });
+      const faces = await faceProvider.embedFaces(imageUrl);
+      // A reference photo with no detectable face is silently useless, so
+      // surface it rather than pretending consent produced something.
+      for (const face of faces) {
+        store.embeddings.push({
+          id: nextId("emb"),
+          studentId,
+          vector: face.vector,
+          detectionConfidence: face.detectionConfidence,
+          createdAt: nowIso(),
+        });
+        created += 1;
+      }
+    }
+
+    if (created === 0) {
+      // Roll back the reference photos — consent without a usable face is
+      // just retained photos of a child for no purpose.
+      store.referencePhotos = store.referencePhotos.filter(
+        (photo) => photo.studentId !== studentId
+      );
+      throw new Error(
+        "We couldn't find a face in those photos. Try clearer, front-facing photos."
+      );
+    }
+
+    student.consents.faceMatching = true;
+    student.updatedAt = nowIso();
+
+    store.consentEvents.push({
+      id: nextId("cons"),
+      studentId,
+      action: "granted",
+      actorName: actor.displayName,
+      createdAt: nowIso(),
+    });
+
+    return { embeddingsCreated: created };
+  }
+
+  async revokeFaceConsent(actorId: string, studentId: string): Promise<ConsentEvent> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) throw new Error("Student not found");
+    // A parent may revoke; an admin may also revoke on request.
+    if (!isAdmin(actor) && (actor.role !== "parent" || actor.familyId !== student.familyId)) {
+      throw new AccessDeniedError("Only a parent or an admin can revoke consent");
+    }
+
+    // Delete everything derived from this child's face, immediately —
+    // well inside the 24-hour promise in PRIVACY.md.
+    const embeddingsBefore = store.embeddings.length;
+    store.embeddings = store.embeddings.filter(
+      (embedding) => embedding.studentId !== studentId
+    );
+    const embeddingsDeleted = embeddingsBefore - store.embeddings.length;
+
+    const matchesBefore = store.matches.length;
+    store.matches = store.matches.filter((match) => match.studentId !== studentId);
+    const matchesDeleted = matchesBefore - store.matches.length;
+
+    const referencesBefore = store.referencePhotos.length;
+    store.referencePhotos = store.referencePhotos.filter(
+      (photo) => photo.studentId !== studentId
+    );
+    const referencePhotosDeleted = referencesBefore - store.referencePhotos.length;
+
+    student.consents.faceMatching = false;
+    student.updatedAt = nowIso();
+
+    const event: ConsentEvent = {
+      id: nextId("cons"),
+      studentId,
+      action: "revoked",
+      actorName: actor.displayName,
+      createdAt: nowIso(),
+      embeddingsDeleted,
+      matchesDeleted,
+      referencePhotosDeleted,
+    };
+    store.consentEvents.push(event);
+    return deepClone(event);
+  }
+
+  async getConsentHistory(actorId: string, studentId: string): Promise<ConsentEvent[]> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) return [];
+    assertStudentAccess(actor, student);
+    return deepClone(
+      store.consentEvents
+        .filter((event) => event.studentId === studentId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
+  }
+
+  async getReferencePhotos(actorId: string, studentId: string): Promise<ReferencePhoto[]> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) return [];
+    // Reference photos are the family's own uploads — family only, not staff.
+    if (!isAdmin(actor) && actor.familyId !== student.familyId) {
+      throw new AccessDeniedError("Not your student");
+    }
+    return deepClone(store.referencePhotos.filter((photo) => photo.studentId === studentId));
+  }
+
+  async countEmbeddingsForStudent(actorId: string, studentId: string): Promise<number> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) return 0;
+    if (!isAdmin(actor) && actor.familyId !== student.familyId) {
+      throw new AccessDeniedError("Not your student");
+    }
+    return store.embeddings.filter((embedding) => embedding.studentId === studentId).length;
+  }
+
+  async getGalleries(actorId: string): Promise<Gallery[]> {
+    getActor(actorId);
+    return deepClone(
+      [...store.galleries].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
+  }
+
+  async getGalleryPhotos(actorId: string, galleryId: string): Promise<GalleryPhoto[]> {
+    getActor(actorId);
+    return deepClone(store.galleryPhotos.filter((photo) => photo.galleryId === galleryId));
+  }
+
+  async getMatchesForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<Array<{ match: PhotoMatch; photo: GalleryPhoto; studentName: string }>> {
+    const actor = getActor(actorId);
+    // Matches are visible to the family and to admins — NOT to staff at
+    // large, and never to another family (PRIVACY.md).
+    if (!isAdmin(actor) && actor.familyId !== familyId) {
+      throw new AccessDeniedError("Not your family");
+    }
+
+    const familyStudents = store.students.filter((s) => s.familyId === familyId);
+    const studentIds = new Set(familyStudents.map((s) => s.id));
+    const nameById = new Map(
+      familyStudents.map((s) => [s.id, s.preferredName ?? s.firstName])
+    );
+
+    return store.matches
+      .filter((match) => studentIds.has(match.studentId) && match.state !== "rejected")
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .flatMap((match) => {
+        const photo = store.galleryPhotos.find((p) => p.id === match.photoId);
+        if (!photo) return [];
+        return [
+          {
+            match: deepClone(match),
+            photo: deepClone(photo),
+            studentName: nameById.get(match.studentId) ?? "",
+          },
+        ];
+      });
+  }
+
+  private assertMatchOwner(actorId: string, matchId: string): PhotoMatch {
+    const actor = getActor(actorId);
+    const match = store.matches.find((m) => m.id === matchId);
+    if (!match) throw new Error("Match not found");
+    const student = store.students.find((s) => s.id === match.studentId);
+    if (!student) throw new Error("Student not found");
+    if (!isAdmin(actor) && actor.familyId !== student.familyId) {
+      throw new AccessDeniedError("Not your match to correct");
+    }
+    return match;
+  }
+
+  async rejectMatch(actorId: string, matchId: string): Promise<void> {
+    const match = this.assertMatchOwner(actorId, matchId);
+    // Keep the row in "rejected" state: it's how we remember never to
+    // re-assert this pairing on the next matching run.
+    match.state = "rejected";
+    match.correctedAt = nowIso();
+  }
+
+  async confirmMatch(actorId: string, matchId: string): Promise<void> {
+    const match = this.assertMatchOwner(actorId, matchId);
+    match.state = "confirmed";
+    match.correctedAt = nowIso();
+
+    // Fold the confirmed face into the student's reference set so future
+    // matching gets better at this child specifically.
+    const photoEmbedding = store.embeddings.find(
+      (embedding) => embedding.photoId === match.photoId
+    );
+    if (photoEmbedding) {
+      store.embeddings.push({
+        id: nextId("emb"),
+        studentId: match.studentId,
+        vector: [...photoEmbedding.vector],
+        detectionConfidence: photoEmbedding.detectionConfidence,
+        createdAt: nowIso(),
+      });
+    }
+  }
+
+  async ingestGallery(
+    actorId: string,
+    gallery: Gallery,
+    photos: GalleryPhoto[]
+  ): Promise<{ photosIngested: number }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const existing = store.galleries.find((g) => g.externalId === gallery.externalId);
+    if (existing) {
+      Object.assign(existing, gallery, { ingestedAt: nowIso() });
+    } else {
+      store.galleries.push({ ...deepClone(gallery), ingestedAt: nowIso() });
+    }
+
+    let ingested = 0;
+    for (const photo of photos) {
+      if (store.galleryPhotos.some((p) => p.externalId === photo.externalId)) continue;
+      store.galleryPhotos.push(deepClone(photo));
+      ingested += 1;
+    }
+    return { photosIngested: ingested };
+  }
+
+  /**
+   * Background matching pass. Only students with ACTIVE consent are ever
+   * passed to the matcher — this is the invariant the privacy promise
+   * rests on, and it is pinned by tests.
+   */
+  async runMatching(
+    actorId: string
+  ): Promise<{ photosScanned: number; matchesCreated: number }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const faceProvider = getFaceMatchProvider();
+
+    const candidates: CandidateStudent[] = store.students
+      .filter((student) => student.consents.faceMatching)
+      .map((student) => ({
+        studentId: student.id,
+        embeddings: store.embeddings.filter(
+          (embedding) => embedding.studentId === student.id
+        ),
+        rejectedPhotoIds: new Set(
+          store.matches
+            .filter((match) => match.studentId === student.id && match.state === "rejected")
+            .map((match) => match.photoId)
+        ),
+      }))
+      .filter((candidate) => candidate.embeddings.length > 0);
+
+    let photosScanned = 0;
+    let matchesCreated = 0;
+
+    for (const photo of store.galleryPhotos) {
+      photosScanned += 1;
+
+      // Embed the photo's faces once and cache them.
+      let faces = store.embeddings.filter((embedding) => embedding.photoId === photo.id);
+      if (faces.length === 0) {
+        const detected = await faceProvider.embedFaces(photo.thumbnailUrl);
+        faces = detected.map((face) => {
+          const embedding: FaceEmbedding = {
+            id: nextId("emb"),
+            photoId: photo.id,
+            vector: face.vector,
+            detectionConfidence: face.detectionConfidence,
+            createdAt: nowIso(),
+          };
+          store.embeddings.push(embedding);
+          return embedding;
+        });
+      }
+
+      for (const face of faces) {
+        const result = matchFace(face, photo.id, candidates);
+        if (!result) continue;
+
+        const already = store.matches.find(
+          (match) =>
+            match.studentId === result.studentId && match.photoId === result.photoId
+        );
+        if (already) continue;
+
+        store.matches.push({
+          id: nextId("match"),
+          studentId: result.studentId,
+          photoId: result.photoId,
+          similarity: result.similarity,
+          state: "matched",
+          createdAt: nowIso(),
+        });
+        matchesCreated += 1;
+
+        // Tell the family there are new photos of their child.
+        const student = store.students.find((s) => s.id === result.studentId);
+        if (!student) continue;
+        const parents = store.users.filter(
+          (u) => u.role === "parent" && u.familyId === student.familyId
+        );
+        for (const parent of parents) {
+          if (!this.prefAllows(parent.id, "photos_posted")) continue;
+          const alreadyNotified = store.notifications.some(
+            (n) =>
+              n.userId === parent.id &&
+              n.type === "photos_posted" &&
+              n.body.includes(student.preferredName ?? student.firstName)
+          );
+          if (alreadyNotified) continue;
+          store.notifications.push({
+            id: nextId("ntf"),
+            userId: parent.id,
+            type: "photos_posted",
+            title: "New photos",
+            body: `We found new photos of ${student.preferredName ?? student.firstName}.`,
+            url: "/photos",
+            createdAt: nowIso(),
+          });
+        }
+      }
+    }
+
+    return { photosScanned, matchesCreated };
   }
 
   async reorder(actorId: string, orderId: string): Promise<CartItem[]> {

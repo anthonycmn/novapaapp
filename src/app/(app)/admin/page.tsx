@@ -66,6 +66,14 @@ export default async function AdminPage() {
             </CardHeader>
           </Card>
         </Link>
+        <Link href="/admin/photos">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base">📸 Photo ingestion</CardTitle>
+              <CardDescription>Pull SmugMug galleries and run matching</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
 
       <Card>

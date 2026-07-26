@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Megaphone, Pin, Ticket } from "lucide-react";
+import { Megaphone, Pin, Sparkles, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import { ExternalLinkButton } from "@/components/external-link-button";
@@ -39,6 +39,12 @@ export default async function FeedPage() {
     )
   );
 
+  // "Photos of your child" pin above the feed (#6). Reads stored matches
+  // only — matching itself runs in a background job.
+  const matches = user.familyId
+    ? await provider.getMatchesForFamily(user.id, user.familyId)
+    : [];
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -52,6 +58,45 @@ export default async function FeedPage() {
           </Link>
         )}
       </div>
+
+      {matches.length > 0 && (
+        <Card className="border-gold/50">
+          <CardContent className="flex flex-col gap-3 p-4">
+            <div className="flex items-center gap-2">
+              <Sparkles aria-hidden className="size-5 text-gold" />
+              <h2 className="font-semibold">
+                {matches.length} new photo{matches.length === 1 ? "" : "s"} of your{" "}
+                {matches.length === 1 ? "child" : "children"}
+              </h2>
+            </div>
+            <div className="flex gap-2 overflow-x-auto">
+              {matches.slice(0, 6).map(({ match, photo, studentName }) => (
+                <a
+                  key={match.id}
+                  href={photo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.thumbnailUrl}
+                    alt={`Photo of ${studentName}`}
+                    className="size-24 rounded-lg bg-muted object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              ))}
+            </div>
+            <Link
+              href="/photos"
+              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              See all your photos
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {posts.length === 0 ? (
         <Card>

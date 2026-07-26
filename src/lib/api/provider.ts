@@ -39,6 +39,13 @@ import type {
   RegistrationSource,
   SyncRun,
 } from "./registration/types";
+import type {
+  ConsentEvent,
+  Gallery,
+  GalleryPhoto,
+  PhotoMatch,
+  ReferencePhoto,
+} from "./photos/types";
 
 /**
  * Every data access in the app goes through this interface — components
@@ -261,6 +268,52 @@ export interface DataProvider {
   ): Promise<ButtonOrder>;
   /** Re-add a past order's items to the cart. */
   reorder(actorId: string, orderId: string): Promise<CartItem[]>;
+
+  /* photos & face matching (#6) */
+
+  /**
+   * Grant face-matching consent for a student. Parent-only; the student's
+   * reference photos must already be uploaded or are supplied here.
+   */
+  grantFaceConsent(
+    actorId: string,
+    studentId: string,
+    referenceImageUrls: string[]
+  ): Promise<{ embeddingsCreated: number }>;
+
+  /**
+   * Revoke consent. MUST delete every embedding, reference photo, and match
+   * for the student, and record what was deleted (#6, PRIVACY.md).
+   */
+  revokeFaceConsent(actorId: string, studentId: string): Promise<ConsentEvent>;
+
+  getConsentHistory(actorId: string, studentId: string): Promise<ConsentEvent[]>;
+  getReferencePhotos(actorId: string, studentId: string): Promise<ReferencePhoto[]>;
+
+  /** Diagnostic: how many embeddings exist for a student. Used by tests. */
+  countEmbeddingsForStudent(actorId: string, studentId: string): Promise<number>;
+
+  getGalleries(actorId: string): Promise<Gallery[]>;
+  getGalleryPhotos(actorId: string, galleryId: string): Promise<GalleryPhoto[]>;
+
+  /** Photos matched to this family's students, newest first. */
+  getMatchesForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<Array<{ match: PhotoMatch; photo: GalleryPhoto; studentName: string }>>;
+
+  /** Parent correction: "that isn't my child". */
+  rejectMatch(actorId: string, matchId: string): Promise<void>;
+  /** Parent confirmation, which strengthens the reference set. */
+  confirmMatch(actorId: string, matchId: string): Promise<void>;
+
+  /* background ingestion + matching job (never called during page render) */
+  ingestGallery(
+    actorId: string,
+    gallery: Gallery,
+    photos: GalleryPhoto[]
+  ): Promise<{ photosIngested: number }>;
+  runMatching(actorId: string): Promise<{ photosScanned: number; matchesCreated: number }>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */

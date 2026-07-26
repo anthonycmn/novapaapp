@@ -85,4 +85,20 @@ Notes:
 - Migration `0005_store.sql`: templates, server-side carts, orders with **snapshotted items** (a later template edit can't change what someone bought), reference sequence, and RLS (families read own orders, staff read all and own status changes)
 - Verified: 89 tests green — full purchase → admin queue → correct CSV manifest, low-res detection across sizes, CSV escaping of commas/quotes, cross-family order isolation, staff/admin boundaries, idempotent payment marking
 
-## Phase 6 — Photos & AI (next)
+## Phase 6 — Photos & AI ✅ (2026-07-26)
+
+**Provider choice:** self-hosted InsightFace/ArcFace (512-d, pgvector) over Rekognition/Azure/face-api.js — children's biometric data stays on org-controlled infrastructure, so deletion is genuinely provable. Full reasoning in DECISIONS.md.
+
+- **Consent flow**: plain-English explanation screen (what it is, how it works, who sees what, how to turn it off, what happens when we get it wrong) shown *before* any opt-in; 2–4 reference photos; explicit checkbox. **Only a parent of that specific child can consent** — not staff, not admin. Consent with no detectable face is refused and the photos are discarded.
+- **Default OFF for every student** — seed data changed so the app's starting state matches the privacy policy
+- **SmugMug ingestion** behind a provider interface; photos stay on SmugMug and every match deep-links back, so print purchases still flow through their cart. OAuth 1.0a signing left unimplemented rather than guessed (fails loudly, points at NEEDS #4).
+- **Matching**: pure cosine-similarity module with a conservative 0.62 threshold and a 0.9 detection-confidence floor — a false positive shows one family another family's child, so the asymmetry is deliberate
+- **"Photos of your child"** pinned above the feed and shown first in the Photos tab
+- **"Not my child" correction** — rejected pairings are kept as rows precisely so later runs never re-assert them; confirming a match folds it into the reference set
+- **Revocation deletes everything** — embeddings, reference photos, matches — immediately, and reports the counts back to the parent as proof. A DB trigger purges face data if the consent flag is cleared by any other path.
+- **Background job only**: `/api/photos/ingest` (staff button or cron secret), guarded against concurrent runs; page renders read stored matches and never await embedding work
+- Migration `0006_photos.sql`: pgvector with an HNSW cosine index, `revoke_face_consent()` as SECURITY DEFINER with its own permission re-check, the purge trigger, and RLS where **`face_embeddings` has no permissive policy at all** and client privileges are revoked
+- **Honest encryption statement** in PRIVACY.md: pgvector needs plaintext vectors, so the protection is access control plus disk encryption, not column-level crypto — documented rather than overclaimed
+- Verified: 119 tests green (30 new). Consented student's photos surface; non-consented student's never do and no embeddings are created for them; strangers match nobody; another family and general staff cannot read matches; revocation provably deletes; re-consent starts clean; re-running creates no duplicates.
+
+## Phase 7 — Reviews & Polish (next)
