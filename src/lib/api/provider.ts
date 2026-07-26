@@ -1,18 +1,23 @@
 import type {
   AppNotification,
+  CalendarEvent,
   CastingAssignment,
   ClassOffering,
   EmailSend,
   EmailTemplate,
   Enrollment,
   Family,
+  FamilyCalendarEvent,
   FeedAudience,
   FeedCategory,
   FeedPost,
   Guardian,
+  HealthForm,
+  HealthFormAnswers,
   HopesEntry,
   NotificationPrefs,
   NotificationType,
+  PickupRequest,
   PostQuestion,
   Production,
   Program,
@@ -148,6 +153,46 @@ export interface DataProvider {
   ): Promise<EmailSend>;
   /** Users a given audience resolves to (for previews and counts). */
   resolveAudience(actorId: string, audience: FeedAudience): Promise<User[]>;
+
+  /* family calendar (#5) */
+  getFamilyCalendar(actorId: string, familyId: string): Promise<FamilyCalendarEvent[]>;
+  /** All events, staff view (rosters, daily ops). */
+  getAllEvents(actorId: string): Promise<CalendarEvent[]>;
+  /** Stable per-family token for the iCal feed URL. */
+  getCalendarToken(actorId: string, familyId: string): Promise<string>;
+  /** Reverse lookup for the public .ics route. Returns null for bad tokens. */
+  getFamilyIdByCalendarToken(token: string): Promise<string | null>;
+
+  /* health forms (#9) */
+  getHealthForm(actorId: string, studentId: string, seasonId: string): Promise<HealthForm | null>;
+  /** Previous season's answers for pre-fill re-attest, if any. */
+  getPreviousHealthForm(actorId: string, studentId: string, seasonId: string): Promise<HealthForm | null>;
+  saveHealthForm(
+    actorId: string,
+    studentId: string,
+    seasonId: string,
+    answers: HealthFormAnswers,
+    signature?: { name: string; ip: string }
+  ): Promise<HealthForm>;
+  /** Staff: completion status per production/class + emergency roster. */
+  getHealthFormStatus(
+    actorId: string,
+    scope: { productionId?: string; classId?: string }
+  ): Promise<Array<{ student: Student; form: HealthForm | null }>>;
+
+  /* early drop-off / late pick-up (#10) */
+  getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]>;
+  createPickupRequest(
+    actorId: string,
+    input: Omit<PickupRequest, "id" | "familyId" | "status" | "createdAt" | "decisionNote" | "decidedByName" | "decidedAt" | "feeCents">
+  ): Promise<PickupRequest>;
+  /** Staff: all pending requests + today's approved roster. */
+  getPickupRequestsForStaff(actorId: string): Promise<PickupRequest[]>;
+  decidePickupRequest(
+    actorId: string,
+    requestId: string,
+    decision: { status: "approved" | "denied"; note?: string }
+  ): Promise<PickupRequest>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */

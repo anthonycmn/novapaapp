@@ -7,6 +7,7 @@ import type {
   Family,
   FeedPost,
   Guardian,
+  HealthForm,
   HopesEntry,
   PostQuestion,
   Production,
@@ -344,6 +345,61 @@ export const hopes: HopesEntry[] = [
 export const hopesByStudent: Record<string, string[]> = {
   "stu-ava": ["hope-1", "hope-2"],
 };
+
+export const healthForms: HealthForm[] = [
+  {
+    // Ava has a completed, signed form from LAST season → this season should
+    // pre-fill for re-attest instead of starting blank.
+    id: "hf-ava-2526",
+    studentId: "stu-ava",
+    seasonId: "season-2526",
+    answers: {
+      allergies: "Peanuts — carries EpiPen",
+      medications: "None daily",
+      medicationAuthorization: true,
+      conditions: "None",
+      physicianName: "Dr. Elena Vasquez",
+      physicianPhone: "703-555-0400",
+      insuranceCarrier: "CareFirst BCBS",
+      insurancePolicyNumber: "XY123456789",
+      emergencyTreatmentConsent: true,
+      dietaryRestrictions: "No peanuts (see allergies)",
+      accessibilityNeeds: "",
+    },
+    signedByName: "Sofia Martinez",
+    signedAt: "2025-08-20T13:00:00.000Z",
+    signedFromIp: "203.0.113.10",
+    expiresOn: "2026-06-15",
+    createdAt: "2025-08-20T13:00:00.000Z",
+    updatedAt: "2025-08-20T13:00:00.000Z",
+  },
+  {
+    // Chidi has a current-season form already signed — appears complete on
+    // the admin dashboard and the staff emergency roster.
+    id: "hf-chidi-2627",
+    studentId: "stu-chidi",
+    seasonId: "season-2627",
+    answers: {
+      allergies: "None",
+      medications: "Albuterol inhaler as needed",
+      medicationAuthorization: true,
+      conditions: "Asthma (exercise-induced)",
+      physicianName: "Dr. Sam Osei",
+      physicianPhone: "571-555-0300",
+      insuranceCarrier: "Kaiser Permanente",
+      insurancePolicyNumber: "KP-99881100",
+      emergencyTreatmentConsent: true,
+      dietaryRestrictions: "",
+      accessibilityNeeds: "",
+    },
+    signedByName: "Ngozi Okafor",
+    signedAt: "2026-07-01T15:30:00.000Z",
+    signedFromIp: "203.0.113.22",
+    expiresOn: "2027-06-15",
+    createdAt: "2026-07-01T15:30:00.000Z",
+    updatedAt: "2026-07-01T15:30:00.000Z",
+  },
+];
 
 export const feedPosts: FeedPost[] = [
   {

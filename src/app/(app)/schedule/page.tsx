@@ -1,60 +1,91 @@
 import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth/session";
+import { CalendarPlus } from "lucide-react";
+import { getProvider } from "@/lib/api";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
-import { events } from "@/lib/api/mock/seed-data";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { CalendarViews } from "./calendar-views";
+import { SubscribeCard } from "./subscribe-card";
 
 export const metadata = { title: "Schedule" };
 
 /**
- * Phase 0: simple agenda list of seeded events.
- * Phase 3 replaces this with the aggregated household calendar (#5) —
- * month/week/agenda views, per-child colors, conflict detection, iCal.
+ * Household calendar (#5): every commitment across all children, merged,
+ * with per-child colors, conflict detection, and a subscribable iCal feed.
  */
 export default async function SchedulePage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+  const provider = getProvider();
 
-  const upcoming = [...events].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  // Staff see the master schedule; families see their merged household view.
+  if (!user.familyId) {
+    if (!hasRoleAtLeast(user, "staff")) redirect("/dashboard");
+    const events = await provider.getAllEvents(user.id);
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold">Master schedule</h1>
+        {events.length === 0 ? (
+          <Card>
+            <CardContent className="p-10 text-center text-sm text-muted-foreground">
+              Nothing scheduled yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {events.map((event) => (
+              <li key={event.id}>
+                <Card>
+                  <CardContent className="p-4">
+                    <p className="font-medium">{event.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatEventTime(event.startsAt)} · {event.location}
+                    </p>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  const [events, students, token] = await Promise.all([
+    provider.getFamilyCalendar(user.id, user.familyId),
+    provider.getStudentsForFamily(user.id, user.familyId),
+    provider.getCalendarToken(user.id, user.familyId),
+  ]);
+
+  const conflictCount = events.filter((e) => e.conflictsWith?.length).length;
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Schedule</h1>
-      {upcoming.length === 0 ? (
-        <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            Nothing scheduled yet.
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">Schedule</h1>
+        <CalendarPlus aria-hidden className="size-5 text-muted-foreground" />
+      </div>
+
+      {conflictCount > 0 && (
+        <Card className="border-destructive/50">
+          <CardContent className="p-4 text-sm">
+            <span className="font-medium text-destructive">
+              {conflictCount} scheduling conflict{conflictCount === 1 ? "" : "s"}
+            </span>{" "}
+            between your children — check the flagged events below.
           </CardContent>
         </Card>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {upcoming.map((event) => (
-            <li key={event.id}>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-medium">{event.title}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatEventTime(event.startsAt)} · {event.location}
-                      </p>
-                      {event.whatToBring && (
-                        <p className="mt-1 text-sm">
-                          <span className="font-medium">Bring:</span> {event.whatToBring}
-                        </p>
-                      )}
-                    </div>
-                    <Badge variant="secondary" className="shrink-0 capitalize">
-                      {event.type.replace("_", " ")}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
       )}
+
+      <CalendarViews
+        events={events}
+        students={students.map((student) => ({
+          id: student.id,
+          name: student.preferredName ?? student.firstName,
+        }))}
+      />
+
+      <SubscribeCard token={token} />
     </div>
   );
 }

@@ -22,4 +22,31 @@ Notes:
   the same rules as RLS so authorization is tested continuously; SQL policies
   ship in migrations for `supabase db push`.
 
-## Phase 1 — Profiles & Data Core (in progress)
+## Phase 1 — Profiles & Data Core ✅ (2026-07-26)
+
+- Family profile page + edit form (address/contact, validation, unsaved-changes guard), guardian list, invite-guardian action
+- Student profiles: basics editor, allergies/medical (staff+family only), audition song link, vocal range, casting display, show-history timeline with manual outside credits
+- Hopes fields (#4): parent + student authored, versioned per season, parent-controlled student visibility, staff read-only, NEVER other families — pinned by tests
+- Staff showcase (#14): directory + profile pages showing current classes/productions
+- Director pre-casting review screen: hopes + audition materials per enrolled student, staff-only (tested)
+- Migration `0002_catalog.sql`: seasons/programs/classes/productions/enrollments/casting/show_history/staff + program-scoped staff RLS + casting-publish trigger that auto-appends show history
+- Deferred to later phases: headshot cropper + resume PDF builder (needs storage; Phase 6 file pipeline), staff self-edit approval flow (admin ops dashboard, Phase 7)
+
+## Phase 2 — Communication ✅ (2026-07-26)
+
+- Feed (#7): staff-only posting with category tags, production targeting, pins; reactions with optimistic UI; private question threads (asker+staff only) with staff publish-as-FAQ; moderation queue with unanswered count
+- Notifications (#2): in-app center with unread badge in header, per-type toggles, quiet hours, staff broadcast; every notification-worthy event writes an in-app record (tested); Web Push subscribe path lives in `lib/platform/push.ts` behind VAPID keys (NEEDS #6)
+- Email (#1): composer with 5-template library, merge fields ({{parent_first}} etc.), production targeting with live audience resolution, send-test-to-self, scheduled send, send history with delivery stats; Resend adapter behind `EmailDeliveryProvider` (mock active until API key)
+- Verified: post targeted at one production reaches only enrolled families (test); merge fields resolve (test); real push to device pending VAPID keys + deploy
+
+## Phase 3 — Schedule & Forms ✅ (2026-07-26)
+
+- **Calendar (#5):** household view merging every child's classes/rehearsals/approved extended care; agenda + week + month views; per-child color coding with legend; sibling conflict detection with inline warnings; call time, map link, what-to-bring, contact on each event; change highlighting ("Updated" badge + note)
+- **iCal feed (#5):** tokenized `/api/calendar/[token]` route emitting RFC 5545-compliant `.ics` (CRLF, UTC stamps, escaped text, 75-octet line folding); one-tap subscribe buttons for Apple/Outlook (webcal://) and Google, plus copy-link; token lookup tested including rejection of bad tokens
+- **Offline:** service worker v2 caches navigations so `/schedule` and the emergency roster survive a theater basement
+- **Health forms (#9):** full annual form (allergies, meds + administration authorization, conditions, physician, insurance, emergency treatment consent, dietary, accessibility); **re-attest pre-fills last season's answers** instead of blanking; e-signature captures typed name + timestamp + IP; admin completion dashboard filterable by production with nudge action; **staff emergency roster** as a printable, offline-available table
+- **Drop-off / pick-up (#10):** per-student request with date range, recurring weekdays, times, reason, supervising adult, authorized pickup; automatic fee calculation ($5/day); staff approve/deny with a note back; approved requests appear on the family calendar AND the staff "who's here today" roster; family notified on decision
+- Migration `0003_schedule_forms.sql`: calendar_events, family_calendar_tokens, health_forms (+ expiry index and `health_forms_expiring()` for the 30/14/3-day reminder job), pickup_requests, plus the Phase 2 tables (feed, questions, notifications, push_subscriptions, email_sends, email_preferences with a CHECK preventing critical-category opt-out) — all with RLS
+- Verified: 51 tests green including calendar merge/scoping, iCal well-formedness and escaping, health-form pre-fill + signature provenance + cross-family blocks, pickup approval landing on both calendar and roster
+
+## Phase 4 — Registration Integration (in progress)

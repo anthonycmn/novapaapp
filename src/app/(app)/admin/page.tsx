@@ -34,6 +34,22 @@ export default async function AdminPage() {
             </CardHeader>
           </Card>
         </Link>
+        <Link href="/admin/health">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base">🩺 Health & safety</CardTitle>
+              <CardDescription>Form completion + emergency roster</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+        <Link href="/admin/pickup">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base">🚗 Drop-off & pick-up</CardTitle>
+              <CardDescription>Approve requests, see today&apos;s roster</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
 
       <Card>

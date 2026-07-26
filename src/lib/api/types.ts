@@ -364,6 +364,72 @@ export interface EmailSend {
   createdByName: string;
 }
 
+/* ── Health & safety forms (Phase 3, #9) ────────────────────────────────── */
+
+export interface HealthFormAnswers {
+  allergies: string;
+  medications: string;
+  medicationAuthorization: boolean;
+  conditions: string;
+  physicianName: string;
+  physicianPhone: string;
+  insuranceCarrier: string;
+  insurancePolicyNumber: string;
+  emergencyTreatmentConsent: boolean;
+  dietaryRestrictions: string;
+  accessibilityNeeds: string;
+}
+
+export interface HealthForm {
+  id: string;
+  studentId: string;
+  seasonId: string;
+  answers: HealthFormAnswers;
+  /** E-signature: typed name + timestamp + IP, or null while draft. */
+  signedByName?: string;
+  signedAt?: string;
+  signedFromIp?: string;
+  expiresOn: string; // ISO date — end of season validity
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ── Early drop-off / late pick-up (Phase 3, #10) ───────────────────────── */
+
+export type PickupRequestStatus = "pending" | "approved" | "denied";
+
+export interface PickupRequest {
+  id: string;
+  studentId: string;
+  familyId: string;
+  kind: "early_dropoff" | "late_pickup" | "both";
+  /** Single date or inclusive range. */
+  startDate: string;
+  endDate: string;
+  /** Recurring weekdays within the range (0=Sun); empty = every day. */
+  recurringDays: number[];
+  dropOffTime?: string; // "08:15" local
+  pickUpTime?: string;
+  reason: string;
+  supervisingAdult?: string;
+  authorizedPickupPerson?: string;
+  feeCents: number;
+  status: PickupRequestStatus;
+  decisionNote?: string;
+  decidedByName?: string;
+  decidedAt?: string;
+  createdAt: string;
+}
+
+/* ── Family calendar (Phase 3, #5) ──────────────────────────────────────── */
+
+export interface FamilyCalendarEvent extends CalendarEvent {
+  /** Which of the family's students this event applies to. */
+  studentIds: string[];
+  /** True when this event overlaps another sibling's event. */
+  conflictsWith?: string[];
+}
+
 /* ── Session/auth ───────────────────────────────────────────────────────── */
 
 export interface SessionUser extends User {

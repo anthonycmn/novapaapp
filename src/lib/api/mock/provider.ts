@@ -1,19 +1,24 @@
 import { AccessDeniedError, type DataProvider } from "../provider";
 import type {
   AppNotification,
+  CalendarEvent,
   CastingAssignment,
   ClassOffering,
   EmailSend,
   EmailTemplate,
   Enrollment,
   Family,
+  FamilyCalendarEvent,
   FeedAudience,
   FeedCategory,
   FeedPost,
   Guardian,
+  HealthForm,
+  HealthFormAnswers,
   HopesEntry,
   NotificationPrefs,
   NotificationType,
+  PickupRequest,
   PostQuestion,
   Production,
   Program,
@@ -56,6 +61,11 @@ interface Store {
   notificationPrefs: Map<string, NotificationPrefs>;
   emailTemplates: EmailTemplate[];
   emailSends: EmailSend[];
+  events: CalendarEvent[];
+  healthForms: HealthForm[];
+  pickupRequests: PickupRequest[];
+  /** familyId → iCal token */
+  calendarTokens: Map<string, string>;
 }
 
 function deepClone<T>(value: T): T {
@@ -90,6 +100,14 @@ function buildStore(): Store {
     notificationPrefs: new Map(),
     emailTemplates: deepClone(seed.emailTemplates),
     emailSends: [],
+    events: deepClone(seed.events),
+    healthForms: deepClone(seed.healthForms),
+    pickupRequests: [],
+    calendarTokens: new Map([
+      ["fam-martinez", "cal-tok-martinez-8f3a"],
+      ["fam-okafor", "cal-tok-okafor-2b7c"],
+      ["fam-nguyen", "cal-tok-nguyen-5d1e"],
+    ]),
   };
 }
 
@@ -751,5 +769,301 @@ export class MockDataProvider implements DataProvider {
     };
     store.emailSends.push(send);
     return deepClone(send);
+  }
+
+  /* ── family calendar (#5) ─────────────────────────────────────────── */
+
+  /** Events relevant to a student via their enrollments. */
+  private eventsForStudent(studentId: string): CalendarEvent[] {
+    const enrollments = store.enrollments.filter(
+      (e) => e.studentId === studentId && e.status === "enrolled"
+    );
+    const classIds = new Set(enrollments.map((e) => e.classId).filter(Boolean));
+    const productionIds = new Set(enrollments.map((e) => e.productionId).filter(Boolean));
+    return store.events.filter(
+      (event) =>
+        (event.classId && classIds.has(event.classId)) ||
+        (event.productionId && productionIds.has(event.productionId))
+    );
+  }
+
+  async getFamilyCalendar(actorId: string, familyId: string): Promise<FamilyCalendarEvent[]> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    const students = store.students.filter((s) => s.familyId === familyId);
+
+    // Merge per-student events into family events keyed by event id.
+    const byEvent = new Map<string, FamilyCalendarEvent>();
+    for (const student of students) {
+      for (const event of this.eventsForStudent(student.id)) {
+        const existing = byEvent.get(event.id);
+        if (existing) {
+          existing.studentIds.push(student.id);
+        } else {
+          byEvent.set(event.id, { ...deepClone(event), studentIds: [student.id] });
+        }
+      }
+    }
+
+    // Approved pickup requests appear on the family calendar (#10).
+    for (const request of store.pickupRequests) {
+      if (request.familyId !== familyId || request.status !== "approved") continue;
+      byEvent.set(`pickup-${request.id}`, {
+        id: `pickup-${request.id}`,
+        type: "other",
+        title:
+          request.kind === "early_dropoff"
+            ? `Early drop-off approved (${request.dropOffTime})`
+            : request.kind === "late_pickup"
+              ? `Late pick-up approved (${request.pickUpTime})`
+              : `Extended care approved`,
+        startsAt: `${request.startDate}T12:00:00.000Z`,
+        endsAt: `${request.endDate}T12:30:00.000Z`,
+        location: "Studio front desk",
+        studentIds: [request.studentId],
+      });
+    }
+
+    const events = [...byEvent.values()].sort((a, b) =>
+      a.startsAt.localeCompare(b.startsAt)
+    );
+
+    // Conflict detection across siblings: two events overlap in time but
+    // involve different students at (potentially) different places.
+    for (const a of events) {
+      for (const b of events) {
+        if (a.id >= b.id) continue;
+        const overlap = a.startsAt < b.endsAt && b.startsAt < a.endsAt;
+        const differentKids =
+          a.studentIds.some((id) => !b.studentIds.includes(id)) ||
+          b.studentIds.some((id) => !a.studentIds.includes(id));
+        if (overlap && differentKids) {
+          (a.conflictsWith ??= []).push(b.id);
+          (b.conflictsWith ??= []).push(a.id);
+        }
+      }
+    }
+    return events;
+  }
+
+  async getAllEvents(actorId: string): Promise<CalendarEvent[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return deepClone([...store.events].sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
+  }
+
+  async getCalendarToken(actorId: string, familyId: string): Promise<string> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    let token = store.calendarTokens.get(familyId);
+    if (!token) {
+      token = `cal-tok-${familyId}-${Math.random().toString(36).slice(2, 10)}`;
+      store.calendarTokens.set(familyId, token);
+    }
+    return token;
+  }
+
+  async getFamilyIdByCalendarToken(token: string): Promise<string | null> {
+    for (const [familyId, candidate] of store.calendarTokens) {
+      if (candidate === token) return familyId;
+    }
+    return null;
+  }
+
+  /* ── health forms (#9) ────────────────────────────────────────────── */
+
+  async getHealthForm(
+    actorId: string,
+    studentId: string,
+    seasonId: string
+  ): Promise<HealthForm | null> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) return null;
+    assertStudentAccess(actor, student);
+    return deepClone(
+      store.healthForms.find(
+        (f) => f.studentId === studentId && f.seasonId === seasonId
+      ) ?? null
+    );
+  }
+
+  async getPreviousHealthForm(
+    actorId: string,
+    studentId: string,
+    seasonId: string
+  ): Promise<HealthForm | null> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) return null;
+    assertStudentAccess(actor, student);
+    const previous = store.healthForms
+      .filter((f) => f.studentId === studentId && f.seasonId !== seasonId && f.signedAt)
+      .sort((a, b) => (b.signedAt ?? "").localeCompare(a.signedAt ?? ""));
+    return deepClone(previous[0] ?? null);
+  }
+
+  async saveHealthForm(
+    actorId: string,
+    studentId: string,
+    seasonId: string,
+    answers: HealthFormAnswers,
+    signature?: { name: string; ip: string }
+  ): Promise<HealthForm> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) throw new Error("Student not found");
+    // Only the family signs health forms (not staff — they attest nothing).
+    assertFamilyWrite(actor, student.familyId);
+
+    const season = store.seasons.find((s) => s.id === seasonId);
+    const expiresOn = season?.endsOn ?? "2027-06-15";
+
+    let form = store.healthForms.find(
+      (f) => f.studentId === studentId && f.seasonId === seasonId
+    );
+    if (!form) {
+      form = {
+        id: nextId("hf"),
+        studentId,
+        seasonId,
+        answers,
+        expiresOn,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      store.healthForms.push(form);
+    } else {
+      form.answers = answers;
+      form.updatedAt = nowIso();
+    }
+    if (signature) {
+      form.signedByName = signature.name;
+      form.signedAt = nowIso();
+      form.signedFromIp = signature.ip;
+    }
+    return deepClone(form);
+  }
+
+  async getHealthFormStatus(
+    actorId: string,
+    scope: { productionId?: string; classId?: string }
+  ): Promise<Array<{ student: Student; form: HealthForm | null }>> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const currentSeason = store.seasons.find((s) => s.isCurrent);
+
+    const enrolled = store.enrollments.filter((e) => {
+      if (e.status !== "enrolled") return false;
+      if (scope.productionId) return e.productionId === scope.productionId;
+      if (scope.classId) return e.classId === scope.classId;
+      return true;
+    });
+    const studentIds = [...new Set(enrolled.map((e) => e.studentId))];
+
+    return studentIds
+      .map((id) => store.students.find((s) => s.id === id))
+      .filter((s): s is Student => !!s)
+      .map((student) => ({
+        student: deepClone(student),
+        form: deepClone(
+          store.healthForms.find(
+            (f) =>
+              f.studentId === student.id &&
+              f.seasonId === currentSeason?.id &&
+              f.signedAt
+          ) ?? null
+        ),
+      }));
+  }
+
+  /* ── early drop-off / late pick-up (#10) ──────────────────────────── */
+
+  async getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    return deepClone(
+      store.pickupRequests
+        .filter((r) => r.familyId === familyId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
+  }
+
+  async createPickupRequest(
+    actorId: string,
+    input: Omit<
+      PickupRequest,
+      "id" | "familyId" | "status" | "createdAt" | "decisionNote" | "decidedByName" | "decidedAt" | "feeCents"
+    >
+  ): Promise<PickupRequest> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === input.studentId);
+    if (!student) throw new Error("Student not found");
+    assertFamilyWrite(actor, student.familyId);
+
+    // Flat $5/day fee for extended care; org can change this later.
+    const days =
+      Math.max(
+        1,
+        Math.round(
+          (new Date(input.endDate).getTime() - new Date(input.startDate).getTime()) / 86_400_000
+        ) + 1
+      );
+    const request: PickupRequest = {
+      ...input,
+      id: nextId("pr"),
+      familyId: student.familyId,
+      feeCents: 500 * days,
+      status: "pending",
+      createdAt: nowIso(),
+    };
+    store.pickupRequests.push(request);
+    return deepClone(request);
+  }
+
+  async getPickupRequestsForStaff(actorId: string): Promise<PickupRequest[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return deepClone(
+      [...store.pickupRequests].sort((a, b) => {
+        if ((a.status === "pending") !== (b.status === "pending")) {
+          return a.status === "pending" ? -1 : 1;
+        }
+        return b.createdAt.localeCompare(a.createdAt);
+      })
+    );
+  }
+
+  async decidePickupRequest(
+    actorId: string,
+    requestId: string,
+    decision: { status: "approved" | "denied"; note?: string }
+  ): Promise<PickupRequest> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const request = store.pickupRequests.find((r) => r.id === requestId);
+    if (!request) throw new Error("Request not found");
+    request.status = decision.status;
+    request.decisionNote = decision.note;
+    request.decidedByName = actor.displayName;
+    request.decidedAt = nowIso();
+
+    // Notify the family (#10): decision notification with note.
+    const familyParents = store.users.filter(
+      (u) => u.role === "parent" && u.familyId === request.familyId
+    );
+    const student = store.students.find((s) => s.id === request.studentId);
+    for (const parent of familyParents) {
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: parent.id,
+        type: "form_due",
+        title: `Pick-up request ${decision.status}`,
+        body: `${student?.firstName ?? "Your student"}: ${decision.note ?? "See details in the app."}`,
+        url: "/family/pickup",
+        createdAt: nowIso(),
+      });
+    }
+    return deepClone(request);
   }
 }

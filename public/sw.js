@@ -7,10 +7,13 @@
  *  - Never cache API/auth routes.
  * Phase 3 adds calendar payload caching; Phase 2 adds push handlers.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const OFFLINE_URL = "/offline";
+
+/* Routes worth having in a theater basement with no signal (#5, #9). */
+const OFFLINE_CRITICAL = ["/schedule", "/dashboard", "/admin/health"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -45,13 +48,25 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+          // Cache successful navigations so the schedule and emergency
+          // roster stay readable offline.
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(async () => {
           const cached = await caches.match(request);
-          return cached ?? caches.match(OFFLINE_URL);
+          if (cached) return cached;
+          // Fall back to a cached critical route's shell, then the offline page.
+          for (const route of OFFLINE_CRITICAL) {
+            if (url.pathname === route) {
+              const routeCached = await caches.match(route);
+              if (routeCached) return routeCached;
+            }
+          }
+          return caches.match(OFFLINE_URL);
         })
     );
     return;

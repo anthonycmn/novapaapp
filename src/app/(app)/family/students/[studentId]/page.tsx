@@ -136,6 +136,23 @@ export default async function StudentPage({
 
       <Card>
         <CardHeader className="pb-2">
+          <CardTitle className="text-base">Health & safety form</CardTitle>
+          <CardDescription>
+            Required each season for rehearsals and performances.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Link
+            href={`/family/students/${student.id}/health`}
+            className="inline-flex h-11 items-center rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
+          >
+            View / update form
+          </Link>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
           <CardTitle className="text-base">Details</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-x-4 gap-y-2 pt-0 text-sm">
