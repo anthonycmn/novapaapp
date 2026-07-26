@@ -1,9 +1,14 @@
 import { AccessDeniedError, type DataProvider } from "../provider";
 import type {
   AppNotification,
+  ButtonDesign,
+  ButtonOrder,
+  ButtonTemplate,
   CalendarEvent,
+  CartItem,
   CastingAssignment,
   ClassOffering,
+  OrderStatus,
   EmailSend,
   EmailTemplate,
   Enrollment,
@@ -29,6 +34,7 @@ import type {
   Student,
   User,
 } from "../types";
+import { BUTTON_PRICES_CENTS } from "../types";
 import type {
   AccountLink,
   RegistrationSnapshot,
@@ -77,6 +83,11 @@ interface Store {
   syncRuns: SyncRun[];
   /** enrollmentId → external system id, so re-runs don't duplicate. */
   enrollmentExternalIds: Map<string, string>;
+  buttonTemplates: ButtonTemplate[];
+  /** userId → cart */
+  carts: Map<string, CartItem[]>;
+  orders: ButtonOrder[];
+  orderSequence: number;
 }
 
 function deepClone<T>(value: T): T {
@@ -122,6 +133,10 @@ function buildStore(): Store {
     accountLinks: [],
     syncRuns: [],
     enrollmentExternalIds: new Map(),
+    buttonTemplates: deepClone(seed.buttonTemplates),
+    carts: new Map(),
+    orders: [],
+    orderSequence: 1042,
   };
 }
 
@@ -1255,5 +1270,226 @@ export class MockDataProvider implements DataProvider {
     const actor = getActor(actorId);
     assertFamilyAccess(actor, familyId);
     return deepClone(store.accountLinks.find((link) => link.familyId === familyId) ?? null);
+  }
+
+  /* ── spirit buttons store (#11) ───────────────────────────────────── */
+
+  async getButtonTemplates(productionId?: string): Promise<ButtonTemplate[]> {
+    return deepClone(
+      store.buttonTemplates.filter(
+        (template) =>
+          template.isActive && (!productionId || template.productionId === productionId)
+      )
+    );
+  }
+
+  async upsertButtonTemplate(
+    actorId: string,
+    template: Omit<ButtonTemplate, "id"> & { id?: string }
+  ): Promise<ButtonTemplate> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    if (template.id) {
+      const existing = store.buttonTemplates.find((t) => t.id === template.id);
+      if (existing) {
+        Object.assign(existing, template);
+        return deepClone(existing);
+      }
+    }
+    const created: ButtonTemplate = { ...template, id: template.id ?? nextId("tpl") };
+    store.buttonTemplates.push(created);
+    return deepClone(created);
+  }
+
+  private cartFor(userId: string): CartItem[] {
+    const cart = store.carts.get(userId) ?? [];
+    store.carts.set(userId, cart);
+    return cart;
+  }
+
+  async getCart(actorId: string): Promise<CartItem[]> {
+    getActor(actorId);
+    return deepClone(this.cartFor(actorId));
+  }
+
+  async addToCart(
+    actorId: string,
+    design: ButtonDesign,
+    quantity: number
+  ): Promise<CartItem[]> {
+    const actor = getActor(actorId);
+    if (actor.role !== "parent" && !isStaffish(actor)) {
+      throw new AccessDeniedError("Only families can order buttons");
+    }
+    if (quantity < 1) throw new Error("Quantity must be at least 1");
+
+    const cart = this.cartFor(actorId);
+    cart.push({
+      ...design,
+      id: nextId("cart"),
+      quantity,
+      unitPriceCents: BUTTON_PRICES_CENTS[design.size],
+    });
+    return deepClone(cart);
+  }
+
+  async updateCartItem(
+    actorId: string,
+    itemId: string,
+    quantity: number
+  ): Promise<CartItem[]> {
+    getActor(actorId);
+    const cart = this.cartFor(actorId);
+    const item = cart.find((entry) => entry.id === itemId);
+    if (item) {
+      if (quantity < 1) {
+        store.carts.set(
+          actorId,
+          cart.filter((entry) => entry.id !== itemId)
+        );
+      } else {
+        item.quantity = quantity;
+      }
+    }
+    return deepClone(this.cartFor(actorId));
+  }
+
+  async removeCartItem(actorId: string, itemId: string): Promise<CartItem[]> {
+    getActor(actorId);
+    const cart = this.cartFor(actorId).filter((entry) => entry.id !== itemId);
+    store.carts.set(actorId, cart);
+    return deepClone(cart);
+  }
+
+  async clearCart(actorId: string): Promise<void> {
+    getActor(actorId);
+    store.carts.set(actorId, []);
+  }
+
+  async createOrder(actorId: string, paymentRef: string): Promise<ButtonOrder> {
+    const actor = getActor(actorId);
+    if (!actor.familyId) throw new AccessDeniedError("Only families can order buttons");
+    const cart = this.cartFor(actorId);
+    if (cart.length === 0) throw new Error("Cart is empty");
+
+    const items = cart.map((item) => ({ ...deepClone(item) }));
+    const subtotalCents = items.reduce(
+      (sum, item) => sum + item.unitPriceCents * item.quantity,
+      0
+    );
+    // Every item in a cart shares a production (the store is per-show).
+    const template = store.buttonTemplates.find((t) => t.id === items[0].templateId);
+
+    const order: ButtonOrder = {
+      id: nextId("ord"),
+      familyId: actor.familyId,
+      reference: `NPA-${store.orderSequence++}`,
+      items,
+      subtotalCents,
+      status: "new",
+      paymentRef,
+      placedByName: actor.displayName,
+      productionId: template?.productionId ?? "",
+      createdAt: nowIso(),
+      statusUpdatedAt: nowIso(),
+    };
+    store.orders.push(order);
+    store.carts.set(actorId, []);
+    return deepClone(order);
+  }
+
+  async markOrderPaid(
+    orderReference: string,
+    paymentRef: string
+  ): Promise<ButtonOrder | null> {
+    // Called from the payment webhook — no actor session available, so this
+    // deliberately takes no actorId. It can only flip an unpaid order to paid.
+    const order = store.orders.find((o) => o.reference === orderReference);
+    if (!order) return null;
+    if (!order.paidAt) {
+      order.paidAt = nowIso();
+      order.paymentRef = paymentRef;
+    }
+    return deepClone(order);
+  }
+
+  async getOrdersForFamily(actorId: string, familyId: string): Promise<ButtonOrder[]> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    return deepClone(
+      store.orders
+        .filter((order) => order.familyId === familyId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
+  }
+
+  async getOrder(actorId: string, orderId: string): Promise<ButtonOrder | null> {
+    const actor = getActor(actorId);
+    const order = store.orders.find((o) => o.id === orderId);
+    if (!order) return null;
+    assertFamilyAccess(actor, order.familyId);
+    return deepClone(order);
+  }
+
+  async getAllOrders(actorId: string, status?: OrderStatus): Promise<ButtonOrder[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return deepClone(
+      store.orders
+        .filter((order) => !status || order.status === status)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    );
+  }
+
+  async updateOrderStatus(
+    actorId: string,
+    orderId: string,
+    status: OrderStatus,
+    note?: string
+  ): Promise<ButtonOrder> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const order = store.orders.find((o) => o.id === orderId);
+    if (!order) throw new Error("Order not found");
+    order.status = status;
+    order.statusUpdatedAt = nowIso();
+    if (note !== undefined) order.adminNote = note;
+
+    // Tell the family when their buttons are ready to collect.
+    if (status === "ready" || status === "delivered") {
+      const parents = store.users.filter(
+        (u) => u.role === "parent" && u.familyId === order.familyId
+      );
+      for (const parent of parents) {
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: parent.id,
+          type: "broadcast",
+          title:
+            status === "ready"
+              ? `Order ${order.reference} is ready`
+              : `Order ${order.reference} delivered`,
+          body:
+            status === "ready"
+              ? "Your spirit buttons are ready to pick up at the front desk."
+              : "Your spirit buttons have been handed off. Enjoy!",
+          url: "/store/orders",
+          createdAt: nowIso(),
+        });
+      }
+    }
+    return deepClone(order);
+  }
+
+  async reorder(actorId: string, orderId: string): Promise<CartItem[]> {
+    const actor = getActor(actorId);
+    const order = store.orders.find((o) => o.id === orderId);
+    if (!order) throw new Error("Order not found");
+    assertFamilyAccess(actor, order.familyId);
+    const cart = this.cartFor(actorId);
+    for (const item of order.items) {
+      cart.push({ ...deepClone(item), id: nextId("cart") });
+    }
+    return deepClone(cart);
   }
 }

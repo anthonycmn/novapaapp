@@ -430,6 +430,86 @@ export interface FamilyCalendarEvent extends CalendarEvent {
   conflictsWith?: string[];
 }
 
+/* ── Spirit buttons store (Phase 5, #11) ────────────────────────────────── */
+
+/** Physical button sizes the org sells, in inches. */
+export type ButtonSize = "2.25" | "3" | "3.5";
+
+export type ButtonStyle = "classic" | "star" | "ribbon";
+
+/** Per-production frame art so each show can have its own look. */
+export interface ButtonTemplate {
+  id: string;
+  productionId: string;
+  name: string;
+  /** Frame/overlay art drawn around the photo. */
+  frameImageUrl?: string;
+  /** Show logo placed on the button. */
+  logoUrl?: string;
+  /** Hex accent used for the ring and text. */
+  accentColor: string;
+  seasonName: string;
+  isActive: boolean;
+}
+
+export const BUTTON_PRICES_CENTS: Record<ButtonSize, number> = {
+  "2.25": 500,
+  "3": 700,
+  "3.5": 900,
+};
+
+/** Minimum pixels needed for a crisp print at each size (300 DPI + bleed). */
+export const BUTTON_MIN_PIXELS: Record<ButtonSize, number> = {
+  "2.25": 750,
+  "3": 975,
+  "3.5": 1125,
+};
+
+export interface ButtonDesign {
+  /** Uploaded photo (data URL in mock mode, storage URL in production). */
+  photoUrl: string;
+  /** Natural pixel dimensions of the upload, for the low-res guard. */
+  photoWidth: number;
+  photoHeight: number;
+  studentName: string;
+  role: string;
+  size: ButtonSize;
+  style: ButtonStyle;
+  templateId: string;
+}
+
+export interface CartItem extends ButtonDesign {
+  id: string;
+  quantity: number;
+  unitPriceCents: number;
+}
+
+export type OrderStatus = "new" | "in_production" | "ready" | "delivered";
+
+export interface OrderItem extends ButtonDesign {
+  id: string;
+  quantity: number;
+  unitPriceCents: number;
+}
+
+export interface ButtonOrder {
+  id: string;
+  familyId: string;
+  /** Short human-facing code, e.g. "NPA-1042". */
+  reference: string;
+  items: OrderItem[];
+  subtotalCents: number;
+  status: OrderStatus;
+  /** Stripe PaymentIntent / Checkout Session id, or a mock id. */
+  paymentRef: string;
+  paidAt?: string;
+  placedByName: string;
+  productionId: string;
+  createdAt: string;
+  statusUpdatedAt: string;
+  adminNote?: string;
+}
+
 /* ── Session/auth ───────────────────────────────────────────────────────── */
 
 export interface SessionUser extends User {

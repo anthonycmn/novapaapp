@@ -1,8 +1,13 @@
 import type {
   AppNotification,
+  ButtonDesign,
+  ButtonOrder,
+  ButtonTemplate,
   CalendarEvent,
+  CartItem,
   CastingAssignment,
   ClassOffering,
+  OrderStatus,
   EmailSend,
   EmailTemplate,
   Enrollment,
@@ -226,6 +231,36 @@ export interface DataProvider {
     actorId: string,
     familyId: string
   ): Promise<AccountLink | null>;
+
+  /* spirit buttons store (#11) */
+  getButtonTemplates(productionId?: string): Promise<ButtonTemplate[]>;
+  upsertButtonTemplate(
+    actorId: string,
+    template: Omit<ButtonTemplate, "id"> & { id?: string }
+  ): Promise<ButtonTemplate>;
+
+  getCart(actorId: string): Promise<CartItem[]>;
+  addToCart(actorId: string, design: ButtonDesign, quantity: number): Promise<CartItem[]>;
+  updateCartItem(actorId: string, itemId: string, quantity: number): Promise<CartItem[]>;
+  removeCartItem(actorId: string, itemId: string): Promise<CartItem[]>;
+  clearCart(actorId: string): Promise<void>;
+
+  /** Turn the cart into an unpaid order. */
+  createOrder(actorId: string, paymentRef: string): Promise<ButtonOrder>;
+  /** Mark an order paid once the processor confirms. */
+  markOrderPaid(orderReference: string, paymentRef: string): Promise<ButtonOrder | null>;
+  getOrdersForFamily(actorId: string, familyId: string): Promise<ButtonOrder[]>;
+  getOrder(actorId: string, orderId: string): Promise<ButtonOrder | null>;
+  /** Admin fulfillment queue. */
+  getAllOrders(actorId: string, status?: OrderStatus): Promise<ButtonOrder[]>;
+  updateOrderStatus(
+    actorId: string,
+    orderId: string,
+    status: OrderStatus,
+    note?: string
+  ): Promise<ButtonOrder>;
+  /** Re-add a past order's items to the cart. */
+  reorder(actorId: string, orderId: string): Promise<CartItem[]>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */

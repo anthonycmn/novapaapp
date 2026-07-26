@@ -64,4 +64,25 @@ Notes:
 - **Deep links** point at what the live site uses today — Sawyer for classes/camps, RegPack for coaching (found in `Desktop/NOVAPA WEB 7-16`). Recorded in `config/registration.ts`, flagged in NEEDS-FROM-TONY #8b to confirm whether the custom portal replaces them.
 - Verified: 69 tests green — enrollment created upstream appears after one sync cycle; failures surface in the health view; staff-only and admin-only boundaries hold; payload mapping drops incomplete rows rather than inventing values
 
-## Phase 5 — Commerce & Links (next)
+## Phase 5 — Commerce & Links ✅ (2026-07-26)
+
+**Spirit buttons store (#11)**
+- Designer with **live preview** — photo, name, role, size (2.25/3/3.5"), style (classic/star/ribbon), rendered with the production's frame art, accent color, and show title. The preview component renders at true physical inches for printing, so what a family sees is what gets pressed.
+- **Low-resolution guard**: measures the upload's short edge against the DPI needed for the chosen size, warns at marginal quality, and blocks at low quality until the family explicitly acknowledges. **Re-checked server-side** so a crafted POST can't bypass it.
+- Type/size restricted uploads (JPEG/PNG/WebP, 12 MB cap) behind a `lib/platform/image-picker` adapter
+- Server-side cart (survives a device switch), quantity controls, checkout
+- **Stripe** via `PaymentProvider` interface — REST Checkout Sessions, no SDK dependency; mock adapter completes the full flow until a key arrives
+- Stripe webhook with manual signature verification (constant-time HMAC compare, freshness window, raw-body read); `markOrderPaid` is idempotent against replays
+- Order history for families with **reorder**; status notifications when buttons are ready
+- **Admin fulfillment**: queue filtered by status with counts, new → in production → ready → delivered flow with a note back to the family, low-res warning badges, **CSV manifest** download (per-design quantity + print DPI + quality flag), and a **print sheet** rendering every button at true size, one copy per unit ordered
+- Per-production button templates, admin-editable
+
+**External links (#12, #13)**
+- `ExternalLinkButton` component — new tab, `noopener`, screen-reader "(opens in a new tab)", swappable for an in-app browser natively
+- BookTix surfaced contextually: production pages, **show-week feed posts**, productions index, and the overflow nav
+- Main website link in the overflow nav and dashboard; all URLs from `config/org.ts`
+
+- Migration `0005_store.sql`: templates, server-side carts, orders with **snapshotted items** (a later template edit can't change what someone bought), reference sequence, and RLS (families read own orders, staff read all and own status changes)
+- Verified: 89 tests green — full purchase → admin queue → correct CSV manifest, low-res detection across sizes, CSV escaping of commas/quotes, cross-family order isolation, staff/admin boundaries, idempotent payment marking
+
+## Phase 6 — Photos & AI (next)

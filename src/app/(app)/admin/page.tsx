@@ -58,6 +58,14 @@ export default async function AdminPage() {
             </CardHeader>
           </Card>
         </Link>
+        <Link href="/admin/store">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base">🎟️ Button orders</CardTitle>
+              <CardDescription>Fulfillment queue, manifest, print sheet</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
 
       <Card>

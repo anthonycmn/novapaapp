@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { org } from "@/config/org";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
 import { Bell } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { BottomNav } from "@/components/app-shell/bottom-nav";
+import { MoreMenu } from "@/components/app-shell/more-menu";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
@@ -46,6 +47,7 @@ export default async function AppLayout({
             )}
           </Link>
           <ThemeToggle />
+          <MoreMenu isStaff={hasRoleAtLeast(user, "staff")} />
           <form action={signOut}>
             <Button variant="ghost" size="sm" type="submit">
               Sign out

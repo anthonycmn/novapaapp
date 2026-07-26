@@ -1,0 +1,142 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { z } from "zod";
+import { getProvider } from "@/lib/api";
+import { describeButton, getPaymentProvider } from "@/lib/api/payments";
+import type { OrderStatus } from "@/lib/api/types";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { assessPhotoQuality } from "@/lib/store-rules";
+import type { FamilyFormState } from "./family";
+
+const designSchema = z.object({
+  photoUrl: z.string().min(1, "Add a photo"),
+  photoWidth: z.number().int().positive(),
+  photoHeight: z.number().int().positive(),
+  studentName: z.string().min(1, "Enter a name").max(40),
+  role: z.string().max(40),
+  size: z.enum(["2.25", "3", "3.5"]),
+  style: z.enum(["classic", "star", "ribbon"]),
+  templateId: z.string().min(1),
+  quantity: z.number().int().min(1).max(99),
+  /** Set when the family accepted a low-resolution warning. */
+  acknowledgedLowRes: z.boolean(),
+});
+
+export async function addToCartAction(
+  _prev: FamilyFormState,
+  formData: FormData
+): Promise<FamilyFormState> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  const parsed = designSchema.safeParse({
+    photoUrl: String(formData.get("photoUrl") ?? ""),
+    photoWidth: Number(formData.get("photoWidth") ?? 0),
+    photoHeight: Number(formData.get("photoHeight") ?? 0),
+    studentName: String(formData.get("studentName") ?? ""),
+    role: String(formData.get("role") ?? ""),
+    size: formData.get("size"),
+    style: formData.get("style"),
+    templateId: String(formData.get("templateId") ?? ""),
+    quantity: Number(formData.get("quantity") ?? 1),
+    acknowledgedLowRes: formData.get("acknowledgedLowRes") === "true",
+  });
+
+  if (!parsed.success) {
+    const errors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      errors[String(issue.path[0] ?? "_form")] = issue.message;
+    }
+    return { ok: false, errors };
+  }
+
+  const { quantity, acknowledgedLowRes, ...design } = parsed.data;
+
+  // Server-side re-check of the low-res guard: the client warns, but the
+  // server is what actually refuses, so a bypassed dialog can't sneak a
+  // blurry photo into production.
+  const quality = assessPhotoQuality(design.photoWidth, design.photoHeight, design.size);
+  if (quality.quality === "low" && !acknowledgedLowRes) {
+    return { ok: false, errors: { photoUrl: quality.message ?? "Photo resolution too low" } };
+  }
+
+  await getProvider().addToCart(user.id, design, quantity);
+  revalidatePath("/store/cart");
+  return { ok: true };
+}
+
+export async function updateCartItemAction(itemId: string, quantity: number): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) return;
+  await getProvider().updateCartItem(user.id, itemId, quantity);
+  revalidatePath("/store/cart");
+}
+
+export async function removeCartItemAction(itemId: string): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) return;
+  await getProvider().removeCartItem(user.id, itemId);
+  revalidatePath("/store/cart");
+}
+
+/** Creates the order, then hands off to the payment processor. */
+export async function checkoutAction(): Promise<void> {
+  const user = await getSessionUser();
+  if (!user?.familyId) redirect("/login");
+
+  const provider = getProvider();
+  const cart = await provider.getCart(user.id);
+  if (cart.length === 0) redirect("/store/cart");
+
+  const payments = getPaymentProvider();
+  const headerList = await headers();
+  const origin =
+    headerList.get("origin") ??
+    `https://${headerList.get("host") ?? "localhost:3000"}`;
+
+  // Reserve the order first so the payment reference always has a home.
+  const order = await provider.createOrder(user.id, "pending");
+
+  const checkout = await payments.createCheckout({
+    orderReference: order.reference,
+    customerEmail: user.email,
+    lines: cart.map((item) => ({
+      name: describeButton(item.studentName, item.role, item.size),
+      unitAmountCents: item.unitPriceCents,
+      quantity: item.quantity,
+    })),
+    successUrl: `${origin}/store/orders?placed=${order.reference}`,
+    cancelUrl: `${origin}/store/cart`,
+  });
+
+  // With the mock processor no real payment happens, so mark it paid here.
+  // Stripe orders are marked paid by the webhook instead.
+  if (checkout.simulated) {
+    await provider.markOrderPaid(order.reference, checkout.paymentRef);
+  }
+
+  redirect(checkout.url);
+}
+
+export async function reorderAction(orderId: string): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) return;
+  await getProvider().reorder(user.id, orderId);
+  revalidatePath("/store/cart");
+  redirect("/store/cart");
+}
+
+export async function updateOrderStatusAction(
+  orderId: string,
+  status: OrderStatus,
+  formData: FormData
+): Promise<void> {
+  const user = await getSessionUser();
+  if (!user || !hasRoleAtLeast(user, "staff")) return;
+  const note = String(formData.get("note") ?? "").trim() || undefined;
+  await getProvider().updateOrderStatus(user.id, orderId, status, note);
+  revalidatePath("/admin/store");
+}

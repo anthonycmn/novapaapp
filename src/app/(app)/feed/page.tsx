@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Megaphone, Pin } from "lucide-react";
+import { Megaphone, Pin, Ticket } from "lucide-react";
+import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
+import { ExternalLinkButton } from "@/components/external-link-button";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -85,14 +87,18 @@ export default async function FeedPage() {
               <p className="whitespace-pre-line text-sm leading-relaxed">{post.body}</p>
 
               {post.linkUrl && (
-                <a
-                  href={post.linkUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                >
+                <ExternalLinkButton href={post.linkUrl} variant="subtle">
                   {post.linkUrl}
-                </a>
+                </ExternalLinkButton>
+              )}
+
+              {/* Show-week posts carry a ticket link — that's when families
+                  are inviting relatives (#12). */}
+              {post.category === "show_week" && (
+                <ExternalLinkButton href={org.ticketsUrl} variant="outline" className="self-start">
+                  <Ticket aria-hidden className="size-4" />
+                  Get tickets
+                </ExternalLinkButton>
               )}
 
               <Reactions postId={post.id} counts={post.reactionCounts} />

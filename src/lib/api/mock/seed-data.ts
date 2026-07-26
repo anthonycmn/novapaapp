@@ -4,6 +4,7 @@ import type {
   ClassOffering,
   EmailTemplate,
   Enrollment,
+  ButtonTemplate,
   Family,
   FeedPost,
   Guardian,
@@ -345,6 +346,25 @@ export const hopes: HopesEntry[] = [
 export const hopesByStudent: Record<string, string[]> = {
   "stu-ava": ["hope-1", "hope-2"],
 };
+
+export const buttonTemplates: ButtonTemplate[] = [
+  {
+    id: "tpl-frozen",
+    productionId: "prod-frozen",
+    name: "Frozen Jr. — Snowflake frame",
+    accentColor: "#4f8fd6",
+    seasonName: "2026–2027",
+    isActive: true,
+  },
+  {
+    id: "tpl-mermaid",
+    productionId: "prod-mermaid",
+    name: "The Little Mermaid Jr. — Shell frame",
+    accentColor: "#2f8f7f",
+    seasonName: "2026–2027",
+    isActive: true,
+  },
+];
 
 export const healthForms: HealthForm[] = [
   {
