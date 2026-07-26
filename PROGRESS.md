@@ -49,4 +49,19 @@ Notes:
 - Migration `0003_schedule_forms.sql`: calendar_events, family_calendar_tokens, health_forms (+ expiry index and `health_forms_expiring()` for the 30/14/3-day reminder job), pickup_requests, plus the Phase 2 tables (feed, questions, notifications, push_subscriptions, email_sends, email_preferences with a CHECK preventing critical-category opt-out) — all with RLS
 - Verified: 51 tests green including calendar merge/scoping, iCal well-formedness and escaping, health-form pre-fill + signature provenance + cross-family blocks, pickup approval landing on both calendar and roster
 
-## Phase 4 — Registration Integration (in progress)
+## Phase 4 — Registration Integration ✅ (2026-07-26)
+
+**Sync target:** the org's own registration portal. Tony confirmed it exists; API details still to come, so the app runs on a mock adapter and the admin view says so plainly. Swapping in the real system is a one-file change (`registration/custom.ts`).
+
+- **`RegistrationProvider` interface** with three adapters: `MockRegistrationProvider` (realistic data, active by default), `CustomPortalRegistrationProvider` (HTTP, env-driven, placeholder field mapping clearly marked), and the factory that picks between them
+- **Pure reconciliation engine** (`reconcile.ts`) — no I/O, so matching rules are unit-tested directly and behave identically for mock and Supabase. Matching: account → link then guardian email; participant → name+DOB within matched family, then name; offering → normalized title. **Unmatched rows become visible issues, never guesses.**
+- **Idempotent sync** — enrollment identity is (student, production|class) with the upstream id stored alongside; a test runs the same snapshot twice and asserts no duplicates
+- **Account linking** — auto-matched by guardian email during sync, admin can hand-link/unlink; families see their own link only
+- **Inbound webhook** `POST /api/registration/webhook` — constant-time shared-secret auth, then **re-pulls a fresh snapshot rather than trusting the payload**, so a spoofed body can't write. Returns 200 on failure (recorded in-app) to avoid retry storms.
+- **Admin sync health view** `/admin/registration` — connection status, last sync, per-run counts, expandable issue lists, and failed runs shown prominently. Manual "Resync now". Failures are recorded as failed runs, never swallowed.
+- **Dashboard wiring** — enrollments card with per-student offerings, balance badges, and deep links to register / pay a balance; balance changes notify the family
+- Migration `0004_registration.sql`: account links, sync runs, `external_id`/`external_source` on enrollments with a partial unique index, plus RLS (families see own link, sync history staff-only since issues name other families)
+- **Deep links** point at what the live site uses today — Sawyer for classes/camps, RegPack for coaching (found in `Desktop/NOVAPA WEB 7-16`). Recorded in `config/registration.ts`, flagged in NEEDS-FROM-TONY #8b to confirm whether the custom portal replaces them.
+- Verified: 69 tests green — enrollment created upstream appears after one sync cycle; failures surface in the health view; staff-only and admin-only boundaries hold; payload mapping drops incomplete rows rather than inventing values
+
+## Phase 5 — Commerce & Links (next)

@@ -29,6 +29,13 @@ import type {
   Student,
   User,
 } from "../types";
+import type {
+  AccountLink,
+  RegistrationSnapshot,
+  RegistrationSource,
+  SyncRun,
+} from "../registration/types";
+import { reconcile } from "../registration/reconcile";
 import * as seed from "./seed-data";
 
 /**
@@ -66,6 +73,10 @@ interface Store {
   pickupRequests: PickupRequest[];
   /** familyId → iCal token */
   calendarTokens: Map<string, string>;
+  accountLinks: AccountLink[];
+  syncRuns: SyncRun[];
+  /** enrollmentId → external system id, so re-runs don't duplicate. */
+  enrollmentExternalIds: Map<string, string>;
 }
 
 function deepClone<T>(value: T): T {
@@ -108,6 +119,9 @@ function buildStore(): Store {
       ["fam-okafor", "cal-tok-okafor-2b7c"],
       ["fam-nguyen", "cal-tok-nguyen-5d1e"],
     ]),
+    accountLinks: [],
+    syncRuns: [],
+    enrollmentExternalIds: new Map(),
   };
 }
 
@@ -1065,5 +1079,181 @@ export class MockDataProvider implements DataProvider {
       });
     }
     return deepClone(request);
+  }
+
+  /* ── registration integration (#8) ────────────────────────────────── */
+
+  async syncRegistration(
+    actorId: string,
+    snapshot: RegistrationSnapshot,
+    trigger: SyncRun["trigger"]
+  ): Promise<SyncRun> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const startedAt = nowIso();
+    const plan = reconcile({
+      snapshot,
+      families: store.families,
+      guardians: store.guardians,
+      students: store.students,
+      enrollments: store.enrollments,
+      productions: store.productions,
+      classes: store.classes,
+      links: store.accountLinks,
+    });
+
+    // Persist auto-discovered account links.
+    for (const link of plan.autoLinks) {
+      const already = store.accountLinks.some(
+        (existing) =>
+          existing.familyId === link.familyId && existing.source === link.source
+      );
+      if (!already) store.accountLinks.push({ ...link });
+    }
+
+    for (const create of plan.creates) {
+      const enrollment = {
+        id: nextId("enr"),
+        studentId: create.studentId,
+        classId: create.classId,
+        productionId: create.productionId,
+        status: create.status,
+        balanceCents: create.balanceCents,
+        source: "registration_portal" as const,
+        createdAt: nowIso(),
+      };
+      store.enrollments.push(enrollment);
+      store.enrollmentExternalIds.set(enrollment.id, create.externalId);
+    }
+
+    for (const update of plan.updates) {
+      const enrollment = store.enrollments.find((e) => e.id === update.enrollmentId);
+      if (!enrollment) continue;
+      if (update.balanceCents !== undefined) {
+        enrollment.balanceCents = update.balanceCents;
+      }
+      if (update.status !== undefined) enrollment.status = update.status;
+    }
+
+    const run: SyncRun = {
+      id: nextId("sync"),
+      source: snapshot.source,
+      startedAt,
+      finishedAt: nowIso(),
+      status: plan.issues.length > 0 ? "partial" : "success",
+      trigger,
+      counts: plan.counts,
+      issues: plan.issues,
+    };
+    store.syncRuns.push(run);
+
+    // Notify families whose balance changed, so a new charge isn't silent.
+    for (const update of plan.updates) {
+      if (update.balanceCents === undefined || update.balanceCents <= 0) continue;
+      const enrollment = store.enrollments.find((e) => e.id === update.enrollmentId);
+      const student = store.students.find((s) => s.id === enrollment?.studentId);
+      if (!student) continue;
+      const parents = store.users.filter(
+        (u) => u.role === "parent" && u.familyId === student.familyId
+      );
+      for (const parent of parents) {
+        if (!this.prefAllows(parent.id, "payment_due")) continue;
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: parent.id,
+          type: "payment_due",
+          title: "Balance updated",
+          body: `${student.preferredName ?? student.firstName} has an outstanding balance.`,
+          url: "/dashboard",
+          createdAt: nowIso(),
+        });
+      }
+    }
+
+    return deepClone(run);
+  }
+
+  async recordSyncFailure(
+    actorId: string,
+    source: RegistrationSource,
+    trigger: SyncRun["trigger"],
+    error: string
+  ): Promise<SyncRun> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const run: SyncRun = {
+      id: nextId("sync"),
+      source,
+      startedAt: nowIso(),
+      finishedAt: nowIso(),
+      status: "failed",
+      trigger,
+      counts: {
+        accountsSeen: 0,
+        enrollmentsSeen: 0,
+        enrollmentsCreated: 0,
+        enrollmentsUpdated: 0,
+        balancesUpdated: 0,
+      },
+      issues: [],
+      error,
+    };
+    store.syncRuns.push(run);
+    return deepClone(run);
+  }
+
+  async getSyncRuns(actorId: string): Promise<SyncRun[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return deepClone(
+      [...store.syncRuns].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    );
+  }
+
+  async getAccountLinks(actorId: string): Promise<AccountLink[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return deepClone(store.accountLinks);
+  }
+
+  async linkAccount(
+    actorId: string,
+    link: Omit<AccountLink, "linkedAt" | "autoMatched">
+  ): Promise<AccountLink> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    const existing = store.accountLinks.find(
+      (candidate) =>
+        candidate.familyId === link.familyId && candidate.source === link.source
+    );
+    if (existing) {
+      Object.assign(existing, link, { linkedAt: nowIso(), autoMatched: false });
+      return deepClone(existing);
+    }
+    const created: AccountLink = { ...link, linkedAt: nowIso(), autoMatched: false };
+    store.accountLinks.push(created);
+    return deepClone(created);
+  }
+
+  async unlinkAccount(
+    actorId: string,
+    familyId: string,
+    source: RegistrationSource
+  ): Promise<void> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    store.accountLinks = store.accountLinks.filter(
+      (link) => !(link.familyId === familyId && link.source === source)
+    );
+  }
+
+  async getAccountLinkForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<AccountLink | null> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    return deepClone(store.accountLinks.find((link) => link.familyId === familyId) ?? null);
   }
 }

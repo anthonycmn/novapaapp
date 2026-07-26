@@ -6,6 +6,7 @@ import { getProvider } from "@/lib/api";
 import type { CalendarEvent, Enrollment, Student } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
+import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +27,13 @@ export default async function DashboardPage() {
       provider.getEnrollmentsForFamily(user.id, user.familyId),
     ]);
   }
-  const balanceCents = enrollments.reduce((sum, e) => sum + e.balanceCents, 0);
+  const [productions, classes] = await Promise.all([
+    provider.getProductions(),
+    provider.getClasses(),
+  ]);
+  const balanceCents = enrollments
+    .filter((e) => e.status !== "withdrawn")
+    .reduce((sum, e) => sum + e.balanceCents, 0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -78,6 +85,15 @@ export default async function DashboardPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {user.familyId && (
+        <EnrollmentsCard
+          enrollments={enrollments}
+          students={students}
+          productions={productions}
+          classes={classes}
+        />
       )}
 
       <UpcomingEvents />

@@ -50,6 +50,14 @@ export default async function AdminPage() {
             </CardHeader>
           </Card>
         </Link>
+        <Link href="/admin/registration">
+          <Card className="h-full transition-shadow hover:shadow-md">
+            <CardHeader>
+              <CardTitle className="text-base">🔄 Registration sync</CardTitle>
+              <CardDescription>Enrollment sync health and resync</CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
 
       <Card>

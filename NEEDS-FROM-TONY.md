@@ -18,7 +18,8 @@ Everything the build needs from you to go from mocks to live integrations. The a
 
 | # | Item | Why |
 |---|------|-----|
-| 8 | **Registration portal repo URL or API endpoint** — the build prompt placeholder was never filled in | Phase 4 integration is built against a `RegistrationProvider` interface with a mock adapter until this arrives |
+| 8 | **Registration portal API details** — base URL, auth scheme, and the shape of the accounts / participants / enrollments responses. You mentioned you'd send this. | Phase 4 is built and tested against a `RegistrationProvider` interface running on mock data. Plugging in the real system is a one-file change: endpoint paths and field names in `src/lib/api/registration/custom.ts`, then set `REGISTRATION_API_URL` + `REGISTRATION_API_KEY`. |
+| 8b | **Which signup links families should see.** The live site currently sends families to Sawyer (`hisawyer.com/nova-performing-arts`, location 202081) for classes/camps and RegPack (group `100920141`) for coaching. | Those URLs are wired as the app's "Register" and "Pay balance" deep links (`src/config/registration.ts`). If the custom portal replaces either, give me its URLs and I'll swap them. |
 | 9 | **Primary public domain confirmation** — `northernvirginiaperformingarts.org` vs `broadwayboundnova.org` | Both are in `config/org.ts`; confirm which is primary for links and email sender domain |
 | 10 | Org logo files (SVG preferred) + any brand guide | Design system currently derives palette from the public website |
 | 11 | Per-production spirit button template art | Store ships with a generic default frame |

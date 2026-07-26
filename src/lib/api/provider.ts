@@ -28,6 +28,12 @@ import type {
   Student,
   User,
 } from "./types";
+import type {
+  AccountLink,
+  RegistrationSnapshot,
+  RegistrationSource,
+  SyncRun,
+} from "./registration/types";
 
 /**
  * Every data access in the app goes through this interface — components
@@ -193,6 +199,33 @@ export interface DataProvider {
     requestId: string,
     decision: { status: "approved" | "denied"; note?: string }
   ): Promise<PickupRequest>;
+
+  /* registration integration (#8) */
+  /** Reconcile a snapshot into app data. Staff only. */
+  syncRegistration(
+    actorId: string,
+    snapshot: RegistrationSnapshot,
+    trigger: SyncRun["trigger"]
+  ): Promise<SyncRun>;
+  /** Record a failed sync attempt so failures surface instead of vanishing. */
+  recordSyncFailure(
+    actorId: string,
+    source: RegistrationSource,
+    trigger: SyncRun["trigger"],
+    error: string
+  ): Promise<SyncRun>;
+  getSyncRuns(actorId: string): Promise<SyncRun[]>;
+  getAccountLinks(actorId: string): Promise<AccountLink[]>;
+  linkAccount(
+    actorId: string,
+    link: Omit<AccountLink, "linkedAt" | "autoMatched">
+  ): Promise<AccountLink>;
+  unlinkAccount(actorId: string, familyId: string, source: RegistrationSource): Promise<void>;
+  /** The link for one family, for the dashboard's registration card. */
+  getAccountLinkForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<AccountLink | null>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */
