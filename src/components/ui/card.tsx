@@ -19,11 +19,19 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
 );
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
-  ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("font-semibold leading-none tracking-tight", className)} {...props} />
-  )
-);
+/**
+ * Card heading. Defaults to <h2> because in this app cards are usually a
+ * page's top-level sections, directly under the <h1> — and h1→h3 is a
+ * heading-order violation (WCAG 1.3.1). A card nested inside an <h2>
+ * section can stay h2 (repeating a level is fine; only *skipping* is not),
+ * or pass `as="h3"` where the nesting is meaningful.
+ */
+const CardTitle = React.forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement> & { as?: "h2" | "h3" | "h4" }
+>(({ className, as: Tag = "h2", ...props }, ref) => (
+  <Tag ref={ref} className={cn("font-semibold leading-none tracking-tight", className)} {...props} />
+));
 CardTitle.displayName = "CardTitle";
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(

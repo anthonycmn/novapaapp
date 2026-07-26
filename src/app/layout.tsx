@@ -1,16 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Nunito_Sans } from "next/font/google";
+import { Cinzel, DM_Sans } from "next/font/google";
 import { org } from "@/config/org";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import "./globals.css";
 
-const display = Fraunces({
+// Matching the organization's site: Cinzel for headings, DM Sans for body.
+const display = Cinzel({
   variable: "--font-display",
   subsets: ["latin"],
-  axes: ["SOFT", "WONK", "opsz"],
+  weight: ["400", "600", "700"],
 });
 
-const body = Nunito_Sans({
+const body = DM_Sans({
   variable: "--font-body",
   subsets: ["latin"],
 });
@@ -31,8 +32,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#8e1f2f" },
-    { media: "(prefers-color-scheme: dark)", color: "#171214" },
+    { media: "(prefers-color-scheme: light)", color: "#08111f" },
+    { media: "(prefers-color-scheme: dark)", color: "#08111f" },
   ],
   width: "device-width",
   initialScale: 1,

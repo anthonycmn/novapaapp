@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Logo } from "@/components/brand/logo";
 
 export const metadata = { title: "Sign in" };
 
@@ -28,17 +29,19 @@ export default async function LoginPage({
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
-      <div className="text-center">
-        <p aria-hidden className="text-4xl">🎭</p>
-        <h1 className="mt-2 text-3xl font-semibold">{org.appName}</h1>
+      <div className="flex flex-col items-center text-center">
+        <Logo size={88} standalone />
+        <h1 className="mt-3 font-display text-2xl font-semibold tracking-wide sm:text-3xl">
+          {org.appName}
+        </h1>
         <p className="mt-1 text-muted-foreground">
-          {org.programBrand} · schedules, photos, forms & news
+          {org.programBrand} · schedules, photos, forms &amp; news
         </p>
       </div>
 
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Sign in</CardTitle>
+          <CardTitle as="h2">Sign in</CardTitle>
           <CardDescription>
             Enter the email on your family account and we&apos;ll sign you in.
           </CardDescription>
@@ -77,7 +80,7 @@ export default async function LoginPage({
 
       <Card className="w-full max-w-sm border-dashed">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-muted-foreground">
+          <CardTitle as="h2" className="text-sm text-muted-foreground">
             Demo accounts (mock data mode)
           </CardTitle>
         </CardHeader>

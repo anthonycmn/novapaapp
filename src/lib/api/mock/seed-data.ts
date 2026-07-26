@@ -19,6 +19,7 @@ import type {
   Student,
   User,
 } from "../types";
+import type { Review, ReviewWindow } from "../reviews/types";
 
 /**
  * Realistic demo data: three families, five students, four staff,
@@ -348,6 +349,71 @@ export const hopes: HopesEntry[] = [
 export const hopesByStudent: Record<string, string[]> = {
   "stu-ava": ["hope-1", "hope-2"],
 };
+
+export const reviewWindows: ReviewWindow[] = [
+  {
+    id: "rw-mtd2-mid",
+    kind: "mid_session",
+    subjectType: "class",
+    subjectId: "class-mtd2",
+    // Open now, so the demo can submit one.
+    opensAt: "2026-07-20T00:00:00.000Z",
+    closesAt: "2026-12-31T23:59:59.000Z",
+  },
+  {
+    id: "rw-frozen-post",
+    kind: "post_show",
+    subjectType: "production",
+    subjectId: "prod-frozen",
+    // Not open yet — the show hasn't happened.
+    opensAt: "2026-11-23T00:00:00.000Z",
+    closesAt: "2026-12-15T23:59:59.000Z",
+  },
+];
+
+export const reviews: Review[] = [
+  {
+    id: "rev-1",
+    windowId: "rw-mtd2-mid",
+    subjectType: "class",
+    subjectId: "class-mtd2",
+    reviewerUserId: "user-ngozi",
+    reviewerName: "Ngozi Okafor",
+    familyId: "fam-okafor",
+    staffIds: ["staff-priya"],
+    scores: {
+      instructionQuality: 5,
+      communication: 4,
+      childGrowth: 5,
+      organization: 4,
+    },
+    comment:
+      "Amara has come out of her shell completely this session. Priya is wonderful with the shyer kids.",
+    isAnonymous: false,
+    createdAt: "2026-06-15T18:00:00.000Z",
+  },
+  {
+    id: "rev-2",
+    windowId: "rw-mtd2-mid",
+    subjectType: "class",
+    subjectId: "class-mtd2",
+    reviewerUserId: "user-minh",
+    reviewerName: "Minh Nguyen",
+    familyId: "fam-nguyen",
+    staffIds: ["staff-priya"],
+    scores: {
+      instructionQuality: 4,
+      communication: 2,
+      childGrowth: 4,
+      organization: 3,
+    },
+    comment:
+      "The teaching is good but we often hear about schedule changes the day before. It's hard with two working parents.",
+    // Anonymous: staff must not learn this came from the Nguyen family.
+    isAnonymous: true,
+    createdAt: "2026-07-14T20:30:00.000Z",
+  },
+];
 
 export const buttonTemplates: ButtonTemplate[] = [
   {

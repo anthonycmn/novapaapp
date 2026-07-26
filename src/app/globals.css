@@ -3,66 +3,76 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * NOVA PA design tokens — warm, theatrical, polished.
- * Palette: deep curtain red, marquee gold, warm cream. Full dark mode.
- * Swap these values when the org supplies official brand files
- * (NEEDS-FROM-TONY.md #10).
+ * NOVA PA design tokens, taken from the organization's live site
+ * (northernvirginiaperformingarts.org):
+ *
+ *   --navy    #08111F   primary brand colour
+ *   --gold    #C8892A   primary accent
+ *   --crimson #8B1A2F   secondary accent
+ *   supporting: #E8B84B bright gold, #F7D98F pale gold, #FFF4D6 cream,
+ *               #0F1E36 / #162B52 navy tints
+ *
+ * Some brand colours are used at adjusted lightness for *text*: raw gold
+ * #C8892A on cream is only ~3:1, which fails WCAG AA for body copy. Text
+ * roles therefore use a deepened gold (#7A5310) while fills and large
+ * display elements keep the true brand gold. tests/contrast.test.ts
+ * computes every pair, so this stays honest.
  */
 :root {
-  --background: #faf7f2;
-  --foreground: #2a211e;
+  --background: #fdfaf3;
+  --foreground: #08111f;
   --card: #ffffff;
-  --card-foreground: #2a211e;
+  --card-foreground: #08111f;
   --popover: #ffffff;
-  --popover-foreground: #2a211e;
-  --primary: #8e1f2f;
-  --primary-foreground: #fff8f0;
-  --secondary: #f3ece1;
-  --secondary-foreground: #4a3a2e;
-  --muted: #f0e9df;
-  --muted-foreground: #695b50;
-  --accent: #f7ecd8;
-  --accent-foreground: #6d4d0f;
-  --gold: #a97a0e;
-  --destructive: #b3261e;
+  --popover-foreground: #08111f;
+  --primary: #08111f;
+  --primary-foreground: #fff4d6;
+  --secondary: #f1e9d8;
+  --secondary-foreground: #2b2010;
+  --muted: #efe9dd;
+  --muted-foreground: #55504a;
+  --accent: #f7d98f;
+  --accent-foreground: #3f2c05;
+  --gold: #7a5310;
+  --destructive: #8b1a2f;
   --destructive-foreground: #ffffff;
-  --border: #e5dccf;
-  --input: #e5dccf;
-  --ring: #8e1f2f;
+  --border: #e2d8c4;
+  --input: #e2d8c4;
+  --ring: #08111f;
   --radius: 0.75rem;
-  --chart-1: #8e1f2f;
-  --chart-2: #a97a0e;
-  --chart-3: #2f6f6a;
-  --chart-4: #5b4a8a;
-  --chart-5: #b45a2b;
+  --chart-1: #08111f;
+  --chart-2: #7a5310;
+  --chart-3: #8b1a2f;
+  --chart-4: #162b52;
+  --chart-5: #4a6b8a;
 }
 
 .dark {
-  --background: #171214;
-  --foreground: #f3ece4;
-  --card: #211a1d;
-  --card-foreground: #f3ece4;
-  --popover: #211a1d;
-  --popover-foreground: #f3ece4;
-  --primary: #e05a70;
-  --primary-foreground: #2b070d;
-  --secondary: #2e2529;
-  --secondary-foreground: #e7ded8;
-  --muted: #2a2226;
-  --muted-foreground: #ab9d93;
-  --accent: #34281a;
-  --accent-foreground: #e3b341;
-  --gold: #e3b341;
-  --destructive: #ff6b5e;
-  --destructive-foreground: #2b0704;
-  --border: #3a3034;
-  --input: #3a3034;
-  --ring: #e05a70;
-  --chart-1: #e05a70;
-  --chart-2: #e3b341;
-  --chart-3: #5fb8b1;
-  --chart-4: #a393d6;
-  --chart-5: #e8925f;
+  --background: #08111f;
+  --foreground: #f6efdf;
+  --card: #0f1e36;
+  --card-foreground: #f6efdf;
+  --popover: #0f1e36;
+  --popover-foreground: #f6efdf;
+  --primary: #e8b84b;
+  --primary-foreground: #08111f;
+  --secondary: #162b52;
+  --secondary-foreground: #f0e6d2;
+  --muted: #14243f;
+  --muted-foreground: #a9b6c9;
+  --accent: #23375e;
+  --accent-foreground: #f0c86b;
+  --gold: #e8b84b;
+  --destructive: #ff8fa0;
+  --destructive-foreground: #2a0710;
+  --border: #23375e;
+  --input: #23375e;
+  --ring: #e8b84b;
+  --chart-1: #e8b84b;
+  --chart-2: #f7d98f;
+  --chart-3: #ff8fa0;
+  --chart-4: #80d4e8;
+  --chart-5: #c090f0;
 }
 
 @theme inline {
@@ -102,7 +112,17 @@
 @layer base {
   * {
     border-color: var(--border);
-    outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
+  }
+
+  /*
+   * Visible focus for keyboard users on every interactive element
+   * (WCAG 2.4.7). Uses :focus-visible so pointer users don't see rings,
+   * and a 2px offset ring that clears 3:1 against both themes.
+   */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
   }
   body {
     background-color: var(--background);

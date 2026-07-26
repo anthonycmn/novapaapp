@@ -75,8 +75,21 @@ accepting exact-match-only encrypted search — a significant redesign.
 | Parent/student "hopes" | ✅ (per visibility rules) | ❌ never | ✅ | ✅ |
 | Family staff-notes | ❌ | ❌ | ✅ | ✅ |
 | Photos matched to a child | ✅ | ❌ | ❌ | ✅ |
-| Reviews of classes/staff | own submissions | ❌ | aggregate + own feedback | ✅ incl. identity |
+| Reviews of classes/staff | own submissions | ❌ never | aggregate + own feedback, **identity stripped when anonymous** | ✅ incl. identity |
 | Directory entry (name + program) | — | ✅ only if opted in | ✅ | ✅ |
+
+## Anonymous reviews — what "anonymous" means precisely
+
+When a family submits feedback anonymously, the staff member being reviewed
+sees the content attributed to "A family" and cannot tell who wrote it. The
+app enforces this by returning a data shape to staff that contains no
+reviewer fields at all.
+
+**Administrators can still see who wrote it.** This is deliberate: if a
+review raises a safeguarding or safety concern, someone must be able to
+follow up. The submission form states this plainly before you tick the box —
+we don't want anyone believing they are anonymous to the organization when
+they are not.
 
 ## Retention
 

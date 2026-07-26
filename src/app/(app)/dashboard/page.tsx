@@ -7,6 +7,7 @@ import type { CalendarEvent, Enrollment, Student } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
+import { FeatureGrid } from "@/components/dashboard/feature-grid";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -97,6 +98,8 @@ export default async function DashboardPage() {
       )}
 
       <UpcomingEvents />
+
+      <FeatureGrid isStaff={isStaff} />
 
       <Card>
         <CardHeader className="pb-2">

@@ -30,7 +30,6 @@ export function Reactions({
         <button
           key={kind}
           type="button"
-          aria-label={`React with ${label}`}
           onClick={() =>
             startTransition(async () => {
               bump(kind);
@@ -46,6 +45,11 @@ export function Reactions({
           {optimistic[kind] > 0 && (
             <span className="tabular-nums">{optimistic[kind]}</span>
           )}
+          {/* The visible label is a count, so the accessible name has to
+              contain it (axe label-content-name-mismatch). Building the name
+              from in-button text rather than an aria-label keeps them in
+              sync automatically. */}
+          <span className="sr-only">{label} reactions</span>
         </button>
       ))}
     </div>

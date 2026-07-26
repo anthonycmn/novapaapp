@@ -30,7 +30,9 @@ export function SubscribeCard({ token }: { token: string }) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Add to your phone&apos;s calendar</CardTitle>
+        <CardTitle as="h2" className="text-base">
+          Add to your phone&apos;s calendar
+        </CardTitle>
         <CardDescription>
           Subscribe once and every rehearsal change syncs automatically.
         </CardDescription>

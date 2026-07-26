@@ -11,11 +11,15 @@ const LINKS = [
   { href: "/store", label: "Spirit buttons", emoji: "🎟️" },
   { href: "/productions", label: "Productions", emoji: "🎭" },
   { href: "/staff", label: "Our staff", emoji: "👋" },
+  { href: "/reviews", label: "Give feedback", emoji: "⭐" },
   { href: "/family/pickup", label: "Drop-off & pick-up", emoji: "🚗" },
   { href: "/notifications/settings", label: "Notification settings", emoji: "🔔" },
 ];
 
-const STAFF_LINKS = [{ href: "/admin", label: "Staff tools", emoji: "🛠️" }];
+const STAFF_LINKS = [
+  { href: "/admin", label: "Staff tools", emoji: "🛠️" },
+  { href: "/staff/feedback", label: "My feedback", emoji: "⭐" },
+];
 
 /**
  * Overflow navigation. Tickets and the main website live here and on the

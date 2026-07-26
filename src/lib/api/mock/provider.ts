@@ -56,6 +56,17 @@ import {
 } from "../photos/types";
 import { matchFace, type CandidateStudent } from "../photos/matching";
 import { getFaceMatchProvider } from "../photos/face-provider";
+import type {
+  Review,
+  ReviewAggregate,
+  ReviewScores,
+  ReviewSubjectType,
+  ReviewWindow,
+  StaffReviewView,
+  TrendPoint,
+} from "../reviews/types";
+import { toStaffView } from "../reviews/types";
+import { aggregate, trend } from "../reviews/aggregate";
 import * as seed from "./seed-data";
 
 /**
@@ -109,6 +120,8 @@ interface Store {
   embeddings: FaceEmbedding[];
   matches: PhotoMatch[];
   consentEvents: ConsentEvent[];
+  reviewWindows: ReviewWindow[];
+  reviews: Review[];
 }
 
 function deepClone<T>(value: T): T {
@@ -164,6 +177,8 @@ function buildStore(): Store {
     embeddings: [],
     matches: [],
     consentEvents: [],
+    reviewWindows: deepClone(seed.reviewWindows),
+    reviews: deepClone(seed.reviews),
   };
 }
 
@@ -176,7 +191,23 @@ export function resetMockStore() {
 
 let idCounter = 1000;
 const nextId = (prefix: string) => `${prefix}-${idCounter++}`;
-const nowIso = () => new Date().toISOString();
+
+/**
+ * Monotonic clock for generated timestamps.
+ *
+ * Several events can be created inside a single millisecond (granting then
+ * revoking consent, a batch of notifications). Plain `Date.now()` gives them
+ * identical `createdAt` values, which makes any "newest first" sort
+ * ambiguous — an audit trail that reorders itself depending on machine load
+ * is not an audit trail. Guaranteeing each call is strictly later keeps
+ * ordering deterministic. Postgres solves the same problem with a sequence.
+ */
+let lastNow = 0;
+const nowIso = () => {
+  const now = Math.max(Date.now(), lastNow + 1);
+  lastNow = now;
+  return new Date(now).toISOString();
+};
 
 /* ── authorization helpers (mirror RLS) ─────────────────────────────────── */
 
@@ -1870,6 +1901,201 @@ export class MockDataProvider implements DataProvider {
     }
 
     return { photosScanned, matchesCreated };
+  }
+
+  /* ── private reviews (#15) ────────────────────────────────────────── */
+
+  private subjectName(subjectType: ReviewSubjectType, subjectId: string): string {
+    if (subjectType === "class") {
+      return store.classes.find((c) => c.id === subjectId)?.name ?? "Class";
+    }
+    return store.productions.find((p) => p.id === subjectId)?.title ?? "Production";
+  }
+
+  /** Staff attached to a class or production, for attributing a review. */
+  private staffForSubject(subjectType: ReviewSubjectType, subjectId: string): string[] {
+    if (subjectType === "class") {
+      return store.classes.find((c) => c.id === subjectId)?.staffIds ?? [];
+    }
+    const production = store.productions.find((p) => p.id === subjectId);
+    return production?.directorStaffId ? [production.directorStaffId] : [];
+  }
+
+  /** Is this family enrolled in the thing they're reviewing? */
+  private familyIsEnrolled(familyId: string, window: ReviewWindow): boolean {
+    const studentIds = new Set(
+      store.students.filter((s) => s.familyId === familyId).map((s) => s.id)
+    );
+    return store.enrollments.some(
+      (enrollment) =>
+        studentIds.has(enrollment.studentId) &&
+        enrollment.status === "enrolled" &&
+        (window.subjectType === "class"
+          ? enrollment.classId === window.subjectId
+          : enrollment.productionId === window.subjectId)
+    );
+  }
+
+  async getOpenReviewWindows(
+    actorId: string
+  ): Promise<Array<{ window: ReviewWindow; subjectName: string; alreadySubmitted: boolean }>> {
+    const actor = getActor(actorId);
+    if (!actor.familyId) return [];
+    const now = nowIso();
+
+    return store.reviewWindows
+      .filter((window) => window.opensAt <= now && window.closesAt >= now)
+      .filter((window) => this.familyIsEnrolled(actor.familyId!, window))
+      .map((window) => ({
+        window: deepClone(window),
+        subjectName: this.subjectName(window.subjectType, window.subjectId),
+        alreadySubmitted: store.reviews.some(
+          (review) =>
+            review.windowId === window.id && review.familyId === actor.familyId
+        ),
+      }));
+  }
+
+  async submitReview(
+    actorId: string,
+    input: {
+      windowId: string;
+      scores: ReviewScores;
+      comment: string;
+      isAnonymous: boolean;
+    }
+  ): Promise<Review> {
+    const actor = getActor(actorId);
+    if (actor.role !== "parent" || !actor.familyId) {
+      throw new AccessDeniedError("Only families submit reviews");
+    }
+
+    const window = store.reviewWindows.find((w) => w.id === input.windowId);
+    if (!window) throw new Error("Review window not found");
+
+    const now = nowIso();
+    if (window.opensAt > now || window.closesAt < now) {
+      throw new Error("This review window isn't open");
+    }
+    if (!this.familyIsEnrolled(actor.familyId, window)) {
+      throw new AccessDeniedError("You can only review something you're enrolled in");
+    }
+    const duplicate = store.reviews.some(
+      (review) => review.windowId === window.id && review.familyId === actor.familyId
+    );
+    if (duplicate) throw new Error("You've already submitted a review for this");
+
+    for (const value of Object.values(input.scores)) {
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        throw new Error("Each rating must be between 1 and 5");
+      }
+    }
+
+    const review: Review = {
+      id: nextId("rev"),
+      windowId: window.id,
+      subjectType: window.subjectType,
+      subjectId: window.subjectId,
+      reviewerUserId: actor.id,
+      reviewerName: actor.displayName,
+      familyId: actor.familyId,
+      staffIds: this.staffForSubject(window.subjectType, window.subjectId),
+      scores: { ...input.scores },
+      comment: input.comment,
+      isAnonymous: input.isAnonymous,
+      createdAt: now,
+    };
+    store.reviews.push(review);
+    return deepClone(review);
+  }
+
+  async getMyReviews(actorId: string): Promise<Review[]> {
+    const actor = getActor(actorId);
+    if (!actor.familyId) return [];
+    return deepClone(
+      store.reviews
+        .filter((review) => review.familyId === actor.familyId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
+  }
+
+  async getReviewsForStaff(
+    actorId: string,
+    staffId: string
+  ): Promise<{ reviews: StaffReviewView[]; aggregate: ReviewAggregate; trend: TrendPoint[] }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    // A staff member may only read their OWN feedback; admins may read anyone's.
+    if (!isAdmin(actor) && actor.staffId !== staffId) {
+      throw new AccessDeniedError("You can only see feedback about your own work");
+    }
+
+    const relevant = store.reviews.filter((review) => review.staffIds.includes(staffId));
+    return {
+      // Identity stripped here — the return type has no reviewer field at all.
+      reviews: relevant
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .map(toStaffView),
+      aggregate: aggregate(relevant, "class", staffId),
+      trend: trend(relevant),
+    };
+  }
+
+  async getAllReviews(actorId: string): Promise<Review[]> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    return deepClone(
+      [...store.reviews].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
+  }
+
+  async getReviewAggregate(
+    actorId: string,
+    subjectType: ReviewSubjectType,
+    subjectId: string
+  ): Promise<{ aggregate: ReviewAggregate; trend: TrendPoint[] }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const relevant = store.reviews.filter(
+      (review) => review.subjectType === subjectType && review.subjectId === subjectId
+    );
+    return {
+      aggregate: aggregate(relevant, subjectType, subjectId),
+      trend: trend(relevant),
+    };
+  }
+
+  async flagReview(actorId: string, reviewId: string, reason: string): Promise<Review> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    const review = store.reviews.find((r) => r.id === reviewId);
+    if (!review) throw new Error("Review not found");
+    review.flaggedAt = nowIso();
+    review.flagReason = reason;
+    review.resolvedAt = undefined;
+    review.resolutionNote = undefined;
+    return deepClone(review);
+  }
+
+  async resolveReview(actorId: string, reviewId: string, note: string): Promise<Review> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    const review = store.reviews.find((r) => r.id === reviewId);
+    if (!review) throw new Error("Review not found");
+    review.resolvedAt = nowIso();
+    review.resolutionNote = note;
+    return deepClone(review);
+  }
+
+  async createReviewWindow(
+    actorId: string,
+    input: Omit<ReviewWindow, "id">
+  ): Promise<ReviewWindow> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    const window: ReviewWindow = { ...input, id: nextId("rw") };
+    store.reviewWindows.push(window);
+    return deepClone(window);
   }
 
   async reorder(actorId: string, orderId: string): Promise<CartItem[]> {

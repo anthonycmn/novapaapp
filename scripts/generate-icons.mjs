@@ -1,66 +1,54 @@
 /**
- * Generates placeholder PWA icons (solid brand-color PNGs) with zero
- * dependencies — pure Node zlib + hand-rolled PNG encoding. Replace with
- * real logo exports when the org supplies brand files
- * (NEEDS-FROM-TONY.md #10).
+ * Builds the PWA icons from the NOVA PA logo (public/brand/novapa-logo.png),
+ * composited onto the brand navy so the maskable icon has no transparent
+ * edges. Uses `sharp`, which ships with Next.
  *
  * Usage: node scripts/generate-icons.mjs
  */
-import { deflateSync } from "node:zlib";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-const BRAND = [0x8e, 0x1f, 0x2f]; // #8e1f2f
+const BRAND_NAVY = { r: 0x08, g: 0x11, b: 0x1f, alpha: 1 };
+const SOURCE = join(process.cwd(), "public", "brand", "novapa-logo.png");
+const OUT_DIR = join(process.cwd(), "public", "icons");
 
-function crc32(buf) {
-  let table = crc32.table;
-  if (!table) {
-    table = crc32.table = new Int32Array(256);
-    for (let n = 0; n < 256; n++) {
-      let c = n;
-      for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-      table[n] = c;
-    }
-  }
-  let crc = -1;
-  for (let i = 0; i < buf.length; i++) crc = (crc >>> 8) ^ table[(crc ^ buf[i]) & 0xff];
-  return (crc ^ -1) >>> 0;
+let sharp;
+try {
+  sharp = (await import("sharp")).default;
+} catch {
+  console.error(
+    "sharp is not available. Install it (`npm i -D sharp`) or export the icons by hand.\n" +
+      "The app still runs without this step; only the PWA icons are affected."
+  );
+  process.exit(1);
 }
 
-function chunk(type, data) {
-  const len = Buffer.alloc(4);
-  len.writeUInt32BE(data.length);
-  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
-  const crc = Buffer.alloc(4);
-  crc.writeUInt32BE(crc32(body));
-  return Buffer.concat([len, body, crc]);
+mkdirSync(OUT_DIR, { recursive: true });
+
+/**
+ * @param size   output square size
+ * @param inset  fraction of the canvas left as padding around the mark.
+ *               Maskable icons get a bigger inset so the safe zone (the
+ *               centre 80%) still contains the whole logo after a launcher
+ *               crops it to a circle or squircle.
+ */
+async function build(name, size, inset) {
+  const logoSize = Math.round(size * (1 - inset * 2));
+  const logo = await sharp(SOURCE)
+    .resize(logoSize, logoSize, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .toBuffer();
+
+  await sharp({
+    create: { width: size, height: size, channels: 4, background: BRAND_NAVY },
+  })
+    .composite([{ input: logo, gravity: "centre" }])
+    .png()
+    .toFile(join(OUT_DIR, name));
+
+  console.log(`wrote icons/${name} (${size}x${size})`);
 }
 
-function solidPng(size, [r, g, b]) {
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 2; // color type RGB
-  // raw scanlines: filter byte 0 + RGB pixels
-  const row = Buffer.alloc(1 + size * 3);
-  for (let x = 0; x < size; x++) {
-    row[1 + x * 3] = r;
-    row[1 + x * 3 + 1] = g;
-    row[1 + x * 3 + 2] = b;
-  }
-  const raw = Buffer.concat(Array.from({ length: size }, () => row));
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk("IHDR", ihdr),
-    chunk("IDAT", deflateSync(raw)),
-    chunk("IEND", Buffer.alloc(0)),
-  ]);
-}
-
-const outDir = join(process.cwd(), "public", "icons");
-mkdirSync(outDir, { recursive: true });
-writeFileSync(join(outDir, "icon-192.png"), solidPng(192, BRAND));
-writeFileSync(join(outDir, "icon-512.png"), solidPng(512, BRAND));
-writeFileSync(join(outDir, "icon-maskable-512.png"), solidPng(512, BRAND));
-console.log("Wrote placeholder icons to public/icons/");
+await build("icon-192.png", 192, 0.12);
+await build("icon-512.png", 512, 0.12);
+await build("icon-maskable-512.png", 512, 0.2);
+await build("apple-touch-icon.png", 180, 0.12);

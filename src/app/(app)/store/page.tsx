@@ -61,7 +61,9 @@ export default async function StorePage() {
       ) : (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Design your button</CardTitle>
+            <CardTitle as="h2" className="text-base">
+              Design your button
+            </CardTitle>
             <CardDescription>
               The preview updates as you go — that&apos;s exactly what gets pressed.
             </CardDescription>

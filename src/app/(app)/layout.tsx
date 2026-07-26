@@ -5,6 +5,7 @@ import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
 import { Bell } from "lucide-react";
 import { getProvider } from "@/lib/api";
+import { Logo } from "@/components/brand/logo";
 import { BottomNav } from "@/components/app-shell/bottom-nav";
 import { MoreMenu } from "@/components/app-shell/more-menu";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
@@ -25,10 +26,18 @@ export default async function AppLayout({
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col">
+      {/* Keyboard users shouldn't have to tab through the header on every
+          page to reach content (WCAG 2.4.1). */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+      >
+        Skip to main content
+      </a>
       <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <span aria-hidden>🎭</span>
-          <span className="font-display">{org.shortName}</span>
+          <Logo size={30} />
+          <span className="font-display tracking-wide">{org.shortName}</span>
         </Link>
         <div className="flex items-center gap-1">
           <Link
@@ -57,7 +66,9 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-24 pt-4">{children}</main>
+      <main id="main-content" tabIndex={-1} className="flex-1 px-4 pb-24 pt-4">
+        {children}
+      </main>
 
       <BottomNav />
       <InstallPrompt />

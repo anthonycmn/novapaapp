@@ -1,4 +1,5 @@
 import type { ButtonSize, ButtonStyle, ButtonTemplate } from "@/lib/api/types";
+import { readableTextOn } from "@/lib/color";
 import { cn } from "@/lib/utils";
 
 /**
@@ -29,6 +30,9 @@ export function ButtonPreview({
   printInches?: boolean;
 }) {
   const accent = template?.accentColor ?? "#8e1f2f";
+  // Each show picks its own accent, so the label colour has to be derived
+  // from it — fixed white fails WCAG AA on mid-tone accents.
+  const onAccent = readableTextOn(accent);
   const dimension = printInches ? `${size}in` : "14rem";
 
   return (
@@ -79,7 +83,7 @@ export function ButtonPreview({
       {/* Name + role banner */}
       <div
         className="absolute inset-x-[7%] bottom-[9%] rounded-md px-1 py-0.5 text-center"
-        style={{ backgroundColor: accent, color: "white" }}
+        style={{ backgroundColor: accent, color: onAccent }}
       >
         <p
           className="truncate font-semibold leading-tight"
@@ -97,11 +101,18 @@ export function ButtonPreview({
         )}
       </div>
 
-      {/* Show + season along the top */}
+      {/* Show + season along the top. This sits over the photo well, whose
+          colour we don't control (any uploaded image, or the empty-state
+          background), so it carries its own accent pill — contrast is
+          guaranteed rather than incidental. */}
       {(showTitle || template) && (
         <p
-          className="absolute inset-x-[12%] top-[9%] truncate text-center font-semibold leading-tight text-white"
-          style={{ fontSize: printInches ? "0.11in" : "0.65rem" }}
+          className="absolute inset-x-[12%] top-[7%] truncate rounded px-1 text-center font-semibold leading-tight"
+          style={{
+            fontSize: printInches ? "0.11in" : "0.65rem",
+            color: onAccent,
+            backgroundColor: accent,
+          }}
         >
           {showTitle ?? template?.seasonName}
         </p>

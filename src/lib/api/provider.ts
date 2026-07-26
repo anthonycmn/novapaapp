@@ -46,6 +46,15 @@ import type {
   PhotoMatch,
   ReferencePhoto,
 } from "./photos/types";
+import type {
+  Review,
+  ReviewAggregate,
+  ReviewScores,
+  ReviewSubjectType,
+  ReviewWindow,
+  StaffReviewView,
+  TrendPoint,
+} from "./reviews/types";
 
 /**
  * Every data access in the app goes through this interface — components
@@ -314,6 +323,53 @@ export interface DataProvider {
     photos: GalleryPhoto[]
   ): Promise<{ photosIngested: number }>;
   runMatching(actorId: string): Promise<{ photosScanned: number; matchesCreated: number }>;
+
+  /* private reviews (#15) */
+
+  /** Windows currently open to this family, with whether they've responded. */
+  getOpenReviewWindows(
+    actorId: string
+  ): Promise<Array<{ window: ReviewWindow; subjectName: string; alreadySubmitted: boolean }>>;
+
+  submitReview(
+    actorId: string,
+    input: {
+      windowId: string;
+      scores: ReviewScores;
+      comment: string;
+      isAnonymous: boolean;
+    }
+  ): Promise<Review>;
+
+  /** The family's own submissions. */
+  getMyReviews(actorId: string): Promise<Review[]>;
+
+  /**
+   * Staff-facing: identity-stripped reviews about this staff member's own
+   * work, plus aggregates. Never returns reviewer ids.
+   */
+  getReviewsForStaff(
+    actorId: string,
+    staffId: string
+  ): Promise<{ reviews: StaffReviewView[]; aggregate: ReviewAggregate; trend: TrendPoint[] }>;
+
+  /** Admin-only: full reviews including reviewer identity. */
+  getAllReviews(actorId: string): Promise<Review[]>;
+
+  getReviewAggregate(
+    actorId: string,
+    subjectType: ReviewSubjectType,
+    subjectId: string
+  ): Promise<{ aggregate: ReviewAggregate; trend: TrendPoint[] }>;
+
+  flagReview(actorId: string, reviewId: string, reason: string): Promise<Review>;
+  resolveReview(actorId: string, reviewId: string, note: string): Promise<Review>;
+
+  /** Admin: open a review window for a class or production. */
+  createReviewWindow(
+    actorId: string,
+    input: Omit<ReviewWindow, "id">
+  ): Promise<ReviewWindow>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */
