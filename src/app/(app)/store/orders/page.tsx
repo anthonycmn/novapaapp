@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Package } from "lucide-react";
 import { getProvider } from "@/lib/api";
-import type { OrderStatus } from "@/lib/api/types";
+import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import { getSessionUser } from "@/lib/auth/session";
 import { reorderAction } from "@/lib/actions/store";
 import { formatCents, formatDate } from "@/lib/format";
@@ -92,15 +92,19 @@ export default async function OrdersPage({
               <div className="flex flex-wrap gap-3">
                 {order.items.map((item) => (
                   <div key={item.id} className="flex items-center gap-2">
-                    <ButtonPreview
-                      photoUrl={item.photoUrl}
-                      studentName={item.studentName}
-                      role={item.role}
-                      size={item.size}
-                      style={item.style}
-                      template={templatesById.get(item.templateId)}
-                      className="!w-16 !h-16"
-                    />
+                    {isButtonLine(item) ? (
+                      <ButtonPreview
+                        photoUrl={item.photoUrl}
+                        studentName={item.studentName}
+                        role={item.role}
+                        size={item.size}
+                        style={item.style}
+                        template={templatesById.get(item.templateId)}
+                        className="!w-16 !h-16"
+                      />
+                    ) : (
+                      <span className="text-sm font-medium">{item.displayName}</span>
+                    )}
                     <span className="text-sm text-muted-foreground">×{item.quantity}</span>
                   </div>
                 ))}

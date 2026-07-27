@@ -20,6 +20,7 @@ import type {
   User,
 } from "../types";
 import type { Review, ReviewWindow } from "../reviews/types";
+import type { Product } from "../store/catalog";
 
 /**
  * Realistic demo data: three families, five students, four staff,
@@ -121,9 +122,10 @@ export const staffProfiles: StaffProfile[] = [
     id: "staff-jo",
     userId: "user-jo",
     fullName: "Jo Castillo",
-    title: "Stage Manager & Operations",
+    title: "Stage Manager & Director of Health and Safety",
     bio: "Keeps the trains (and tech weeks) running on time.",
     specialties: ["Stage Management", "Production Ops"],
+    isHealthSafetyDirector: true,
     isPublished: true,
   },
 ];
@@ -412,6 +414,88 @@ export const reviews: Review[] = [
     // Anonymous: staff must not learn this came from the Nguyen family.
     isAnonymous: true,
     createdAt: "2026-07-14T20:30:00.000Z",
+  },
+];
+
+export const products: Product[] = [
+  {
+    id: "prod-starpage-frozen",
+    type: "star_page",
+    name: "Star page — Frozen Jr. playbill",
+    description:
+      "A congratulatory page in the show programme. Add a photo and a message from the family.",
+    basePriceCents: 3500,
+    productionId: "prod-frozen",
+    optionLabel: "Page size",
+    options: [
+      { value: "quarter", label: "Quarter page", priceDeltaCents: 0, description: "Photo + short message" },
+      { value: "half", label: "Half page", priceDeltaCents: 2500, description: "Larger photo, longer message" },
+      { value: "full", label: "Full page", priceDeltaCents: 6500, description: "Full-page tribute" },
+    ],
+    requiresPhoto: true,
+    requiresMessage: true,
+    messageLabel: "Your message",
+    messageMaxLength: 400,
+    isActive: true,
+    sortOrder: 10,
+  },
+  {
+    id: "prod-voice-lessons",
+    type: "private_lesson",
+    name: "Private voice lessons",
+    description:
+      "One-to-one vocal coaching with a NOVA PA music director. Scheduled with you after purchase.",
+    basePriceCents: 6500,
+    optionLabel: "Package",
+    options: [
+      { value: "single-30", label: "Single 30-minute lesson", priceDeltaCents: 0 },
+      { value: "single-60", label: "Single 60-minute lesson", priceDeltaCents: 5500 },
+      { value: "pack4-30", label: "4 × 30-minute lessons", priceDeltaCents: 18500, description: "Save $10" },
+      { value: "pack4-60", label: "4 × 60-minute lessons", priceDeltaCents: 41500, description: "Save $20" },
+    ],
+    requiresPhoto: false,
+    requiresMessage: false,
+    staffIds: ["staff-marcus"],
+    isActive: true,
+    sortOrder: 20,
+  },
+  {
+    id: "prod-acting-lessons",
+    type: "private_lesson",
+    name: "Private acting coaching",
+    description:
+      "Monologue work, audition prep, and scene study with a teaching artist.",
+    basePriceCents: 6500,
+    optionLabel: "Package",
+    options: [
+      { value: "single-30", label: "Single 30-minute session", priceDeltaCents: 0 },
+      { value: "single-60", label: "Single 60-minute session", priceDeltaCents: 5500 },
+      { value: "pack4-60", label: "4 × 60-minute sessions", priceDeltaCents: 41500, description: "Save $20" },
+      { value: "audition-prep", label: "Audition prep intensive", priceDeltaCents: 12500, description: "Two 60-minute sessions before an audition" },
+    ],
+    requiresPhoto: false,
+    requiresMessage: false,
+    staffIds: ["staff-dana", "staff-priya"],
+    isActive: true,
+    sortOrder: 30,
+  },
+  {
+    id: "prod-dance-lessons",
+    type: "private_lesson",
+    name: "Private dance coaching",
+    description: "Choreography clean-up, technique, and callback preparation.",
+    basePriceCents: 6500,
+    optionLabel: "Package",
+    options: [
+      { value: "single-30", label: "Single 30-minute session", priceDeltaCents: 0 },
+      { value: "single-60", label: "Single 60-minute session", priceDeltaCents: 5500 },
+      { value: "pack4-60", label: "4 × 60-minute sessions", priceDeltaCents: 41500 },
+    ],
+    requiresPhoto: false,
+    requiresMessage: false,
+    staffIds: ["staff-priya"],
+    isActive: true,
+    sortOrder: 40,
   },
 ];
 

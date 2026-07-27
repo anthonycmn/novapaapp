@@ -12,7 +12,9 @@ const FAMILY_FEATURES = [
   { href: "/photos", emoji: "📸", label: "Photos", description: "Galleries, and photos of your child" },
   { href: "/family", emoji: "👪", label: "Family profile", description: "Guardians, address, emergency contacts" },
   { href: "/family/documents", emoji: "🗂️", label: "Document vault", description: "Waivers, forms, and receipts" },
+  { href: "/messages", emoji: "✉️", label: "Message the office", description: "Admin or Health & Safety, privately" },
   { href: "/store", emoji: "🎟️", label: "Spirit buttons", description: "Design and order custom buttons" },
+  { href: "/store/catalog", emoji: "⭐", label: "Star pages & lessons", description: "Playbill tributes, voice & acting coaching" },
   { href: "/store/orders", emoji: "📦", label: "Your orders", description: "Order history and reorder" },
   { href: "/family/pickup", emoji: "🚗", label: "Drop-off & pick-up", description: "Request early drop-off or late pick-up" },
   { href: "/reviews", emoji: "⭐", label: "Give feedback", description: "Private feedback on classes and shows" },
@@ -23,6 +25,7 @@ const FAMILY_FEATURES = [
 
 const STAFF_FEATURES = [
   { href: "/admin", emoji: "🛠️", label: "Staff tools", description: "Everything waiting on you, system status" },
+  { href: "/admin/messages", emoji: "📨", label: "Family messages", description: "Inbox for your role" },
   { href: "/admin/email", emoji: "📧", label: "Email families", description: "Templates, targeting, send history" },
   { href: "/admin/questions", emoji: "💬", label: "Question queue", description: "Answer families privately" },
   { href: "/admin/health", emoji: "🩺", label: "Health & safety", description: "Form status, emergency roster" },

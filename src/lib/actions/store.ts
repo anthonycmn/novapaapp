@@ -6,7 +6,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { describeButton, getPaymentProvider } from "@/lib/api/payments";
-import type { OrderStatus } from "@/lib/api/types";
+import { isButtonLine, type OrderStatus } from "@/lib/api/types";
+import type { Customization } from "@/lib/api/store/catalog";
+import { assertUploadAllowed } from "@/lib/api/storage";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { assessPhotoQuality } from "@/lib/store-rules";
 import type { FamilyFormState } from "./family";
@@ -68,6 +70,88 @@ export async function addToCartAction(
   return { ok: true };
 }
 
+/** Star pages, lessons, and anything else in the catalog (#11). */
+export async function addCatalogItemAction(
+  _prev: FamilyFormState,
+  formData: FormData
+): Promise<FamilyFormState> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  const productId = String(formData.get("productId") ?? "");
+  const optionValue = String(formData.get("optionValue") ?? "") || undefined;
+  const quantity = Number(formData.get("quantity") ?? 1);
+  const studentName = String(formData.get("studentName") ?? "").trim();
+
+  if (!studentName) {
+    return { ok: false, errors: { studentName: "Whose is this?" } };
+  }
+
+  const provider = getProvider();
+  const product = (await provider.getProducts()).find((p) => p.id === productId);
+  if (!product) return { ok: false, errors: { _form: "That product isn't available" } };
+
+  let customization: Customization;
+
+  if (product.type === "star_page") {
+    const message = String(formData.get("message") ?? "").trim();
+    const photoDataUrl = String(formData.get("photoDataUrl") ?? "");
+    if (!message) return { ok: false, errors: { message: "Add your message" } };
+    if (product.requiresPhoto && !photoDataUrl) {
+      return { ok: false, errors: { photoDataUrl: "Choose a photo" } };
+    }
+    if (photoDataUrl) {
+      try {
+        assertUploadAllowed("button-photos", photoDataUrl);
+      } catch (error) {
+        return {
+          ok: false,
+          errors: { photoDataUrl: error instanceof Error ? error.message : "Bad photo" },
+        };
+      }
+    }
+    customization = {
+      kind: "star_page",
+      studentName,
+      pageSize: optionValue ?? "",
+      photoUrl: photoDataUrl || undefined,
+      photoWidth: Number(formData.get("photoWidth") ?? 0) || undefined,
+      photoHeight: Number(formData.get("photoHeight") ?? 0) || undefined,
+      message,
+      signature: String(formData.get("signature") ?? "").trim(),
+    };
+  } else if (product.type === "private_lesson") {
+    customization = {
+      kind: "private_lesson",
+      studentName,
+      packageOption:
+        product.options.find((option) => option.value === optionValue)?.label ?? "",
+      preferredStaffId: String(formData.get("preferredStaffId") ?? "") || undefined,
+      notes: String(formData.get("notes") ?? "").trim(),
+    };
+  } else {
+    customization = { kind: "simple", note: studentName };
+  }
+
+  try {
+    await provider.addCatalogItemToCart(user.id, {
+      productId,
+      optionValue,
+      quantity,
+      customization,
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      errors: { _form: error instanceof Error ? error.message : String(error) },
+    };
+  }
+
+  revalidatePath("/store/cart");
+  revalidatePath("/store/catalog");
+  return { ok: true };
+}
+
 export async function updateCartItemAction(itemId: string, quantity: number): Promise<void> {
   const user = await getSessionUser();
   if (!user) return;
@@ -104,7 +188,11 @@ export async function checkoutAction(): Promise<void> {
     orderReference: order.reference,
     customerEmail: user.email,
     lines: cart.map((item) => ({
-      name: describeButton(item.studentName, item.role, item.size),
+      // Buttons get a descriptive line; catalog products already carry a
+      // display name that includes the chosen option.
+      name: isButtonLine(item)
+        ? describeButton(item.studentName, item.role, item.size)
+        : item.displayName,
       unitAmountCents: item.unitPriceCents,
       quantity: item.quantity,
     })),

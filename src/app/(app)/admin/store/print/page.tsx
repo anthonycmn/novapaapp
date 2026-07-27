@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getProvider } from "@/lib/api";
-import type { OrderStatus } from "@/lib/api/types";
+import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { assessPhotoQuality } from "@/lib/store-rules";
 import { countButtons } from "@/lib/button-manifest";
@@ -60,7 +60,8 @@ export default async function PrintSheetPage({
               {order.reference} · {order.placedByName}
             </h2>
             <div className="flex flex-wrap gap-3">
-              {order.items.flatMap((item) => {
+              {/* Only buttons are pressed — other products don't print here. */}
+              {order.items.filter(isButtonLine).flatMap((item) => {
                 const template = templatesById.get(item.templateId);
                 const production = template
                   ? productionsById.get(template.productionId)

@@ -79,6 +79,14 @@ import {
   getStorageProvider,
   type StorageBucket,
 } from "../storage";
+import type {
+  Message,
+  MessageRecipientRole,
+  MessageThread,
+  ThreadStatus,
+  ThreadWithMessages,
+} from "../messages/types";
+import { priceFor, type Customization, type Product } from "../store/catalog";
 import * as seed from "./seed-data";
 
 /**
@@ -139,6 +147,9 @@ interface Store {
   staffChangeRejections: Map<string, string>;
   emailOpens: Array<{ sendId: string; recipientId: string; at: string }>;
   emailClicks: Array<{ sendId: string; recipientId: string; url: string; at: string }>;
+  threads: MessageThread[];
+  messages: Message[];
+  products: Product[];
 }
 
 function deepClone<T>(value: T): T {
@@ -200,6 +211,9 @@ function buildStore(): Store {
     staffChangeRejections: new Map(),
     emailOpens: [],
     emailClicks: [],
+    threads: [],
+    messages: [],
+    products: deepClone(seed.products),
   };
 }
 
@@ -1408,6 +1422,8 @@ export class MockDataProvider implements DataProvider {
       id: nextId("cart"),
       quantity,
       unitPriceCents: BUTTON_PRICES_CENTS[design.size],
+      productType: "spirit_button",
+      displayName: `${design.size}" spirit button — ${design.studentName}`,
     });
     return deepClone(cart);
   }
@@ -2512,6 +2528,296 @@ export class MockDataProvider implements DataProvider {
     const nonOpeners = audience.filter((user) => !openedIds.has(user.id));
 
     return { opens, clicks, nonOpeners };
+  }
+
+  /* ── direct messages to the office ────────────────────────────────── */
+
+  /** Does this staff member cover messages addressed to `role`? */
+  private coversRole(actor: User, role: MessageRecipientRole): boolean {
+    if (isAdmin(actor)) return true; // admins cover everything
+    if (role !== "health_safety") return false;
+    const profile = store.staff.find((s) => s.id === actor.staffId);
+    return Boolean(profile?.isHealthSafetyDirector);
+  }
+
+  private threadView(thread: MessageThread): ThreadWithMessages {
+    const family = store.families.find((f) => f.id === thread.familyId);
+    const student = thread.studentId
+      ? store.students.find((s) => s.id === thread.studentId)
+      : undefined;
+    return {
+      thread: deepClone(thread),
+      messages: deepClone(
+        store.messages
+          .filter((message) => message.threadId === thread.id)
+          .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+      ),
+      familyName: family?.name ?? "Unknown family",
+      studentName: student ? (student.preferredName ?? student.firstName) : undefined,
+    };
+  }
+
+  async startMessageThread(
+    actorId: string,
+    input: {
+      recipientRole: MessageRecipientRole;
+      subject: string;
+      body: string;
+      studentId?: string;
+    }
+  ): Promise<MessageThread> {
+    const actor = getActor(actorId);
+    if (!actor.familyId) {
+      throw new AccessDeniedError("Only families start message threads");
+    }
+    if (!input.subject.trim() || !input.body.trim()) {
+      throw new Error("Add a subject and a message");
+    }
+    // Guard against addressing a thread to a child in someone else's family.
+    if (input.studentId) {
+      const student = store.students.find((s) => s.id === input.studentId);
+      if (!student || student.familyId !== actor.familyId) {
+        throw new AccessDeniedError("That isn't your student");
+      }
+    }
+
+    const thread: MessageThread = {
+      id: nextId("thr"),
+      familyId: actor.familyId,
+      recipientRole: input.recipientRole,
+      subject: input.subject.trim(),
+      studentId: input.studentId,
+      status: "open",
+      createdAt: nowIso(),
+      lastMessageAt: nowIso(),
+      urgent: false,
+    };
+    store.threads.push(thread);
+
+    store.messages.push({
+      id: nextId("msg"),
+      threadId: thread.id,
+      authorUserId: actor.id,
+      authorName: actor.displayName,
+      authorSide: "family",
+      body: input.body.trim(),
+      createdAt: nowIso(),
+    });
+
+    // Notify everyone who covers that role, so nothing waits on one inbox.
+    for (const staff of store.users) {
+      if (!isStaffish(staff)) continue;
+      if (!this.coversRole(staff, input.recipientRole)) continue;
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: staff.id,
+        type: "direct_message",
+        title:
+          input.recipientRole === "health_safety"
+            ? "New health & safety message"
+            : "New message from a family",
+        body: input.subject.trim(),
+        url: `/admin/messages/${thread.id}`,
+        createdAt: nowIso(),
+      });
+    }
+
+    return deepClone(thread);
+  }
+
+  private assertThreadAccess(actor: User, thread: MessageThread): void {
+    if (actor.familyId === thread.familyId) return;
+    if (isStaffish(actor) && this.coversRole(actor, thread.recipientRole)) return;
+    throw new AccessDeniedError("Not your conversation");
+  }
+
+  async replyToThread(actorId: string, threadId: string, body: string): Promise<Message> {
+    const actor = getActor(actorId);
+    const thread = store.threads.find((t) => t.id === threadId);
+    if (!thread) throw new Error("Thread not found");
+    this.assertThreadAccess(actor, thread);
+    if (!body.trim()) throw new Error("Write a message first");
+
+    const fromStaff = isStaffish(actor);
+    const message: Message = {
+      id: nextId("msg"),
+      threadId,
+      authorUserId: actor.id,
+      authorName: actor.displayName,
+      authorSide: fromStaff ? "staff" : "family",
+      body: body.trim(),
+      createdAt: nowIso(),
+    };
+    store.messages.push(message);
+    thread.lastMessageAt = message.createdAt;
+    // A reply reopens a closed thread — the conversation clearly isn't done.
+    if (thread.status === "closed") thread.status = "open";
+
+    if (fromStaff) {
+      for (const parent of store.users.filter(
+        (u) => u.role === "parent" && u.familyId === thread.familyId
+      )) {
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: parent.id,
+          type: "direct_message",
+          title: "Reply from NOVA PA",
+          body: thread.subject,
+          url: `/messages/${thread.id}`,
+          createdAt: nowIso(),
+        });
+      }
+    } else {
+      for (const staff of store.users) {
+        if (!isStaffish(staff) || !this.coversRole(staff, thread.recipientRole)) continue;
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: staff.id,
+          type: "direct_message",
+          title: "New reply from a family",
+          body: thread.subject,
+          url: `/admin/messages/${thread.id}`,
+          createdAt: nowIso(),
+        });
+      }
+    }
+
+    return deepClone(message);
+  }
+
+  async getMyThreads(actorId: string): Promise<MessageThread[]> {
+    const actor = getActor(actorId);
+    if (!actor.familyId) return [];
+    return deepClone(
+      store.threads
+        .filter((thread) => thread.familyId === actor.familyId)
+        .sort((a, b) => b.lastMessageAt.localeCompare(a.lastMessageAt))
+    );
+  }
+
+  async getThread(actorId: string, threadId: string): Promise<ThreadWithMessages | null> {
+    const actor = getActor(actorId);
+    const thread = store.threads.find((t) => t.id === threadId);
+    if (!thread) return null;
+    this.assertThreadAccess(actor, thread);
+    return this.threadView(thread);
+  }
+
+  async getStaffInbox(actorId: string): Promise<ThreadWithMessages[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return store.threads
+      .filter((thread) => this.coversRole(actor, thread.recipientRole))
+      .sort((a, b) => {
+        // Open before closed, then most recent first.
+        if ((a.status === "open") !== (b.status === "open")) {
+          return a.status === "open" ? -1 : 1;
+        }
+        return b.lastMessageAt.localeCompare(a.lastMessageAt);
+      })
+      .map((thread) => this.threadView(thread));
+  }
+
+  async setThreadStatus(
+    actorId: string,
+    threadId: string,
+    status: ThreadStatus
+  ): Promise<MessageThread> {
+    const actor = getActor(actorId);
+    const thread = store.threads.find((t) => t.id === threadId);
+    if (!thread) throw new Error("Thread not found");
+    if (!isStaffish(actor) || !this.coversRole(actor, thread.recipientRole)) {
+      throw new AccessDeniedError("Staff only");
+    }
+    thread.status = status;
+    return deepClone(thread);
+  }
+
+  async markThreadRead(actorId: string, threadId: string): Promise<void> {
+    const actor = getActor(actorId);
+    const thread = store.threads.find((t) => t.id === threadId);
+    if (!thread) return;
+    this.assertThreadAccess(actor, thread);
+    const mySide = isStaffish(actor) ? "staff" : "family";
+    for (const message of store.messages) {
+      if (message.threadId !== threadId) continue;
+      // You read the *other* side's messages.
+      if (message.authorSide === mySide) continue;
+      if (!message.readAt) message.readAt = nowIso();
+    }
+  }
+
+  async getUnreadMessageCount(actorId: string): Promise<number> {
+    const actor = getActor(actorId);
+    const visible = store.threads.filter((thread) => {
+      if (actor.familyId === thread.familyId) return true;
+      return isStaffish(actor) && this.coversRole(actor, thread.recipientRole);
+    });
+    const mySide = isStaffish(actor) ? "staff" : "family";
+    const threadIds = new Set(visible.map((thread) => thread.id));
+    return store.messages.filter(
+      (message) =>
+        threadIds.has(message.threadId) && message.authorSide !== mySide && !message.readAt
+    ).length;
+  }
+
+  /* ── store catalog ────────────────────────────────────────────────── */
+
+  async getProducts(productionId?: string): Promise<Product[]> {
+    return deepClone(
+      store.products
+        .filter((product) => product.isActive)
+        .filter(
+          (product) =>
+            !productionId || !product.productionId || product.productionId === productionId
+        )
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    );
+  }
+
+  async addCatalogItemToCart(
+    actorId: string,
+    input: {
+      productId: string;
+      optionValue?: string;
+      quantity: number;
+      customization: Customization;
+    }
+  ): Promise<CartItem[]> {
+    const actor = getActor(actorId);
+    if (actor.role !== "parent" && !isStaffish(actor)) {
+      throw new AccessDeniedError("Only families can order");
+    }
+    if (input.quantity < 1) throw new Error("Quantity must be at least 1");
+
+    const product = store.products.find((p) => p.id === input.productId);
+    if (!product || !product.isActive) throw new Error("Product not available");
+
+    // Reject an option that doesn't belong to this product — otherwise a
+    // crafted request could claim a cheaper tier's price.
+    if (product.options.length > 0) {
+      const valid = product.options.some((option) => option.value === input.optionValue);
+      if (!valid) throw new Error("Choose an option");
+    }
+
+    // Price is computed here from the catalog, never taken from the client.
+    const unitPriceCents = priceFor(product, input.optionValue);
+    const optionLabel = product.options.find(
+      (option) => option.value === input.optionValue
+    )?.label;
+
+    const cart = this.cartFor(actorId);
+    cart.push({
+      id: nextId("cart"),
+      quantity: input.quantity,
+      unitPriceCents,
+      productType: product.type,
+      productId: product.id,
+      optionValue: input.optionValue,
+      displayName: optionLabel ? `${product.name} — ${optionLabel}` : product.name,
+      customization: deepClone(input.customization),
+    });
+    return deepClone(cart);
   }
 
   async reorder(actorId: string, orderId: string): Promise<CartItem[]> {

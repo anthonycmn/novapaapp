@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, Download, Printer } from "lucide-react";
 import { getProvider } from "@/lib/api";
-import type { OrderStatus } from "@/lib/api/types";
+import { isButtonLine, type OrderStatus } from "@/lib/api/types";
+import { describeCustomization } from "@/lib/api/store/catalog";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { assessPhotoQuality } from "@/lib/store-rules";
 import { countButtons } from "@/lib/button-manifest";
@@ -103,11 +104,13 @@ export default async function StoreAdminPage({
         </Card>
       ) : (
         orders.map((order) => {
-          const lowRes = order.items.some(
-            (item) =>
-              assessPhotoQuality(item.photoWidth, item.photoHeight, item.size).quality ===
-              "low"
-          );
+          const lowRes = order.items
+            .filter(isButtonLine)
+            .some(
+              (item) =>
+                assessPhotoQuality(item.photoWidth, item.photoHeight, item.size)
+                  .quality === "low"
+            );
           return (
             <Card key={order.id}>
               <CardHeader className="pb-2">
@@ -134,23 +137,33 @@ export default async function StoreAdminPage({
                 )}
 
                 <div className="flex flex-wrap gap-3">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex items-center gap-2">
-                      <ButtonPreview
-                        photoUrl={item.photoUrl}
-                        studentName={item.studentName}
-                        role={item.role}
-                        size={item.size}
-                        style={item.style}
-                        template={templatesById.get(item.templateId)}
-                        className="!w-16 !h-16"
-                      />
-                      <div className="text-sm">
-                        <p className="font-medium">×{item.quantity}</p>
-                        <p className="text-muted-foreground">{item.size}&quot;</p>
+                  {order.items.map((item) =>
+                    isButtonLine(item) ? (
+                      <div key={item.id} className="flex items-center gap-2">
+                        <ButtonPreview
+                          photoUrl={item.photoUrl}
+                          studentName={item.studentName}
+                          role={item.role}
+                          size={item.size}
+                          style={item.style}
+                          template={templatesById.get(item.templateId)}
+                          className="!w-16 !h-16"
+                        />
+                        <div className="text-sm">
+                          <p className="font-medium">×{item.quantity}</p>
+                          <p className="text-muted-foreground">{item.size}&quot;</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ) : (
+                      <div key={item.id} className="rounded-lg border p-2 text-sm">
+                        <p className="font-medium">{item.displayName}</p>
+                        <p className="text-muted-foreground">
+                          ×{item.quantity} ·{" "}
+                          {describeCustomization(item.customization ?? { kind: "simple" })}
+                        </p>
+                      </div>
+                    )
+                  )}
                 </div>
 
                 {order.adminNote && (

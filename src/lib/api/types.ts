@@ -217,6 +217,8 @@ export interface StaffProfile {
   photoUrl?: string;
   specialties: string[];
   credits?: string;
+  /** Receives messages addressed to the Director of Health & Safety. */
+  isHealthSafetyDirector?: boolean;
   /** Draft edits awaiting admin approval (Phase 1 #14). */
   pendingChanges?: Partial<Pick<StaffProfile, "bio" | "title" | "photoUrl" | "specialties" | "credits">>;
   isPublished: boolean;
@@ -478,18 +480,52 @@ export interface ButtonDesign {
   templateId: string;
 }
 
-export interface CartItem extends ButtonDesign {
+/**
+ * A cart line. The store began as spirit buttons only, so the button fields
+ * sit inline; catalog products (star pages, lessons) carry `productId` plus
+ * a typed `customization` instead. `productType` tells them apart — check it
+ * before reading the button fields.
+ */
+export interface CartItem extends Partial<ButtonDesign> {
   id: string;
   quantity: number;
   unitPriceCents: number;
+  productType: import("./store/catalog").ProductType;
+  /** Set for catalog products; absent for spirit buttons. */
+  productId?: string;
+  /** Chosen option (page size, lesson package). */
+  optionValue?: string;
+  /** What to show in the cart. */
+  displayName: string;
+  customization?: import("./store/catalog").Customization;
+}
+
+/**
+ * Narrows a cart/order line to a spirit button, so button-specific code
+ * (the preview, the print sheet, the press manifest) can rely on the design
+ * fields being present rather than guessing.
+ */
+export function isButtonLine<T extends { productType: string } & Partial<ButtonDesign>>(
+  line: T
+): line is T & ButtonDesign {
+  return (
+    line.productType === "spirit_button" &&
+    typeof line.photoUrl === "string" &&
+    typeof line.size === "string"
+  );
 }
 
 export type OrderStatus = "new" | "in_production" | "ready" | "delivered";
 
-export interface OrderItem extends ButtonDesign {
+export interface OrderItem extends Partial<ButtonDesign> {
   id: string;
   quantity: number;
   unitPriceCents: number;
+  productType: import("./store/catalog").ProductType;
+  productId?: string;
+  optionValue?: string;
+  displayName: string;
+  customization?: import("./store/catalog").Customization;
 }
 
 export interface ButtonOrder {

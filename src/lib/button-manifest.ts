@@ -1,4 +1,4 @@
-import type { ButtonOrder } from "@/lib/api/types";
+import { isButtonLine, type ButtonOrder } from "@/lib/api/types";
 import { assessPhotoQuality } from "@/lib/store-rules";
 
 /**
@@ -30,7 +30,9 @@ export function buildManifestCsv(orders: ButtonOrder[]): string {
   const rows: string[] = [MANIFEST_COLUMNS.join(",")];
 
   for (const order of orders) {
-    for (const item of order.items) {
+    // Only spirit buttons get pressed; star pages and lessons aren't part of
+    // the press run and would produce meaningless rows here.
+    for (const item of order.items.filter(isButtonLine)) {
       const quality = assessPhotoQuality(item.photoWidth, item.photoHeight, item.size);
       rows.push(
         [

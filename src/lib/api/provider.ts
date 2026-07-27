@@ -53,6 +53,14 @@ import type {
   FsaStatement,
 } from "./documents/types";
 import type {
+  Message,
+  MessageRecipientRole,
+  MessageThread,
+  ThreadStatus,
+  ThreadWithMessages,
+} from "./messages/types";
+import type { Customization, Product } from "./store/catalog";
+import type {
   Review,
   ReviewAggregate,
   ReviewScores,
@@ -449,6 +457,37 @@ export interface DataProvider {
     clicks: Array<{ recipientId: string; recipientName: string; url: string; at: string }>;
     nonOpeners: User[];
   }>;
+
+  /* direct messages to the office */
+  startMessageThread(
+    actorId: string,
+    input: {
+      recipientRole: MessageRecipientRole;
+      subject: string;
+      body: string;
+      studentId?: string;
+    }
+  ): Promise<MessageThread>;
+  replyToThread(actorId: string, threadId: string, body: string): Promise<Message>;
+  getMyThreads(actorId: string): Promise<MessageThread[]>;
+  getThread(actorId: string, threadId: string): Promise<ThreadWithMessages | null>;
+  /** Threads addressed to a role this staff member covers. */
+  getStaffInbox(actorId: string): Promise<ThreadWithMessages[]>;
+  setThreadStatus(actorId: string, threadId: string, status: ThreadStatus): Promise<MessageThread>;
+  markThreadRead(actorId: string, threadId: string): Promise<void>;
+  getUnreadMessageCount(actorId: string): Promise<number>;
+
+  /* store catalog: star pages, lessons, and other products */
+  getProducts(productionId?: string): Promise<Product[]>;
+  addCatalogItemToCart(
+    actorId: string,
+    input: {
+      productId: string;
+      optionValue?: string;
+      quantity: number;
+      customization: Customization;
+    }
+  ): Promise<CartItem[]>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */

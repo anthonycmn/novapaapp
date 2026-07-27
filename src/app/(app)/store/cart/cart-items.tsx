@@ -3,7 +3,8 @@
 import { useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { removeCartItemAction, updateCartItemAction } from "@/lib/actions/store";
-import type { ButtonTemplate, CartItem, Production } from "@/lib/api/types";
+import { isButtonLine, type ButtonTemplate, type CartItem, type Production } from "@/lib/api/types";
+import { describeCustomization } from "@/lib/api/store/catalog";
 import { formatCents } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,7 +26,8 @@ export function CartItems({
   return (
     <ul className="flex flex-col gap-3">
       {items.map((item) => {
-        const template = templatesById.get(item.templateId);
+        const button = isButtonLine(item) ? item : null;
+        const template = button ? templatesById.get(button.templateId) : undefined;
         const production = template
           ? productionsById.get(template.productionId)
           : undefined;
@@ -33,20 +35,30 @@ export function CartItems({
           <li key={item.id}>
             <Card>
               <CardContent className="flex items-center gap-4 p-4">
-                <ButtonPreview
-                  photoUrl={item.photoUrl}
-                  studentName={item.studentName}
-                  role={item.role}
-                  size={item.size}
-                  style={item.style}
-                  template={template}
-                  showTitle={production?.title}
-                  className="!w-20 !h-20 shrink-0"
-                />
+                {button ? (
+                  <ButtonPreview
+                    photoUrl={button.photoUrl}
+                    studentName={button.studentName}
+                    role={button.role}
+                    size={button.size}
+                    style={button.style}
+                    template={template}
+                    showTitle={production?.title}
+                    className="!w-20 !h-20 shrink-0"
+                  />
+                ) : (
+                  <span aria-hidden className="text-3xl">
+                    {item.productType === "star_page" ? "⭐" : "🎤"}
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{item.studentName}</p>
+                  <p className="truncate font-medium">
+                    {button ? button.studentName : item.displayName}
+                  </p>
                   <p className="truncate text-sm text-muted-foreground">
-                    {item.role || "No role"} · {item.size}&quot; {item.style}
+                    {button
+                      ? `${button.role || "No role"} · ${button.size}" ${button.style}`
+                      : describeCustomization(item.customization ?? { kind: "simple" })}
                   </p>
                   <p className="text-sm">
                     {formatCents(item.unitPriceCents)} each
