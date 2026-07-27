@@ -27,6 +27,7 @@ import type {
   Production,
   Program,
   ReactionKind,
+  ResumeCredit,
   Season,
   ShowHistoryEntry,
   StaffProfile,
@@ -46,6 +47,11 @@ import type {
   PhotoMatch,
   ReferencePhoto,
 } from "./photos/types";
+import type {
+  DocumentCategory,
+  FamilyDocument,
+  FsaStatement,
+} from "./documents/types";
 import type {
   Review,
   ReviewAggregate,
@@ -370,6 +376,79 @@ export interface DataProvider {
     actorId: string,
     input: Omit<ReviewWindow, "id">
   ): Promise<ReviewWindow>;
+
+  /* student materials (#4) */
+  setHeadshot(
+    actorId: string,
+    studentId: string,
+    files: { webDataUrl: string; printDataUrl: string }
+  ): Promise<Student>;
+  setResumePdf(actorId: string, studentId: string, dataUrl: string): Promise<Student>;
+  setAuditionAudio(actorId: string, studentId: string, dataUrl: string): Promise<Student>;
+  clearAuditionAudio(actorId: string, studentId: string): Promise<Student>;
+  saveResumeCredits(
+    actorId: string,
+    studentId: string,
+    credits: ResumeCredit[]
+  ): Promise<Student>;
+
+  /* household document vault (#3) */
+  getFamilyDocuments(actorId: string, familyId: string): Promise<FamilyDocument[]>;
+  uploadFamilyDocument(
+    actorId: string,
+    familyId: string,
+    input: {
+      name: string;
+      category: DocumentCategory;
+      dataUrl: string;
+      studentId?: string;
+    }
+  ): Promise<FamilyDocument>;
+  deleteFamilyDocument(actorId: string, documentId: string): Promise<void>;
+
+  /* Dependent Care FSA statement */
+  getFsaStatement(
+    actorId: string,
+    studentId: string,
+    period: { start: string; end: string }
+  ): Promise<FsaStatement>;
+
+  /* families directory — staff and admin only (#3) */
+  getFamiliesDirectory(actorId: string): Promise<
+    Array<{
+      family: Family;
+      students: Student[];
+      guardians: Guardian[];
+    }>
+  >;
+
+  /* staff self-edit with admin approval (#14) */
+  submitStaffProfileChanges(
+    actorId: string,
+    staffId: string,
+    changes: {
+      bio?: string;
+      title?: string;
+      specialties?: string[];
+      credits?: string;
+      photoDataUrl?: string;
+    }
+  ): Promise<StaffProfile>;
+  getPendingStaffChanges(actorId: string): Promise<StaffProfile[]>;
+  approveStaffChanges(actorId: string, staffId: string): Promise<StaffProfile>;
+  rejectStaffChanges(actorId: string, staffId: string, reason: string): Promise<StaffProfile>;
+
+  /* email open + click tracking (#1) */
+  recordEmailOpen(sendId: string, recipientId: string): Promise<void>;
+  recordEmailClick(sendId: string, recipientId: string, url: string): Promise<void>;
+  getEmailEngagement(
+    actorId: string,
+    sendId: string
+  ): Promise<{
+    opens: Array<{ recipientId: string; recipientName: string; at: string }>;
+    clicks: Array<{ recipientId: string; recipientName: string; url: string; at: string }>;
+    nonOpeners: User[];
+  }>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */

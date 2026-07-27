@@ -26,6 +26,35 @@ export const org = {
   timeZone: "America/New_York",
 
   supportEmail: "info@northernvirginiaperformingarts.org",
+
+  /**
+   * Details printed on Dependent Care FSA statements. A family's FSA
+   * administrator will reject a claim without the provider's taxpayer ID,
+   * so these MUST be filled in before the statement is usable
+   * (NEEDS-FROM-TONY.md #14). The FSA page shows a visible warning while
+   * any of them is still a placeholder rather than printing a form that
+   * looks official but will bounce.
+   */
+  tax: {
+    legalName: "Northern Virginia Performing Arts",
+    /** Employer Identification Number, formatted 12-3456789. */
+    ein: "",
+    addressLine1: "",
+    addressLine2: "",
+    city: "Chantilly",
+    state: "VA",
+    zip: "",
+    phone: "",
+    /** Who signs the statement. */
+    signatoryName: "",
+    signatoryTitle: "Executive Director",
+  },
 } as const;
+
+/** True when the org's tax details are complete enough to issue a statement. */
+export function taxDetailsComplete(): boolean {
+  const { ein, addressLine1, zip, signatoryName } = org.tax;
+  return Boolean(ein && addressLine1 && zip && signatoryName);
+}
 
 export type OrgConfig = typeof org;

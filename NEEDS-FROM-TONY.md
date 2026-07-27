@@ -25,3 +25,4 @@ Everything the build needs from you to go from mocks to live integrations. The a
 | 11 | Per-production spirit button template art | Store ships with a generic default frame |
 | 12 | Email sending domain + DNS access | SPF/DKIM records for Resend domain verification |
 | 13 | Which staff roles should count as `admin` vs `super_admin` | Role seeding for real accounts |
+| 14 | **Org tax details for Dependent Care FSA statements**: EIN, legal name, street address, ZIP, phone, and who signs (name + title) | Families claiming childcare FSA reimbursement need the provider's taxpayer ID — an administrator will reject the claim without it. Fill in `org.tax` in `src/config/org.ts`. Until then the FSA page prints a visible "not ready to submit" warning rather than an official-looking form that would bounce. |

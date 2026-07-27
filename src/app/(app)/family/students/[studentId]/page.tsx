@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AccessDeniedError, getProvider } from "@/lib/api";
+import { ageOn, FSA_AGE_LIMIT } from "@/lib/api/documents/fsa";
 import { getSessionUser } from "@/lib/auth/session";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,9 @@ export default async function StudentPage({
   ]);
 
   const displayName = student.preferredName ?? student.firstName;
+  // FSA covers children under 13, so only offer the statement when it could
+  // actually be claimed.
+  const isFsaEligible = ageOn(student.dateOfBirth, new Date().toISOString()) < FSA_AGE_LIMIT;
 
   return (
     <div className="flex flex-col gap-4">
@@ -58,6 +62,29 @@ export default async function StudentPage({
         >
           Edit
         </Link>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href={`/family/students/${student.id}/materials`}
+          className="inline-flex h-11 items-center rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
+        >
+          🎧 Audition materials
+        </Link>
+        <Link
+          href={`/family/students/${student.id}/resume`}
+          className="inline-flex h-11 items-center rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
+        >
+          📄 Resume
+        </Link>
+        {isFsaEligible && (
+          <Link
+            href={`/family/students/${student.id}/fsa`}
+            className="inline-flex h-11 items-center rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
+          >
+            🧾 FSA statement
+          </Link>
+        )}
       </div>
 
       {casting.length > 0 && (

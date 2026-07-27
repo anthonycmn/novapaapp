@@ -28,6 +28,7 @@ import type {
   Production,
   Program,
   ReactionKind,
+  ResumeCredit,
   Season,
   ShowHistoryEntry,
   StaffProfile,
@@ -67,6 +68,17 @@ import type {
 } from "../reviews/types";
 import { toStaffView } from "../reviews/types";
 import { aggregate, trend } from "../reviews/aggregate";
+import type {
+  DocumentCategory,
+  FamilyDocument,
+  FsaStatement,
+} from "../documents/types";
+import { buildFsaStatement } from "../documents/fsa";
+import {
+  assertUploadAllowed,
+  getStorageProvider,
+  type StorageBucket,
+} from "../storage";
 import * as seed from "./seed-data";
 
 /**
@@ -122,6 +134,11 @@ interface Store {
   consentEvents: ConsentEvent[];
   reviewWindows: ReviewWindow[];
   reviews: Review[];
+  familyDocuments: FamilyDocument[];
+  /** Rejection notes for staff profile edits, keyed by staff id. */
+  staffChangeRejections: Map<string, string>;
+  emailOpens: Array<{ sendId: string; recipientId: string; at: string }>;
+  emailClicks: Array<{ sendId: string; recipientId: string; url: string; at: string }>;
 }
 
 function deepClone<T>(value: T): T {
@@ -179,6 +196,10 @@ function buildStore(): Store {
     consentEvents: [],
     reviewWindows: deepClone(seed.reviewWindows),
     reviews: deepClone(seed.reviews),
+    familyDocuments: [],
+    staffChangeRejections: new Map(),
+    emailOpens: [],
+    emailClicks: [],
   };
 }
 
@@ -2096,6 +2117,401 @@ export class MockDataProvider implements DataProvider {
     const window: ReviewWindow = { ...input, id: nextId("rw") };
     store.reviewWindows.push(window);
     return deepClone(window);
+  }
+
+  /* ── student materials (#4) ───────────────────────────────────────── */
+
+  /** Shared guard: only this student's family (or an admin) may upload. */
+  private studentForWrite(actorId: string, studentId: string): Student {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) throw new Error("Student not found");
+    assertFamilyWrite(actor, student.familyId);
+    return student;
+  }
+
+  private async store(
+    bucket: StorageBucket,
+    path: string,
+    dataUrl: string
+  ): Promise<string> {
+    // Type and size are enforced here, not only in the browser.
+    assertUploadAllowed(bucket, dataUrl);
+    const stored = await getStorageProvider().upload(bucket, path, dataUrl);
+    return stored.url;
+  }
+
+  async setHeadshot(
+    actorId: string,
+    studentId: string,
+    files: { webDataUrl: string; printDataUrl: string }
+  ): Promise<Student> {
+    const student = this.studentForWrite(actorId, studentId);
+    student.headshotUrl = await this.store(
+      "headshots",
+      `${studentId}/web.jpg`,
+      files.webDataUrl
+    );
+    student.headshotPrintUrl = await this.store(
+      "headshots",
+      `${studentId}/print.jpg`,
+      files.printDataUrl
+    );
+    student.updatedAt = nowIso();
+    return deepClone(student);
+  }
+
+  async setResumePdf(actorId: string, studentId: string, dataUrl: string): Promise<Student> {
+    const student = this.studentForWrite(actorId, studentId);
+    student.resumePdfUrl = await this.store("resumes", `${studentId}/resume.pdf`, dataUrl);
+    student.updatedAt = nowIso();
+    return deepClone(student);
+  }
+
+  async setAuditionAudio(
+    actorId: string,
+    studentId: string,
+    dataUrl: string
+  ): Promise<Student> {
+    const student = this.studentForWrite(actorId, studentId);
+    student.auditionAudioUrl = await this.store(
+      "audition-audio",
+      `${studentId}/audition`,
+      dataUrl
+    );
+    student.updatedAt = nowIso();
+    return deepClone(student);
+  }
+
+  async clearAuditionAudio(actorId: string, studentId: string): Promise<Student> {
+    const student = this.studentForWrite(actorId, studentId);
+    if (student.auditionAudioUrl) {
+      await getStorageProvider().remove("audition-audio", `${studentId}/audition`);
+      student.auditionAudioUrl = undefined;
+      student.updatedAt = nowIso();
+    }
+    return deepClone(student);
+  }
+
+  async saveResumeCredits(
+    actorId: string,
+    studentId: string,
+    credits: ResumeCredit[]
+  ): Promise<Student> {
+    const student = this.studentForWrite(actorId, studentId);
+    student.resumeCredits = deepClone(credits);
+    student.updatedAt = nowIso();
+    return deepClone(student);
+  }
+
+  /* ── household document vault (#3) ────────────────────────────────── */
+
+  async getFamilyDocuments(actorId: string, familyId: string): Promise<FamilyDocument[]> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    return deepClone(
+      store.familyDocuments
+        .filter((document) => document.familyId === familyId)
+        .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
+    );
+  }
+
+  async uploadFamilyDocument(
+    actorId: string,
+    familyId: string,
+    input: {
+      name: string;
+      category: DocumentCategory;
+      dataUrl: string;
+      studentId?: string;
+    }
+  ): Promise<FamilyDocument> {
+    const actor = getActor(actorId);
+    // Staff may file a document into a family's vault (a signed waiver they
+    // received on paper), so this is read-access plus a staff allowance.
+    assertFamilyAccess(actor, familyId);
+
+    assertUploadAllowed("family-documents", input.dataUrl);
+    const path = `${familyId}/${nextId("doc")}`;
+    const stored = await getStorageProvider().upload(
+      "family-documents",
+      path,
+      input.dataUrl
+    );
+
+    const document: FamilyDocument = {
+      id: nextId("doc"),
+      familyId,
+      studentId: input.studentId,
+      name: input.name,
+      category: input.category,
+      fileUrl: stored.url,
+      storagePath: path,
+      contentType: stored.contentType,
+      sizeBytes: stored.sizeBytes,
+      uploadedAt: nowIso(),
+      uploadedByName: actor.displayName,
+      uploadedByStaff: isStaffish(actor),
+    };
+    store.familyDocuments.push(document);
+    return deepClone(document);
+  }
+
+  async deleteFamilyDocument(actorId: string, documentId: string): Promise<void> {
+    const actor = getActor(actorId);
+    const document = store.familyDocuments.find((d) => d.id === documentId);
+    if (!document) return;
+    assertFamilyAccess(actor, document.familyId);
+
+    // A family can remove what they uploaded; only an admin can remove a
+    // document staff filed (e.g. a countersigned waiver).
+    if (document.uploadedByStaff && !isAdmin(actor)) {
+      throw new AccessDeniedError(
+        "This document was filed by NOVA PA staff. Contact the office to have it removed."
+      );
+    }
+
+    await getStorageProvider().remove("family-documents", document.storagePath);
+    store.familyDocuments = store.familyDocuments.filter((d) => d.id !== documentId);
+  }
+
+  /* ── Dependent Care FSA statement ─────────────────────────────────── */
+
+  async getFsaStatement(
+    actorId: string,
+    studentId: string,
+    period: { start: string; end: string }
+  ): Promise<FsaStatement> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) throw new Error("Student not found");
+    assertStudentAccess(actor, student);
+
+    const family = store.families.find((f) => f.id === student.familyId);
+    if (!family) throw new Error("Family not found");
+
+    return buildFsaStatement({
+      student: deepClone(student),
+      family: deepClone(family),
+      guardians: store.guardians.filter((g) => g.familyId === family.id),
+      enrollments: store.enrollments,
+      classes: store.classes,
+      productions: store.productions,
+      periodStart: period.start,
+      periodEnd: period.end,
+      // Mock: treat orders paid through the app as the paid amount.
+      paidByEnrollmentId: Object.fromEntries(
+        store.enrollments
+          .filter((enrollment) => enrollment.studentId === studentId)
+          .map((enrollment) => [
+            enrollment.id,
+            // Demo figure: classes ~ $220, productions ~ $450.
+            enrollment.classId ? 22000 : 45000,
+          ])
+      ),
+    });
+  }
+
+  /* ── families directory — staff and admin only (#3) ───────────────── */
+
+  async getFamiliesDirectory(actorId: string): Promise<
+    Array<{ family: Family; students: Student[]; guardians: Guardian[] }>
+  > {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) {
+      throw new AccessDeniedError("The family directory is staff-only");
+    }
+
+    return store.families
+      .map((family) => ({
+        family: deepClone(family),
+        students: store.students
+          .filter((student) => student.familyId === family.id)
+          .map((student) => deepClone(student)),
+        guardians: store.guardians
+          .filter((guardian) => guardian.familyId === family.id)
+          .map((guardian) => deepClone(guardian)),
+      }))
+      .sort((a, b) => a.family.name.localeCompare(b.family.name));
+  }
+
+  /* ── staff self-edit with admin approval (#14) ────────────────────── */
+
+  async submitStaffProfileChanges(
+    actorId: string,
+    staffId: string,
+    changes: {
+      bio?: string;
+      title?: string;
+      specialties?: string[];
+      credits?: string;
+      photoDataUrl?: string;
+    }
+  ): Promise<StaffProfile> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    // A staff member edits their OWN profile; an admin may edit anyone's.
+    if (!isAdmin(actor) && actor.staffId !== staffId) {
+      throw new AccessDeniedError("You can only edit your own profile");
+    }
+
+    const profile = store.staff.find((s) => s.id === staffId);
+    if (!profile) throw new Error("Staff profile not found");
+
+    const pending: NonNullable<StaffProfile["pendingChanges"]> = {
+      ...(profile.pendingChanges ?? {}),
+    };
+    if (changes.bio !== undefined) pending.bio = changes.bio;
+    if (changes.title !== undefined) pending.title = changes.title;
+    if (changes.specialties !== undefined) pending.specialties = changes.specialties;
+    if (changes.credits !== undefined) pending.credits = changes.credits;
+    if (changes.photoDataUrl) {
+      pending.photoUrl = await this.store(
+        "staff-photos",
+        `${staffId}/photo.jpg`,
+        changes.photoDataUrl
+      );
+    }
+
+    profile.pendingChanges = pending;
+    store.staffChangeRejections.delete(staffId);
+
+    // Tell admins there's something to review.
+    for (const admin of store.users.filter((u) => u.role === "admin" || u.role === "super_admin")) {
+      if (admin.id === actor.id) continue;
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: admin.id,
+        type: "broadcast",
+        title: "Staff profile update to review",
+        body: `${profile.fullName} submitted changes to their profile.`,
+        url: "/admin/staff-profiles",
+        createdAt: nowIso(),
+      });
+    }
+
+    return deepClone(profile);
+  }
+
+  async getPendingStaffChanges(actorId: string): Promise<StaffProfile[]> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    return deepClone(store.staff.filter((profile) => profile.pendingChanges));
+  }
+
+  async approveStaffChanges(actorId: string, staffId: string): Promise<StaffProfile> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    const profile = store.staff.find((s) => s.id === staffId);
+    if (!profile) throw new Error("Staff profile not found");
+    if (!profile.pendingChanges) return deepClone(profile);
+
+    Object.assign(profile, profile.pendingChanges);
+    profile.pendingChanges = undefined;
+    profile.isPublished = true;
+
+    const owner = store.users.find((u) => u.staffId === staffId);
+    if (owner) {
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: owner.id,
+        type: "broadcast",
+        title: "Your profile is live",
+        body: "An administrator approved your profile changes.",
+        url: `/staff/${staffId}`,
+        createdAt: nowIso(),
+      });
+    }
+    return deepClone(profile);
+  }
+
+  async rejectStaffChanges(
+    actorId: string,
+    staffId: string,
+    reason: string
+  ): Promise<StaffProfile> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    const profile = store.staff.find((s) => s.id === staffId);
+    if (!profile) throw new Error("Staff profile not found");
+
+    profile.pendingChanges = undefined;
+    store.staffChangeRejections.set(staffId, reason);
+
+    const owner = store.users.find((u) => u.staffId === staffId);
+    if (owner) {
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: owner.id,
+        type: "broadcast",
+        title: "Profile changes need another look",
+        body: reason,
+        url: "/staff/edit",
+        createdAt: nowIso(),
+      });
+    }
+    return deepClone(profile);
+  }
+
+  /* ── email open + click tracking (#1) ─────────────────────────────── */
+
+  async recordEmailOpen(sendId: string, recipientId: string): Promise<void> {
+    // No actor: this is called from a tracking pixel with no session.
+    const already = store.emailOpens.some(
+      (open) => open.sendId === sendId && open.recipientId === recipientId
+    );
+    if (already) return;
+    store.emailOpens.push({ sendId, recipientId, at: nowIso() });
+
+    const send = store.emailSends.find((s) => s.id === sendId);
+    if (send) send.stats.opened += 1;
+  }
+
+  async recordEmailClick(sendId: string, recipientId: string, url: string): Promise<void> {
+    store.emailClicks.push({ sendId, recipientId, url, at: nowIso() });
+    // A click implies an open, even when the pixel was blocked.
+    await this.recordEmailOpen(sendId, recipientId);
+  }
+
+  async getEmailEngagement(
+    actorId: string,
+    sendId: string
+  ): Promise<{
+    opens: Array<{ recipientId: string; recipientName: string; at: string }>;
+    clicks: Array<{ recipientId: string; recipientName: string; url: string; at: string }>;
+    nonOpeners: User[];
+  }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const send = store.emailSends.find((s) => s.id === sendId);
+    if (!send) throw new Error("Send not found");
+
+    const nameFor = (userId: string) =>
+      store.users.find((u) => u.id === userId)?.displayName ?? "Unknown";
+
+    const opens = store.emailOpens
+      .filter((open) => open.sendId === sendId)
+      .map((open) => ({
+        recipientId: open.recipientId,
+        recipientName: nameFor(open.recipientId),
+        at: open.at,
+      }));
+
+    const clicks = store.emailClicks
+      .filter((click) => click.sendId === sendId)
+      .map((click) => ({
+        recipientId: click.recipientId,
+        recipientName: nameFor(click.recipientId),
+        url: click.url,
+        at: click.at,
+      }));
+
+    const openedIds = new Set(opens.map((open) => open.recipientId));
+    const audience = await this.resolveAudience(actorId, send.audience);
+    const nonOpeners = audience.filter((user) => !openedIds.has(user.id));
+
+    return { opens, clicks, nonOpeners };
   }
 
   async reorder(actorId: string, orderId: string): Promise<CartItem[]> {

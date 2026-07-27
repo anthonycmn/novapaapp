@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getProvider } from "@/lib/api";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
@@ -52,7 +53,12 @@ export default async function EmailAdminPage() {
                 className="flex items-center justify-between gap-3 border-b py-2 text-sm last:border-b-0"
               >
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{send.subject}</p>
+                  <Link
+                    href={`/admin/email/${send.id}`}
+                    className="truncate font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    {send.subject}
+                  </Link>
                   <p className="text-xs text-muted-foreground">
                     {send.sentAt
                       ? `Sent ${formatEventTime(send.sentAt)}`

@@ -1,9 +1,11 @@
 "use server";
 
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
+import { instrumentEmailBody } from "@/lib/api/email/tracking";
 import type { EmailCategory } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
@@ -62,16 +64,27 @@ export async function sendEmailAction(
     mode === "test" ? [user] : await provider.resolveAudience(user.id, audience);
   if (!scheduledFor || mode === "test") {
     const production = productionId ? await provider.getProduction(productionId) : null;
+    const headerList = await headers();
+    const origin =
+      headerList.get("origin") ?? `https://${headerList.get("host") ?? "localhost:3000"}`;
+
     for (const recipient of recipients) {
       const context = {
         parent_first: recipient.displayName.split(" ")[0],
         sender_name: user.displayName,
         show_title: production?.title,
       };
+      // Merge fields first, then instrument — otherwise a merge field that
+      // resolves to a URL wouldn't get a tracking wrapper.
+      const resolvedBody = resolveMergeFields(send.body, context);
       await delivery.send({
         to: recipient.email,
         subject: resolveMergeFields(send.subject, context),
-        text: resolveMergeFields(send.body, context),
+        text: instrumentEmailBody(
+          resolvedBody,
+          { sendId: send.id, recipientId: recipient.id },
+          origin
+        ),
         category: send.category,
       });
     }
