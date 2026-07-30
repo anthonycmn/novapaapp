@@ -21,6 +21,7 @@ import type {
 } from "../types";
 import type { Review, ReviewWindow } from "../reviews/types";
 import type { Product } from "../store/catalog";
+import type { ShowRole } from "../auditions/types";
 
 /**
  * Realistic demo data: three families, five students, four staff,
@@ -415,6 +416,46 @@ export const reviews: Review[] = [
     isAnonymous: true,
     createdAt: "2026-07-14T20:30:00.000Z",
   },
+];
+
+/**
+ * Disney's Frozen JR. role list, per the MTI character breakdown.
+ * Named characters hold one student; ensemble groups hold many.
+ * Tier labels follow the org's definitions (see auditions/types.ts).
+ */
+export const showRoles: ShowRole[] = [
+  // Leads / tracked roles
+  { id: "role-elsa", productionId: "prod-frozen", name: "Elsa", tier: "lead", description: "Queen of Arendelle. Requires strong solo vocals ('Let It Go').", capacity: 1, sortOrder: 1 },
+  { id: "role-anna", productionId: "prod-frozen", name: "Anna", tier: "lead", description: "Elsa's fearless younger sister. Comedic timing and strong vocals.", capacity: 1, sortOrder: 2 },
+  { id: "role-kristoff", productionId: "prod-frozen", name: "Kristoff", tier: "lead", description: "Rugged ice harvester. Scene partner through Act 2.", capacity: 1, sortOrder: 3 },
+  { id: "role-olaf", productionId: "prod-frozen", name: "Olaf", tier: "lead", description: "A snowman who loves summer. Big comedic presence ('In Summer').", capacity: 1, sortOrder: 4 },
+  { id: "role-hans", productionId: "prod-frozen", name: "Hans", tier: "lead", description: "Charming prince with a turn. Duet vocals ('Love Is an Open Door').", capacity: 1, sortOrder: 5 },
+
+  // Supporting roles
+  { id: "role-young-anna", productionId: "prod-frozen", name: "Young Anna", tier: "supporting", description: "Anna as a child. Opens the show ('Do You Want to Build a Snowman?').", capacity: 1, sortOrder: 10 },
+  { id: "role-young-elsa", productionId: "prod-frozen", name: "Young Elsa", tier: "supporting", description: "Elsa as a child. Emotional early scenes.", capacity: 1, sortOrder: 11 },
+  { id: "role-middle-anna", productionId: "prod-frozen", name: "Middle Anna", tier: "supporting", description: "Anna growing up. Bridges the sisters' story.", capacity: 1, sortOrder: 12 },
+  { id: "role-middle-elsa", productionId: "prod-frozen", name: "Middle Elsa", tier: "supporting", description: "Elsa growing up, learning to hide her powers.", capacity: 1, sortOrder: 13 },
+  { id: "role-sven", productionId: "prod-frozen", name: "Sven", tier: "supporting", description: "Kristoff's loyal reindeer. Physical performance.", capacity: 1, sortOrder: 14 },
+  { id: "role-duke", productionId: "prod-frozen", name: "Duke of Weselton", tier: "supporting", description: "Scheming visiting dignitary. Character comedy.", capacity: 1, sortOrder: 15 },
+  { id: "role-oaken", productionId: "prod-frozen", name: "Oaken", tier: "supporting", description: "Warm trading-post owner ('Hygge').", capacity: 1, sortOrder: 16 },
+  { id: "role-pabbie", productionId: "prod-frozen", name: "Pabbie", tier: "supporting", description: "Wise leader of the Hidden Folk.", capacity: 1, sortOrder: 17 },
+  { id: "role-bulda", productionId: "prod-frozen", name: "Bulda", tier: "supporting", description: "Lively Hidden Folk leader; humor in group scenes.", capacity: 1, sortOrder: 18 },
+
+  // Featured roles
+  { id: "role-agnarr", productionId: "prod-frozen", name: "King Agnarr", tier: "featured", description: "The sisters' father.", capacity: 1, sortOrder: 20 },
+  { id: "role-iduna", productionId: "prod-frozen", name: "Queen Iduna", tier: "featured", description: "The sisters' mother.", capacity: 1, sortOrder: 21 },
+  { id: "role-bishop", productionId: "prod-frozen", name: "Bishop", tier: "featured", description: "Crowns Elsa at the coronation.", capacity: 1, sortOrder: 22 },
+  { id: "role-kai", productionId: "prod-frozen", name: "Kai", tier: "featured", description: "Castle steward with featured lines.", capacity: 1, sortOrder: 23 },
+  { id: "role-gerda", productionId: "prod-frozen", name: "Gerda", tier: "featured", description: "Castle staff with featured lines.", capacity: 1, sortOrder: 24 },
+
+  // Ensemble groups (multiple students each)
+  { id: "role-hidden-folk", productionId: "prod-frozen", name: "Hidden Folk", tier: "ensemble", description: "The mystical family who raise Kristoff.", capacity: null, sortOrder: 30 },
+  { id: "role-townspeople", productionId: "prod-frozen", name: "Townspeople of Arendelle", tier: "ensemble", description: "Coronation day and village scenes.", capacity: null, sortOrder: 31 },
+  { id: "role-castle-staff", productionId: "prod-frozen", name: "Castle Staff", tier: "ensemble", description: "Servants and stewards of the castle.", capacity: null, sortOrder: 32 },
+  { id: "role-snow-chorus", productionId: "prod-frozen", name: "Snow Chorus", tier: "ensemble", description: "Elsa's magic given voice ('Vuelie', 'Let It Go').", capacity: null, sortOrder: 33 },
+  { id: "role-summer-chorus", productionId: "prod-frozen", name: "Summer Chorus", tier: "ensemble", description: "Olaf's summer daydream ('In Summer').", capacity: null, sortOrder: 34 },
+  { id: "role-oakens-family", productionId: "prod-frozen", name: "Oaken's Family", tier: "ensemble", description: "The sauna family ('Hygge').", capacity: null, sortOrder: 35 },
 ];
 
 export const products: Product[] = [

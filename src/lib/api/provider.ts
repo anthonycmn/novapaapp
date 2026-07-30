@@ -61,6 +61,16 @@ import type {
 } from "./messages/types";
 import type { Customization, Product } from "./store/catalog";
 import type {
+  AuditionEvaluation,
+  AuditionProfile,
+  CastingBoard,
+  CastingConfirmation,
+  Discipline,
+  GrowthRecommendation,
+  RoleTier,
+  ShowRole,
+} from "./auditions/types";
+import type {
   Review,
   ReviewAggregate,
   ReviewScores,
@@ -476,6 +486,129 @@ export interface DataProvider {
   setThreadStatus(actorId: string, threadId: string, status: ThreadStatus): Promise<MessageThread>;
   markThreadRead(actorId: string, threadId: string): Promise<void>;
   getUnreadMessageCount(actorId: string): Promise<number>;
+
+  /* auditions & casting */
+
+  /** Family (or 13+ student) submits/updates the audition profile. */
+  submitAuditionProfile(
+    actorId: string,
+    input: {
+      studentId: string;
+      productionId: string;
+      preferenceTier: RoleTier;
+      previousRoles: string;
+      hopes: string;
+      /** Must be true — the no-guarantee acknowledgment. */
+      acknowledgedNoGuarantee: boolean;
+    }
+  ): Promise<AuditionProfile>;
+  getAuditionProfile(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<AuditionProfile | null>;
+
+  /**
+   * Staff: every registered student for a production with their audition
+   * profile, materials, and evaluations so far. The "no student forgotten"
+   * roster — driven by registration enrollments.
+   */
+  getAuditionRoster(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{
+      student: Student;
+      profile: AuditionProfile | null;
+      evaluations: AuditionEvaluation[];
+    }>
+  >;
+
+  /** Discipline lead scores a student's rubric. One per discipline/student. */
+  submitEvaluation(
+    actorId: string,
+    input: {
+      studentId: string;
+      productionId: string;
+      discipline: Discipline;
+      scores: Record<string, number>;
+      notes: string;
+      callbackNotes: string;
+    }
+  ): Promise<AuditionEvaluation>;
+
+  getShowRoles(productionId: string): Promise<ShowRole[]>;
+
+  /** The casting board: roles, current entries, and unassigned students. */
+  getCastingBoard(
+    actorId: string,
+    productionId: string
+  ): Promise<{
+    board: CastingBoard;
+    roles: ShowRole[];
+    /** Registered students not yet placed. Must be empty to submit. */
+    unassigned: Student[];
+    studentsById: Record<string, Student>;
+  }>;
+  assignRole(
+    actorId: string,
+    productionId: string,
+    roleId: string,
+    studentId: string
+  ): Promise<void>;
+  unassignRole(actorId: string, productionId: string, studentId: string): Promise<void>;
+
+  /**
+   * Submit casting. Fails unless every registered student is assigned.
+   * Creates published assignments, notifies each family of THEIR child's
+   * role only, and opens the confirmation window.
+   */
+  submitCasting(
+    actorId: string,
+    productionId: string
+  ): Promise<{ assignmentsCreated: number; familiesNotified: number }>;
+
+  /** The family's confirmations for their own children. */
+  getMyCastingConfirmations(
+    actorId: string
+  ): Promise<
+    Array<{
+      confirmation: CastingConfirmation;
+      roleName: string;
+      productionTitle: string;
+      studentName: string;
+    }>
+  >;
+  respondToCasting(
+    actorId: string,
+    confirmationId: string,
+    response: { nameCorrect: boolean; playbillName?: string }
+  ): Promise<CastingConfirmation>;
+
+  /** Family requests feedback → releases that child's rubrics to them. */
+  requestAuditionFeedback(
+    actorId: string,
+    confirmationId: string
+  ): Promise<AuditionEvaluation[]>;
+
+  /** Growth recommendations from the rubric, tied to lessons/classes. */
+  getGrowthRecommendations(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<GrowthRecommendation[]>;
+
+  /** Staff: playbill corrections and confirmation status. */
+  getCastingResponses(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{
+      confirmation: CastingConfirmation;
+      studentName: string;
+      roleName: string;
+    }>
+  >;
 
   /* store catalog: star pages, lessons, and other products */
   getProducts(productionId?: string): Promise<Product[]>;

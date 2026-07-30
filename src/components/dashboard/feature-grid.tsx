@@ -12,6 +12,8 @@ const FAMILY_FEATURES = [
   { href: "/photos", emoji: "📸", label: "Photos", description: "Galleries, and photos of your child" },
   { href: "/family", emoji: "👪", label: "Family profile", description: "Guardians, address, emergency contacts" },
   { href: "/family/documents", emoji: "🗂️", label: "Document vault", description: "Waivers, forms, and receipts" },
+  { href: "/auditions", emoji: "🎬", label: "Auditions", description: "Role preferences and audition info" },
+  { href: "/casting", emoji: "🎉", label: "Casting", description: "Your child's role, playbill confirmation, feedback" },
   { href: "/messages", emoji: "✉️", label: "Message the office", description: "Admin or Health & Safety, privately" },
   { href: "/store", emoji: "🎟️", label: "Spirit buttons", description: "Design and order custom buttons" },
   { href: "/store/catalog", emoji: "⭐", label: "Star pages & lessons", description: "Playbill tributes, voice & acting coaching" },
@@ -26,6 +28,8 @@ const FAMILY_FEATURES = [
 const STAFF_FEATURES = [
   { href: "/admin", emoji: "🛠️", label: "Staff tools", description: "Everything waiting on you, system status" },
   { href: "/admin/messages", emoji: "📨", label: "Family messages", description: "Inbox for your role" },
+  { href: "/admin/auditions/prod-frozen", emoji: "🎬", label: "Audition roster", description: "Rubrics for Frozen Jr. auditions" },
+  { href: "/admin/casting/prod-frozen", emoji: "🎭", label: "Casting board", description: "Drag students into Frozen Jr. roles" },
   { href: "/admin/email", emoji: "📧", label: "Email families", description: "Templates, targeting, send history" },
   { href: "/admin/questions", emoji: "💬", label: "Question queue", description: "Answer families privately" },
   { href: "/admin/health", emoji: "🩺", label: "Health & safety", description: "Form status, emergency roster" },

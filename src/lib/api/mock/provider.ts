@@ -87,6 +87,18 @@ import type {
   ThreadWithMessages,
 } from "../messages/types";
 import { priceFor, type Customization, type Product } from "../store/catalog";
+import {
+  RECOMMENDATION_THRESHOLD,
+  RUBRIC_CRITERIA,
+  type AuditionEvaluation,
+  type AuditionProfile,
+  type CastingBoard,
+  type CastingConfirmation,
+  type Discipline,
+  type GrowthRecommendation,
+  type RoleTier,
+  type ShowRole,
+} from "../auditions/types";
 import * as seed from "./seed-data";
 
 /**
@@ -150,6 +162,11 @@ interface Store {
   threads: MessageThread[];
   messages: Message[];
   products: Product[];
+  showRoles: ShowRole[];
+  auditionProfiles: AuditionProfile[];
+  auditionEvaluations: AuditionEvaluation[];
+  castingBoards: Map<string, CastingBoard>;
+  castingConfirmations: CastingConfirmation[];
 }
 
 function deepClone<T>(value: T): T {
@@ -214,6 +231,11 @@ function buildStore(): Store {
     threads: [],
     messages: [],
     products: deepClone(seed.products),
+    showRoles: deepClone(seed.showRoles),
+    auditionProfiles: [],
+    auditionEvaluations: [],
+    castingBoards: new Map(),
+    castingConfirmations: [],
   };
 }
 
@@ -2759,6 +2781,531 @@ export class MockDataProvider implements DataProvider {
       (message) =>
         threadIds.has(message.threadId) && message.authorSide !== mySide && !message.readAt
     ).length;
+  }
+
+  /* ── auditions & casting ──────────────────────────────────────────── */
+
+  /** Registered = enrolled in this production. The roster's source of truth. */
+  private registeredStudents(productionId: string): Student[] {
+    const enrolledIds = new Set(
+      store.enrollments
+        .filter((e) => e.productionId === productionId && e.status === "enrolled")
+        .map((e) => e.studentId)
+    );
+    return store.students.filter((s) => enrolledIds.has(s.id));
+  }
+
+  async submitAuditionProfile(
+    actorId: string,
+    input: {
+      studentId: string;
+      productionId: string;
+      preferenceTier: RoleTier;
+      previousRoles: string;
+      hopes: string;
+      acknowledgedNoGuarantee: boolean;
+    }
+  ): Promise<AuditionProfile> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === input.studentId);
+    if (!student) throw new Error("Student not found");
+
+    // A parent of this child, or the student themself if they're 13+ with
+    // their own login. Staff never write audition profiles.
+    const isOwnParent = actor.role === "parent" && actor.familyId === student.familyId;
+    const isSelf =
+      actor.role === "student" &&
+      actor.familyId === student.familyId &&
+      student.hasLogin;
+    if (!isOwnParent && !isSelf) {
+      throw new AccessDeniedError("Only this student's family can submit their audition profile");
+    }
+
+    if (!input.acknowledgedNoGuarantee) {
+      throw new Error(
+        "Please confirm you understand that a preference doesn't guarantee a specific part"
+      );
+    }
+    if (!this.registeredStudents(input.productionId).some((s) => s.id === student.id)) {
+      throw new Error("This student isn't registered for that production");
+    }
+
+    const existing = store.auditionProfiles.find(
+      (p) => p.studentId === input.studentId && p.productionId === input.productionId
+    );
+    if (existing) {
+      existing.preferenceTier = input.preferenceTier;
+      existing.previousRoles = input.previousRoles;
+      existing.hopes = input.hopes;
+      existing.updatedAt = nowIso();
+      return deepClone(existing);
+    }
+
+    const profile: AuditionProfile = {
+      id: nextId("aud"),
+      studentId: input.studentId,
+      productionId: input.productionId,
+      preferenceTier: input.preferenceTier,
+      previousRoles: input.previousRoles,
+      hopes: input.hopes,
+      acknowledgedNoGuaranteeAt: nowIso(),
+      submittedByUserId: actor.id,
+      submittedByRole: actor.role === "student" ? "student" : "parent",
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    store.auditionProfiles.push(profile);
+    return deepClone(profile);
+  }
+
+  async getAuditionProfile(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<AuditionProfile | null> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) return null;
+    assertStudentAccess(actor, student); // own family or staff
+    return deepClone(
+      store.auditionProfiles.find(
+        (p) => p.studentId === studentId && p.productionId === productionId
+      ) ?? null
+    );
+  }
+
+  async getAuditionRoster(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{
+      student: Student;
+      profile: AuditionProfile | null;
+      evaluations: AuditionEvaluation[];
+    }>
+  > {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    return this.registeredStudents(productionId).map((student) => ({
+      student: deepClone(student),
+      profile: deepClone(
+        store.auditionProfiles.find(
+          (p) => p.studentId === student.id && p.productionId === productionId
+        ) ?? null
+      ),
+      evaluations: deepClone(
+        store.auditionEvaluations.filter(
+          (e) => e.studentId === student.id && e.productionId === productionId
+        )
+      ),
+    }));
+  }
+
+  async submitEvaluation(
+    actorId: string,
+    input: {
+      studentId: string;
+      productionId: string;
+      discipline: Discipline;
+      scores: Record<string, number>;
+      notes: string;
+      callbackNotes: string;
+    }
+  ): Promise<AuditionEvaluation> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    // Scores must cover exactly this discipline's criteria, each 1–5.
+    const criteria = RUBRIC_CRITERIA[input.discipline].map((c) => c.key);
+    for (const key of criteria) {
+      const value = input.scores[key];
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        throw new Error(`Score each rubric line 1–5 (missing: ${key})`);
+      }
+    }
+
+    const existing = store.auditionEvaluations.find(
+      (e) =>
+        e.studentId === input.studentId &&
+        e.productionId === input.productionId &&
+        e.discipline === input.discipline
+    );
+    if (existing) {
+      existing.scores = { ...input.scores };
+      existing.notes = input.notes;
+      existing.callbackNotes = input.callbackNotes;
+      existing.evaluatorStaffId = actor.staffId ?? actor.id;
+      existing.evaluatorName = actor.displayName;
+      existing.updatedAt = nowIso();
+      return deepClone(existing);
+    }
+
+    const evaluation: AuditionEvaluation = {
+      id: nextId("eval"),
+      studentId: input.studentId,
+      productionId: input.productionId,
+      discipline: input.discipline,
+      evaluatorStaffId: actor.staffId ?? actor.id,
+      evaluatorName: actor.displayName,
+      scores: { ...input.scores },
+      notes: input.notes,
+      callbackNotes: input.callbackNotes,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    store.auditionEvaluations.push(evaluation);
+    return deepClone(evaluation);
+  }
+
+  async getShowRoles(productionId: string): Promise<ShowRole[]> {
+    return deepClone(
+      store.showRoles
+        .filter((role) => role.productionId === productionId)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    );
+  }
+
+  private boardFor(productionId: string): CastingBoard {
+    let board = store.castingBoards.get(productionId);
+    if (!board) {
+      board = { productionId, status: "drafting", entries: [] };
+      store.castingBoards.set(productionId, board);
+    }
+    return board;
+  }
+
+  async getCastingBoard(
+    actorId: string,
+    productionId: string
+  ): Promise<{
+    board: CastingBoard;
+    roles: ShowRole[];
+    unassigned: Student[];
+    studentsById: Record<string, Student>;
+  }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const board = this.boardFor(productionId);
+    const registered = this.registeredStudents(productionId);
+    const assignedIds = new Set(board.entries.map((entry) => entry.studentId));
+
+    return {
+      board: deepClone(board),
+      roles: await this.getShowRoles(productionId),
+      unassigned: deepClone(registered.filter((s) => !assignedIds.has(s.id))),
+      studentsById: Object.fromEntries(registered.map((s) => [s.id, deepClone(s)])),
+    };
+  }
+
+  async assignRole(
+    actorId: string,
+    productionId: string,
+    roleId: string,
+    studentId: string
+  ): Promise<void> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const board = this.boardFor(productionId);
+    if (board.status === "submitted") {
+      throw new Error("Casting has already been submitted");
+    }
+    const role = store.showRoles.find(
+      (r) => r.id === roleId && r.productionId === productionId
+    );
+    if (!role) throw new Error("Role not found");
+    if (!this.registeredStudents(productionId).some((s) => s.id === studentId)) {
+      throw new Error("That student isn't registered for this production");
+    }
+
+    // A student holds exactly one role: placing them moves them.
+    board.entries = board.entries.filter((entry) => entry.studentId !== studentId);
+
+    // Named roles hold one student; assigning over a full role replaces the
+    // occupant (they return to Unassigned) rather than silently double-casting.
+    if (role.capacity !== null) {
+      const occupants = board.entries.filter((entry) => entry.roleId === roleId);
+      if (occupants.length >= role.capacity) {
+        board.entries = board.entries.filter((entry) => entry.roleId !== roleId);
+      }
+    }
+
+    board.entries.push({ roleId, studentId });
+  }
+
+  async unassignRole(actorId: string, productionId: string, studentId: string): Promise<void> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const board = this.boardFor(productionId);
+    if (board.status === "submitted") {
+      throw new Error("Casting has already been submitted");
+    }
+    board.entries = board.entries.filter((entry) => entry.studentId !== studentId);
+  }
+
+  async submitCasting(
+    actorId: string,
+    productionId: string
+  ): Promise<{ assignmentsCreated: number; familiesNotified: number }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const board = this.boardFor(productionId);
+    if (board.status === "submitted") {
+      throw new Error("Casting has already been submitted");
+    }
+
+    // The hard rule: every registered student has a role. No one forgotten.
+    const registered = this.registeredStudents(productionId);
+    const assignedIds = new Set(board.entries.map((entry) => entry.studentId));
+    const missing = registered.filter((s) => !assignedIds.has(s.id));
+    if (missing.length > 0) {
+      throw new Error(
+        `Every student must have a role before submitting. Still unassigned: ${missing
+          .map((s) => `${s.preferredName ?? s.firstName} ${s.lastName}`)
+          .join(", ")}`
+      );
+    }
+
+    const production = store.productions.find((p) => p.id === productionId);
+    const rolesById = new Map(store.showRoles.map((role) => [role.id, role]));
+
+    let assignmentsCreated = 0;
+    const notifiedFamilies = new Set<string>();
+
+    for (const entry of board.entries) {
+      const role = rolesById.get(entry.roleId);
+      const student = store.students.find((s) => s.id === entry.studentId);
+      if (!role || !student) continue;
+
+      // Published assignment — reuses the existing casting infrastructure,
+      // so show history and profile pages pick it up automatically.
+      const assignment = {
+        id: nextId("cast"),
+        productionId,
+        studentId: student.id,
+        characterName: role.name,
+        castGroup: role.tier === "ensemble" ? role.name : undefined,
+        isUnderstudy: false,
+        rehearsalTrack: undefined,
+        publishedAt: nowIso(),
+      };
+      store.casting.push(assignment);
+      assignmentsCreated += 1;
+
+      store.showHistory.push({
+        id: nextId("sh"),
+        studentId: student.id,
+        productionTitle: production?.title ?? "Production",
+        role: role.name,
+        seasonName: store.seasons.find((s) => s.isCurrent)?.name ?? "",
+        director: undefined,
+        venue: production?.venue,
+        organization: undefined,
+        fromCasting: true,
+        year: production?.opensOn?.slice(0, 4) ?? "",
+      });
+
+      // The confirmation record the family responds to.
+      store.castingConfirmations.push({
+        id: nextId("conf"),
+        assignmentId: assignment.id,
+        studentId: student.id,
+        familyId: student.familyId,
+      });
+
+      // Notify THIS family about THIS child only. The notification itself
+      // carries the role, so no cast list ever crosses family lines.
+      for (const parent of store.users.filter(
+        (u) => u.role === "parent" && u.familyId === student.familyId
+      )) {
+        if (!this.prefAllows(parent.id, "casting_released")) continue;
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: parent.id,
+          type: "casting_released",
+          title: `Casting for ${production?.title ?? "the show"} 🎉`,
+          body: `${student.preferredName ?? student.firstName} will be: ${role.name}. Tap to confirm the name for the playbill.`,
+          url: "/casting",
+          createdAt: nowIso(),
+        });
+        notifiedFamilies.add(student.familyId);
+      }
+    }
+
+    board.status = "submitted";
+    board.submittedAt = nowIso();
+    board.submittedByName = actor.displayName;
+
+    return { assignmentsCreated, familiesNotified: notifiedFamilies.size };
+  }
+
+  async getMyCastingConfirmations(actorId: string): Promise<
+    Array<{
+      confirmation: CastingConfirmation;
+      roleName: string;
+      productionTitle: string;
+      studentName: string;
+    }>
+  > {
+    const actor = getActor(actorId);
+    if (!actor.familyId) return [];
+
+    return store.castingConfirmations
+      .filter((confirmation) => confirmation.familyId === actor.familyId)
+      .map((confirmation) => {
+        const assignment = store.casting.find((c) => c.id === confirmation.assignmentId);
+        const production = store.productions.find(
+          (p) => p.id === assignment?.productionId
+        );
+        const student = store.students.find((s) => s.id === confirmation.studentId);
+        return {
+          confirmation: deepClone(confirmation),
+          roleName: assignment?.characterName ?? "",
+          productionTitle: production?.title ?? "",
+          studentName: student
+            ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+            : "",
+        };
+      });
+  }
+
+  private confirmationForFamily(actorId: string, confirmationId: string): CastingConfirmation {
+    const actor = getActor(actorId);
+    const confirmation = store.castingConfirmations.find((c) => c.id === confirmationId);
+    if (!confirmation) throw new Error("Confirmation not found");
+    if (actor.familyId !== confirmation.familyId && !isAdmin(actor)) {
+      throw new AccessDeniedError("Not your child's casting");
+    }
+    return confirmation;
+  }
+
+  async respondToCasting(
+    actorId: string,
+    confirmationId: string,
+    response: { nameCorrect: boolean; playbillName?: string }
+  ): Promise<CastingConfirmation> {
+    const confirmation = this.confirmationForFamily(actorId, confirmationId);
+    confirmation.nameCorrect = response.nameCorrect;
+    confirmation.respondedAt = nowIso();
+    if (!response.nameCorrect) {
+      const corrected = response.playbillName?.trim();
+      if (!corrected) {
+        throw new Error("Tell us exactly what the playbill should print");
+      }
+      confirmation.playbillName = corrected;
+
+      // Tell staff a playbill correction arrived.
+      const student = store.students.find((s) => s.id === confirmation.studentId);
+      for (const staff of store.users.filter((u) => isStaffish(u))) {
+        if (!isAdmin(staff)) continue;
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: staff.id,
+          type: "broadcast",
+          title: "Playbill name correction",
+          body: `${student?.firstName ?? "A student"} → "${corrected}"`,
+          url: "/admin/casting-responses",
+          createdAt: nowIso(),
+        });
+      }
+    } else {
+      confirmation.playbillName = undefined;
+    }
+    return deepClone(confirmation);
+  }
+
+  async requestAuditionFeedback(
+    actorId: string,
+    confirmationId: string
+  ): Promise<AuditionEvaluation[]> {
+    const confirmation = this.confirmationForFamily(actorId, confirmationId);
+    if (!confirmation.feedbackRequestedAt) {
+      confirmation.feedbackRequestedAt = nowIso();
+    }
+    const assignment = store.casting.find((c) => c.id === confirmation.assignmentId);
+    if (!assignment) return [];
+
+    // Release the rubrics and evaluator notes for THIS child only.
+    // callbackNotes stay staff-internal: strip them from the release.
+    return store.auditionEvaluations
+      .filter(
+        (evaluation) =>
+          evaluation.studentId === confirmation.studentId &&
+          evaluation.productionId === assignment.productionId
+      )
+      .map((evaluation) => ({ ...deepClone(evaluation), callbackNotes: "" }));
+  }
+
+  async getGrowthRecommendations(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<GrowthRecommendation[]> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) return [];
+    assertStudentAccess(actor, student);
+
+    // Which catalog products / registration classes address each discipline.
+    // The class link is the theoretical registration-system bridge for now.
+    const OFFERINGS: Record<Discipline, { productIds: string[]; classIds: string[] }> = {
+      vocal: { productIds: ["prod-voice-lessons"], classIds: ["class-voice1"] },
+      dance: { productIds: ["prod-dance-lessons"], classIds: ["class-mtd2"] },
+      acting: { productIds: ["prod-acting-lessons"], classIds: [] },
+    };
+    const LABEL: Record<Discipline, string> = {
+      vocal: "singing",
+      dance: "dance",
+      acting: "acting",
+    };
+
+    const recommendations: GrowthRecommendation[] = [];
+    for (const evaluation of store.auditionEvaluations.filter(
+      (e) => e.studentId === studentId && e.productionId === productionId
+    )) {
+      const values = Object.values(evaluation.scores);
+      if (values.length === 0) continue;
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      if (average >= RECOMMENDATION_THRESHOLD) continue;
+
+      recommendations.push({
+        discipline: evaluation.discipline,
+        averageScore: Math.round(average * 10) / 10,
+        ...OFFERINGS[evaluation.discipline],
+        message: `Growing ${LABEL[evaluation.discipline]} skills between shows makes the biggest difference at the next audition.`,
+      });
+    }
+    return recommendations;
+  }
+
+  async getCastingResponses(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{ confirmation: CastingConfirmation; studentName: string; roleName: string }>
+  > {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    return store.castingConfirmations
+      .filter((confirmation) => {
+        const assignment = store.casting.find((c) => c.id === confirmation.assignmentId);
+        return assignment?.productionId === productionId;
+      })
+      .map((confirmation) => {
+        const assignment = store.casting.find((c) => c.id === confirmation.assignmentId);
+        const student = store.students.find((s) => s.id === confirmation.studentId);
+        return {
+          confirmation: deepClone(confirmation),
+          studentName: student
+            ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+            : "",
+          roleName: assignment?.characterName ?? "",
+        };
+      });
   }
 
   /* ── store catalog ────────────────────────────────────────────────── */
