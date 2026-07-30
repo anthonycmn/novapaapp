@@ -68,20 +68,12 @@ export default async function CastingPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
-                  {confirmation.nameCorrect === undefined ? (
-                    <ConfirmForm
-                      confirmationId={confirmation.id}
-                      studentName={studentName}
-                    />
-                  ) : (
-                    <p className="rounded-lg bg-muted p-3 text-sm">
-                      Playbill will print:{" "}
-                      <span className="font-semibold">
-                        {confirmation.playbillName ?? studentName}
-                      </span>{" "}
-                      ✓
-                    </p>
-                  )}
+                  <ConfirmForm
+                    confirmationId={confirmation.id}
+                    studentName={studentName}
+                    responded={confirmation.nameCorrect !== undefined}
+                    currentPlaybillName={confirmation.playbillName}
+                  />
 
                   <div className="border-t pt-4">
                     {!feedbackReleased ? (

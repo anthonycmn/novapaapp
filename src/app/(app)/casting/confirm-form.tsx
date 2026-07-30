@@ -9,16 +9,52 @@ import { FieldError } from "@/components/forms/field-error";
 
 const initial: FamilyFormState = { ok: false };
 
+/**
+ * Playbill confirmation. Whatever the family types is final — there is no
+ * staff approval step (org policy). Because of that, the family can reopen
+ * and change their answer any time before print; a typo they can't fix
+ * themselves would otherwise go straight into the playbill.
+ */
 export function ConfirmForm({
   confirmationId,
   studentName,
+  responded,
+  currentPlaybillName,
 }: {
   confirmationId: string;
   studentName: string;
+  /** Has the family already answered? */
+  responded: boolean;
+  /** The correction on file, when they answered "no". */
+  currentPlaybillName?: string;
 }) {
-  const [choice, setChoice] = useState<"yes" | "no" | null>(null);
+  const [editing, setEditing] = useState(!responded);
+  const [choice, setChoice] = useState<"yes" | "no" | null>(
+    currentPlaybillName ? "no" : null
+  );
   const bound = respondToCastingAction.bind(null, confirmationId);
-  const [state, formAction, pending] = useActionState(bound, initial);
+  const [state, formAction, pending] = useActionState(
+    async (prev: FamilyFormState, formData: FormData) => {
+      const result = await bound(prev, formData);
+      if (result.ok) setEditing(false);
+      return result;
+    },
+    initial
+  );
+
+  if (!editing) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-lg bg-muted p-3">
+        <p className="text-sm">
+          Playbill will print:{" "}
+          <span className="font-semibold">{currentPlaybillName ?? studentName}</span> ✓
+        </p>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(true)}>
+          Change
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
@@ -54,20 +90,32 @@ export function ConfirmForm({
           <Input
             id={`playbill-${confirmationId}`}
             name="playbillName"
+            defaultValue={currentPlaybillName ?? ""}
             placeholder={studentName}
             maxLength={80}
             required
           />
+          <p className="text-xs text-muted-foreground">
+            This goes to print exactly as typed — please double-check spelling,
+            capitalization, and accents.
+          </p>
         </div>
       )}
 
       <FieldError message={state.errors?._form} />
 
-      {choice && (
-        <Button type="submit" disabled={pending} className="self-start">
-          {pending ? "Sending…" : "Confirm"}
-        </Button>
-      )}
+      <div className="flex gap-2">
+        {choice && (
+          <Button type="submit" disabled={pending}>
+            {pending ? "Sending…" : "Confirm"}
+          </Button>
+        )}
+        {responded && (
+          <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

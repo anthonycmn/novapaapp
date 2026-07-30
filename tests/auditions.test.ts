@@ -280,6 +280,50 @@ describe("family notification & confirmation — no cast list ever", () => {
     ).toBe(true);
   });
 
+  it("ORG POLICY: the parent's correction is final — no approval step, and they can revise it", async () => {
+    await castEveryone();
+    await provider.submitCasting("user-dana", "prod-frozen");
+    const [mine] = await provider.getMyCastingConfirmations("user-minh");
+
+    // First correction takes effect immediately with no pending/approval state.
+    await provider.respondToCasting("user-minh", mine.confirmation.id, {
+      nameCorrect: false,
+      playbillName: "Lily Ngyuen", // typo'd on purpose
+    });
+    let responses = await provider.getCastingResponses("user-dana", "prod-frozen");
+    expect(responses.some((r) => r.confirmation.playbillName === "Lily Ngyuen")).toBe(true);
+
+    // Because it's final, the family must be able to fix their own typo.
+    await provider.respondToCasting("user-minh", mine.confirmation.id, {
+      nameCorrect: false,
+      playbillName: "Lily Nguyễn",
+    });
+    responses = await provider.getCastingResponses("user-dana", "prod-frozen");
+    expect(responses.some((r) => r.confirmation.playbillName === "Lily Nguyễn")).toBe(true);
+    expect(responses.some((r) => r.confirmation.playbillName === "Lily Ngyuen")).toBe(false);
+
+    // And flipping back to "yes" clears the correction entirely.
+    await provider.respondToCasting("user-minh", mine.confirmation.id, {
+      nameCorrect: true,
+    });
+    responses = await provider.getCastingResponses("user-dana", "prod-frozen");
+    const row = responses.find((r) => r.confirmation.id === mine.confirmation.id)!;
+    expect(row.confirmation.playbillName).toBeUndefined();
+    expect(row.confirmation.nameCorrect).toBe(true);
+  });
+
+  it("ORG POLICY: no two students ever share a named role, at any capacity", async () => {
+    const roles = await provider.getShowRoles("prod-frozen");
+    // Every non-ensemble role has capacity exactly 1.
+    for (const role of roles.filter((r) => r.tier !== "ensemble")) {
+      expect(role.capacity).toBe(1);
+    }
+    // Ensemble groups are unlimited — multiple students is fine.
+    for (const role of roles.filter((r) => r.tier === "ensemble")) {
+      expect(role.capacity).toBeNull();
+    }
+  });
+
   it("another family cannot respond to your confirmation", async () => {
     await castEveryone();
     await provider.submitCasting("user-dana", "prod-frozen");
