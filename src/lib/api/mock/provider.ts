@@ -246,6 +246,34 @@ export function resetMockStore() {
   store = buildStore();
 }
 
+/* ── snapshot serialization (for cross-instance persistence) ────────────
+ * On serverless hosts every function instance gets its own module memory,
+ * so "saving" to this store would silently vanish between requests. The
+ * persistence layer (mock/persistence.ts) snapshots the whole store to
+ * Netlify Blobs after each write and reloads it before reads.
+ *
+ * Maps aren't JSON, so they round-trip through a {__map: entries} marker.
+ * The id counter and monotonic clock travel with the snapshot — otherwise
+ * a fresh instance would mint colliding ids.
+ */
+
+export function serializeMockStore(): string {
+  return JSON.stringify({ store, idCounter, lastNow }, (_key, value) =>
+    value instanceof Map ? { __map: [...(value as Map<unknown, unknown>).entries()] } : value
+  );
+}
+
+export function restoreMockStore(json: string): void {
+  const parsed = JSON.parse(json, (_key, value) =>
+    value && typeof value === "object" && "__map" in (value as object)
+      ? new Map((value as { __map: [unknown, unknown][] }).__map)
+      : value
+  ) as { store: Store; idCounter: number; lastNow: number };
+  store = parsed.store;
+  idCounter = Math.max(idCounter, parsed.idCounter);
+  lastNow = Math.max(lastNow, parsed.lastNow);
+}
+
 let idCounter = 1000;
 const nextId = (prefix: string) => `${prefix}-${idCounter++}`;
 

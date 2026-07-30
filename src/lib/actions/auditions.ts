@@ -85,10 +85,11 @@ export async function submitEvaluationAction(
     scores[criterion.key] = Number(formData.get(`score_${criterion.key}`) ?? 0);
   }
 
+  const productionId = String(formData.get("productionId"));
   try {
     await getProvider().submitEvaluation(user.id, {
       studentId: String(formData.get("studentId")),
-      productionId: String(formData.get("productionId")),
+      productionId,
       discipline,
       scores,
       notes: String(formData.get("notes") ?? ""),
@@ -97,7 +98,10 @@ export async function submitEvaluationAction(
   } catch (error) {
     return fail(error);
   }
-  revalidatePath("/admin/auditions");
+  // Must be the exact dynamic path — revalidating the bare parent segment
+  // does not invalidate /admin/auditions/[productionId], so the "n/3
+  // scored" summary went stale after a save.
+  revalidatePath(`/admin/auditions/${productionId}`);
   return { ok: true };
 }
 
