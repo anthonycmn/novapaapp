@@ -1,0 +1,40 @@
+# Netlify configuration for the NOVA PA Family Hub.
+#
+# This is a standalone app — it shares no configuration, domain, or build
+# with any other NOVA PA site.
+
+[build]
+  command = "npm run build"
+  # Next.js Runtime v5 reads the standard .next output.
+  publish = ".next"
+
+[build.environment]
+  # Pin the Node version so a Netlify default bump can't break the build.
+  NODE_VERSION = "22"
+  # Netlify's CI installs devDependencies by default; be explicit since the
+  # build needs TypeScript and Tailwind.
+  NPM_FLAGS = "--include=dev"
+
+# Official Next.js runtime: handles App Router, server components, server
+# actions, and route handlers as serverless functions.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Security headers. The app handles children's data, so these are not
+# optional niceties.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+# The service worker must never be cached, or families get stuck on an old
+# version of the app after a deploy.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
