@@ -153,7 +153,7 @@ export async function respondToCastingAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
-  const nameCorrect = formData.get("response") === "yes";
+  const nameCorrect = formData.get("decision") === "yes";
   try {
     await getProvider().respondToCasting(user.id, confirmationId, {
       nameCorrect,

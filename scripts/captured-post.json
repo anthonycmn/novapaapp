@@ -1,0 +1,12 @@
+{
+  "url": "https://novapa-family-hub.netlify.app/casting",
+  "headers": {
+    "next-action": "7028e79f308866d1faa1442410f794b8beaf5987ad",
+    "referer": "https://novapa-family-hub.netlify.app/casting",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+    "accept": "text/x-component",
+    "content-type": "multipart/form-data; boundary=----WebKitFormBoundaryCP0OPw1uLUBGq5cW",
+    "next-router-state-tree": "%5B%22%22%2C%7B%22children%22%3A%5B%22(app)%22%2C%7B%22children%22%3A%5B%22casting%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%5D%7D%2Cnull%2Cnull%2Ctrue%5D"
+  },
+  "postData": "------WebKitFormBoundaryCP0OPw1uLUBGq5cW\r\nContent-Disposition: form-data; name=\"_1_response\"\r\n\r\nyes\r\n------WebKitFormBoundaryCP0OPw1uLUBGq5cW\r\nContent-Disposition: form-data; name=\"0\"\r\n\r\n[\"conf-1005\",{\"ok\":false},\"$K1\"]\r\n------WebKitFormBoundaryCP0OPw1uLUBGq5cW--\r\n"
+}

@@ -58,7 +58,12 @@ export function ConfirmForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
-      <input type="hidden" name="response" value={choice ?? ""} />
+      {/* Named "decision", NOT "response": Netlify's platform rejects any
+          multipart field ending in "_response" with a bare 403 before the
+          request reaches the app (React prefixes field names, so "response"
+          becomes "_1_response"). Diagnosed by replaying the captured POST
+          and bisecting field names. Avoid that suffix in all form fields. */}
+      <input type="hidden" name="decision" value={choice ?? ""} />
 
       <p className="text-sm font-medium">
         Is &ldquo;{studentName}&rdquo; exactly how the name should appear in the
