@@ -219,7 +219,10 @@ export function CastingBoardView({
           <Button
             type="submit"
             size="lg"
-            disabled={submitting || unassigned.length > 0}
+            // `pending` matters: submitting while an assign/remove refresh is
+            // still applying makes React discard the submit action's result —
+            // the server processes it but the screen never updates.
+            disabled={submitting || pending || unassigned.length > 0}
           >
             {submitting ? "Submitting…" : "Submit casting & notify families"}
           </Button>
@@ -477,7 +480,7 @@ function UnderstudySection({
               </p>
             )}
             <FieldError message={publishState.errors?._form} />
-            <Button type="submit" variant="secondary" disabled={publishing}>
+            <Button type="submit" variant="secondary" disabled={publishing || pending}>
               {publishing ? "Publishing…" : "Publish understudies & notify families"}
             </Button>
           </form>
