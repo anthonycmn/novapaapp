@@ -140,7 +140,14 @@ try {
 
   await clickButton("Leo Martinez");
   await settle(400);
-  await clickRoleSlot("Anna");
+  // Two "Anna" headings exist now (main grid + understudy section); the
+  // understudy slot is the LAST one in document order.
+  await page.evaluate(() => {
+    const headings = [...document.querySelectorAll("p")].filter(
+      (p) => p.innerText.trim() === "Anna"
+    );
+    headings[headings.length - 1]?.closest("div.rounded-xl")?.click();
+  });
   await settle(3000);
   await page.waitForFunction(() => document.body.innerText.includes("Leo Martinez (u/s)"), { timeout: 60000 }).catch(() => {});
   const covered = await bodyIncludes("Leo Martinez (u/s)");

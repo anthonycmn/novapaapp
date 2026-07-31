@@ -60,3 +60,26 @@ Running log of decisions made autonomously during the build. Newest at the botto
 - **2026-07-27 — Named roles are strictly one student; ensemble groups hold many.** Tony confirmed: "If there are multiple people in an ensemble, that is okay, but I do not want any student to receive the same named role." Every non-ensemble Frozen Jr. role is seeded with capacity 1, and a policy test asserts no named role can ever be multi-capacity.
 - **2026-07-27 — The parent's playbill correction is final. No staff approval step.** Direct consequence: the family must be able to revise their own answer (a typo they couldn't fix would go to print), so the confirmation form reopens via a "Change" button, the input warns that text goes to print exactly as typed, and a test proves corrections can be revised and cleared. Staff see the latest spelling on the responses page.
 - **2026-07-27 — Never name a form field anything ending in "response".** Netlify's platform returns a bare 403 (empty body, before the request reaches the app) for any multipart POST containing a field whose name ends in `_response` — and React prefixes server-action form fields, turning `response` into `_1_response`. Diagnosed by capturing the exact browser POST with puppeteer and bisecting field names against the live endpoint: `_1_response`, `x_response`, `1_response` → 403; `response`, `_1_answer`, `myresponse` → pass. The confirmation form's field is now `decision`. Related: the same day, the Git-linked build auto-enabled Netlify Forms detection, whose handler also intercepted ALL multipart posts — forms processing is disabled at the site level and must stay off.
+
+## Casting v2 (2026-07-31)
+- **Understudies cover LEAD roles only**, cast after the main board is
+  submitted (per Tony: duplicate the students' tags after all roles are
+  filled). One understudy per lead, one lead per student, and a student
+  can't cover a role they hold. Holes never block publishing — they're
+  flagged instead.
+- **Scene/song mapping**: Frozen Jr.'s MTI musical numbers are seeded as
+  the "curriculum" with the roles called for each. When the admin's real
+  script/curriculum upload arrives (Tony will provide registration data
+  later), it replaces the seed — everything downstream reads ShowScene.
+- **Role-driven calendar**: a rehearsal tagged with scenes appears only
+  on the calendars of students whose published role (or covered lead) is
+  called. Untagged events keep whole-production behavior. Before casting
+  is published, tagged rehearsals stay visible to all enrolled students
+  rather than hiding schedules.
+- **Rehearsal notices** ride the existing hourly cron: 24h-before
+  reminder and post-rehearsal thank-you, per family, deduped in
+  store.eventNotices so re-runs never double-send.
+- **Lost-update guard**: submitting the board while an assign action's
+  refresh is still applying makes React discard the response (server
+  still processes it). Submit/publish buttons now disable during any
+  pending assign transition.
