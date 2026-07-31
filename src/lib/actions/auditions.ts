@@ -94,6 +94,7 @@ export async function submitEvaluationAction(
       scores,
       notes: String(formData.get("notes") ?? ""),
       callbackNotes: String(formData.get("callbackNotes") ?? ""),
+      growthNotes: String(formData.get("growthNotes") ?? "") || undefined,
     });
   } catch (error) {
     return fail(error);
@@ -138,6 +139,45 @@ export async function submitCastingAction(
   }
   try {
     await getProvider().submitCasting(user.id, productionId);
+  } catch (error) {
+    return fail(error);
+  }
+  revalidatePath(`/admin/casting/${productionId}`);
+  return { ok: true };
+}
+
+export async function assignUnderstudyAction(
+  productionId: string,
+  roleId: string,
+  studentId: string
+): Promise<void> {
+  const user = await getSessionUser();
+  if (!user || !hasRoleAtLeast(user, "staff")) return;
+  await getProvider().assignUnderstudy(user.id, productionId, roleId, studentId);
+  revalidatePath(`/admin/casting/${productionId}`);
+}
+
+export async function unassignUnderstudyAction(
+  productionId: string,
+  studentId: string
+): Promise<void> {
+  const user = await getSessionUser();
+  if (!user || !hasRoleAtLeast(user, "staff")) return;
+  await getProvider().unassignUnderstudy(user.id, productionId, studentId);
+  revalidatePath(`/admin/casting/${productionId}`);
+}
+
+export async function publishUnderstudiesAction(
+  productionId: string,
+  prev: FamilyFormState
+): Promise<FamilyFormState> {
+  void prev;
+  const user = await getSessionUser();
+  if (!user || !hasRoleAtLeast(user, "staff")) {
+    return { ok: false, errors: { _form: "Staff only" } };
+  }
+  try {
+    await getProvider().publishUnderstudies(user.id, productionId);
   } catch (error) {
     return fail(error);
   }

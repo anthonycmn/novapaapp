@@ -16,9 +16,9 @@ import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
 const provider = new MockDataProvider();
 
 const goodScores = {
-  acting: { characterization: 4, projection: 3, emotional_range: 4, direction: 5 },
-  vocal: { pitch: 3, tone: 3, range: 2, musicality: 3 },
-  dance: { technique: 5, rhythm: 5, pickup: 4, performance: 5 },
+  acting: { diction_projection: 3, characterization: 4, emotional_truth: 4, physicality: 4, direction_taking: 5, focus_listening: 4 },
+  vocal: { pitch_intonation: 3, breath_tone: 3, rhythm_musicality: 3, range_comfort: 2, lyric_diction: 3, song_acting: 2 },
+  dance: { technique_alignment: 5, musicality_timing: 5, pickup_retention: 4, spatial_awareness: 5, performance_energy: 5, control_strength: 5 },
 };
 
 /** Registered for Frozen in seed: Ava, Leo (Martinez), Chidi (Okafor), Liên (Nguyen). */
@@ -137,7 +137,7 @@ describe("rubric evaluations", () => {
         studentId: "stu-ava",
         productionId: "prod-frozen",
         discipline: "acting",
-        scores: { characterization: 6, projection: 3, emotional_range: 4, direction: 5 },
+        scores: { diction_projection: 6, characterization: 3, emotional_truth: 4, physicality: 4, direction_taking: 5, focus_listening: 4 },
         notes: "",
         callbackNotes: "",
       })
@@ -430,6 +430,183 @@ describe("feedback release & recommendations", () => {
     await fullPipeline();
     await expect(
       provider.getGrowthRecommendations("user-ngozi", "stu-ava", "prod-frozen")
+    ).rejects.toThrow(AccessDeniedError);
+  });
+});
+
+describe("understudies — lead roles only, cast after the board is submitted", () => {
+  async function submitBoard() {
+    await castEveryone();
+    await provider.submitCasting("user-dana", "prod-frozen");
+  }
+
+  it("cannot assign an understudy before casting is submitted", async () => {
+    await castEveryone();
+    await expect(
+      provider.assignUnderstudy("user-dana", "prod-frozen", "role-anna", "stu-ava")
+    ).rejects.toThrow(/cast the show first/i);
+  });
+
+  it("only LEAD roles can take an understudy", async () => {
+    await submitBoard();
+    await expect(
+      provider.assignUnderstudy("user-dana", "prod-frozen", "role-snow-chorus", "stu-ava")
+    ).rejects.toThrow(/lead/i);
+  });
+
+  it("a student cannot understudy the role they already hold", async () => {
+    await submitBoard();
+    await expect(
+      provider.assignUnderstudy("user-dana", "prod-frozen", "role-elsa", "stu-ava")
+    ).rejects.toThrow();
+  });
+
+  it("holes are the lead roles still uncovered", async () => {
+    await submitBoard();
+    // 5 Frozen leads: Elsa, Anna, Kristoff, Olaf, Hans.
+    expect(await provider.getUnderstudyHoles("user-dana", "prod-frozen")).toHaveLength(5);
+    await provider.assignUnderstudy("user-dana", "prod-frozen", "role-anna", "stu-ava");
+    const holes = await provider.getUnderstudyHoles("user-dana", "prod-frozen");
+    expect(holes).toHaveLength(4);
+    expect(holes.map((role) => role.id)).not.toContain("role-anna");
+  });
+
+  it("publish notifies only the understudy's own family, and never gates the principal pill", async () => {
+    await submitBoard();
+    const before = (await provider.getNotifications("user-minh")).length;
+    await provider.assignUnderstudy("user-dana", "prod-frozen", "role-anna", "stu-leo");
+    const result = await provider.publishUnderstudies("user-dana", "prod-frozen");
+    expect(result).toEqual({ published: 1, holes: 4 });
+
+    // Leo's family (Martinez) hears about it; Lien's family (Nguyen) does not.
+    const sofia = await provider.getNotifications("user-sofia");
+    expect(sofia.some((n) => n.body.includes("will understudy: Anna"))).toBe(true);
+    expect((await provider.getNotifications("user-minh")).length).toBe(before);
+
+    // Anna's pill still reflects the principal only.
+    const rows = await provider.getCastListStatus("user-dana", "prod-frozen");
+    const anna = rows.find((row) => row.role.id === "role-anna")!;
+    expect(anna.holders.some((h) => h.isUnderstudy)).toBe(true);
+    expect(anna.status).toBe("filled"); // Lien's family hasn't confirmed
+  });
+
+  it("understudies are staff-only to manage", async () => {
+    await submitBoard();
+    await expect(
+      provider.assignUnderstudy("user-sofia", "prod-frozen", "role-anna", "stu-leo")
+    ).rejects.toThrow(AccessDeniedError);
+  });
+});
+
+describe("script & curriculum: scene/song breakdown per child", () => {
+  async function publishCast() {
+    await castEveryone();
+    await provider.submitCasting("user-dana", "prod-frozen");
+  }
+
+  it("shows a parent exactly which scenes/songs their child is in", async () => {
+    await publishCast();
+    const rows = await provider.getStudentSceneBreakdown("user-sofia", "stu-ava", "prod-frozen");
+    const names = rows.map((row) => row.scene.name);
+    expect(names).toContain("Let It Go");
+    expect(names).toContain("Do You Want to Build a Snowman?");
+    // Anna/Hans duet — Elsa is not called.
+    expect(names).not.toContain("Love Is an Open Door");
+    expect(rows.find((row) => row.scene.id === "scn-let-it-go")?.roleName).toBe("Elsa");
+  });
+
+  it("is empty for a student with no published role", async () => {
+    expect(
+      await provider.getStudentSceneBreakdown("user-ngozi", "stu-amara", "prod-frozen")
+    ).toEqual([]);
+  });
+
+  it("understudies see the scenes of the lead they cover, marked", async () => {
+    await publishCast();
+    await provider.assignUnderstudy("user-dana", "prod-frozen", "role-anna", "stu-leo");
+    await provider.publishUnderstudies("user-dana", "prod-frozen");
+    const rows = await provider.getStudentSceneBreakdown("user-sofia", "stu-leo", "prod-frozen");
+    const openDoor = rows.find((row) => row.scene.id === "scn-open-door");
+    expect(openDoor?.isUnderstudy).toBe(true);
+    expect(openDoor?.roleName).toBe("Anna (Understudy)");
+    // His own Snow Chorus scenes are principal, not understudy.
+    const letItGo = rows.find((row) => row.scene.id === "scn-let-it-go");
+    expect(letItGo?.isUnderstudy).toBe(false);
+  });
+
+  it("a parent cannot read another family's breakdown", async () => {
+    await publishCast();
+    await expect(
+      provider.getStudentSceneBreakdown("user-ngozi", "stu-ava", "prod-frozen")
+    ).rejects.toThrow(AccessDeniedError);
+  });
+});
+
+describe("role-driven calendar", () => {
+  it("scene-tagged rehearsals reach only the students whose role is called", async () => {
+    await castEveryone();
+    await provider.submitCasting("user-dana", "prod-frozen");
+
+    // Martinez: Ava (Elsa) + Leo (Snow Chorus) → 'Let It Go' rehearsal yes,
+    // 'Love Is an Open Door' (Anna/Hans) no.
+    const martinez = await provider.getFamilyCalendar("user-sofia", "fam-martinez");
+    expect(martinez.some((event) => event.id === "evt-4")).toBe(true);
+    expect(martinez.some((event) => event.id === "evt-5")).toBe(false);
+
+    // Nguyen: Lien (Anna) → the duet rehearsal appears.
+    const nguyen = await provider.getFamilyCalendar("user-minh", "fam-nguyen");
+    expect(nguyen.some((event) => event.id === "evt-5")).toBe(true);
+  });
+
+  it("before casting is published, scene-tagged rehearsals stay visible", async () => {
+    const martinez = await provider.getFamilyCalendar("user-sofia", "fam-martinez");
+    expect(martinez.some((event) => event.id === "evt-5")).toBe(true);
+  });
+});
+
+describe("rehearsal notices: 24h reminder and post-rehearsal thanks", () => {
+  it("reminds called families 24h out, once, and thanks them after", async () => {
+    await castEveryone();
+    await provider.submitCasting("user-dana", "prod-frozen");
+
+    // evt-4 ('Let It Go', Elsa + Snow Chorus) starts 2026-07-29T22:00Z.
+    const first = await provider.runRehearsalNotices("user-dana", {
+      now: "2026-07-29T10:00:00.000Z",
+    });
+    expect(first.reminders).toBeGreaterThanOrEqual(1);
+
+    const sofia = await provider.getNotifications("user-sofia");
+    const reminder = sofia.find((n) => n.title.startsWith("Tomorrow:"));
+    expect(reminder?.title).toContain("Let It Go");
+    expect(reminder?.body).toContain("Ava & Leo");
+    // Nguyen (Anna) isn't called for this one.
+    expect(
+      (await provider.getNotifications("user-minh")).some(
+        (n) => n.title.startsWith("Tomorrow:") && n.title.includes("Let It Go")
+      )
+    ).toBe(false);
+
+    // Re-run: deduped, nothing new for this event.
+    const again = await provider.runRehearsalNotices("user-dana", {
+      now: "2026-07-29T11:00:00.000Z",
+    });
+    expect(again.reminders).toBe(0);
+
+    // After it ends (23:30Z), the thank-you goes out — once.
+    const after = await provider.runRehearsalNotices("user-dana", {
+      now: "2026-07-30T10:00:00.000Z",
+    });
+    expect(after.thanks).toBeGreaterThanOrEqual(1);
+    expect(
+      (await provider.getNotifications("user-sofia")).some((n) =>
+        n.title.includes("Thank you")
+      )
+    ).toBe(true);
+  });
+
+  it("is staff-only", async () => {
+    await expect(
+      provider.runRehearsalNotices("user-sofia", { now: "2026-07-29T10:00:00.000Z" })
     ).rejects.toThrow(AccessDeniedError);
   });
 });

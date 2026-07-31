@@ -27,6 +27,10 @@ export function CalendarViews({
   students: Array<{ id: string; name: string }>;
 }) {
   const [view, setView] = useState<View>("agenda");
+  // Tap a child chip to see just their schedule (per-child conservatory
+  // view); tap a type chip to narrow further. Null = everyone/everything.
+  const [studentFilter, setStudentFilter] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const colorByStudent = useMemo(
     () =>
       Object.fromEntries(
@@ -36,6 +40,16 @@ export function CalendarViews({
         ])
       ),
     [students]
+  );
+
+  const eventTypes = useMemo(
+    () => [...new Set(events.map((event) => event.type))],
+    [events]
+  );
+  const visible = events.filter(
+    (event) =>
+      (!studentFilter || event.studentIds.includes(studentFilter)) &&
+      (!typeFilter || event.type === typeFilter)
   );
 
   return (
@@ -58,24 +72,59 @@ export function CalendarViews({
       </div>
 
       {students.length > 1 && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           {students.map((student) => (
-            <span key={student.id} className="inline-flex items-center gap-1.5 text-xs">
+            <button
+              key={student.id}
+              type="button"
+              aria-pressed={studentFilter === student.id}
+              onClick={() =>
+                setStudentFilter((current) => (current === student.id ? null : student.id))
+              }
+              className={cn(
+                "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium",
+                studentFilter === student.id
+                  ? "border-primary bg-primary/10"
+                  : "hover:bg-accent"
+              )}
+            >
               <span
                 aria-hidden
                 className={cn("size-2.5 rounded-full", colorByStudent[student.id])}
               />
               {student.name}
-            </span>
+              {studentFilter === student.id ? " only" : ""}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {eventTypes.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          {eventTypes.map((type) => (
+            <button
+              key={type}
+              type="button"
+              aria-pressed={typeFilter === type}
+              onClick={() =>
+                setTypeFilter((current) => (current === type ? null : type))
+              }
+              className={cn(
+                "inline-flex min-h-9 items-center rounded-full border px-3 text-xs font-medium capitalize",
+                typeFilter === type ? "border-primary bg-primary/10" : "hover:bg-accent"
+              )}
+            >
+              {type.replace("_", " ")}s
+            </button>
           ))}
         </div>
       )}
 
       {view === "agenda" && (
-        <AgendaView events={events} colorByStudent={colorByStudent} />
+        <AgendaView events={visible} colorByStudent={colorByStudent} />
       )}
-      {view === "week" && <WeekView events={events} colorByStudent={colorByStudent} />}
-      {view === "month" && <MonthView events={events} colorByStudent={colorByStudent} />}
+      {view === "week" && <WeekView events={visible} colorByStudent={colorByStudent} />}
+      {view === "month" && <MonthView events={visible} colorByStudent={colorByStudent} />}
     </div>
   );
 }

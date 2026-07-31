@@ -148,7 +148,9 @@ export async function addCatalogItemAction(
   }
 
   revalidatePath("/store/cart");
-  revalidatePath("/store/catalog");
+  // Catalog products render on both successor pages.
+  revalidatePath("/store");
+  revalidatePath("/store/lessons");
   return { ok: true };
 }
 

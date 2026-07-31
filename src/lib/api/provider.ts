@@ -69,6 +69,7 @@ import type {
   GrowthRecommendation,
   RoleTier,
   ShowRole,
+  ShowScene,
 } from "./auditions/types";
 import type {
   Review,
@@ -534,6 +535,7 @@ export interface DataProvider {
       scores: Record<string, number>;
       notes: string;
       callbackNotes: string;
+      growthNotes?: string;
     }
   ): Promise<AuditionEvaluation>;
 
@@ -598,6 +600,21 @@ export interface DataProvider {
     productionId: string
   ): Promise<GrowthRecommendation[]>;
 
+  /* understudies — leads only, after the main board is submitted */
+  assignUnderstudy(
+    actorId: string,
+    productionId: string,
+    roleId: string,
+    studentId: string
+  ): Promise<void>;
+  unassignUnderstudy(actorId: string, productionId: string, studentId: string): Promise<void>;
+  /** Lead roles without an understudy — "where the holes are". */
+  getUnderstudyHoles(actorId: string, productionId: string): Promise<ShowRole[]>;
+  publishUnderstudies(
+    actorId: string,
+    productionId: string
+  ): Promise<{ published: number; holes: number }>;
+
   /**
    * Re-notify families whose casting confirmation is still unanswered.
    * Runs from an hourly cron; each family is reminded at most every 12h
@@ -607,6 +624,50 @@ export interface DataProvider {
     actorId: string,
     options?: { olderThanMs?: number }
   ): Promise<{ reminded: number }>;
+
+  /**
+   * Staff: the whole cast list with per-role status for playbill and
+   * registration tracking. A role is "open" until someone is assigned,
+   * "filled" once cast, and "accepted" when every family holding it has
+   * confirmed the playbill name.
+   */
+  getCastListStatus(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{
+      role: ShowRole;
+      status: "open" | "filled" | "accepted";
+      holders: Array<{
+        studentName: string;
+        playbillName: string;
+        responded: boolean;
+        isUnderstudy: boolean;
+      }>;
+    }>
+  >;
+
+  /** Scenes/musical numbers for a production, mapped to the roles called. */
+  getShowScenes(productionId: string): Promise<ShowScene[]>;
+
+  /**
+   * Family-facing: exactly which scenes/songs a child is in, and as whom.
+   * Understudies see every scene of the lead role they cover, marked.
+   */
+  getStudentSceneBreakdown(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<Array<{ scene: ShowScene; roleName: string; isUnderstudy: boolean }>>;
+
+  /**
+   * Hourly cron: 24h-before rehearsal reminders and post-rehearsal
+   * thank-yous, per family, deduped so re-runs never double-send.
+   */
+  runRehearsalNotices(
+    actorId: string,
+    options?: { now?: string }
+  ): Promise<{ reminders: number; thanks: number }>;
 
   /** Staff: playbill corrections and confirmation status. */
   getCastingResponses(

@@ -21,7 +21,7 @@ import type {
 } from "../types";
 import type { Review, ReviewWindow } from "../reviews/types";
 import type { Product } from "../store/catalog";
-import type { ShowRole } from "../auditions/types";
+import type { ShowRole, ShowScene } from "../auditions/types";
 
 /**
  * Realistic demo data: three families, five students, four staff,
@@ -458,6 +458,40 @@ export const showRoles: ShowRole[] = [
   { id: "role-oakens-family", productionId: "prod-frozen", name: "Oaken's Family", tier: "ensemble", description: "The sauna family ('Hygge').", capacity: null, sortOrder: 35 },
 ];
 
+/**
+ * Frozen JR. musical numbers per the MTI breakdown, mapped to roles.
+ * Serves as the seeded "curriculum" until admins upload their own; drives
+ * the parent-facing "what is my child in" view and per-child rehearsal
+ * calendars. Ensemble groups are called by group.
+ */
+const ALL_ENSEMBLE = [
+  "role-townspeople",
+  "role-castle-staff",
+  "role-hidden-folk",
+  "role-snow-chorus",
+  "role-summer-chorus",
+  "role-oakens-family",
+];
+
+export const showScenes: ShowScene[] = [
+  { id: "scn-vuelie", productionId: "prod-frozen", name: "Vuelie / Let the Sun Shine On", kind: "song", sortOrder: 1, roleIds: ["role-young-anna", "role-young-elsa", "role-agnarr", "role-iduna", ...ALL_ENSEMBLE] },
+  { id: "scn-little-bit", productionId: "prod-frozen", name: "A Little Bit of You", kind: "song", sortOrder: 2, roleIds: ["role-young-anna", "role-young-elsa"] },
+  { id: "scn-pabbie-heal", productionId: "prod-frozen", name: "Pabbie's Healing (Scene)", kind: "scene", sortOrder: 3, roleIds: ["role-young-anna", "role-young-elsa", "role-agnarr", "role-iduna", "role-pabbie", "role-bulda", "role-hidden-folk"] },
+  { id: "scn-snowman", productionId: "prod-frozen", name: "Do You Want to Build a Snowman?", kind: "song", sortOrder: 4, roleIds: ["role-young-anna", "role-middle-anna", "role-anna", "role-young-elsa", "role-middle-elsa", "role-elsa", "role-agnarr", "role-iduna"] },
+  { id: "scn-first-time", productionId: "prod-frozen", name: "For the First Time in Forever", kind: "song", sortOrder: 5, roleIds: ["role-anna", "role-elsa", "role-kai", "role-gerda", "role-castle-staff", "role-townspeople"] },
+  { id: "scn-dangerous", productionId: "prod-frozen", name: "Dangerous to Dream", kind: "song", sortOrder: 6, roleIds: ["role-elsa", "role-anna", "role-bishop", "role-townspeople", "role-castle-staff"] },
+  { id: "scn-open-door", productionId: "prod-frozen", name: "Love Is an Open Door", kind: "song", sortOrder: 7, roleIds: ["role-anna", "role-hans"] },
+  { id: "scn-coronation", productionId: "prod-frozen", name: "Coronation Confrontation (Scene)", kind: "scene", sortOrder: 8, roleIds: ["role-elsa", "role-anna", "role-hans", "role-duke", "role-townspeople", "role-castle-staff"] },
+  { id: "scn-reindeers", productionId: "prod-frozen", name: "Reindeer(s) Are Better Than People", kind: "song", sortOrder: 9, roleIds: ["role-kristoff", "role-sven"] },
+  { id: "scn-summer", productionId: "prod-frozen", name: "In Summer", kind: "song", sortOrder: 10, roleIds: ["role-olaf", "role-anna", "role-kristoff", "role-sven", "role-summer-chorus"] },
+  { id: "scn-hygge", productionId: "prod-frozen", name: "Hygge", kind: "song", sortOrder: 11, roleIds: ["role-oaken", "role-anna", "role-kristoff", "role-olaf", "role-sven", "role-oakens-family"] },
+  { id: "scn-let-it-go", productionId: "prod-frozen", name: "Let It Go", kind: "song", sortOrder: 12, roleIds: ["role-elsa", "role-snow-chorus"] },
+  { id: "scn-lullaby", productionId: "prod-frozen", name: "Kristoff Lullaby", kind: "song", sortOrder: 13, roleIds: ["role-kristoff", "role-anna"] },
+  { id: "scn-fixer-upper", productionId: "prod-frozen", name: "Fixer Upper", kind: "song", sortOrder: 14, roleIds: ["role-kristoff", "role-anna", "role-olaf", "role-pabbie", "role-bulda", "role-hidden-folk"] },
+  { id: "scn-colder", productionId: "prod-frozen", name: "Colder by the Minute", kind: "song", sortOrder: 15, roleIds: ["role-anna", "role-elsa", "role-hans", "role-kristoff", "role-olaf", "role-duke", ...ALL_ENSEMBLE] },
+  { id: "scn-finale", productionId: "prod-frozen", name: "Finale / Let It Go (Reprise)", kind: "song", sortOrder: 16, roleIds: ["role-anna", "role-elsa", "role-kristoff", "role-olaf", "role-sven", "role-hans", "role-duke", "role-oaken", "role-pabbie", "role-bulda", "role-young-anna", "role-young-elsa", "role-middle-anna", "role-middle-elsa", "role-agnarr", "role-iduna", "role-bishop", "role-kai", "role-gerda", ...ALL_ENSEMBLE] },
+];
+
 export const products: Product[] = [
   {
     id: "prod-starpage-frozen",
@@ -741,5 +775,33 @@ export const events: CalendarEvent[] = [
     location: "Studio B, Chantilly",
     contactName: "Marcus Lee",
     classId: "class-voice1",
+  },
+  // Scene-tagged rehearsals: these appear only on the calendars of
+  // students whose role is called — the per-child schedule in action.
+  {
+    id: "evt-4",
+    type: "rehearsal",
+    title: "Frozen Jr. — 'Let It Go' & Snow Chorus",
+    startsAt: "2026-07-29T22:00:00.000Z", // 6:00 PM ET Wednesday
+    endsAt: "2026-07-29T23:30:00.000Z",
+    callTime: "2026-07-29T21:45:00.000Z",
+    location: "Studio A, Chantilly",
+    whatToBring: "Water, jazz shoes, Act 1 music",
+    contactName: "Jo Castillo",
+    productionId: "prod-frozen",
+    sceneIds: ["scn-let-it-go"],
+  },
+  {
+    id: "evt-5",
+    type: "rehearsal",
+    title: "Frozen Jr. — 'Love Is an Open Door' (Anna/Hans)",
+    startsAt: "2026-07-31T22:00:00.000Z", // 6:00 PM ET Friday
+    endsAt: "2026-07-31T23:00:00.000Z",
+    callTime: "2026-07-31T21:50:00.000Z",
+    location: "Studio B, Chantilly",
+    whatToBring: "Script, pencil",
+    contactName: "Dana Whitfield",
+    productionId: "prod-frozen",
+    sceneIds: ["scn-open-door"],
   },
 ];

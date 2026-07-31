@@ -1,33 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, Ticket, X } from "lucide-react";
 import { org } from "@/config/org";
+import { FAMILY_SECTIONS, STAFF_SECTIONS } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { ExternalLinkButton } from "@/components/external-link-button";
 
-const LINKS = [
-  { href: "/store", label: "Spirit buttons", emoji: "🎟️" },
-  { href: "/productions", label: "Productions", emoji: "🎭" },
-  { href: "/staff", label: "Our staff", emoji: "👋" },
-  { href: "/reviews", label: "Give feedback", emoji: "⭐" },
-  { href: "/family/pickup", label: "Drop-off & pick-up", emoji: "🚗" },
-  { href: "/notifications/settings", label: "Notification settings", emoji: "🔔" },
-];
-
-const STAFF_LINKS = [
-  { href: "/admin", label: "Staff tools", emoji: "🛠️" },
-  { href: "/staff/feedback", label: "My feedback", emoji: "⭐" },
-];
-
 /**
- * Overflow navigation. Tickets and the main website live here and on the
- * dashboard, so they're always one tap away (#12, #13).
+ * The hamburger menu carries EVERY section of the app — same source list
+ * as the dashboard grid — so nothing is reachable in one place but not the
+ * other. Grouped, scrollable, closes on selection.
  */
 export function MoreMenu({ isStaff }: { isStaff: boolean }) {
   const [open, setOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -35,7 +22,12 @@ export function MoreMenu({ isStaff }: { isStaff: boolean }) {
       if (event.key === "Escape") setOpen(false);
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    // Lock body scroll while the sheet is open.
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
   }, [open]);
 
   return (
@@ -44,7 +36,7 @@ export function MoreMenu({ isStaff }: { isStaff: boolean }) {
         variant="ghost"
         size="icon"
         onClick={() => setOpen(true)}
-        aria-label="More"
+        aria-label="Menu"
         aria-expanded={open}
       >
         <Menu aria-hidden />
@@ -57,35 +49,60 @@ export function MoreMenu({ isStaff }: { isStaff: boolean }) {
           role="presentation"
         >
           <div
-            ref={panelRef}
             role="dialog"
             aria-modal="true"
-            aria-label="More navigation"
-            className="absolute inset-x-0 bottom-0 rounded-t-2xl bg-card p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-lg"
+            aria-label="Navigation"
+            className="absolute inset-y-0 right-0 flex w-full max-w-sm flex-col bg-card shadow-lg"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">More</h2>
-              <Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Close">
+            <div className="flex items-center justify-between border-b p-4">
+              <h2 className="text-lg font-semibold">Menu</h2>
+              <Button variant="ghost" size="icon" onClick={() => setOpen(false)} aria-label="Close menu">
                 <X aria-hidden />
               </Button>
             </div>
 
-            <nav className="flex flex-col">
-              {[...LINKS, ...(isStaff ? STAFF_LINKS : [])].map((link) => (
+            <nav className="flex-1 overflow-y-auto p-2">
+              <p className="px-2 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                For families
+              </p>
+              {FAMILY_SECTIONS.map((section) => (
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  key={section.href}
+                  href={section.href}
                   onClick={() => setOpen(false)}
-                  className="flex min-h-12 items-center gap-3 rounded-lg px-2 hover:bg-accent"
+                  className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-1 hover:bg-accent"
                 >
-                  <span aria-hidden>{link.emoji}</span>
-                  {link.label}
+                  <span aria-hidden className="w-6 text-center">
+                    {section.emoji}
+                  </span>
+                  <span className="text-sm font-medium">{section.label}</span>
                 </Link>
               ))}
+
+              {isStaff && (
+                <>
+                  <p className="px-2 pb-1 pt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Staff &amp; admin
+                  </p>
+                  {STAFF_SECTIONS.map((section) => (
+                    <Link
+                      key={section.href}
+                      href={section.href}
+                      onClick={() => setOpen(false)}
+                      className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-1 hover:bg-accent"
+                    >
+                      <span aria-hidden className="w-6 text-center">
+                        {section.emoji}
+                      </span>
+                      <span className="text-sm font-medium">{section.label}</span>
+                    </Link>
+                  ))}
+                </>
+              )}
             </nav>
 
-            <div className="mt-4 flex flex-col gap-2 border-t pt-4">
+            <div className="flex flex-col gap-2 border-t p-4">
               <ExternalLinkButton href={org.ticketsUrl}>
                 <Ticket aria-hidden className="size-4" />
                 Buy tickets on BookTix

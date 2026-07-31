@@ -250,6 +250,12 @@ export interface CalendarEvent {
   contactEmail?: string;
   classId?: string;
   productionId?: string;
+  /**
+   * Scenes/numbers this rehearsal covers. When set, the event appears ONLY
+   * on the calendars of students whose role is called for one of them —
+   * the per-child, role-driven schedule. Unset = whole production called.
+   */
+  sceneIds?: string[];
   /** Set when the event time/location changed after creation. */
   changedAt?: string;
   changeNote?: string;

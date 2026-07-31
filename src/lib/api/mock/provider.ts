@@ -99,6 +99,7 @@ import {
   type GrowthRecommendation,
   type RoleTier,
   type ShowRole,
+  type ShowScene,
 } from "../auditions/types";
 import * as seed from "./seed-data";
 
@@ -168,6 +169,9 @@ interface Store {
   auditionEvaluations: AuditionEvaluation[];
   castingBoards: Map<string, CastingBoard>;
   castingConfirmations: CastingConfirmation[];
+  showScenes: ShowScene[];
+  /** Rehearsal notifications already sent, so cron re-runs don't duplicate. */
+  eventNotices: Array<{ eventId: string; familyId: string; kind: "reminder" | "thanks"; at: string }>;
 }
 
 function deepClone<T>(value: T): T {
@@ -237,6 +241,8 @@ function buildStore(): Store {
     auditionEvaluations: [],
     castingBoards: new Map(),
     castingConfirmations: [],
+    showScenes: deepClone(seed.showScenes),
+    eventNotices: [],
   };
 }
 
@@ -271,6 +277,9 @@ export function restoreMockStore(json: string): void {
       : value
   ) as { store: Store; idCounter: number; lastNow: number };
   store = parsed.store;
+  // Snapshots written before newer features existed lack these fields.
+  store.showScenes ??= deepClone(seed.showScenes);
+  store.eventNotices ??= [];
   idCounter = Math.max(idCounter, parsed.idCounter);
   lastNow = Math.max(lastNow, parsed.lastNow);
 }
@@ -946,18 +955,39 @@ export class MockDataProvider implements DataProvider {
 
   /* ── family calendar (#5) ─────────────────────────────────────────── */
 
-  /** Events relevant to a student via their enrollments. */
+  /**
+   * Events relevant to a student via their enrollments. Scene-tagged
+   * rehearsals go one step further: they only appear if the student's
+   * published role (or the lead role they understudy) is called for one
+   * of those scenes — the per-child, role-driven schedule.
+   */
   private eventsForStudent(studentId: string): CalendarEvent[] {
     const enrollments = store.enrollments.filter(
       (e) => e.studentId === studentId && e.status === "enrolled"
     );
     const classIds = new Set(enrollments.map((e) => e.classId).filter(Boolean));
     const productionIds = new Set(enrollments.map((e) => e.productionId).filter(Boolean));
-    return store.events.filter(
-      (event) =>
+    return store.events.filter((event) => {
+      const enrolled =
         (event.classId && classIds.has(event.classId)) ||
-        (event.productionId && productionIds.has(event.productionId))
-    );
+        (event.productionId && productionIds.has(event.productionId));
+      if (!enrolled) return false;
+      if (!event.sceneIds?.length || !event.productionId) return true;
+
+      const { principal, understudy } = this.publishedRoleIdsForStudent(
+        event.productionId,
+        studentId
+      );
+      const called = new Set([...principal, ...understudy]);
+      // Until casting is published the student holds no roles yet; keep the
+      // rehearsal visible rather than hiding their schedule.
+      if (called.size === 0) return true;
+      return store.showScenes.some(
+        (scene) =>
+          event.sceneIds!.includes(scene.id) &&
+          scene.roleIds.some((roleId) => called.has(roleId))
+      );
+    });
   }
 
   async getFamilyCalendar(actorId: string, familyId: string): Promise<FamilyCalendarEvent[]> {
@@ -2940,6 +2970,7 @@ export class MockDataProvider implements DataProvider {
       scores: Record<string, number>;
       notes: string;
       callbackNotes: string;
+      growthNotes?: string;
     }
   ): Promise<AuditionEvaluation> {
     const actor = getActor(actorId);
@@ -2964,6 +2995,7 @@ export class MockDataProvider implements DataProvider {
       existing.scores = { ...input.scores };
       existing.notes = input.notes;
       existing.callbackNotes = input.callbackNotes;
+      existing.growthNotes = input.growthNotes;
       existing.evaluatorStaffId = actor.staffId ?? actor.id;
       existing.evaluatorName = actor.displayName;
       existing.updatedAt = nowIso();
@@ -2980,6 +3012,7 @@ export class MockDataProvider implements DataProvider {
       scores: { ...input.scores },
       notes: input.notes,
       callbackNotes: input.callbackNotes,
+      growthNotes: input.growthNotes,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -2998,9 +3031,11 @@ export class MockDataProvider implements DataProvider {
   private boardFor(productionId: string): CastingBoard {
     let board = store.castingBoards.get(productionId);
     if (!board) {
-      board = { productionId, status: "drafting", entries: [] };
+      board = { productionId, status: "drafting", entries: [], understudyEntries: [] };
       store.castingBoards.set(productionId, board);
     }
+    // Boards persisted before the understudy phase existed lack the array.
+    board.understudyEntries ??= [];
     return board;
   }
 
@@ -3172,6 +3207,169 @@ export class MockDataProvider implements DataProvider {
     board.submittedByName = actor.displayName;
 
     return { assignmentsCreated, familiesNotified: notifiedFamilies.size };
+  }
+
+  /* ── understudies: leads only, after the main board is locked ─────── */
+
+  async assignUnderstudy(
+    actorId: string,
+    productionId: string,
+    roleId: string,
+    studentId: string
+  ): Promise<void> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const board = this.boardFor(productionId);
+    if (board.status !== "submitted") {
+      throw new Error("Cast the show first — understudies come after every role is filled");
+    }
+    if (board.understudiesPublishedAt) {
+      throw new Error("Understudies have already been published");
+    }
+
+    const role = store.showRoles.find(
+      (candidate) => candidate.id === roleId && candidate.productionId === productionId
+    );
+    if (!role) throw new Error("Role not found");
+    if (role.tier !== "lead") {
+      throw new Error("Understudies are cast for lead roles only");
+    }
+    if (!this.registeredStudents(productionId).some((s) => s.id === studentId)) {
+      throw new Error("That student isn't registered for this production");
+    }
+    // A student can't understudy the role they already hold — that's not
+    // coverage. Any OTHER role they hold is fine; duplication is the point.
+    const holdsThisRole = board.entries.some(
+      (entry) => entry.roleId === roleId && entry.studentId === studentId
+    );
+    if (holdsThisRole) {
+      throw new Error("They already play this role — pick a different understudy");
+    }
+
+    // One understudy per lead, one lead per understudy: placing moves.
+    board.understudyEntries = board.understudyEntries.filter(
+      (entry) => entry.studentId !== studentId && entry.roleId !== roleId
+    );
+    board.understudyEntries.push({ roleId, studentId });
+  }
+
+  async unassignUnderstudy(
+    actorId: string,
+    productionId: string,
+    studentId: string
+  ): Promise<void> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const board = this.boardFor(productionId);
+    if (board.understudiesPublishedAt) {
+      throw new Error("Understudies have already been published");
+    }
+    board.understudyEntries = board.understudyEntries.filter(
+      (entry) => entry.studentId !== studentId
+    );
+  }
+
+  /** Lead roles with no understudy yet — "where the holes are". */
+  async getUnderstudyHoles(actorId: string, productionId: string): Promise<ShowRole[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const board = this.boardFor(productionId);
+    const covered = new Set(board.understudyEntries.map((entry) => entry.roleId));
+    return deepClone(
+      store.showRoles
+        .filter(
+          (role) =>
+            role.productionId === productionId &&
+            role.tier === "lead" &&
+            !covered.has(role.id)
+        )
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    );
+  }
+
+  /**
+   * Publish understudies: assignments + family notifications, exactly like
+   * the main cast — each family learns their child's understudy track only.
+   * Holes are allowed; they stay visible on the board and cast list.
+   */
+  async publishUnderstudies(
+    actorId: string,
+    productionId: string
+  ): Promise<{ published: number; holes: number }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const board = this.boardFor(productionId);
+    if (board.status !== "submitted") {
+      throw new Error("Cast the show first");
+    }
+    if (board.understudiesPublishedAt) {
+      throw new Error("Understudies have already been published");
+    }
+
+    const production = store.productions.find((p) => p.id === productionId);
+    const rolesById = new Map(store.showRoles.map((role) => [role.id, role]));
+    let published = 0;
+
+    for (const entry of board.understudyEntries) {
+      const role = rolesById.get(entry.roleId);
+      const student = store.students.find((s) => s.id === entry.studentId);
+      if (!role || !student) continue;
+
+      const assignment = {
+        id: nextId("cast"),
+        productionId,
+        studentId: student.id,
+        characterName: `${role.name} (Understudy)`,
+        castGroup: undefined,
+        isUnderstudy: true,
+        rehearsalTrack: undefined,
+        publishedAt: nowIso(),
+      };
+      store.casting.push(assignment);
+      published += 1;
+
+      store.showHistory.push({
+        id: nextId("sh"),
+        studentId: student.id,
+        productionTitle: production?.title ?? "Production",
+        role: `${role.name} (Understudy)`,
+        seasonName: store.seasons.find((s) => s.isCurrent)?.name ?? "",
+        director: undefined,
+        venue: production?.venue,
+        organization: undefined,
+        fromCasting: true,
+        year: production?.opensOn?.slice(0, 4) ?? "",
+      });
+
+      store.castingConfirmations.push({
+        id: nextId("conf"),
+        assignmentId: assignment.id,
+        studentId: student.id,
+        familyId: student.familyId,
+        lastRemindedAt: nowIso(),
+        reminderCount: 0,
+      });
+
+      for (const parent of store.users.filter(
+        (u) => u.role === "parent" && u.familyId === student.familyId
+      )) {
+        if (!this.prefAllows(parent.id, "casting_released")) continue;
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: parent.id,
+          type: "casting_released",
+          title: `Understudy casting for ${production?.title ?? "the show"} ⭐`,
+          body: `${student.preferredName ?? student.firstName} will understudy: ${role.name}. Tap to confirm the name for the playbill.`,
+          url: "/casting",
+          createdAt: nowIso(),
+        });
+      }
+    }
+
+    board.understudiesPublishedAt = nowIso();
+    const holes = (await this.getUnderstudyHoles(actorId, productionId)).length;
+    return { published, holes };
   }
 
   async getMyCastingConfirmations(actorId: string): Promise<
@@ -3355,6 +3553,223 @@ export class MockDataProvider implements DataProvider {
       reminded += 1;
     }
     return { reminded };
+  }
+
+  async getCastListStatus(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{
+      role: ShowRole;
+      status: "open" | "filled" | "accepted";
+      holders: Array<{
+        studentName: string;
+        playbillName: string;
+        responded: boolean;
+        isUnderstudy: boolean;
+      }>;
+    }>
+  > {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const roles = await this.getShowRoles(productionId);
+    const assignments = store.casting.filter(
+      (assignment) => assignment.productionId === productionId && assignment.publishedAt
+    );
+
+    return roles.map((role) => {
+      const holders = assignments
+        .filter((assignment) =>
+          assignment.isUnderstudy
+            ? assignment.characterName === `${role.name} (Understudy)` ||
+              assignment.characterName === role.name
+            : assignment.characterName === role.name
+        )
+        .map((assignment) => {
+          const student = store.students.find((s) => s.id === assignment.studentId);
+          const confirmation = store.castingConfirmations.find(
+            (candidate) => candidate.assignmentId === assignment.id
+          );
+          const studentName = student
+            ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+            : "Unknown";
+          return {
+            studentName,
+            playbillName: confirmation?.playbillName ?? studentName,
+            responded: confirmation?.nameCorrect !== undefined,
+            isUnderstudy: assignment.isUnderstudy,
+          };
+        });
+
+      // Understudies don't gate acceptance of the principal role.
+      const principals = holders.filter((holder) => !holder.isUnderstudy);
+      const status: "open" | "filled" | "accepted" =
+        principals.length === 0
+          ? "open"
+          : principals.every((holder) => holder.responded)
+            ? "accepted"
+            : "filled";
+
+      return { role, status, holders };
+    });
+  }
+
+  /* ── script & curriculum: scenes/songs mapped to roles ──────────────── */
+
+  /** Published role ids a student holds in a production (principal + u/s). */
+  private publishedRoleIdsForStudent(
+    productionId: string,
+    studentId: string
+  ): { principal: string[]; understudy: string[] } {
+    const roles = store.showRoles.filter((r) => r.productionId === productionId);
+    const principal: string[] = [];
+    const understudy: string[] = [];
+    for (const assignment of store.casting) {
+      if (
+        assignment.productionId !== productionId ||
+        assignment.studentId !== studentId ||
+        !assignment.publishedAt
+      )
+        continue;
+      for (const role of roles) {
+        if (assignment.characterName === role.name) principal.push(role.id);
+        else if (
+          assignment.isUnderstudy &&
+          assignment.characterName === `${role.name} (Understudy)`
+        )
+          understudy.push(role.id);
+      }
+    }
+    return { principal, understudy };
+  }
+
+  async getShowScenes(productionId: string): Promise<ShowScene[]> {
+    return deepClone(
+      store.showScenes
+        .filter((scene) => scene.productionId === productionId)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    );
+  }
+
+  /**
+   * Exactly which scenes/songs a child is in, and as whom. Understudies see
+   * every scene of the role they cover, marked as such. Family-scoped:
+   * parents only ever see their own child's breakdown.
+   */
+  async getStudentSceneBreakdown(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<Array<{ scene: ShowScene; roleName: string; isUnderstudy: boolean }>> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === studentId);
+    if (!student) throw new Error("Student not found");
+    if (!isStaffish(actor)) assertFamilyAccess(actor, student.familyId);
+
+    const { principal, understudy } = this.publishedRoleIdsForStudent(productionId, studentId);
+    if (principal.length === 0 && understudy.length === 0) return [];
+    const roleName = (id: string) => store.showRoles.find((r) => r.id === id)?.name ?? "";
+
+    const rows: Array<{ scene: ShowScene; roleName: string; isUnderstudy: boolean }> = [];
+    for (const scene of store.showScenes
+      .filter((s) => s.productionId === productionId)
+      .sort((a, b) => a.sortOrder - b.sortOrder)) {
+      const asPrincipal = principal.find((id) => scene.roleIds.includes(id));
+      if (asPrincipal) {
+        rows.push({ scene: deepClone(scene), roleName: roleName(asPrincipal), isUnderstudy: false });
+        continue;
+      }
+      const asUnderstudy = understudy.find((id) => scene.roleIds.includes(id));
+      if (asUnderstudy) {
+        rows.push({
+          scene: deepClone(scene),
+          roleName: `${roleName(asUnderstudy)} (Understudy)`,
+          isUnderstudy: true,
+        });
+      }
+    }
+    return rows;
+  }
+
+  /**
+   * Rehearsal notices, run hourly by the cron job:
+   *  - "reminder": event starts within the next 24 hours → notify each
+   *    involved family (per-child calendar rules — scene-tagged rehearsals
+   *    only notify families whose child is actually called).
+   *  - "thanks": event ended within the last 24 hours → thank-you note.
+   * Deduped per event+family+kind so re-runs never double-send.
+   */
+  async runRehearsalNotices(
+    actorId: string,
+    options?: { now?: string }
+  ): Promise<{ reminders: number; thanks: number }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const now = options?.now ? new Date(options.now).getTime() : Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+
+    let reminders = 0;
+    let thanks = 0;
+    for (const event of store.events) {
+      if (event.type !== "rehearsal" && event.type !== "tech" && event.type !== "performance")
+        continue;
+      const startsAt = new Date(event.startsAt).getTime();
+      const endsAt = new Date(event.endsAt).getTime();
+      const dueReminder = startsAt > now && startsAt <= now + DAY;
+      const dueThanks = endsAt <= now && endsAt > now - DAY;
+      if (!dueReminder && !dueThanks) continue;
+
+      // Which families have a child called for this event?
+      const familyIds = new Set<string>();
+      const namesByFamily = new Map<string, string[]>();
+      for (const student of store.students) {
+        if (!this.eventsForStudent(student.id).some((e) => e.id === event.id)) continue;
+        familyIds.add(student.familyId);
+        const names = namesByFamily.get(student.familyId) ?? [];
+        names.push(student.preferredName ?? student.firstName);
+        namesByFamily.set(student.familyId, names);
+      }
+
+      for (const familyId of familyIds) {
+        const kind = dueReminder ? "reminder" : "thanks";
+        const already = store.eventNotices.some(
+          (n) => n.eventId === event.id && n.familyId === familyId && n.kind === kind
+        );
+        if (already) continue;
+
+        const names = (namesByFamily.get(familyId) ?? []).join(" & ");
+        const when = new Date(event.startsAt).toLocaleString("en-US", {
+          weekday: "long",
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: "America/New_York",
+        });
+        for (const parent of store.users.filter(
+          (u) => u.role === "parent" && u.familyId === familyId
+        )) {
+          store.notifications.push({
+            id: nextId("ntf"),
+            userId: parent.id,
+            type: "schedule_change",
+            title:
+              kind === "reminder"
+                ? `Tomorrow: ${event.title}`
+                : `Thank you for a great rehearsal!`,
+            body:
+              kind === "reminder"
+                ? `${names} ${names.includes("&") ? "are" : "is"} called ${when} at ${event.location}.${event.whatToBring ? ` Bring: ${event.whatToBring}.` : ""}`
+                : `${names} did wonderful work at ${event.title}. See the calendar for what's next.`,
+            url: "/calendar",
+            createdAt: nowIso(),
+          });
+        }
+        store.eventNotices.push({ eventId: event.id, familyId, kind, at: nowIso() });
+        if (kind === "reminder") reminders += 1;
+        else thanks += 1;
+      }
+    }
+    return { reminders, thanks };
   }
 
   async getCastingResponses(

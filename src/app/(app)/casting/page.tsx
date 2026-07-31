@@ -43,10 +43,18 @@ export default async function CastingPage() {
             const feedback = feedbackReleased
               ? await provider.requestAuditionFeedback(user.id, confirmation.id)
               : [];
-            const assignment = feedbackReleased
-              ? await provider.getCastingForStudent(user.id, confirmation.studentId)
-              : [];
+            const assignment = await provider.getCastingForStudent(
+              user.id,
+              confirmation.studentId
+            );
             const productionId = assignment[0]?.productionId;
+            const scenes = productionId
+              ? await provider.getStudentSceneBreakdown(
+                  user.id,
+                  confirmation.studentId,
+                  productionId
+                )
+              : [];
             const recommendations =
               feedbackReleased && productionId
                 ? await provider.getGrowthRecommendations(
@@ -74,6 +82,37 @@ export default async function CastingPage() {
                     responded={confirmation.nameCorrect !== undefined}
                     currentPlaybillName={confirmation.playbillName}
                   />
+
+                  {scenes.length > 0 && (
+                    <div className="border-t pt-4">
+                      <h3 className="font-semibold">
+                        Exactly what {studentName.split(" ")[0]} is in
+                      </h3>
+                      <p className="mb-2 text-sm text-muted-foreground">
+                        From the production&apos;s script &amp; music breakdown —
+                        rehearsals for these will appear on your calendar.
+                      </p>
+                      <ul className="flex flex-col gap-1.5">
+                        {scenes.map(({ scene, roleName: as, isUnderstudy }) => (
+                          <li
+                            key={scene.id}
+                            className="flex items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm"
+                          >
+                            <span>
+                              <span aria-hidden className="mr-1.5">
+                                {scene.kind === "song" ? "🎵" : "🎭"}
+                              </span>
+                              {scene.name}
+                            </span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              as {as}
+                              {isUnderstudy ? " — rehearse & be ready" : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="border-t pt-4">
                     {!feedbackReleased ? (
@@ -137,6 +176,14 @@ export default async function CastingPage() {
                                   {evaluation.notes}
                                 </p>
                               )}
+                              {evaluation.growthNotes && (
+                                <p className="mt-2 rounded-lg bg-accent p-2 text-sm text-accent-foreground">
+                                  <span className="font-semibold">
+                                    How to keep growing:{" "}
+                                  </span>
+                                  {evaluation.growthNotes}
+                                </p>
+                              )}
                             </div>
                           );
                         })}
@@ -153,7 +200,7 @@ export default async function CastingPage() {
                                 </p>
                                 <div className="mt-1 flex flex-wrap gap-2">
                                   <Link
-                                    href="/store/catalog"
+                                    href="/store/lessons"
                                     className="inline-flex h-10 items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
                                   >
                                     Book{" "}

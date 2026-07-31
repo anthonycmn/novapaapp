@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
+import { formatCents } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { CatalogItemForm } from "./catalog/catalog-form";
 import { ButtonDesigner } from "./designer";
 
-export const metadata = { title: "Spirit buttons" };
+export const metadata = { title: "Spirit buttons & star pages" };
 
 /** Spirit buttons store (#11): design, preview, and add to cart. */
 export default async function StorePage() {
@@ -14,14 +16,18 @@ export default async function StorePage() {
   if (!user) redirect("/login");
 
   const provider = getProvider();
-  const [templates, productions, cart] = await Promise.all([
+  const [templates, productions, cart, products, staff] = await Promise.all([
     provider.getButtonTemplates(),
     provider.getProductions(),
     provider.getCart(user.id),
+    provider.getProducts(),
+    provider.getStaffProfiles(),
   ]);
   const students = user.familyId
     ? await provider.getStudentsForFamily(user.id, user.familyId)
     : [];
+  // Show-week keepsakes live together on this page; coaching is separate.
+  const starPages = products.filter((product) => product.type === "star_page");
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -29,7 +35,7 @@ export default async function StorePage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-semibold">Spirit buttons</h1>
+          <h1 className="text-2xl font-semibold">Spirit buttons &amp; star pages</h1>
           <p className="text-muted-foreground">
             Show your performer some love on opening night.
           </p>
@@ -78,12 +84,38 @@ export default async function StorePage() {
         </Card>
       )}
 
-      <Link
-        href="/store/orders"
-        className="text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
-      >
-        View past orders
-      </Link>
+      {starPages.map((product) => (
+        <Card key={product.id}>
+          <CardHeader className="pb-2">
+            <CardTitle as="h2" className="flex items-center gap-2 text-base">
+              <span aria-hidden>⭐</span>
+              {product.name}
+            </CardTitle>
+            <CardDescription>{product.description}</CardDescription>
+            <p className="text-sm font-medium">
+              From {formatCents(product.basePriceCents)}
+            </p>
+          </CardHeader>
+          <CardContent>
+            <CatalogItemForm product={product} students={students} staff={staff} />
+          </CardContent>
+        </Card>
+      ))}
+
+      <div className="flex flex-col items-center gap-2 text-sm font-medium">
+        <Link
+          href="/store/lessons"
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Looking for private voice, acting, or dance lessons? →
+        </Link>
+        <Link
+          href="/store/orders"
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          View past orders
+        </Link>
+      </div>
     </div>
   );
 }
