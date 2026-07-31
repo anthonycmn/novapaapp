@@ -598,6 +598,16 @@ export interface DataProvider {
     productionId: string
   ): Promise<GrowthRecommendation[]>;
 
+  /**
+   * Re-notify families whose casting confirmation is still unanswered.
+   * Runs from an hourly cron; each family is reminded at most every 12h
+   * (CONFIRMATION_REMINDER_MS). `olderThanMs` is overridable for tests.
+   */
+  remindPendingCastingConfirmations(
+    actorId: string,
+    options?: { olderThanMs?: number }
+  ): Promise<{ reminded: number }>;
+
   /** Staff: playbill corrections and confirmation status. */
   getCastingResponses(
     actorId: string,

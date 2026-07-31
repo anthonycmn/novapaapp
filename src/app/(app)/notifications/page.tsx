@@ -64,13 +64,20 @@ export default async function NotificationsPage() {
                       className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
                     />
                   )}
-                  <div className="min-w-0 flex-1">
+                  {/* The whole notification is a link to its destination —
+                      a casting notice lands on /casting, a reply on the
+                      thread — and following it marks it read. */}
+                  <a
+                    href={`/api/notifications/go/${notification.id}`}
+                    className="min-w-0 flex-1 rounded-md hover:opacity-80"
+                  >
                     <p className="font-medium">{notification.title}</p>
                     <p className="text-sm text-muted-foreground">{notification.body}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {formatEventTime(notification.createdAt)}
+                      {notification.url && " · tap to open"}
                     </p>
-                  </div>
+                  </a>
                   {!notification.readAt && (
                     <form action={markReadAction.bind(null, notification.id)}>
                       <Button variant="ghost" size="sm" type="submit">

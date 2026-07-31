@@ -91,12 +91,20 @@ export default async function CastingPage() {
                       </div>
                     ) : feedback.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Feedback requested — the team hasn&apos;t completed
-                        rubrics for this audition.
+                        Feedback requested ✓ — nothing has been submitted by
+                        the team yet. Whatever they submit will appear here
+                        automatically, no need to ask again.
                       </p>
                     ) : (
                       <div className="flex flex-col gap-4">
                         <h3 className="font-semibold">Audition feedback</h3>
+                        {feedback.length < DISCIPLINES.length && (
+                          <p className="rounded-lg bg-muted p-2 text-sm text-muted-foreground">
+                            {feedback.length} of {DISCIPLINES.length} areas
+                            submitted so far — the rest appear as soon as the
+                            team completes them.
+                          </p>
+                        )}
                         {feedback.map((evaluation) => {
                           const meta = DISCIPLINES.find(
                             (d) => d.value === evaluation.discipline

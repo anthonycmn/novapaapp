@@ -88,6 +88,7 @@ import type {
 } from "../messages/types";
 import { priceFor, type Customization, type Product } from "../store/catalog";
 import {
+  CONFIRMATION_REMINDER_MS,
   RECOMMENDATION_THRESHOLD,
   RUBRIC_CRITERIA,
   type AuditionEvaluation,
@@ -3136,12 +3137,15 @@ export class MockDataProvider implements DataProvider {
         year: production?.opensOn?.slice(0, 4) ?? "",
       });
 
-      // The confirmation record the family responds to.
+      // The confirmation record the family responds to. lastRemindedAt
+      // starts now so the first 12-hour reminder counts from submission.
       store.castingConfirmations.push({
         id: nextId("conf"),
         assignmentId: assignment.id,
         studentId: student.id,
         familyId: student.familyId,
+        lastRemindedAt: nowIso(),
+        reminderCount: 0,
       });
 
       // Notify THIS family about THIS child only. The notification itself
@@ -3307,6 +3311,50 @@ export class MockDataProvider implements DataProvider {
       });
     }
     return recommendations;
+  }
+
+  async remindPendingCastingConfirmations(
+    actorId: string,
+    options?: { olderThanMs?: number }
+  ): Promise<{ reminded: number }> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const olderThanMs = options?.olderThanMs ?? CONFIRMATION_REMINDER_MS;
+    // olderThanMs <= 0 means "everything unanswered is due" (test override).
+    // The generated timestamps come from a monotonic clock that can sit a
+    // few ms ahead of wall clock, so a "now minus zero" cutoff would race it.
+    const cutoff = olderThanMs <= 0 ? Number.POSITIVE_INFINITY : Date.now() - olderThanMs;
+
+    let reminded = 0;
+    for (const confirmation of store.castingConfirmations) {
+      if (confirmation.nameCorrect !== undefined) continue; // answered
+      const last = confirmation.lastRemindedAt
+        ? new Date(confirmation.lastRemindedAt).getTime()
+        : 0;
+      if (last > cutoff) continue; // reminded recently
+
+      const student = store.students.find((s) => s.id === confirmation.studentId);
+      const assignment = store.casting.find((c) => c.id === confirmation.assignmentId);
+      if (!student || !assignment) continue;
+
+      for (const parent of store.users.filter(
+        (u) => u.role === "parent" && u.familyId === confirmation.familyId
+      )) {
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: parent.id,
+          type: "casting_released",
+          title: "Reminder: confirm the playbill name",
+          body: `${student.preferredName ?? student.firstName}'s role (${assignment.characterName}) is waiting on your confirmation.`,
+          url: "/casting",
+          createdAt: nowIso(),
+        });
+      }
+      confirmation.lastRemindedAt = nowIso();
+      confirmation.reminderCount = (confirmation.reminderCount ?? 0) + 1;
+      reminded += 1;
+    }
+    return { reminded };
   }
 
   async getCastingResponses(

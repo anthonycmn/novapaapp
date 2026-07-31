@@ -334,6 +334,45 @@ describe("family notification & confirmation — no cast list ever", () => {
   });
 });
 
+describe("12-hour confirmation reminders", () => {
+  it("re-notifies only unanswered confirmations, and answering stops them", async () => {
+    await castEveryone();
+    await provider.submitCasting("user-dana", "prod-frozen");
+
+    // Nothing is due yet at the real 12h window.
+    expect(
+      (await provider.remindPendingCastingConfirmations("user-dana")).reminded
+    ).toBe(0);
+
+    // Force-eligible via the test override: all 4 unanswered → all reminded.
+    const first = await provider.remindPendingCastingConfirmations("user-dana", {
+      olderThanMs: -1,
+    });
+    expect(first.reminded).toBe(4);
+
+    const sofia = await provider.getNotifications("user-sofia");
+    expect(
+      sofia.filter((n) => n.title.includes("Reminder: confirm")).length
+    ).toBe(2); // one per Martinez child
+
+    // Minh answers; the next forced run skips that confirmation.
+    const [minhs] = await provider.getMyCastingConfirmations("user-minh");
+    await provider.respondToCasting("user-minh", minhs.confirmation.id, {
+      nameCorrect: true,
+    });
+    const second = await provider.remindPendingCastingConfirmations("user-dana", {
+      olderThanMs: -1,
+    });
+    expect(second.reminded).toBe(3);
+  });
+
+  it("is staff-only", async () => {
+    await expect(
+      provider.remindPendingCastingConfirmations("user-sofia")
+    ).rejects.toThrow(AccessDeniedError);
+  });
+});
+
 describe("feedback release & recommendations", () => {
   async function fullPipeline() {
     for (const discipline of ["acting", "vocal", "dance"] as const) {

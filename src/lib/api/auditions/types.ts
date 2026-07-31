@@ -184,7 +184,16 @@ export interface CastingConfirmation {
   playbillName?: string;
   respondedAt?: string;
   feedbackRequestedAt?: string;
+  /**
+   * Reminder bookkeeping: while unanswered, the family is re-notified every
+   * 12 hours (org policy). Set to the submit time at creation.
+   */
+  lastRemindedAt?: string;
+  reminderCount?: number;
 }
+
+/** How long an unanswered confirmation waits before the next reminder. */
+export const CONFIRMATION_REMINDER_MS = 12 * 60 * 60 * 1000;
 
 /* ── recommendations ────────────────────────────────────────────────────── */
 
