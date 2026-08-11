@@ -94,3 +94,20 @@ Running log of decisions made autonomously during the build. Newest at the botto
   occurrences and get the 24h reminder through the existing hourly cron.
 - Payment is "billed by the studio" until Stripe keys arrive; the flow
   is built so real checkout drops in without touching booking.
+
+## Shared Supabase with the staff portal (2026-08-11, Tony: "GO")
+- The family hub now lives in the SAME Supabase project as the staff
+  portal (novapa-deh / assqaaplthcipyacolon) — one brain, two faces.
+- Separation rule: the portal owns the `staff_portal` schema (81 tables,
+  untouched); the family hub owns `public` (56 tables, 100+ RLS
+  policies, applied as migrations family_hub_0001..0011). Verified after
+  every step that no family-hub object landed in `staff_portal`.
+- Supabase security advisor run post-apply: fixed families_parent_view
+  to security_invoker (definer default would have bypassed RLS);
+  lesson_slot_occupancy stays definer BY DESIGN (exposes slot_id+taken
+  only). Remaining advisor errors are pre-existing staff_portal views —
+  not ours to touch.
+- Netlify env now carries NEXT_PUBLIC_SUPABASE_URL + anon key;
+  DATA_BACKEND=mock keeps the live site on demo data until the
+  SupabaseDataProvider adapter + real sign-in land. The flip to real
+  data is a one-variable change.
