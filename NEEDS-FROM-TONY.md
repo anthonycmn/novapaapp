@@ -6,13 +6,13 @@ Everything the build needs from you to go from mocks to live integrations. The a
 
 | # | Item | Used for | Where to get it | Env var(s) |
 |---|------|----------|-----------------|------------|
-| 1 | Supabase project URL + anon key + service role key | Database, auth, storage, realtime | supabase.com → create project → Settings → API | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
+| 1 | ~~Supabase project~~ **DONE 2026-08-11** — the family hub shares the staff portal's project (novapa-deh); URL + anon key are already set in Netlify. **Still needed: the service role key.** | Lets the app's server code read/write the database | supabase.com dashboard → novapa-deh → Project Settings → API keys → "service_role" → copy, then tell Claude "set the service role key" and paste it | `SUPABASE_SERVICE_ROLE_KEY` |
 | 2 | Resend API key | Transactional + bulk email (#1) | resend.com → API Keys; verify the org's sending domain | `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS` |
 | 3 | Stripe secret + publishable keys (test then live) | Spirit buttons checkout (#11) | dashboard.stripe.com → Developers → API keys | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` |
 | 4 | SmugMug API key + org account OAuth | Gallery ingestion for photo matching (#6) | api.smugmug.com → Apply for API key with the org account | `SMUGMUG_API_KEY`, `SMUGMUG_API_SECRET`, `SMUGMUG_OAUTH_TOKEN`, `SMUGMUG_OAUTH_SECRET` |
 | 5 | **A host for the face-embedding service** (small container running InsightFace/ArcFace, CPU is fine) | AI photo recognition (#6) | Self-hosted deliberately — children's biometric data stays on org-controlled infrastructure (rationale in DECISIONS.md). It needs one endpoint: `POST {image_url} → {faces:[{embedding:number[512], confidence, box}]}`. Until it exists the app uses deterministic mock vectors and the admin page says so. | `FACE_SERVICE_URL`, `FACE_SERVICE_KEY`, `PHOTO_JOB_SECRET` |
 | 6 | VAPID key pair | Web Push (#2) | Generated locally during Phase 2 (`npx web-push generate-vapid-keys`) — no signup needed, just keep the private key secret | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
-| 7 | Vercel account/team linked to the repo | Hosting + deploys | vercel.com → import the Git repo | (managed by Vercel) |
+| 7 | ~~Hosting~~ **DONE** — Netlify site `novapa-family-hub` deploys automatically from GitHub `anthonycmn/novapaapp` | Hosting + deploys | — | (managed by Netlify) |
 
 ## Information & assets
 

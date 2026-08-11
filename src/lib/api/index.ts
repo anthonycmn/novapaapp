@@ -1,6 +1,7 @@
 import type { DataProvider } from "./provider";
 import { MockDataProvider } from "./mock/provider";
 import { ensureMockStoreLoaded, persistMockStore } from "./mock/persistence";
+import { createSupabaseProvider } from "./supabase/provider";
 
 /**
  * Data-mode switch. "mock" (default) runs on the in-process store — with a
@@ -49,13 +50,11 @@ export function getProvider(): DataProvider {
   if (cached) return cached;
   const mode = process.env.NEXT_PUBLIC_DATA_MODE ?? "mock";
   if (mode === "supabase") {
-    // The Supabase adapter is wired in once a project exists
-    // (NEEDS-FROM-TONY.md #1). Until then, fail loudly rather than
-    // silently serving mock data in a "real" deployment.
-    throw new Error(
-      "NEXT_PUBLIC_DATA_MODE=supabase but the Supabase adapter is not configured yet. " +
-        "See NEEDS-FROM-TONY.md #1, then wire src/lib/api/supabase/provider.ts."
-    );
+    // Shared novapa-deh project (public schema). Ported methods hit
+    // Postgres; unported ones throw loudly — never silent mock fallback
+    // in a "real" deployment.
+    cached = createSupabaseProvider();
+    return cached;
   }
   cached = withPersistence(new MockDataProvider());
   return cached;
