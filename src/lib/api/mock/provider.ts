@@ -101,6 +101,14 @@ import {
   type ShowRole,
   type ShowScene,
 } from "../auditions/types";
+import {
+  LESSON_CALENDAR_WEEKS,
+  LESSON_DISCIPLINES,
+  nextLessonOccurrence,
+  upcomingLessonOccurrences,
+  type LessonBooking,
+  type LessonSlot,
+} from "../lessons/types";
 import * as seed from "./seed-data";
 
 /**
@@ -172,6 +180,8 @@ interface Store {
   showScenes: ShowScene[];
   /** Rehearsal notifications already sent, so cron re-runs don't duplicate. */
   eventNotices: Array<{ eventId: string; familyId: string; kind: "reminder" | "thanks"; at: string }>;
+  lessonSlots: LessonSlot[];
+  lessonBookings: LessonBooking[];
 }
 
 function deepClone<T>(value: T): T {
@@ -243,6 +253,8 @@ function buildStore(): Store {
     castingConfirmations: [],
     showScenes: deepClone(seed.showScenes),
     eventNotices: [],
+    lessonSlots: deepClone(seed.lessonSlots),
+    lessonBookings: [],
   };
 }
 
@@ -280,6 +292,8 @@ export function restoreMockStore(json: string): void {
   // Snapshots written before newer features existed lack these fields.
   store.showScenes ??= deepClone(seed.showScenes);
   store.eventNotices ??= [];
+  store.lessonSlots ??= deepClone(seed.lessonSlots);
+  store.lessonBookings ??= [];
   idCounter = Math.max(idCounter, parsed.idCounter);
   lastNow = Math.max(lastNow, parsed.lastNow);
 }
@@ -1025,6 +1039,35 @@ export class MockDataProvider implements DataProvider {
         location: "Studio front desk",
         studentIds: [request.studentId],
       });
+    }
+
+    // Weekly private lessons appear as their next few occurrences, so the
+    // household view really is every commitment in one place.
+    for (const booking of store.lessonBookings) {
+      if (booking.familyId !== familyId || booking.status !== "active") continue;
+      const slot = store.lessonSlots.find((s) => s.id === booking.slotId);
+      if (!slot) continue;
+      const teacher = store.staff.find((s) => s.id === slot.teacherStaffId);
+      const label =
+        LESSON_DISCIPLINES.find((d) => d.value === slot.discipline)?.label ?? "Private";
+      for (const startMs of upcomingLessonOccurrences(
+        slot,
+        Date.now(),
+        LESSON_CALENDAR_WEEKS
+      )) {
+        const startsAt = new Date(startMs).toISOString();
+        const id = `lesson-${booking.id}-${startsAt.slice(0, 10)}`;
+        byEvent.set(id, {
+          id,
+          type: "class",
+          title: `${label} lesson — ${teacher?.fullName ?? "NOVA PA"}`,
+          startsAt,
+          endsAt: new Date(startMs + slot.durationMin * 60_000).toISOString(),
+          location: slot.location,
+          contactName: teacher?.fullName,
+          studentIds: [booking.studentId],
+        });
+      }
     }
 
     const events = [...byEvent.values()].sort((a, b) =>
@@ -3769,7 +3812,271 @@ export class MockDataProvider implements DataProvider {
         else thanks += 1;
       }
     }
+
+    // Private lessons ride the same job: 24h-before reminder per booking,
+    // deduped through the same eventNotices ledger.
+    for (const booking of store.lessonBookings) {
+      if (booking.status !== "active") continue;
+      const slot = store.lessonSlots.find((s) => s.id === booking.slotId);
+      if (!slot) continue;
+      const startMs = nextLessonOccurrence(slot, now);
+      if (!(startMs > now && startMs <= now + DAY)) continue;
+
+      const eventId = `lesson-${booking.id}-${new Date(startMs).toISOString().slice(0, 10)}`;
+      const already = store.eventNotices.some(
+        (n) => n.eventId === eventId && n.familyId === booking.familyId && n.kind === "reminder"
+      );
+      if (already) continue;
+
+      const student = store.students.find((s) => s.id === booking.studentId);
+      const teacher = store.staff.find((s) => s.id === slot.teacherStaffId);
+      const label =
+        LESSON_DISCIPLINES.find((d) => d.value === slot.discipline)?.label ?? "Private";
+      const when = new Date(startMs).toLocaleString("en-US", {
+        weekday: "long",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "America/New_York",
+      });
+      for (const parent of store.users.filter(
+        (u) => u.role === "parent" && u.familyId === booking.familyId
+      )) {
+        store.notifications.push({
+          id: nextId("ntf"),
+          userId: parent.id,
+          type: "schedule_change",
+          title: `Tomorrow: ${label} lesson`,
+          body: `${student?.preferredName ?? student?.firstName ?? "Your student"}'s ${label.toLowerCase()} lesson with ${teacher?.fullName ?? "NOVA PA"} is ${when} at ${slot.location}.`,
+          url: "/store/lessons",
+          createdAt: nowIso(),
+        });
+      }
+      store.eventNotices.push({
+        eventId,
+        familyId: booking.familyId,
+        kind: "reminder",
+        at: nowIso(),
+      });
+      reminders += 1;
+    }
     return { reminders, thanks };
+  }
+
+  /* ── private lessons: weekly recurring slots (#lessons) ─────────────── */
+
+  async getLessonSlots(actorId: string): Promise<
+    Array<{
+      slot: LessonSlot;
+      teacherName: string;
+      teacherTitle: string;
+      status: "open" | "taken" | "yours";
+      bookingId?: string;
+      studentName?: string;
+    }>
+  > {
+    const actor = getActor(actorId);
+    const staffView = isStaffish(actor);
+
+    return store.lessonSlots
+      .map((slot) => {
+        const teacher = store.staff.find((s) => s.id === slot.teacherStaffId);
+        const booking = store.lessonBookings.find(
+          (b) => b.slotId === slot.id && b.status === "active"
+        );
+        const mine = booking && actor.familyId === booking.familyId;
+        const student = booking
+          ? store.students.find((s) => s.id === booking.studentId)
+          : undefined;
+        return {
+          slot: deepClone(slot),
+          teacherName: teacher?.fullName ?? "NOVA PA",
+          teacherTitle: teacher?.title ?? "",
+          status: (booking ? (mine ? "yours" : "taken") : "open") as
+            | "open"
+            | "taken"
+            | "yours",
+          // Who holds a slot is private: families see "taken", never a name.
+          bookingId: mine || staffView ? booking?.id : undefined,
+          studentName:
+            (mine || staffView) && student
+              ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+              : undefined,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.teacherName.localeCompare(b.teacherName) ||
+          a.slot.weekday - b.slot.weekday ||
+          a.slot.startTime.localeCompare(b.slot.startTime)
+      );
+  }
+
+  async bookLessonSlot(
+    actorId: string,
+    input: { slotId: string; studentId: string; goals?: string }
+  ): Promise<LessonBooking> {
+    const actor = getActor(actorId);
+    const slot = store.lessonSlots.find((s) => s.id === input.slotId);
+    if (!slot) throw new Error("That lesson time no longer exists");
+    const student = store.students.find((s) => s.id === input.studentId);
+    if (!student) throw new Error("Student not found");
+    if (!isStaffish(actor)) assertFamilyAccess(actor, student.familyId);
+
+    if (store.lessonBookings.some((b) => b.slotId === slot.id && b.status === "active")) {
+      throw new Error("That time was just taken — pick another open slot");
+    }
+
+    const startMs = nextLessonOccurrence(slot, Date.now());
+    const booking: LessonBooking = {
+      id: nextId("lb"),
+      slotId: slot.id,
+      studentId: student.id,
+      familyId: student.familyId,
+      startDate: new Date(startMs).toISOString().slice(0, 10),
+      status: "active",
+      goals: input.goals?.trim() || undefined,
+      paymentMethod: "studio_invoice",
+      createdAt: nowIso(),
+    };
+    store.lessonBookings.push(booking);
+
+    const teacher = store.staff.find((s) => s.id === slot.teacherStaffId);
+    const label =
+      LESSON_DISCIPLINES.find((d) => d.value === slot.discipline)?.label ?? "Private";
+    const studentName = student.preferredName ?? student.firstName;
+
+    for (const parent of store.users.filter(
+      (u) => u.role === "parent" && u.familyId === student.familyId
+    )) {
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: parent.id,
+        type: "schedule_change",
+        title: `Weekly ${label.toLowerCase()} lesson booked 🎉`,
+        body: `${studentName} has a standing ${label.toLowerCase()} lesson with ${teacher?.fullName ?? "NOVA PA"}, starting ${booking.startDate}. It's on your family calendar.`,
+        url: "/store/lessons",
+        createdAt: nowIso(),
+      });
+    }
+    if (teacher?.userId) {
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: teacher.userId,
+        type: "schedule_change",
+        title: "New weekly lesson student",
+        body: `${studentName} ${student.lastName} booked your ${label.toLowerCase()} slot, starting ${booking.startDate}.`,
+        url: "/admin/lessons",
+        createdAt: nowIso(),
+      });
+    }
+    return deepClone(booking);
+  }
+
+  async cancelLessonBooking(actorId: string, bookingId: string): Promise<void> {
+    const actor = getActor(actorId);
+    const booking = store.lessonBookings.find((b) => b.id === bookingId);
+    if (!booking || booking.status !== "active") throw new Error("Booking not found");
+    if (!isStaffish(actor)) assertFamilyAccess(actor, booking.familyId);
+
+    booking.status = "cancelled";
+    booking.cancelledAt = nowIso();
+
+    const slot = store.lessonSlots.find((s) => s.id === booking.slotId);
+    const teacher = slot
+      ? store.staff.find((s) => s.id === slot.teacherStaffId)
+      : undefined;
+    const student = store.students.find((s) => s.id === booking.studentId);
+    if (teacher?.userId) {
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: teacher.userId,
+        type: "schedule_change",
+        title: "Weekly lesson cancelled",
+        body: `${student?.preferredName ?? student?.firstName ?? "A student"}'s weekly slot (${slot ? `${slot.startTime} lessons` : "lesson"}) is open again.`,
+        url: "/admin/lessons",
+        createdAt: nowIso(),
+      });
+    }
+  }
+
+  async getMyLessonBookings(actorId: string): Promise<
+    Array<{
+      booking: LessonBooking;
+      slot: LessonSlot;
+      teacherName: string;
+      studentName: string;
+      nextLessonAt: string;
+    }>
+  > {
+    const actor = getActor(actorId);
+    if (!actor.familyId) return [];
+
+    return store.lessonBookings
+      .filter((b) => b.familyId === actor.familyId && b.status === "active")
+      .flatMap((booking) => {
+        const slot = store.lessonSlots.find((s) => s.id === booking.slotId);
+        if (!slot) return [];
+        const teacher = store.staff.find((s) => s.id === slot.teacherStaffId);
+        const student = store.students.find((s) => s.id === booking.studentId);
+        return [
+          {
+            booking: deepClone(booking),
+            slot: deepClone(slot),
+            teacherName: teacher?.fullName ?? "NOVA PA",
+            studentName: student
+              ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+              : "Student",
+            nextLessonAt: new Date(
+              nextLessonOccurrence(slot, Date.now())
+            ).toISOString(),
+          },
+        ];
+      });
+  }
+
+  /** Staff: every slot with who's in it — the teaching week at a glance. */
+  async getLessonRoster(actorId: string): Promise<
+    Array<{
+      slot: LessonSlot;
+      teacherName: string;
+      studentName?: string;
+      familyName?: string;
+      goals?: string;
+      startDate?: string;
+    }>
+  > {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    return store.lessonSlots
+      .map((slot) => {
+        const teacher = store.staff.find((s) => s.id === slot.teacherStaffId);
+        const booking = store.lessonBookings.find(
+          (b) => b.slotId === slot.id && b.status === "active"
+        );
+        const student = booking
+          ? store.students.find((s) => s.id === booking.studentId)
+          : undefined;
+        const family = booking
+          ? store.families.find((f) => f.id === booking.familyId)
+          : undefined;
+        return {
+          slot: deepClone(slot),
+          teacherName: teacher?.fullName ?? "NOVA PA",
+          studentName: student
+            ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+            : undefined,
+          familyName: family?.name,
+          goals: booking?.goals,
+          startDate: booking?.startDate,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.teacherName.localeCompare(b.teacherName) ||
+          a.slot.weekday - b.slot.weekday ||
+          a.slot.startTime.localeCompare(b.slot.startTime)
+      );
   }
 
   async getCastingResponses(

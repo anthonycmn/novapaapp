@@ -71,6 +71,7 @@ import type {
   ShowRole,
   ShowScene,
 } from "./auditions/types";
+import type { LessonBooking, LessonSlot } from "./lessons/types";
 import type {
   Review,
   ReviewAggregate,
@@ -678,6 +679,51 @@ export interface DataProvider {
       confirmation: CastingConfirmation;
       studentName: string;
       roleName: string;
+    }>
+  >;
+
+  /* private lessons: weekly recurring slots with the same teacher */
+
+  /** Every slot with open/taken status. Who holds a slot stays private. */
+  getLessonSlots(actorId: string): Promise<
+    Array<{
+      slot: LessonSlot;
+      teacherName: string;
+      teacherTitle: string;
+      status: "open" | "taken" | "yours";
+      bookingId?: string;
+      studentName?: string;
+    }>
+  >;
+
+  /** Book a weekly recurring slot for one of your children (capacity 1). */
+  bookLessonSlot(
+    actorId: string,
+    input: { slotId: string; studentId: string; goals?: string }
+  ): Promise<LessonBooking>;
+
+  /** Cancel the standing booking; the slot opens for other families. */
+  cancelLessonBooking(actorId: string, bookingId: string): Promise<void>;
+
+  getMyLessonBookings(actorId: string): Promise<
+    Array<{
+      booking: LessonBooking;
+      slot: LessonSlot;
+      teacherName: string;
+      studentName: string;
+      nextLessonAt: string;
+    }>
+  >;
+
+  /** Staff: the teaching week — every slot and who's in it. */
+  getLessonRoster(actorId: string): Promise<
+    Array<{
+      slot: LessonSlot;
+      teacherName: string;
+      studentName?: string;
+      familyName?: string;
+      goals?: string;
+      startDate?: string;
     }>
   >;
 

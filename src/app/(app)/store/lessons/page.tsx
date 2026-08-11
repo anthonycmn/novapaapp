@@ -1,87 +1,84 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ShoppingCart } from "lucide-react";
 import { getProvider } from "@/lib/api";
+import { WEEKDAY_NAMES } from "@/lib/api/lessons/types";
 import { getSessionUser } from "@/lib/auth/session";
-import { formatCents } from "@/lib/format";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/states";
-import { CatalogItemForm } from "../catalog/catalog-form";
+import { cancelLessonBookingAction } from "@/lib/actions/lessons";
+import { formatEventTime } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { LessonBooker } from "./lesson-booker";
 
 export const metadata = { title: "Private lessons" };
 
 /**
- * Private coaching only — deliberately its own page, separate from the
- * show-week keepsakes (buttons and star pages), per org preference.
+ * Weekly recurring private lessons — same teacher, same time every week
+ * (org policy). Booked lessons land on the family calendar with 24h
+ * reminders; cancelling frees the slot for another family.
  */
 export default async function LessonsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const provider = getProvider();
-  const [products, staff, cart] = await Promise.all([
-    provider.getProducts(),
-    provider.getStaffProfiles(),
-    provider.getCart(user.id),
+  const [rows, myBookings] = await Promise.all([
+    provider.getLessonSlots(user.id),
+    provider.getMyLessonBookings(user.id),
   ]);
   const students = user.familyId
-    ? await provider.getStudentsForFamily(user.id, user.familyId)
+    ? (await provider.getStudentsForFamily(user.id, user.familyId)).map((s) => ({
+        id: s.id,
+        name: `${s.preferredName ?? s.firstName} ${s.lastName}`,
+      }))
     : [];
-
-  const lessons = products.filter((product) => product.type === "private_lesson");
-  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold">Private lessons</h1>
-          <p className="text-muted-foreground">
-            One-to-one voice, acting, and dance coaching with NOVA PA teaching
-            artists.
-          </p>
-        </div>
-        <Link
-          href="/store/cart"
-          className="relative inline-flex size-11 items-center justify-center rounded-lg border hover:bg-accent"
-          aria-label={`Cart${cartCount > 0 ? ` (${cartCount} items)` : ""}`}
-        >
-          <ShoppingCart aria-hidden className="size-5" />
-          {cartCount > 0 && (
-            <span
-              aria-hidden
-              className="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1 text-xs font-bold text-primary-foreground"
-            >
-              {cartCount}
-            </span>
-          )}
-        </Link>
+      <div>
+        <h1 className="text-2xl font-semibold">Private lessons</h1>
+        <p className="text-muted-foreground">
+          A standing weekly time with the same NOVA PA teaching artist. Book
+          once — it repeats every week until you cancel.
+        </p>
       </div>
 
-      {lessons.length === 0 ? (
-        <EmptyState
-          title="No lesson packages available right now"
-          description="Check back soon, or message the office."
-        />
-      ) : (
-        lessons.map((product) => (
-          <Card key={product.id}>
-            <CardHeader className="pb-2">
-              <CardTitle as="h2" className="flex items-center gap-2 text-base">
-                <span aria-hidden>🎤</span>
-                {product.name}
-              </CardTitle>
-              <CardDescription>{product.description}</CardDescription>
-              <p className="text-sm font-medium">
-                From {formatCents(product.basePriceCents)}
-              </p>
-            </CardHeader>
-            <CardContent>
-              <CatalogItemForm product={product} students={students} staff={staff} />
-            </CardContent>
-          </Card>
-        ))
+      {myBookings.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold">Your weekly lessons</h2>
+          {myBookings.map(({ booking, slot, teacherName, studentName, nextLessonAt }) => (
+            <Card key={booking.id} className="border-primary/40">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div>
+                  <p className="font-medium">
+                    {studentName.split(" ")[0]} — {WEEKDAY_NAMES[slot.weekday]}s with{" "}
+                    {teacherName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Next lesson: {formatEventTime(nextLessonAt)} · {slot.location}
+                  </p>
+                  {booking.goals && (
+                    <p className="text-sm text-muted-foreground">
+                      Working on: {booking.goals}
+                    </p>
+                  )}
+                </div>
+                <form action={cancelLessonBookingAction.bind(null, booking.id)}>
+                  <Button type="submit" variant="outline" size="sm">
+                    Cancel weekly slot
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
+
+      <LessonBooker rows={rows} students={students} />
+
+      <p className="text-center text-xs text-muted-foreground">
+        Lessons are billed by the studio for now — online card payment is
+        coming. Cancelling frees the time for another family.
+      </p>
 
       <Link
         href="/store"

@@ -22,6 +22,7 @@ import type {
 import type { Review, ReviewWindow } from "../reviews/types";
 import type { Product } from "../store/catalog";
 import type { ShowRole, ShowScene } from "../auditions/types";
+import type { LessonSlot } from "../lessons/types";
 
 /**
  * Realistic demo data: three families, five students, four staff,
@@ -490,6 +491,25 @@ export const showScenes: ShowScene[] = [
   { id: "scn-fixer-upper", productionId: "prod-frozen", name: "Fixer Upper", kind: "song", sortOrder: 14, roleIds: ["role-kristoff", "role-anna", "role-olaf", "role-pabbie", "role-bulda", "role-hidden-folk"] },
   { id: "scn-colder", productionId: "prod-frozen", name: "Colder by the Minute", kind: "song", sortOrder: 15, roleIds: ["role-anna", "role-elsa", "role-hans", "role-kristoff", "role-olaf", "role-duke", ...ALL_ENSEMBLE] },
   { id: "scn-finale", productionId: "prod-frozen", name: "Finale / Let It Go (Reprise)", kind: "song", sortOrder: 16, roleIds: ["role-anna", "role-elsa", "role-kristoff", "role-olaf", "role-sven", "role-hans", "role-duke", "role-oaken", "role-pabbie", "role-bulda", "role-young-anna", "role-young-elsa", "role-middle-anna", "role-middle-elsa", "role-agnarr", "role-iduna", "role-bishop", "role-kai", "role-gerda", ...ALL_ENSEMBLE] },
+];
+
+/**
+ * Weekly recurring private-lesson slots — same teacher, same time every
+ * week until the family cancels. Times are studio-local Eastern.
+ */
+export const lessonSlots: LessonSlot[] = [
+  // Marcus Lee — voice (Music Director)
+  { id: "ls-1", teacherStaffId: "staff-marcus", discipline: "voice", weekday: 2, startTime: "16:30", durationMin: 30, location: "Studio B, Chantilly", pricePerLessonCents: 4500 },
+  { id: "ls-2", teacherStaffId: "staff-marcus", discipline: "voice", weekday: 2, startTime: "17:00", durationMin: 30, location: "Studio B, Chantilly", pricePerLessonCents: 4500 },
+  { id: "ls-3", teacherStaffId: "staff-marcus", discipline: "voice", weekday: 2, startTime: "17:30", durationMin: 30, location: "Studio B, Chantilly", pricePerLessonCents: 4500 },
+  { id: "ls-4", teacherStaffId: "staff-marcus", discipline: "voice", weekday: 3, startTime: "16:30", durationMin: 30, location: "Studio B, Chantilly", pricePerLessonCents: 4500 },
+  { id: "ls-5", teacherStaffId: "staff-marcus", discipline: "voice", weekday: 3, startTime: "17:00", durationMin: 30, location: "Studio B, Chantilly", pricePerLessonCents: 4500 },
+  // Dana Whitfield — acting (Artistic Director)
+  { id: "ls-6", teacherStaffId: "staff-dana", discipline: "acting", weekday: 4, startTime: "17:00", durationMin: 45, location: "Studio A, Chantilly", pricePerLessonCents: 6000 },
+  { id: "ls-7", teacherStaffId: "staff-dana", discipline: "acting", weekday: 4, startTime: "17:45", durationMin: 45, location: "Studio A, Chantilly", pricePerLessonCents: 6000 },
+  // Priya Raman — dance (Choreographer & Teaching Artist)
+  { id: "ls-8", teacherStaffId: "staff-priya", discipline: "dance", weekday: 1, startTime: "17:00", durationMin: 45, location: "Studio A, Chantilly", pricePerLessonCents: 5500 },
+  { id: "ls-9", teacherStaffId: "staff-priya", discipline: "dance", weekday: 1, startTime: "17:45", durationMin: 45, location: "Studio A, Chantilly", pricePerLessonCents: 5500 },
 ];
 
 export const products: Product[] = [

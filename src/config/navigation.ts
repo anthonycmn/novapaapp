@@ -42,6 +42,7 @@ export const STAFF_SECTIONS: NavSection[] = [
   { href: "/admin/health", emoji: "🩺", label: "Health & safety", description: "Form status, emergency roster" },
   { href: "/admin/pickup", emoji: "🚦", label: "Pick-up approvals", description: "Approve requests, daily roster" },
   { href: "/admin/store", emoji: "🏭", label: "Button orders", description: "Fulfillment, manifest, print sheet" },
+  { href: "/admin/lessons", emoji: "🎹", label: "Lesson roster", description: "Weekly private-lesson slots and students" },
   { href: "/admin/photos", emoji: "🖼️", label: "Photo ingestion", description: "Pull galleries, run matching" },
   { href: "/admin/registration", emoji: "🔄", label: "Registration sync", description: "Sync health and resync" },
   { href: "/admin/directory", emoji: "📇", label: "Family directory", description: "All families, students, contacts" },
