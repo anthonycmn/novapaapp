@@ -83,3 +83,14 @@ Running log of decisions made autonomously during the build. Newest at the botto
   refresh is still applying makes React discard the response (server
   still processes it). Submit/publish buttons now disable during any
   pending assign transition.
+
+## Private lessons (2026-07-31)
+- **Weekly recurring slots with the same teacher** (Tony's call) — a slot
+  is teacher + weekday + time; booking attaches one student until the
+  family cancels. No one-off booking, no packages.
+- Slot holders are private: other families see "taken", never a name.
+  The staff roster (/admin/lessons) is the only place names appear.
+- Booked lessons materialize on the family calendar as the next four
+  occurrences and get the 24h reminder through the existing hourly cron.
+- Payment is "billed by the studio" until Stripe keys arrive; the flow
+  is built so real checkout drops in without touching booking.
