@@ -14,9 +14,12 @@ import type {
   OrderItem,
   OrderStatus,
   FeedCategory,
+  EmailSend,
+  EmailTemplate,
   FeedPost,
   Guardian,
   HealthForm,
+  ResumeCredit,
   HopesEntry,
   NotificationPrefs,
   PickupRequest,
@@ -1563,6 +1566,263 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── email, calendar tokens, student materials (ported) ────────────── */
+
+  /** Parents whose family matches a post/email audience. */
+  private async audienceParents(audience: FeedAudience): Promise<User[]> {
+    const [{ data: parents }, { data: students }, { data: enrollments },
+      { data: classes }, { data: productions }] = await Promise.all([
+      this.db.from("profiles").select("*").eq("role", "parent"),
+      this.db.from("students").select("id, family_id"),
+      this.db.from("enrollments").select("*").eq("status", "enrolled"),
+      this.db.from("classes").select("id, program_id"),
+      this.db.from("productions").select("id, program_id"),
+    ]);
+    const isEveryone =
+      !audience.productionIds?.length &&
+      !audience.classIds?.length &&
+      !audience.programIds?.length;
+    const classPrograms = new Map((classes ?? []).map((c) => [c.id, c.program_id]));
+    const productionPrograms = new Map((productions ?? []).map((pr) => [pr.id, pr.program_id]));
+
+    return (parents ?? [])
+      .filter((parent) => {
+        if (isEveryone) return true;
+        const familyStudentIds = new Set(
+          (students ?? []).filter((st) => st.family_id === parent.family_id).map((st) => st.id)
+        );
+        return (enrollments ?? []).some((enrollment) => {
+          if (!familyStudentIds.has(enrollment.student_id)) return false;
+          if (enrollment.production_id &&
+            audience.productionIds?.includes(String(enrollment.production_id))) return true;
+          if (enrollment.class_id &&
+            audience.classIds?.includes(String(enrollment.class_id))) return true;
+          if (audience.programIds?.length) {
+            const programId = enrollment.class_id
+              ? classPrograms.get(enrollment.class_id)
+              : productionPrograms.get(enrollment.production_id);
+            if (programId && audience.programIds.includes(String(programId))) return true;
+          }
+          return false;
+        });
+      })
+      .map(mapUser);
+  }
+
+  async resolveAudience(actorId: string, audience: FeedAudience): Promise<User[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return this.audienceParents(audience);
+  }
+
+  async getEmailTemplates(actorId: string): Promise<EmailTemplate[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    // Templates are app configuration (no editor exists yet), shared with
+    // the mock so both backends offer identical starting points.
+    const seed = await import("../mock/seed-data");
+    return structuredClone(seed.emailTemplates);
+  }
+
+  private mapEmailSend(row: Row): EmailSend {
+    return {
+      id: String(row.id),
+      templateId: s(row.template_id),
+      subject: String(row.subject),
+      body: String(row.body),
+      category: row.category as EmailSend["category"],
+      audience: (row.audience ?? {}) as EmailSend["audience"],
+      scheduledFor: s(row.scheduled_for),
+      sentAt: s(row.sent_at),
+      stats: (row.stats ?? { total: 0, delivered: 0, opened: 0 }) as EmailSend["stats"],
+      createdByName: String(row.created_by_name ?? ""),
+    };
+  }
+
+  async getEmailSends(actorId: string): Promise<EmailSend[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data } = await this.db
+      .from("email_sends").select("*").order("sent_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapEmailSend(row));
+  }
+
+  async sendEmail(
+    actorId: string,
+    input: {
+      templateId?: string;
+      subject: string;
+      body: string;
+      category: EmailSend["category"];
+      audience: EmailSend["audience"];
+      scheduledFor?: string;
+      testToSelf?: boolean;
+    }
+  ): Promise<EmailSend> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const recipients = input.testToSelf
+      ? [actor]
+      : await this.audienceParents(input.audience as FeedAudience);
+
+    const { data, error } = await this.db
+      .from("email_sends")
+      .insert({
+        template_id: input.templateId ?? null,
+        subject: input.subject,
+        body: input.body,
+        category: input.category,
+        audience: input.audience,
+        scheduled_for: input.scheduledFor ?? null,
+        sent_at: input.scheduledFor ? null : new Date().toISOString(),
+        stats: {
+          total: recipients.length,
+          delivered: input.scheduledFor ? 0 : recipients.length,
+          opened: 0,
+        },
+        created_by_name: actor.displayName,
+      })
+      .select().single();
+    if (error) throw new Error(`email send failed: ${error.message}`);
+    return this.mapEmailSend(data);
+  }
+
+  async recordEmailOpen(sendId: string, recipientId: string): Promise<void> {
+    // Tracking-pixel endpoint — no actor. Upsert keeps one row per pair.
+    await this.db.from("email_opens").upsert(
+      { send_id: sendId, recipient_id: recipientId, opened_at: new Date().toISOString() },
+      { onConflict: "send_id,recipient_id" }
+    );
+  }
+
+  async recordEmailClick(sendId: string, recipientId: string, url: string): Promise<void> {
+    await this.db.from("email_clicks").insert({
+      send_id: sendId, recipient_id: recipientId, url,
+    });
+  }
+
+  async getEmailEngagement(
+    actorId: string,
+    sendId: string
+  ): Promise<{
+    opens: Array<{ recipientId: string; recipientName: string; at: string }>;
+    clicks: Array<{ recipientId: string; recipientName: string; url: string; at: string }>;
+    nonOpeners: User[];
+  }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const [{ data: send }, { data: opens }, { data: clicks }, { data: profiles }] =
+      await Promise.all([
+        this.db.from("email_sends").select("audience").eq("id", sendId).maybeSingle(),
+        this.db.from("email_opens").select("*").eq("send_id", sendId),
+        this.db.from("email_clicks").select("*").eq("send_id", sendId),
+        this.db.from("profiles").select("*"),
+      ]);
+    const nameOf = (id: string) =>
+      String((profiles ?? []).find((pr) => pr.id === id)?.display_name ?? "");
+    const openedIds = new Set((opens ?? []).map((o) => String(o.recipient_id)));
+    const recipients = send
+      ? await this.audienceParents((send.audience ?? {}) as FeedAudience)
+      : [];
+    return {
+      opens: (opens ?? []).map((o) => ({
+        recipientId: String(o.recipient_id),
+        recipientName: nameOf(String(o.recipient_id)),
+        at: String(o.opened_at),
+      })),
+      clicks: (clicks ?? []).map((c) => ({
+        recipientId: String(c.recipient_id),
+        recipientName: nameOf(String(c.recipient_id)),
+        url: String(c.url),
+        at: String(c.clicked_at),
+      })),
+      nonOpeners: recipients.filter((user) => !openedIds.has(user.id)),
+    };
+  }
+
+  async getCalendarToken(actorId: string, familyId: string): Promise<string> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data: existing } = await this.db
+      .from("family_calendar_tokens").select("token").eq("family_id", familyId).maybeSingle();
+    if (existing) return String(existing.token);
+    // The column default generates the token server-side.
+    const { data, error } = await this.db
+      .from("family_calendar_tokens").insert({ family_id: familyId })
+      .select("token").single();
+    if (error) throw new Error(`calendar token failed: ${error.message}`);
+    return String(data.token);
+  }
+
+  async getFamilyIdByCalendarToken(token: string): Promise<string | null> {
+    const { data } = await this.db
+      .from("family_calendar_tokens").select("family_id").eq("token", token).maybeSingle();
+    return data ? String(data.family_id) : null;
+  }
+
+  /* ── student materials ── */
+
+  private async materialWrite(
+    actorId: string,
+    studentId: string,
+    patch: Record<string, unknown>
+  ): Promise<Student> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) throw new Error("Student not found");
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && !(actor.role === "parent" && actor.familyId === familyId)) {
+      throw new AccessDeniedError("Not allowed to modify this family");
+    }
+    const { data, error } = await this.db
+      .from("students")
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq("id", studentId).select().single();
+    if (error) throw new Error(`student update failed: ${error.message}`);
+    return mapStudent(data);
+  }
+
+  private async storeFile(bucket: Parameters<typeof assertUploadAllowed>[0], path: string, dataUrl: string): Promise<string> {
+    // Type and size are enforced here, not only in the browser.
+    assertUploadAllowed(bucket, dataUrl);
+    const stored = await getStorageProvider().upload(bucket, path, dataUrl);
+    return stored.url;
+  }
+
+  async setHeadshot(
+    actorId: string,
+    studentId: string,
+    files: { webDataUrl: string; printDataUrl: string }
+  ): Promise<Student> {
+    const web = await this.storeFile("headshots", `${studentId}/web.jpg`, files.webDataUrl);
+    const print = await this.storeFile("headshots", `${studentId}/print.jpg`, files.printDataUrl);
+    return this.materialWrite(actorId, studentId, {
+      headshot_url: web, headshot_print_url: print,
+    });
+  }
+
+  async setResumePdf(actorId: string, studentId: string, dataUrl: string): Promise<Student> {
+    const url = await this.storeFile("resumes", `${studentId}/resume.pdf`, dataUrl);
+    return this.materialWrite(actorId, studentId, { resume_pdf_url: url });
+  }
+
+  async setAuditionAudio(actorId: string, studentId: string, dataUrl: string): Promise<Student> {
+    const url = await this.storeFile("audition-audio", `${studentId}/audition`, dataUrl);
+    return this.materialWrite(actorId, studentId, { audition_audio_url: url });
+  }
+
+  async clearAuditionAudio(actorId: string, studentId: string): Promise<Student> {
+    return this.materialWrite(actorId, studentId, { audition_audio_url: null });
+  }
+
+  async saveResumeCredits(
+    actorId: string,
+    studentId: string,
+    credits: ResumeCredit[]
+  ): Promise<Student> {
+    return this.materialWrite(actorId, studentId, { resume_credits: credits });
   }
 
   /* ── students, hopes, directory, staff self-edit (ported) ──────────── */

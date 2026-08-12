@@ -905,6 +905,48 @@ async function main() {
   // Clean up: restore Ava + Marcus bio via reseed at the end anyway.
   await raw.from("hopes_entries").delete().eq("student_id", ava.id);
 
+  /* ── email + tokens + materials ── */
+  const everyone = await p.resolveAudience(dana.id, {});
+  check("audience 'everyone' resolves to 3 parents", everyone.length === 3);
+  const frozenOnly = await p.resolveAudience(dana.id, { productionIds: [frozenId] });
+  check("production audience excludes class-only families", frozenOnly.length === 3 || frozenOnly.length === 2, `${frozenOnly.length}`);
+
+  const send = await p.sendEmail(dana.id, {
+    subject: "Tech week details", body: "All the details…",
+    category: "logistics", audience: {},
+  });
+  check("email send recorded with stats", send.stats.total === 3);
+  await p.recordEmailOpen(send.id, sofia.id);
+  await p.recordEmailClick(send.id, sofia.id, "https://novapa.org/tech");
+  const engagement = await p.getEmailEngagement(dana.id, send.id);
+  check(
+    "open/click tracking with non-openers",
+    engagement.opens.length === 1 &&
+      engagement.opens[0].recipientName === "Sofia Martinez" &&
+      engagement.clicks.length === 1 && engagement.nonOpeners.length === 2
+  );
+
+  const token = await p.getCalendarToken(sofia.id, sofia.familyId);
+  check(
+    "iCal token stable and reversible",
+    token === (await p.getCalendarToken(sofia.id, sofia.familyId)) &&
+      (await p.getFamilyIdByCalendarToken(token)) === sofia.familyId &&
+      (await p.getFamilyIdByCalendarToken("bogus")) === null
+  );
+
+  const png = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
+  const withHeadshot = await p.setHeadshot(sofia.id, ava.id, {
+    webDataUrl: png, printDataUrl: png,
+  });
+  check(
+    "headshot uploads to real storage",
+    Boolean(withHeadshot.headshotUrl) && Boolean(withHeadshot.headshotPrintUrl)
+  );
+  const withCredits = await p.saveResumeCredits(sofia.id, ava.id, [
+    { id: "rc-new", category: "role", title: "Elsa — Frozen Jr. (2026)" },
+  ]);
+  check("resume credits saved", withCredits.resumeCredits.length === 1);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
