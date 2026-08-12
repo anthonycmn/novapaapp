@@ -4,7 +4,12 @@ import { AccessDeniedError, type DataProvider } from "../provider";
 import type {
   AppNotification,
   CalendarEvent,
+  FeedAudience,
+  FeedCategory,
+  FeedPost,
   NotificationPrefs,
+  PostQuestion,
+  ReactionKind,
   Family,
   FamilyCalendarEvent,
   StaffProfile,
@@ -1409,6 +1414,214 @@ class SupabaseDataProvider {
           roleName: String(assignment?.character_name ?? ""),
         };
       });
+  }
+
+  /* ── feed: staff post, families react & ask (ported from the mock) ─── */
+
+  private mapPost(row: Row): FeedPost {
+    return {
+      id: String(row.id),
+      authorStaffId: String(row.author_staff_id ?? ""),
+      authorName: String(row.author_name ?? ""),
+      title: s(row.title),
+      body: String(row.body),
+      imageUrls: (row.image_urls ?? []) as string[],
+      videoEmbedUrl: s(row.video_embed_url),
+      linkUrl: s(row.link_url),
+      category: row.category as FeedCategory,
+      audience: (row.audience ?? {}) as FeedAudience,
+      isPinned: Boolean(row.is_pinned),
+      publishedAt: String(row.published_at),
+      reactionCounts: (row.reaction_counts ?? { heart: 0, clap: 0, star: 0 }) as FeedPost["reactionCounts"],
+    };
+  }
+
+  private mapQuestion(row: Row): PostQuestion {
+    return {
+      id: String(row.id),
+      postId: String(row.post_id),
+      askerUserId: String(row.asker_user_id),
+      askerName: String(row.asker_name ?? ""),
+      question: String(row.question),
+      answer: s(row.answer),
+      answeredByName: s(row.answered_by_name),
+      answeredAt: s(row.answered_at),
+      isPublicFaq: Boolean(row.is_public_faq),
+      createdAt: String(row.created_at),
+    };
+  }
+
+  async getFeedForUser(actorId: string): Promise<FeedPost[]> {
+    const actor = await this.actor(actorId);
+    const { data: posts } = await this.db.from("feed_posts").select("*");
+    let visible = (posts ?? []).map((row) => this.mapPost(row));
+
+    if (!this.isStaffish(actor)) {
+      // Audience filtering mirrors the mock: empty audience = everyone;
+      // otherwise the family needs an enrollment matching it.
+      const { data: students } = await this.db
+        .from("students").select("id").eq("family_id", actor.familyId ?? "");
+      const studentIds = (students ?? []).map((st) => st.id);
+      const { data: enrollments } = studentIds.length
+        ? await this.db.from("enrollments").select("*")
+            .in("student_id", studentIds).eq("status", "enrolled")
+        : { data: [] as Row[] };
+      const [{ data: classes }, { data: productions }] = await Promise.all([
+        this.db.from("classes").select("id, program_id"),
+        this.db.from("productions").select("id, program_id"),
+      ]);
+      const classPrograms = new Map((classes ?? []).map((c) => [c.id, c.program_id]));
+      const productionPrograms = new Map(
+        (productions ?? []).map((pr) => [pr.id, pr.program_id])
+      );
+
+      visible = visible.filter((post) => {
+        const audience = post.audience;
+        const isEveryone =
+          !audience.productionIds?.length &&
+          !audience.classIds?.length &&
+          !audience.programIds?.length;
+        if (isEveryone) return true;
+        return (enrollments ?? []).some((enrollment) => {
+          if (
+            enrollment.production_id &&
+            audience.productionIds?.includes(String(enrollment.production_id))
+          )
+            return true;
+          if (
+            enrollment.class_id &&
+            audience.classIds?.includes(String(enrollment.class_id))
+          )
+            return true;
+          if (audience.programIds?.length) {
+            const programId = enrollment.class_id
+              ? classPrograms.get(enrollment.class_id)
+              : productionPrograms.get(enrollment.production_id);
+            if (programId && audience.programIds.includes(String(programId))) return true;
+          }
+          return false;
+        });
+      });
+    }
+
+    return visible.sort((a, b) => {
+      if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+      return b.publishedAt.localeCompare(a.publishedAt);
+    });
+  }
+
+  async createFeedPost(
+    actorId: string,
+    input: {
+      title?: string;
+      body: string;
+      category: FeedCategory;
+      audience: FeedAudience;
+      isPinned?: boolean;
+      imageUrls?: string[];
+      linkUrl?: string;
+    }
+  ): Promise<FeedPost> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Only staff can post");
+    const { data, error } = await this.db
+      .from("feed_posts")
+      .insert({
+        author_staff_id: actor.staffId ?? null,
+        author_name: actor.displayName,
+        title: input.title ?? null,
+        body: input.body,
+        image_urls: input.imageUrls ?? [],
+        link_url: input.linkUrl ?? null,
+        category: input.category,
+        audience: input.audience,
+        is_pinned: input.isPinned ?? false,
+        reaction_counts: { heart: 0, clap: 0, star: 0 },
+      })
+      .select().single();
+    if (error) throw new Error(`post create failed: ${error.message}`);
+    return this.mapPost(data);
+  }
+
+  async reactToPost(actorId: string, postId: string, kind: ReactionKind): Promise<FeedPost> {
+    await this.actor(actorId);
+    const { data: row } = await this.db
+      .from("feed_posts").select("*").eq("id", postId).maybeSingle();
+    if (!row) throw new Error("Post not found");
+    const counts = { heart: 0, clap: 0, star: 0, ...(row.reaction_counts ?? {}) } as Record<string, number>;
+    counts[kind] = (counts[kind] ?? 0) + 1;
+    const { data: updated, error } = await this.db
+      .from("feed_posts").update({ reaction_counts: counts }).eq("id", postId)
+      .select().single();
+    if (error) throw new Error(`reaction failed: ${error.message}`);
+    return this.mapPost(updated);
+  }
+
+  async askQuestion(actorId: string, postId: string, question: string): Promise<PostQuestion> {
+    const actor = await this.actor(actorId);
+    if (!question.trim()) throw new Error("Write a question first");
+    const { data, error } = await this.db
+      .from("post_questions")
+      .insert({
+        post_id: postId,
+        asker_user_id: actor.id,
+        asker_name: actor.displayName,
+        question: question.trim(),
+      })
+      .select().single();
+    if (error) throw new Error(`question failed: ${error.message}`);
+    return this.mapQuestion(data);
+  }
+
+  async getQuestionsForPost(actorId: string, postId: string): Promise<PostQuestion[]> {
+    const actor = await this.actor(actorId);
+    const { data } = await this.db
+      .from("post_questions").select("*").eq("post_id", postId).order("created_at");
+    return (data ?? [])
+      .map((row) => this.mapQuestion(row))
+      .filter(
+        (q) =>
+          this.isStaffish(actor) || q.askerUserId === actor.id || q.isPublicFaq
+      );
+  }
+
+  async answerQuestion(
+    actorId: string,
+    questionId: string,
+    answer: string,
+    publishAsFaq: boolean
+  ): Promise<PostQuestion> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data: updated, error } = await this.db
+      .from("post_questions")
+      .update({
+        answer: answer.trim(),
+        answered_by_name: actor.displayName,
+        answered_at: new Date().toISOString(),
+        is_public_faq: publishAsFaq,
+      })
+      .eq("id", questionId)
+      .select().single();
+    if (error) throw new Error(`answer failed: ${error.message}`);
+
+    // Tell the asker their question was answered.
+    await this.db.from("notifications").insert({
+      user_id: updated.asker_user_id,
+      type: "broadcast",
+      title: "Your question was answered",
+      body: String(updated.question).slice(0, 120),
+      url: "/feed",
+    });
+    return this.mapQuestion(updated);
+  }
+
+  async getOpenQuestions(actorId: string): Promise<PostQuestion[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data } = await this.db
+      .from("post_questions").select("*").is("answer", null).order("created_at");
+    return (data ?? []).map((row) => this.mapQuestion(row));
   }
 
   /* ── direct messages to the office (ported from the mock) ──────────── */

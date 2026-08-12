@@ -556,6 +556,62 @@ async function main() {
   // Clean up message fixtures.
   await raw.from("message_threads").delete().eq("id", thread.id);
 
+  /* ── feed ── */
+  const post = await p.createFeedPost(dana.id, {
+    title: "Tech week schedule",
+    body: "Full run Thursday. Bring water!",
+    category: "rehearsal",
+    audience: { productionIds: [frozenId] },
+    isPinned: true,
+  });
+  check("staff creates an audience-targeted post", post.isPinned);
+
+  let familyPost = false;
+  try {
+    await p.createFeedPost(sofia.id, {
+      body: "hi", category: "general", audience: {},
+    });
+  } catch (error) {
+    familyPost = error instanceof AccessDeniedError;
+  }
+  check("families cannot post", familyPost);
+
+  const sofiaFeed = await p.getFeedForUser(sofia.id);
+  check(
+    "enrolled family sees the targeted post first",
+    sofiaFeed.length > 0 && sofiaFeed[0].id === post.id
+  );
+  // Okafor's kids: Chidi (Frozen) enrolled → sees it; if we narrow to a
+  // class they're not in, they wouldn't. Verify the everyone-vs-targeted
+  // logic with a class-only audience instead:
+  const classOnly = await p.createFeedPost(dana.id, {
+    body: "MTD2 recital notes", category: "general",
+    audience: { classIds: ["00000000-0000-0000-0000-000000000000"] },
+  });
+  check(
+    "family does NOT see a post for a class they're not in",
+    !(await p.getFeedForUser(sofia.id)).some((fp) => fp.id === classOnly.id)
+  );
+
+  const reacted = await p.reactToPost(sofia.id, post.id, "heart");
+  check("reaction increments", reacted.reactionCounts.heart === 1);
+
+  const q = await p.askQuestion(sofia.id, post.id, "What time is pickup Thursday?");
+  const minhView = await p.getQuestionsForPost(minh.id, post.id);
+  check("another family can't see a private question", minhView.length === 0);
+  const open = await p.getOpenQuestions(dana.id);
+  check("staff moderation queue lists it", open.some((oq) => oq.id === q.id));
+  const answered = await p.answerQuestion(dana.id, q.id, "8:30 PM sharp.", true);
+  check(
+    "answer published as FAQ is visible to everyone",
+    answered.isPublicFaq &&
+      (await p.getQuestionsForPost(minh.id, post.id)).some((fq) => fq.id === q.id)
+  );
+
+  // Clean up feed fixtures.
+  await raw.from("feed_posts").delete().in("id", [post.id, classOnly.id]);
+  await raw.from("notifications").delete().eq("title", "Your question was answered");
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
