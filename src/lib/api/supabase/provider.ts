@@ -67,6 +67,15 @@ import type {
 } from "../messages/types";
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
 import { getFaceMatchProvider } from "../photos/face-provider";
+import { reconcile } from "../registration/reconcile";
+import type {
+  AccountLink,
+  RegistrationSnapshot,
+  RegistrationSource,
+  SyncRun,
+} from "../registration/types";
+import { buildFsaStatement } from "../documents/fsa";
+import type { FsaStatement } from "../documents/types";
 import { matchFace, type CandidateStudent } from "../photos/matching";
 import {
   MAX_REFERENCE_PHOTOS,
@@ -1582,6 +1591,263 @@ class SupabaseDataProvider {
       const student = mapStudent(row);
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
+    });
+  }
+
+  /* ── registration sync & FSA (ported) ──────────────────────────────── */
+
+  private mapAccountLink(row: Row): AccountLink {
+    return {
+      familyId: String(row.family_id),
+      source: row.source as RegistrationSource,
+      externalId: String(row.external_id),
+      externalEmail: String(row.external_email),
+      linkedAt: String(row.linked_at),
+      autoMatched: Boolean(row.auto_matched),
+    };
+  }
+
+  private mapSyncRun(row: Row): SyncRun {
+    return {
+      id: String(row.id),
+      source: row.source as RegistrationSource,
+      startedAt: String(row.started_at),
+      finishedAt: s(row.finished_at),
+      status: row.status as SyncRun["status"],
+      trigger: row.trigger as SyncRun["trigger"],
+      counts: (row.counts ?? {}) as SyncRun["counts"],
+      issues: (row.issues ?? []) as SyncRun["issues"],
+      error: s(row.error),
+    };
+  }
+
+  async syncRegistration(
+    actorId: string,
+    snapshot: RegistrationSnapshot,
+    trigger: SyncRun["trigger"]
+  ): Promise<SyncRun> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const startedAt = new Date().toISOString();
+
+    const [{ data: familiesRows }, { data: guardiansRows }, { data: studentsRows },
+      { data: enrollmentsRows }, productions, classes, { data: linksRows }] =
+      await Promise.all([
+        this.db.from("families").select("*"),
+        this.db.from("guardians").select("*"),
+        this.db.from("students").select("*"),
+        this.db.from("enrollments").select("*"),
+        this.getProductions(),
+        this.getClasses(),
+        this.db.from("registration_account_links").select("*"),
+      ]);
+
+    // The reconcile plan is pure and identical to the mock's.
+    const plan = reconcile({
+      snapshot,
+      families: (familiesRows ?? []).map(mapFamily),
+      guardians: (guardiansRows ?? []).map((g) => this.mapGuardian(g)),
+      students: (studentsRows ?? []).map(mapStudent),
+      enrollments: (enrollmentsRows ?? []).map((e) => this.mapEnrollment(e)),
+      productions,
+      classes,
+      links: (linksRows ?? []).map((l) => this.mapAccountLink(l)),
+    });
+
+    for (const link of plan.autoLinks) {
+      await this.db.from("registration_account_links").upsert(
+        {
+          family_id: link.familyId, source: link.source,
+          external_id: link.externalId, external_email: link.externalEmail,
+          auto_matched: true,
+        },
+        { onConflict: "family_id,source", ignoreDuplicates: true }
+      );
+    }
+    for (const create of plan.creates) {
+      await this.db.from("enrollments").insert({
+        student_id: create.studentId,
+        class_id: create.classId ?? null,
+        production_id: create.productionId ?? null,
+        status: create.status,
+        balance_cents: create.balanceCents,
+        source: "registration_portal",
+        external_id: create.externalId,
+        external_source: snapshot.source,
+      });
+    }
+    for (const update of plan.updates) {
+      const patch: Record<string, unknown> = {};
+      if (update.balanceCents !== undefined) patch.balance_cents = update.balanceCents;
+      if (update.status !== undefined) patch.status = update.status;
+      if (Object.keys(patch).length) {
+        await this.db.from("enrollments").update(patch).eq("id", update.enrollmentId);
+      }
+    }
+
+    const { data: run, error } = await this.db
+      .from("registration_sync_runs")
+      .insert({
+        source: snapshot.source, trigger,
+        status: plan.issues.length > 0 ? "partial" : "success",
+        started_at: startedAt, finished_at: new Date().toISOString(),
+        counts: plan.counts, issues: plan.issues,
+      })
+      .select().single();
+    if (error) throw new Error(`sync run failed: ${error.message}`);
+
+    // Notify families whose balance changed, so a new charge isn't silent.
+    for (const update of plan.updates) {
+      if (update.balanceCents === undefined || update.balanceCents <= 0) continue;
+      const { data: enrollment } = await this.db
+        .from("enrollments").select("student_id").eq("id", update.enrollmentId).maybeSingle();
+      if (!enrollment) continue;
+      const { data: student } = await this.db
+        .from("students").select("family_id, first_name, preferred_name")
+        .eq("id", enrollment.student_id).maybeSingle();
+      if (!student) continue;
+      const { data: parents } = await this.db
+        .from("profiles").select("id")
+        .eq("family_id", student.family_id).eq("role", "parent");
+      if (parents?.length) {
+        await this.db.from("notifications").insert(
+          parents.map((parent) => ({
+            user_id: parent.id, type: "payment_due", title: "Balance updated",
+            body: `${student.preferred_name ?? student.first_name} has an outstanding balance.`,
+            url: "/dashboard",
+          }))
+        );
+      }
+    }
+    return this.mapSyncRun(run);
+  }
+
+  async recordSyncFailure(
+    actorId: string,
+    source: RegistrationSource,
+    trigger: SyncRun["trigger"],
+    error: string
+  ): Promise<SyncRun> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const now = new Date().toISOString();
+    const { data, error: dbErr } = await this.db
+      .from("registration_sync_runs")
+      .insert({
+        source, trigger, status: "failed", started_at: now, finished_at: now,
+        counts: {
+          accountsSeen: 0, enrollmentsSeen: 0, enrollmentsCreated: 0,
+          enrollmentsUpdated: 0, balancesUpdated: 0,
+        },
+        issues: [], error,
+      })
+      .select().single();
+    if (dbErr) throw new Error(`sync failure record failed: ${dbErr.message}`);
+    return this.mapSyncRun(data);
+  }
+
+  async getSyncRuns(actorId: string): Promise<SyncRun[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data } = await this.db
+      .from("registration_sync_runs").select("*")
+      .order("started_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapSyncRun(row));
+  }
+
+  async getAccountLinks(actorId: string): Promise<AccountLink[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data } = await this.db.from("registration_account_links").select("*");
+    return (data ?? []).map((row) => this.mapAccountLink(row));
+  }
+
+  async linkAccount(
+    actorId: string,
+    link: Omit<AccountLink, "linkedAt" | "autoMatched">
+  ): Promise<AccountLink> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data, error } = await this.db
+      .from("registration_account_links")
+      .upsert(
+        {
+          family_id: link.familyId, source: link.source,
+          external_id: link.externalId, external_email: link.externalEmail,
+          linked_at: new Date().toISOString(), auto_matched: false,
+        },
+        { onConflict: "family_id,source" }
+      )
+      .select().single();
+    if (error) throw new Error(`link failed: ${error.message}`);
+    return this.mapAccountLink(data);
+  }
+
+  async unlinkAccount(
+    actorId: string,
+    familyId: string,
+    source: RegistrationSource
+  ): Promise<void> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    await this.db.from("registration_account_links")
+      .delete().eq("family_id", familyId).eq("source", source);
+  }
+
+  async getAccountLinkForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<AccountLink | null> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("registration_account_links").select("*")
+      .eq("family_id", familyId).limit(1);
+    return data?.length ? this.mapAccountLink(data[0]) : null;
+  }
+
+  async getFsaStatement(
+    actorId: string,
+    studentId: string,
+    period: { start: string; end: string }
+  ): Promise<FsaStatement> {
+    const actor = await this.actor(actorId);
+    const { data: studentRow } = await this.db
+      .from("students").select("*").eq("id", studentId).maybeSingle();
+    if (!studentRow) throw new Error("Student not found");
+    if (!this.isStaffish(actor)) {
+      this.assertFamilyAccess(actor, String(studentRow.family_id));
+    }
+    const [{ data: familyRow }, { data: guardiansRows }, { data: enrollmentsRows },
+      classes, productions] = await Promise.all([
+      this.db.from("families").select("*").eq("id", studentRow.family_id).maybeSingle(),
+      this.db.from("guardians").select("*").eq("family_id", studentRow.family_id),
+      this.db.from("enrollments").select("*"),
+      this.getClasses(),
+      this.getProductions(),
+    ]);
+    if (!familyRow) throw new Error("Family not found");
+
+    const enrollments = (enrollmentsRows ?? []).map((e) => this.mapEnrollment(e));
+    return buildFsaStatement({
+      student: mapStudent(studentRow),
+      family: mapFamily(familyRow),
+      guardians: (guardiansRows ?? []).map((g) => this.mapGuardian(g)),
+      enrollments,
+      classes,
+      productions,
+      periodStart: period.start,
+      periodEnd: period.end,
+      // Same demo figures as the mock until payment records exist.
+      paidByEnrollmentId: Object.fromEntries(
+        enrollments
+          .filter((enrollment) => enrollment.studentId === studentId)
+          .map((enrollment) => [enrollment.id, enrollment.classId ? 22000 : 45000])
+      ),
     });
   }
 

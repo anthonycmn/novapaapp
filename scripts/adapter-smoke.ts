@@ -1053,14 +1053,17 @@ async function main() {
   await raw.from("face_consent_events").delete().eq("student_id", leoP.id);
   await raw.from("notifications").delete().eq("type", "photos_posted");
 
-  // Unported method fails LOUDLY, never silently.
-  let loud = false;
+  // Every DataProvider method is now ported — the loud-failure canary
+  // retired the day it had nothing left to catch. Final group: sync runs.
+  const syncRuns = await p.getSyncRuns(dana.id);
+  check("adapter surface complete — sync runs readable", Array.isArray(syncRuns));
+  let syncDenied = false;
   try {
-    await p.getSyncRuns(dana.id);
+    await p.getSyncRuns(sofia.id);
   } catch (error) {
-    loud = String(error).includes("not ported yet");
+    syncDenied = error instanceof AccessDeniedError;
   }
-  check("unported method throws loudly", loud);
+  check("sync history is staff-only", syncDenied);
 
   console.log("\nNOTE: board test submitted casting — re-run scripts/seed-supabase.ts to restore the pristine demo.");
 

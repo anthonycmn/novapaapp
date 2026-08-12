@@ -111,3 +111,13 @@ Running log of decisions made autonomously during the build. Newest at the botto
   DATA_BACKEND=mock keeps the live site on demo data until the
   SupabaseDataProvider adapter + real sign-in land. The flip to real
   data is a one-variable change.
+
+## Supabase adapter COMPLETE (2026-08-11)
+- Every DataProvider method (151) is ported to the shared novapa-deh
+  database and live-verified — 149/149 integration checks in
+  scripts/adapter-smoke.ts, covering identity, families, calendar,
+  the full casting pipeline, lessons, messages, feed, store, health
+  forms, pickups, documents, reviews, email, photos/face-matching
+  (with revocation-count proof), registration sync, and FSA.
+- The mock backend remains the live default until real sign-in lands
+  and the cutover is rehearsed; NEXT_PUBLIC_DATA_MODE=supabase flips it.
