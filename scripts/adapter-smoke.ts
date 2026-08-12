@@ -754,6 +754,41 @@ async function main() {
   await raw.from("cart_items").delete().eq("user_id", sofia.id);
   await raw.from("button_orders").delete().eq("id", order.id);
 
+  /* ── document vault ── */
+  const pdf = "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCg==";
+  const familyDoc = await p.uploadFamilyDocument(sofia.id, sofia.familyId, {
+    name: "Costume receipt", category: "financial", dataUrl: pdf,
+  });
+  const staffDoc = await p.uploadFamilyDocument(dana.id, sofia.familyId, {
+    name: "Countersigned waiver", category: "waiver", dataUrl: pdf, studentId: ava.id,
+  });
+  const vault = await p.getFamilyDocuments(sofia.id, sofia.familyId);
+  check(
+    "vault lists family + staff-filed documents",
+    vault.length === 2 && vault.some((d) => d.uploadedByStaff)
+  );
+  let vaultDenied = false;
+  try {
+    await p.getFamilyDocuments(minh.id, sofia.familyId);
+  } catch (error) {
+    vaultDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot open the vault", vaultDenied);
+
+  let staffDocProtected = false;
+  try {
+    await p.deleteFamilyDocument(sofia.id, staffDoc.id);
+  } catch (error) {
+    staffDocProtected = String(error).includes("filed by NOVA PA staff");
+  }
+  check("family cannot delete a staff-filed waiver", staffDocProtected);
+  await p.deleteFamilyDocument(sofia.id, familyDoc.id);
+  await p.deleteFamilyDocument(dana.id, staffDoc.id);
+  check(
+    "own + admin deletions clear the vault",
+    (await p.getFamilyDocuments(sofia.id, sofia.familyId)).length === 0
+  );
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {

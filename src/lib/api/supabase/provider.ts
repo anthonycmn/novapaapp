@@ -54,6 +54,8 @@ import type {
   MessageThread,
   ThreadWithMessages,
 } from "../messages/types";
+import type { DocumentCategory, FamilyDocument } from "../documents/types";
+import { assertUploadAllowed, getStorageProvider } from "../storage";
 import { getServiceClient } from "./client";
 
 /**
@@ -1548,6 +1550,93 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── household document vault (ported from the mock) ───────────────── */
+
+  private mapDocument(row: Row): FamilyDocument {
+    return {
+      id: String(row.id),
+      familyId: String(row.family_id),
+      studentId: s(row.student_id),
+      name: String(row.name),
+      category: row.category as DocumentCategory,
+      fileUrl: String(row.file_url),
+      storagePath: String(row.storage_path),
+      contentType: String(row.content_type),
+      sizeBytes: Number(row.size_bytes),
+      uploadedAt: String(row.uploaded_at),
+      uploadedByName: String(row.uploaded_by_name ?? ""),
+      uploadedByStaff: Boolean(row.uploaded_by_staff),
+    };
+  }
+
+  async getFamilyDocuments(actorId: string, familyId: string): Promise<FamilyDocument[]> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("family_documents").select("*").eq("family_id", familyId)
+      .order("uploaded_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapDocument(row));
+  }
+
+  async uploadFamilyDocument(
+    actorId: string,
+    familyId: string,
+    input: {
+      name: string;
+      category: DocumentCategory;
+      dataUrl: string;
+      studentId?: string;
+    }
+  ): Promise<FamilyDocument> {
+    const actor = await this.actor(actorId);
+    // Staff may file a document into a family's vault (a signed waiver they
+    // received on paper), so this is read-access plus a staff allowance.
+    this.assertFamilyAccess(actor, familyId);
+
+    assertUploadAllowed("family-documents", input.dataUrl);
+    const path = `${familyId}/${crypto.randomUUID()}`;
+    const stored = await getStorageProvider().upload(
+      "family-documents", path, input.dataUrl
+    );
+
+    const { data, error } = await this.db
+      .from("family_documents")
+      .insert({
+        family_id: familyId,
+        student_id: input.studentId ?? null,
+        name: input.name,
+        category: input.category,
+        file_url: stored.url,
+        storage_path: path,
+        content_type: stored.contentType,
+        size_bytes: stored.sizeBytes,
+        uploaded_by_name: actor.displayName,
+        uploaded_by_staff: this.isStaffish(actor),
+      })
+      .select().single();
+    if (error) throw new Error(`document save failed: ${error.message}`);
+    return this.mapDocument(data);
+  }
+
+  async deleteFamilyDocument(actorId: string, documentId: string): Promise<void> {
+    const actor = await this.actor(actorId);
+    const { data: row } = await this.db
+      .from("family_documents").select("*").eq("id", documentId).maybeSingle();
+    if (!row) return;
+    this.assertFamilyAccess(actor, String(row.family_id));
+
+    // A family can remove what they uploaded; only an admin can remove a
+    // document staff filed (e.g. a countersigned waiver).
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (row.uploaded_by_staff && !isAdminActor) {
+      throw new AccessDeniedError(
+        "This document was filed by NOVA PA staff. Contact the office to have it removed."
+      );
+    }
+    await getStorageProvider().remove("family-documents", String(row.storage_path));
+    await this.db.from("family_documents").delete().eq("id", documentId);
   }
 
   /* ── store: buttons, catalog, cart, orders (ported from the mock) ──── */
