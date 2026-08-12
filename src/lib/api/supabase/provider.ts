@@ -16,6 +16,11 @@ import {
   LESSON_DISCIPLINES,
   upcomingLessonOccurrences,
 } from "../lessons/types";
+import type {
+  CastingConfirmation,
+  ShowRole,
+  ShowScene,
+} from "../auditions/types";
 import { getServiceClient } from "./client";
 
 /**
@@ -425,6 +430,202 @@ class SupabaseDataProvider {
       .from("calendar_events").select("*").order("starts_at");
     if (error) throw new Error(`calendar lookup failed: ${error.message}`);
     return (data ?? []).map((row) => this.mapEvent(row));
+  }
+
+  /* ── casting: family-facing slice (ported from the mock) ───────────── */
+
+  private mapRole(row: Row): ShowRole {
+    return {
+      id: String(row.id),
+      productionId: String(row.production_id),
+      name: String(row.name),
+      tier: row.tier as ShowRole["tier"],
+      description: String(row.description ?? ""),
+      capacity: row.capacity == null ? null : Number(row.capacity),
+      sortOrder: Number(row.sort_order ?? 0),
+    };
+  }
+
+  private mapConfirmation(row: Row): CastingConfirmation {
+    return {
+      id: String(row.id),
+      assignmentId: String(row.assignment_id),
+      studentId: String(row.student_id),
+      familyId: String(row.family_id),
+      nameCorrect: row.name_correct == null ? undefined : Boolean(row.name_correct),
+      playbillName: s(row.playbill_name),
+      respondedAt: s(row.responded_at),
+      feedbackRequestedAt: s(row.feedback_requested_at),
+      lastRemindedAt: s(row.last_reminded_at),
+      reminderCount: Number(row.reminder_count ?? 0),
+    };
+  }
+
+  async getShowRoles(productionId: string): Promise<ShowRole[]> {
+    const { data, error } = await this.db
+      .from("show_roles").select("*").eq("production_id", productionId)
+      .order("sort_order");
+    if (error) throw new Error(`show_roles lookup failed: ${error.message}`);
+    return (data ?? []).map((row) => this.mapRole(row));
+  }
+
+  async getShowScenes(productionId: string): Promise<ShowScene[]> {
+    const { data, error } = await this.db
+      .from("show_scenes").select("*").eq("production_id", productionId)
+      .order("sort_order");
+    if (error) throw new Error(`show_scenes lookup failed: ${error.message}`);
+    return (data ?? []).map((row) => ({
+      id: String(row.id),
+      productionId: String(row.production_id),
+      name: String(row.name),
+      kind: row.kind as ShowScene["kind"],
+      roleIds: ((row.role_ids ?? []) as string[]).map(String),
+      sortOrder: Number(row.sort_order ?? 0),
+    }));
+  }
+
+  async getStudentSceneBreakdown(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<Array<{ scene: ShowScene; roleName: string; isUnderstudy: boolean }>> {
+    const actor = await this.actor(actorId);
+    const { data: student } = await this.db
+      .from("students").select("id, family_id").eq("id", studentId).maybeSingle();
+    if (!student) throw new Error("Student not found");
+    if (!this.isStaffish(actor)) {
+      this.assertFamilyAccess(actor, String(student.family_id));
+    }
+
+    const [roles, scenes, { data: cast }] = await Promise.all([
+      this.getShowRoles(productionId),
+      this.getShowScenes(productionId),
+      this.db.from("casting_assignments").select("*")
+        .eq("student_id", studentId).eq("production_id", productionId)
+        .not("published_at", "is", null),
+    ]);
+
+    const principal: string[] = [];
+    const understudy: string[] = [];
+    for (const a of cast ?? []) {
+      for (const role of roles) {
+        if (a.character_name === role.name) principal.push(role.id);
+        else if (a.is_understudy && a.character_name === `${role.name} (Understudy)`)
+          understudy.push(role.id);
+      }
+    }
+    if (principal.length === 0 && understudy.length === 0) return [];
+    const roleName = (id: string) => roles.find((r) => r.id === id)?.name ?? "";
+
+    const rows: Array<{ scene: ShowScene; roleName: string; isUnderstudy: boolean }> = [];
+    for (const scene of scenes) {
+      const asPrincipal = principal.find((id) => scene.roleIds.includes(id));
+      if (asPrincipal) {
+        rows.push({ scene, roleName: roleName(asPrincipal), isUnderstudy: false });
+        continue;
+      }
+      const asUnderstudy = understudy.find((id) => scene.roleIds.includes(id));
+      if (asUnderstudy) {
+        rows.push({
+          scene,
+          roleName: `${roleName(asUnderstudy)} (Understudy)`,
+          isUnderstudy: true,
+        });
+      }
+    }
+    return rows;
+  }
+
+  async getMyCastingConfirmations(actorId: string): Promise<
+    Array<{
+      confirmation: CastingConfirmation;
+      roleName: string;
+      productionTitle: string;
+      studentName: string;
+    }>
+  > {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return [];
+
+    const { data: confirmations, error } = await this.db
+      .from("casting_confirmations").select("*").eq("family_id", actor.familyId);
+    if (error) throw new Error(`confirmations lookup failed: ${error.message}`);
+    if (!confirmations?.length) return [];
+
+    const assignmentIds = confirmations.map((c) => c.assignment_id);
+    const studentIds = confirmations.map((c) => c.student_id);
+    const [{ data: assignments }, { data: students }, { data: productions }] =
+      await Promise.all([
+        this.db.from("casting_assignments").select("*").in("id", assignmentIds),
+        this.db.from("students").select("*").in("id", studentIds),
+        this.db.from("productions").select("id, title"),
+      ]);
+
+    return confirmations.map((row) => {
+      const assignment = (assignments ?? []).find((a) => a.id === row.assignment_id);
+      const production = (productions ?? []).find(
+        (p) => p.id === assignment?.production_id
+      );
+      const student = (students ?? []).find((st) => st.id === row.student_id);
+      return {
+        confirmation: this.mapConfirmation(row),
+        roleName: String(assignment?.character_name ?? ""),
+        productionTitle: String(production?.title ?? ""),
+        studentName: student
+          ? `${student.preferred_name ?? student.first_name} ${student.last_name}`
+          : "",
+      };
+    });
+  }
+
+  async respondToCasting(
+    actorId: string,
+    confirmationId: string,
+    response: { nameCorrect: boolean; playbillName?: string }
+  ): Promise<CastingConfirmation> {
+    const actor = await this.actor(actorId);
+    const { data: row } = await this.db
+      .from("casting_confirmations").select("*").eq("id", confirmationId).maybeSingle();
+    if (!row) throw new Error("Confirmation not found");
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, String(row.family_id));
+
+    const patch: Record<string, unknown> = {
+      name_correct: response.nameCorrect,
+      responded_at: new Date().toISOString(),
+    };
+    if (!response.nameCorrect) {
+      const corrected = response.playbillName?.trim();
+      if (!corrected) {
+        throw new Error("Tell us exactly what the playbill should print");
+      }
+      patch.playbill_name = corrected;
+    } else {
+      patch.playbill_name = null;
+    }
+
+    const { data: updated, error } = await this.db
+      .from("casting_confirmations").update(patch).eq("id", confirmationId)
+      .select().single();
+    if (error) throw new Error(`confirmation update failed: ${error.message}`);
+
+    // Tell admins a playbill correction arrived (same rule as the mock).
+    if (!response.nameCorrect) {
+      const [{ data: student }, { data: admins }] = await Promise.all([
+        this.db.from("students").select("first_name").eq("id", row.student_id).maybeSingle(),
+        this.db.from("profiles").select("id").in("role", ["admin", "super_admin"]),
+      ]);
+      const notifications = (admins ?? []).map((admin) => ({
+        user_id: admin.id,
+        type: "broadcast",
+        title: "Playbill name correction",
+        body: `${student?.first_name ?? "A student"} → "${patch.playbill_name}"`,
+        url: "/admin/casting-responses",
+      }));
+      if (notifications.length) {
+        await this.db.from("notifications").insert(notifications);
+      }
+    }
+    return this.mapConfirmation(updated);
   }
 }
 
