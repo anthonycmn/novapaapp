@@ -20,6 +20,7 @@ import {
   type LessonSlot,
 } from "../lessons/types";
 import type {
+  CastingBoard,
   CastingConfirmation,
   ShowRole,
   ShowScene,
@@ -629,6 +630,218 @@ class SupabaseDataProvider {
       }
     }
     return this.mapConfirmation(updated);
+  }
+
+  /* ── staff casting board (ported from the mock) ────────────────────── */
+
+  private mapBoard(row: Row | null, productionId: string): CastingBoard {
+    if (!row) {
+      return { productionId, status: "drafting", entries: [], understudyEntries: [] };
+    }
+    return {
+      productionId,
+      // DB stores 'draft' (migration 0009); the app type says 'drafting'.
+      status: row.status === "submitted" ? "submitted" : "drafting",
+      entries: (row.entries ?? []) as CastingBoard["entries"],
+      understudyEntries: (row.understudy_entries ?? []) as CastingBoard["entries"],
+      submittedAt: s(row.submitted_at),
+      understudiesPublishedAt: s(row.understudies_published_at),
+    };
+  }
+
+  private async boardFor(productionId: string): Promise<CastingBoard> {
+    const { data, error } = await this.db
+      .from("casting_boards").select("*").eq("production_id", productionId).maybeSingle();
+    if (error) throw new Error(`casting board lookup failed: ${error.message}`);
+    return this.mapBoard(data, productionId);
+  }
+
+  private async saveBoard(board: CastingBoard): Promise<void> {
+    const { error } = await this.db.from("casting_boards").upsert({
+      production_id: board.productionId,
+      status: board.status === "submitted" ? "submitted" : "draft",
+      entries: board.entries,
+      understudy_entries: board.understudyEntries,
+      submitted_at: board.submittedAt ?? null,
+      understudies_published_at: board.understudiesPublishedAt ?? null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw new Error(`casting board save failed: ${error.message}`);
+  }
+
+  private async registeredStudents(productionId: string): Promise<Student[]> {
+    const { data: enr } = await this.db
+      .from("enrollments").select("student_id")
+      .eq("production_id", productionId).eq("status", "enrolled");
+    const ids = [...new Set((enr ?? []).map((e) => e.student_id))];
+    if (ids.length === 0) return [];
+    const { data } = await this.db.from("students").select("*").in("id", ids);
+    return (data ?? []).map(mapStudent);
+  }
+
+  async getCastingBoard(
+    actorId: string,
+    productionId: string
+  ): Promise<{
+    board: CastingBoard;
+    roles: ShowRole[];
+    unassigned: Student[];
+    studentsById: Record<string, Student>;
+  }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const [board, roles, registered] = await Promise.all([
+      this.boardFor(productionId),
+      this.getShowRoles(productionId),
+      this.registeredStudents(productionId),
+    ]);
+    const assignedIds = new Set(board.entries.map((entry) => entry.studentId));
+    return {
+      board,
+      roles,
+      unassigned: registered.filter((st) => !assignedIds.has(st.id)),
+      studentsById: Object.fromEntries(registered.map((st) => [st.id, st])),
+    };
+  }
+
+  async assignRole(
+    actorId: string,
+    productionId: string,
+    roleId: string,
+    studentId: string
+  ): Promise<void> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const board = await this.boardFor(productionId);
+    if (board.status === "submitted") {
+      throw new Error("Casting has already been submitted");
+    }
+    const roles = await this.getShowRoles(productionId);
+    const role = roles.find((r) => r.id === roleId);
+    if (!role) throw new Error("Role not found");
+    const registered = await this.registeredStudents(productionId);
+    if (!registered.some((st) => st.id === studentId)) {
+      throw new Error("That student isn't registered for this production");
+    }
+
+    // A student holds exactly one role: placing them moves them.
+    board.entries = board.entries.filter((entry) => entry.studentId !== studentId);
+
+    // Named roles hold one student; assigning over a full role replaces the
+    // occupant (they return to Unassigned) rather than silently double-casting.
+    if (role.capacity !== null) {
+      const occupants = board.entries.filter((entry) => entry.roleId === roleId);
+      if (occupants.length >= role.capacity) {
+        board.entries = board.entries.filter((entry) => entry.roleId !== roleId);
+      }
+    }
+
+    board.entries.push({ roleId, studentId });
+    await this.saveBoard(board);
+  }
+
+  async unassignRole(actorId: string, productionId: string, studentId: string): Promise<void> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const board = await this.boardFor(productionId);
+    if (board.status === "submitted") {
+      throw new Error("Casting has already been submitted");
+    }
+    board.entries = board.entries.filter((entry) => entry.studentId !== studentId);
+    await this.saveBoard(board);
+  }
+
+  async submitCasting(
+    actorId: string,
+    productionId: string
+  ): Promise<{ assignmentsCreated: number; familiesNotified: number }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const board = await this.boardFor(productionId);
+    if (board.status === "submitted") {
+      throw new Error("Casting has already been submitted");
+    }
+
+    // The hard rule: every registered student has a role. No one forgotten.
+    const registered = await this.registeredStudents(productionId);
+    const assignedIds = new Set(board.entries.map((entry) => entry.studentId));
+    const missing = registered.filter((st) => !assignedIds.has(st.id));
+    if (missing.length > 0) {
+      throw new Error(
+        `Every student must have a role before submitting. Still unassigned: ${missing
+          .map((st) => `${st.preferredName ?? st.firstName} ${st.lastName}`)
+          .join(", ")}`
+      );
+    }
+
+    const [roles, { data: production }, { data: parents }] = await Promise.all([
+      this.getShowRoles(productionId),
+      this.db.from("productions").select("title").eq("id", productionId).maybeSingle(),
+      this.db.from("profiles").select("id, family_id").eq("role", "parent"),
+    ]);
+    const rolesById = new Map(roles.map((role) => [role.id, role]));
+    const studentsById = new Map(registered.map((st) => [st.id, st]));
+
+    let assignmentsCreated = 0;
+    const notifiedFamilies = new Set<string>();
+    const now = new Date().toISOString();
+
+    for (const entry of board.entries) {
+      const role = rolesById.get(entry.roleId);
+      const student = studentsById.get(entry.studentId);
+      if (!role || !student) continue;
+
+      // Published assignment. The DB trigger writes show_history for us.
+      const { data: assignment, error } = await this.db
+        .from("casting_assignments")
+        .insert({
+          production_id: productionId,
+          student_id: student.id,
+          character_name: role.name,
+          cast_group: role.tier === "ensemble" ? role.name : null,
+          is_understudy: false,
+          published_at: now,
+        })
+        .select().single();
+      if (error) throw new Error(`assignment insert failed: ${error.message}`);
+      assignmentsCreated += 1;
+
+      // The confirmation the family responds to; first 12h reminder counts
+      // from submission.
+      const { error: confErr } = await this.db.from("casting_confirmations").insert({
+        assignment_id: assignment.id,
+        student_id: student.id,
+        family_id: student.familyId,
+        last_reminded_at: now,
+        reminder_count: 0,
+      });
+      if (confErr) throw new Error(`confirmation insert failed: ${confErr.message}`);
+
+      // Notify THIS family about THIS child only — never a cast list.
+      const familyParents = (parents ?? []).filter(
+        (parent) => parent.family_id === student.familyId
+      );
+      if (familyParents.length) {
+        await this.db.from("notifications").insert(
+          familyParents.map((parent) => ({
+            user_id: parent.id,
+            type: "casting_released",
+            title: `Casting for ${production?.title ?? "the show"} 🎉`,
+            body: `${student.preferredName ?? student.firstName} will be: ${role.name}. Tap to confirm the name for the playbill.`,
+            url: "/casting",
+          }))
+        );
+        notifiedFamilies.add(student.familyId);
+      }
+    }
+
+    board.status = "submitted";
+    board.submittedAt = now;
+    await this.saveBoard(board);
+    return { assignmentsCreated, familiesNotified: notifiedFamilies.size };
   }
 
   /* ── private lessons (ported from the mock) ────────────────────────── */

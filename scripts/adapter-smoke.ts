@@ -244,14 +244,95 @@ async function main() {
     "Weekly voice lesson booked 🎉", "New weekly lesson student", "Weekly lesson cancelled",
   ]);
 
+  /* ── staff casting board (DESTRUCTIVE: re-run seed-supabase.ts after) ── */
+  let boardDenied = false;
+  try {
+    await p.getCastingBoard(sofia.id, frozenId);
+  } catch (error) {
+    boardDenied = error instanceof AccessDeniedError;
+  }
+  check("casting board is staff-only", boardDenied);
+
+  const board0 = await p.getCastingBoard(dana.id, frozenId);
+  check(
+    "board opens with all registered unassigned",
+    board0.board.status === "drafting" && board0.unassigned.length === 4 &&
+      board0.roles.length === 25
+  );
+
+  const roleId = (name: string) => board0.roles.find((r) => r.name === name)!.id;
+  await p.assignRole(dana.id, frozenId, roleId("Elsa"), ava.id);
+  await p.assignRole(dana.id, frozenId, roleId("Anna"), ava.id);
+  let board1 = await p.getCastingBoard(dana.id, frozenId);
+  check(
+    "a student holds exactly one role (assign moves them)",
+    board1.board.entries.length === 1 &&
+      board1.board.entries[0].roleId === roleId("Anna")
+  );
+
+  const lienId = String(lien.data!.id);
+  await p.assignRole(dana.id, frozenId, roleId("Anna"), lienId);
+  board1 = await p.getCastingBoard(dana.id, frozenId);
+  check(
+    "named role capacity 1: new occupant bumps the old one out",
+    board1.board.entries.length === 1 &&
+      board1.board.entries[0].studentId === lienId &&
+      board1.unassigned.some((st) => st.id === ava.id)
+  );
+
+  let incomplete = false;
+  try {
+    await p.submitCasting(dana.id, frozenId);
+  } catch (error) {
+    incomplete = String(error).includes("Every student");
+  }
+  check("submit blocked until every student has a role", incomplete);
+
+  const chidi = await raw.from("students").select("id").eq("first_name", "Chidi").single();
+  const leo = students.find((st) => st.firstName === "Leo")!;
+  await p.assignRole(dana.id, frozenId, roleId("Elsa"), ava.id);
+  await p.assignRole(dana.id, frozenId, roleId("Kristoff"), String(chidi.data!.id));
+  await p.assignRole(dana.id, frozenId, roleId("Snow Chorus"), leo.id);
+  const submitted = await p.submitCasting(dana.id, frozenId);
+  check(
+    "submit creates 4 assignments, notifies 3 families",
+    submitted.assignmentsCreated === 4 && submitted.familiesNotified === 3,
+    JSON.stringify(submitted)
+  );
+
+  const afterSubmit = await p.getMyCastingConfirmations(sofia.id);
+  check(
+    "family gets confirmations for BOTH their children only",
+    afterSubmit.length === 2 &&
+      afterSubmit.every((c) => ["Elsa", "Snow Chorus"].includes(c.roleName))
+  );
+  const sofiaNotes = await p.getNotifications(sofia.id);
+  check(
+    "per-family casting notification arrived",
+    sofiaNotes.some((n) => n.title.includes("Casting for Frozen Jr."))
+  );
+
+  let locked = false;
+  try {
+    await p.assignRole(dana.id, frozenId, roleId("Elsa"), ava.id);
+  } catch (error) {
+    locked = String(error).includes("already been submitted");
+  }
+  check("board locked after submit", locked);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.getCastingBoard(dana.id, frozenId);
+    await p.submitEvaluation(dana.id, {
+      studentId: ava.id, productionId: frozenId, discipline: "acting",
+      scores: {}, notes: "", callbackNotes: "",
+    });
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }
   check("unported method throws loudly", loud);
+
+  console.log("\nNOTE: board test submitted casting — re-run scripts/seed-supabase.ts to restore the pristine demo.");
 
   const failed = results.filter(([, ok]) => !ok);
   console.log(`\n${results.length - failed.length}/${results.length} passed`);
