@@ -2237,7 +2237,7 @@ class SupabaseDataProvider {
       const photoId = String(photoRow.id);
 
       // Embed the photo's faces once and cache them.
-      let faces = embeddings.filter((e) => e.photoId === photoId);
+      const faces = embeddings.filter((e) => e.photoId === photoId);
       if (faces.length === 0) {
         const detected = await faceProvider.embedFaces(String(photoRow.thumbnail_url));
         for (const face of detected) {

@@ -26,6 +26,7 @@ export default async function LoginPage({
   const user = await getSessionUser();
   if (user) redirect("/dashboard");
   const { error, email } = await searchParams;
+  const supabaseMode = (process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") === "supabase";
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-6">
@@ -71,13 +72,37 @@ export default async function LoginPage({
                 </p>
               )}
             </div>
+            {supabaseMode && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                />
+                {error === "bad-credentials" && (
+                  <p role="alert" className="text-sm text-destructive">
+                    That email and password don&apos;t match. Try again, or
+                    contact the office if you&apos;re locked out.
+                  </p>
+                )}
+                {error === "missing-password" && (
+                  <p role="alert" className="text-sm text-destructive">
+                    Please enter your password.
+                  </p>
+                )}
+              </div>
+            )}
             <Button type="submit" className="w-full">
-              Continue
+              {supabaseMode ? "Sign in" : "Continue"}
             </Button>
           </form>
         </CardContent>
       </Card>
 
+      {!supabaseMode && (
       <Card className="w-full max-w-sm border-dashed">
         <CardHeader className="pb-2">
           <CardTitle as="h2" className="text-sm text-muted-foreground">
@@ -102,6 +127,7 @@ export default async function LoginPage({
           </ul>
         </CardContent>
       </Card>
+      )}
     </main>
   );
 }
