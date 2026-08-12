@@ -320,6 +320,82 @@ async function main() {
   }
   check("board locked after submit", locked);
 
+  /* ── understudies (board is submitted at this point) ── */
+  let notLead = false;
+  try {
+    await p.assignUnderstudy(dana.id, frozenId, roleId("Snow Chorus"), ava.id);
+  } catch (error) {
+    notLead = String(error).includes("lead roles only");
+  }
+  check("understudies are lead-roles-only", notLead);
+
+  let selfCover = false;
+  try {
+    await p.assignUnderstudy(dana.id, frozenId, roleId("Elsa"), ava.id);
+  } catch (error) {
+    selfCover = String(error).includes("already play this role");
+  }
+  check("a student can't understudy their own role", selfCover);
+
+  const holes0 = await p.getUnderstudyHoles(dana.id, frozenId);
+  check("all 5 leads start as holes", holes0.length === 5);
+
+  await p.assignUnderstudy(dana.id, frozenId, roleId("Anna"), leo.id);
+  const holes1 = await p.getUnderstudyHoles(dana.id, frozenId);
+  check(
+    "covering Anna leaves 4 holes",
+    holes1.length === 4 && !holes1.some((r) => r.name === "Anna")
+  );
+
+  const pub = await p.publishUnderstudies(dana.id, frozenId);
+  check(
+    "publish reports 1 published, 4 holes",
+    pub.published === 1 && pub.holes === 4,
+    JSON.stringify(pub)
+  );
+  const afterUs = await p.getMyCastingConfirmations(sofia.id);
+  check(
+    "understudy confirmation reaches only Leo's family",
+    afterUs.some((c) => c.roleName === "Anna (Understudy)")
+  );
+  const usNotes = await p.getNotifications(sofia.id);
+  check(
+    "understudy notification says 'will understudy'",
+    usNotes.some((n) => n.body.includes("will understudy: Anna"))
+  );
+
+  /* ── cast-list pills & responses ── */
+  const pills = await p.getCastListStatus(dana.id, frozenId);
+  const annaPill = pills.find((row) => row.role.name === "Anna")!;
+  check(
+    "Anna pill: filled (unresponded), principal + u/s holders",
+    annaPill.status === "filled" &&
+      annaPill.holders.some((h) => h.isUnderstudy) &&
+      annaPill.holders.some((h) => !h.isUnderstudy)
+  );
+  check(
+    "uncast roles read open",
+    pills.find((row) => row.role.name === "Olaf")!.status === "open"
+  );
+
+  // Family accepts Elsa → pill flips to accepted (u/s never gates).
+  const elsaConf = (await p.getMyCastingConfirmations(sofia.id)).find(
+    (c) => c.roleName === "Elsa"
+  )!;
+  await p.respondToCasting(sofia.id, elsaConf.confirmation.id, { nameCorrect: true });
+  const pills2 = await p.getCastListStatus(dana.id, frozenId);
+  check(
+    "accepted pill after family confirms",
+    pills2.find((row) => row.role.name === "Elsa")!.status === "accepted"
+  );
+
+  const responses = await p.getCastingResponses(dana.id, frozenId);
+  check(
+    "staff responses view lists all confirmations",
+    responses.length === 5 &&
+      responses.some((r) => r.roleName === "Anna (Understudy)")
+  );
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {

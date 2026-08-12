@@ -844,6 +844,250 @@ class SupabaseDataProvider {
     return { assignmentsCreated, familiesNotified: notifiedFamilies.size };
   }
 
+  /* ── understudies & cast-list status (ported from the mock) ────────── */
+
+  async assignUnderstudy(
+    actorId: string,
+    productionId: string,
+    roleId: string,
+    studentId: string
+  ): Promise<void> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const board = await this.boardFor(productionId);
+    if (board.status !== "submitted") {
+      throw new Error("Cast the show first — understudies come after every role is filled");
+    }
+    if (board.understudiesPublishedAt) {
+      throw new Error("Understudies have already been published");
+    }
+
+    const roles = await this.getShowRoles(productionId);
+    const role = roles.find((r) => r.id === roleId);
+    if (!role) throw new Error("Role not found");
+    if (role.tier !== "lead") {
+      throw new Error("Understudies are cast for lead roles only");
+    }
+    const registered = await this.registeredStudents(productionId);
+    if (!registered.some((st) => st.id === studentId)) {
+      throw new Error("That student isn't registered for this production");
+    }
+    // A student can't understudy the role they already hold — that's not
+    // coverage. Any OTHER role they hold is fine; duplication is the point.
+    const holdsThisRole = board.entries.some(
+      (entry) => entry.roleId === roleId && entry.studentId === studentId
+    );
+    if (holdsThisRole) {
+      throw new Error("They already play this role — pick a different understudy");
+    }
+
+    // One understudy per lead, one lead per understudy: placing moves.
+    board.understudyEntries = board.understudyEntries.filter(
+      (entry) => entry.studentId !== studentId && entry.roleId !== roleId
+    );
+    board.understudyEntries.push({ roleId, studentId });
+    await this.saveBoard(board);
+  }
+
+  async unassignUnderstudy(
+    actorId: string,
+    productionId: string,
+    studentId: string
+  ): Promise<void> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const board = await this.boardFor(productionId);
+    if (board.understudiesPublishedAt) {
+      throw new Error("Understudies have already been published");
+    }
+    board.understudyEntries = board.understudyEntries.filter(
+      (entry) => entry.studentId !== studentId
+    );
+    await this.saveBoard(board);
+  }
+
+  /** Lead roles with no understudy yet — "where the holes are". */
+  async getUnderstudyHoles(actorId: string, productionId: string): Promise<ShowRole[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const [board, roles] = await Promise.all([
+      this.boardFor(productionId),
+      this.getShowRoles(productionId),
+    ]);
+    const covered = new Set(board.understudyEntries.map((entry) => entry.roleId));
+    return roles.filter((role) => role.tier === "lead" && !covered.has(role.id));
+  }
+
+  async publishUnderstudies(
+    actorId: string,
+    productionId: string
+  ): Promise<{ published: number; holes: number }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const board = await this.boardFor(productionId);
+    if (board.status !== "submitted") throw new Error("Cast the show first");
+    if (board.understudiesPublishedAt) {
+      throw new Error("Understudies have already been published");
+    }
+
+    const [roles, registered, { data: production }, { data: parents }] =
+      await Promise.all([
+        this.getShowRoles(productionId),
+        this.registeredStudents(productionId),
+        this.db.from("productions").select("title").eq("id", productionId).maybeSingle(),
+        this.db.from("profiles").select("id, family_id").eq("role", "parent"),
+      ]);
+    const rolesById = new Map(roles.map((role) => [role.id, role]));
+    const studentsById = new Map(registered.map((st) => [st.id, st]));
+    const now = new Date().toISOString();
+    let published = 0;
+
+    for (const entry of board.understudyEntries) {
+      const role = rolesById.get(entry.roleId);
+      const student = studentsById.get(entry.studentId);
+      if (!role || !student) continue;
+
+      // Published understudy assignment; the DB trigger writes show_history.
+      const { data: assignment, error } = await this.db
+        .from("casting_assignments")
+        .insert({
+          production_id: productionId,
+          student_id: student.id,
+          character_name: `${role.name} (Understudy)`,
+          is_understudy: true,
+          published_at: now,
+        })
+        .select().single();
+      if (error) throw new Error(`understudy insert failed: ${error.message}`);
+      published += 1;
+
+      await this.db.from("casting_confirmations").insert({
+        assignment_id: assignment.id,
+        student_id: student.id,
+        family_id: student.familyId,
+        last_reminded_at: now,
+        reminder_count: 0,
+      });
+
+      const familyParents = (parents ?? []).filter(
+        (parent) => parent.family_id === student.familyId
+      );
+      if (familyParents.length) {
+        await this.db.from("notifications").insert(
+          familyParents.map((parent) => ({
+            user_id: parent.id,
+            type: "casting_released",
+            title: `Understudy casting for ${production?.title ?? "the show"} ⭐`,
+            body: `${student.preferredName ?? student.firstName} will understudy: ${role.name}. Tap to confirm the name for the playbill.`,
+            url: "/casting",
+          }))
+        );
+      }
+    }
+
+    board.understudiesPublishedAt = now;
+    await this.saveBoard(board);
+    const holes = (await this.getUnderstudyHoles(actorId, productionId)).length;
+    return { published, holes };
+  }
+
+  async getCastListStatus(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{
+      role: ShowRole;
+      status: "open" | "filled" | "accepted";
+      holders: Array<{
+        studentName: string;
+        playbillName: string;
+        responded: boolean;
+        isUnderstudy: boolean;
+      }>;
+    }>
+  > {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const [roles, { data: assignments }, { data: confirmations }, { data: students }] =
+      await Promise.all([
+        this.getShowRoles(productionId),
+        this.db.from("casting_assignments").select("*")
+          .eq("production_id", productionId).not("published_at", "is", null),
+        this.db.from("casting_confirmations").select("*"),
+        this.db.from("students").select("id, first_name, preferred_name, last_name"),
+      ]);
+
+    return roles.map((role) => {
+      const holders = (assignments ?? [])
+        .filter((a) =>
+          a.is_understudy
+            ? a.character_name === `${role.name} (Understudy)` ||
+              a.character_name === role.name
+            : a.character_name === role.name
+        )
+        .map((a) => {
+          const student = (students ?? []).find((st) => st.id === a.student_id);
+          const confirmation = (confirmations ?? []).find(
+            (c) => c.assignment_id === a.id
+          );
+          const studentName = student
+            ? `${student.preferred_name ?? student.first_name} ${student.last_name}`
+            : "Unknown";
+          return {
+            studentName,
+            playbillName: String(confirmation?.playbill_name ?? studentName),
+            responded: confirmation?.name_correct != null,
+            isUnderstudy: Boolean(a.is_understudy),
+          };
+        });
+
+      // Understudies don't gate acceptance of the principal role.
+      const principals = holders.filter((holder) => !holder.isUnderstudy);
+      const status: "open" | "filled" | "accepted" =
+        principals.length === 0
+          ? "open"
+          : principals.every((holder) => holder.responded)
+            ? "accepted"
+            : "filled";
+      return { role, status, holders };
+    });
+  }
+
+  async getCastingResponses(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{ confirmation: CastingConfirmation; studentName: string; roleName: string }>
+  > {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const [{ data: assignments }, { data: confirmations }, { data: students }] =
+      await Promise.all([
+        this.db.from("casting_assignments").select("id, character_name")
+          .eq("production_id", productionId),
+        this.db.from("casting_confirmations").select("*"),
+        this.db.from("students").select("id, first_name, preferred_name, last_name"),
+      ]);
+    const assignmentIds = new Set((assignments ?? []).map((a) => a.id));
+
+    return (confirmations ?? [])
+      .filter((c) => assignmentIds.has(c.assignment_id))
+      .map((c) => {
+        const assignment = (assignments ?? []).find((a) => a.id === c.assignment_id);
+        const student = (students ?? []).find((st) => st.id === c.student_id);
+        return {
+          confirmation: this.mapConfirmation(c),
+          studentName: student
+            ? `${student.preferred_name ?? student.first_name} ${student.last_name}`
+            : "",
+          roleName: String(assignment?.character_name ?? ""),
+        };
+      });
+  }
+
   /* ── private lessons (ported from the mock) ────────────────────────── */
 
   private mapSlot(row: Row): LessonSlot {
