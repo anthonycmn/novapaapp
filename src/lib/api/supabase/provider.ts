@@ -15,9 +15,12 @@ import type {
   OrderStatus,
   FeedCategory,
   FeedPost,
+  Guardian,
   HealthForm,
+  HopesEntry,
   NotificationPrefs,
   PickupRequest,
+  ShowHistoryEntry,
   PostQuestion,
   ReactionKind,
   Family,
@@ -1560,6 +1563,334 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── students, hopes, directory, staff self-edit (ported) ──────────── */
+
+  async getUserById(userId: string): Promise<User | null> {
+    const { data } = await this.db
+      .from("profiles").select("*").eq("id", userId).maybeSingle();
+    return data ? mapUser(data) : null;
+  }
+
+  async getStudent(actorId: string, studentId: string): Promise<Student | null> {
+    const actor = await this.actor(actorId);
+    const { data } = await this.db
+      .from("students").select("*").eq("id", studentId).maybeSingle();
+    if (!data) return null;
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, String(data.family_id));
+    return mapStudent(data);
+  }
+
+  async updateStudent(
+    actorId: string,
+    studentId: string,
+    patch: Partial<Student>
+  ): Promise<Student> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) throw new Error("Student not found");
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && !(actor.role === "parent" && actor.familyId === familyId)) {
+      throw new AccessDeniedError("Not allowed to modify this family");
+    }
+
+    // familyId is immutable through this path.
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const map: Array<[keyof Student, string]> = [
+      ["firstName", "first_name"], ["lastName", "last_name"],
+      ["preferredName", "preferred_name"], ["pronouns", "pronouns"],
+      ["dateOfBirth", "date_of_birth"], ["grade", "grade"], ["school", "school"],
+      ["tshirtSize", "tshirt_size"], ["allergies", "allergies"],
+      ["medicalFlags", "medical_flags"], ["headshotUrl", "headshot_url"],
+      ["headshotPrintUrl", "headshot_print_url"], ["resumePdfUrl", "resume_pdf_url"],
+      ["resumeCredits", "resume_credits"], ["vocalRange", "vocal_range"],
+      ["danceExperience", "dance_experience"],
+      ["auditionSongUrl", "audition_song_url"], ["auditionAudioUrl", "audition_audio_url"],
+      ["hasLogin", "has_login"],
+    ];
+    for (const [key, col] of map) {
+      if (patch[key] !== undefined) row[col] = patch[key];
+    }
+    if (patch.consents) {
+      row.consent_photo_use = patch.consents.photoUse;
+      row.consent_face_matching = patch.consents.faceMatching;
+      row.consent_directory_visible = patch.consents.directoryVisible;
+    }
+    const { data, error } = await this.db
+      .from("students").update(row).eq("id", studentId).select().single();
+    if (error) throw new Error(`student update failed: ${error.message}`);
+    return mapStudent(data);
+  }
+
+  private mapHopes(row: Row): HopesEntry {
+    return {
+      id: String(row.id),
+      seasonId: String(row.season_id),
+      author: row.author as HopesEntry["author"],
+      text: String(row.text),
+      visibleToStudent: Boolean(row.visible_to_student),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    };
+  }
+
+  async getHopes(actorId: string, studentId: string): Promise<HopesEntry[]> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return [];
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("hopes_entries").select("*").eq("student_id", studentId)
+      .order("created_at");
+    const entries = (data ?? []).map((row) => this.mapHopes(row));
+    if (actor.role === "student") {
+      // Students see their own entries, and parent entries only when shared.
+      return entries.filter((e) => e.author === "student" || e.visibleToStudent);
+    }
+    return entries;
+  }
+
+  async upsertHopes(
+    actorId: string,
+    studentId: string,
+    entry: {
+      seasonId: string;
+      author: "parent" | "student";
+      text: string;
+      visibleToStudent?: boolean;
+    }
+  ): Promise<HopesEntry> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) throw new Error("Student not found");
+    if (this.isStaffish(actor)) {
+      throw new AccessDeniedError("Hopes are written by families, not staff");
+    }
+    this.assertFamilyAccess(actor, familyId);
+    if (entry.author === "parent" && actor.role !== "parent") {
+      throw new AccessDeniedError("Only a parent can write parent hopes");
+    }
+
+    // Versioned: always append; the newest row is the current version.
+    const { data: existing } = await this.db
+      .from("hopes_entries").select("visible_to_student")
+      .eq("student_id", studentId).eq("season_id", entry.seasonId)
+      .eq("author", entry.author)
+      .order("created_at", { ascending: false }).limit(1);
+    const { data, error } = await this.db
+      .from("hopes_entries")
+      .insert({
+        student_id: studentId,
+        season_id: entry.seasonId,
+        author: entry.author,
+        text: entry.text,
+        visible_to_student:
+          entry.visibleToStudent ?? Boolean(existing?.[0]?.visible_to_student),
+      })
+      .select().single();
+    if (error) throw new Error(`hopes save failed: ${error.message}`);
+    return this.mapHopes(data);
+  }
+
+  async getShowHistory(actorId: string, studentId: string): Promise<ShowHistoryEntry[]> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return [];
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("show_history").select("*").eq("student_id", studentId)
+      .order("year", { ascending: false });
+    return (data ?? []).map((row) => ({
+      id: String(row.id),
+      studentId: String(row.student_id),
+      productionTitle: String(row.production_title),
+      role: String(row.role),
+      seasonName: String(row.season_name ?? ""),
+      director: s(row.director),
+      venue: s(row.venue),
+      organization: s(row.organization),
+      fromCasting: Boolean(row.from_casting),
+      year: String(row.year ?? ""),
+    }));
+  }
+
+  async getFamiliesDirectory(actorId: string): Promise<
+    Array<{ family: Family; students: Student[]; guardians: Guardian[] }>
+  > {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) {
+      throw new AccessDeniedError("The family directory is staff-only");
+    }
+    const [{ data: families }, { data: students }, { data: guardians }] =
+      await Promise.all([
+        this.db.from("families").select("*"),
+        this.db.from("students").select("*"),
+        this.db.from("guardians").select("*"),
+      ]);
+    return (families ?? [])
+      .map((row) => {
+        const family = mapFamily(row);
+        return {
+          family,
+          students: (students ?? [])
+            .filter((st) => st.family_id === family.id).map(mapStudent),
+          guardians: (guardians ?? [])
+            .filter((g) => g.family_id === family.id)
+            .map((g) => ({
+              id: String(g.id),
+              familyId: String(g.family_id),
+              userId: s(g.user_id),
+              fullName: String(g.full_name),
+              email: String(g.email),
+              phone: String(g.phone ?? ""),
+              relationship: String(g.relationship ?? ""),
+              isPrimary: Boolean(g.is_primary),
+            })),
+        };
+      })
+      .sort((a, b) => a.family.name.localeCompare(b.family.name));
+  }
+
+  async getStaffProfile(staffId: string): Promise<StaffProfile | null> {
+    const { data } = await this.db
+      .from("staff_profiles").select("*").eq("id", staffId).maybeSingle();
+    return data ? mapStaff(data) : null;
+  }
+
+  async submitStaffProfileChanges(
+    actorId: string,
+    staffId: string,
+    changes: {
+      bio?: string;
+      title?: string;
+      specialties?: string[];
+      credits?: string;
+      photoDataUrl?: string;
+    }
+  ): Promise<StaffProfile> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && actor.staffId !== staffId) {
+      throw new AccessDeniedError("You can only edit your own profile");
+    }
+    const { data: profileRow } = await this.db
+      .from("staff_profiles").select("*").eq("id", staffId).maybeSingle();
+    if (!profileRow) throw new Error("Staff profile not found");
+
+    const pending: Record<string, unknown> = {
+      ...((profileRow.pending_changes as Record<string, unknown>) ?? {}),
+    };
+    if (changes.bio !== undefined) pending.bio = changes.bio;
+    if (changes.title !== undefined) pending.title = changes.title;
+    if (changes.specialties !== undefined) pending.specialties = changes.specialties;
+    if (changes.credits !== undefined) pending.credits = changes.credits;
+    if (changes.photoDataUrl) {
+      assertUploadAllowed("staff-photos", changes.photoDataUrl);
+      const stored = await getStorageProvider().upload(
+        "staff-photos", `${staffId}/photo-${Date.now()}.jpg`, changes.photoDataUrl
+      );
+      pending.photoUrl = stored.url;
+    }
+
+    const { data, error } = await this.db
+      .from("staff_profiles")
+      .update({ pending_changes: pending, change_rejection: null })
+      .eq("id", staffId).select().single();
+    if (error) throw new Error(`profile change failed: ${error.message}`);
+
+    const { data: admins } = await this.db
+      .from("profiles").select("id").in("role", ["admin", "super_admin"])
+      .neq("id", actor.id);
+    if (admins?.length) {
+      await this.db.from("notifications").insert(
+        admins.map((admin) => ({
+          user_id: admin.id, type: "broadcast",
+          title: "Staff profile update to review",
+          body: `${profileRow.full_name} submitted changes to their profile.`,
+          url: "/admin/staff-profiles",
+        }))
+      );
+    }
+    return mapStaff(data);
+  }
+
+  async getPendingStaffChanges(actorId: string): Promise<StaffProfile[]> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data } = await this.db
+      .from("staff_profiles").select("*").not("pending_changes", "is", null);
+    return (data ?? []).map(mapStaff);
+  }
+
+  async approveStaffChanges(actorId: string, staffId: string): Promise<StaffProfile> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data: row } = await this.db
+      .from("staff_profiles").select("*").eq("id", staffId).maybeSingle();
+    if (!row) throw new Error("Staff profile not found");
+    if (!row.pending_changes) return mapStaff(row);
+
+    const pending = row.pending_changes as Record<string, unknown>;
+    const { data, error } = await this.db
+      .from("staff_profiles")
+      .update({
+        ...(pending.bio !== undefined ? { bio: pending.bio } : {}),
+        ...(pending.title !== undefined ? { title: pending.title } : {}),
+        ...(pending.specialties !== undefined ? { specialties: pending.specialties } : {}),
+        ...(pending.credits !== undefined ? { credits: pending.credits } : {}),
+        ...(pending.photoUrl !== undefined ? { photo_url: pending.photoUrl } : {}),
+        pending_changes: null,
+        change_rejection: null,
+        is_published: true,
+      })
+      .eq("id", staffId).select().single();
+    if (error) throw new Error(`approve failed: ${error.message}`);
+
+    const { data: owner } = await this.db
+      .from("profiles").select("id").eq("staff_id", staffId).maybeSingle();
+    if (owner) {
+      await this.db.from("notifications").insert({
+        user_id: owner.id, type: "broadcast",
+        title: "Your profile is live",
+        body: "An administrator approved your profile changes.",
+        url: `/staff/${staffId}`,
+      });
+    }
+    return mapStaff(data);
+  }
+
+  async rejectStaffChanges(
+    actorId: string,
+    staffId: string,
+    reason: string
+  ): Promise<StaffProfile> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data, error } = await this.db
+      .from("staff_profiles")
+      .update({ pending_changes: null, change_rejection: reason })
+      .eq("id", staffId).select().single();
+    if (error) throw new Error(`reject failed: ${error.message}`);
+
+    const { data: owner } = await this.db
+      .from("profiles").select("id").eq("staff_id", staffId).maybeSingle();
+    if (owner) {
+      await this.db.from("notifications").insert({
+        user_id: owner.id, type: "broadcast",
+        title: "Profile changes need another pass",
+        body: reason,
+        url: "/staff/edit",
+      });
+    }
+    return mapStaff(data);
   }
 
   /* ── private reviews (ported from the mock) ────────────────────────── */

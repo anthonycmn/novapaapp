@@ -845,6 +845,66 @@ async function main() {
   // Clean up review fixtures.
   await raw.from("review_windows").delete().eq("id", rw.id);
 
+  /* ── students, hopes, directory, staff self-edit ── */
+  const updatedAva = await p.updateStudent(sofia.id, ava.id, { vocalRange: "C4–A5" });
+  check("parent updates their child", updatedAva.vocalRange === "C4–A5");
+  let updateDenied = false;
+  try {
+    await p.updateStudent(minh.id, ava.id, { grade: "12" });
+  } catch (error) {
+    updateDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot edit her", updateDenied);
+
+  const hope = await p.upsertHopes(sofia.id, ava.id, {
+    seasonId, author: "parent", text: "A named role this year", visibleToStudent: false,
+  });
+  check("parent hope saved privately", !hope.visibleToStudent);
+  let staffHopes = false;
+  try {
+    await p.upsertHopes(dana.id, ava.id, { seasonId, author: "parent", text: "x" });
+  } catch (error) {
+    staffHopes = String(error).includes("families, not staff");
+  }
+  check("staff cannot write hopes", staffHopes);
+  check(
+    "staff can read hopes",
+    (await p.getHopes(dana.id, ava.id)).some((h) => h.text.includes("named role"))
+  );
+
+  const history = await p.getShowHistory(sofia.id, ava.id);
+  check("show history reads", history.length >= 1, `${history.length} entries`);
+
+  const directory = await p.getFamiliesDirectory(dana.id);
+  check(
+    "staff directory joins families + students + guardians",
+    directory.length === 3 && directory.every((d) => d.students.length > 0 && d.guardians.length > 0)
+  );
+  let dirDenied = false;
+  try {
+    await p.getFamiliesDirectory(sofia.id);
+  } catch (error) {
+    dirDenied = error instanceof AccessDeniedError;
+  }
+  check("directory is staff-only", dirDenied);
+
+  await p.submitStaffProfileChanges(marcus!.id, marcus!.staffId!, {
+    bio: "Vocal coach, pianist, and arranger.",
+  });
+  const pendingChanges = await p.getPendingStaffChanges(dana.id);
+  check(
+    "staff edit lands in the admin approval queue",
+    pendingChanges.some((sp) => sp.id === marcus!.staffId)
+  );
+  const approved = await p.approveStaffChanges(dana.id, marcus!.staffId!);
+  check(
+    "approval applies the pending bio",
+    approved.bio.includes("arranger") && !approved.pendingChanges
+  );
+
+  // Clean up: restore Ava + Marcus bio via reseed at the end anyway.
+  await raw.from("hopes_entries").delete().eq("student_id", ava.id);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
