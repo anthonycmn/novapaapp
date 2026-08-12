@@ -54,10 +54,29 @@ async function main() {
   const notifications = await p.getNotifications(sofia.id);
   check("notifications read (empty ok)", Array.isArray(notifications), `${notifications.length}`);
 
+  // Calendar: Martinez family (Ava = Elsa, Leo = Snow Chorus) should see
+  // the scene-tagged 'Let It Go' rehearsal but NOT the Anna/Hans duet.
+  const cal = await p.getFamilyCalendar(sofia.id, sofia.familyId);
+  check("family calendar returns events", cal.length > 0, `${cal.length} events`);
+  const letItGo = cal.find((e) => e.title.includes("Let It Go"));
+  const duet = cal.find((e) => e.title.includes("Open Door"));
+  check("scene-tagged rehearsal included for called roles", Boolean(letItGo));
+  // Ava holds Young Elsa (published) → not called for the Anna/Hans duet.
+  // Leo's seeded name matches no role, so the pre-publication fallback may
+  // keep it visible for him — identical rule to the mock provider.
+  const ava = students.find((st) => st.firstName === "Ava")!;
+  check(
+    "student with a published role excluded from uncalled scenes",
+    !duet || !duet.studentIds.includes(ava.id)
+  );
+
+  const master = await p.getAllEvents(dana.id);
+  check("staff master schedule reads", master.length >= 5, `${master.length} events`);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.getFamilyCalendar(sofia.id, sofia.familyId);
+    await p.getMyLessonBookings(sofia.id);
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }
