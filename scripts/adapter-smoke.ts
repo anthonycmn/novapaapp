@@ -612,10 +612,47 @@ async function main() {
   await raw.from("feed_posts").delete().in("id", [post.id, classOnly.id]);
   await raw.from("notifications").delete().eq("title", "Your question was answered");
 
+  /* ── health forms ── */
+  const { data: season } = await raw
+    .from("seasons").select("id").eq("is_current", true).single();
+  const seasonId = String(season!.id);
+
+  const draft = await p.saveHealthForm(sofia.id, ava.id, seasonId, {
+    allergies: "Tree nuts", medications: "EpiPen in bag",
+  } as never);
+  check("family saves a health form draft", !draft.signedAt);
+
+  const signed = await p.saveHealthForm(sofia.id, ava.id, seasonId, {
+    allergies: "Tree nuts", medications: "EpiPen in bag",
+  } as never, { name: "Sofia Martinez", ip: "203.0.113.7" });
+  check(
+    "e-signature recorded with name and timestamp",
+    signed.signedByName === "Sofia Martinez" && Boolean(signed.signedAt)
+  );
+
+  let healthDenied = false;
+  try {
+    await p.saveHealthForm(minh.id, ava.id, seasonId, {} as never);
+  } catch (error) {
+    healthDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot sign her form", healthDenied);
+
+  const status = await p.getHealthFormStatus(dana.id, { productionId: frozenId });
+  const avaStatus = status.find((r) => r.student.id === ava.id);
+  check(
+    "staff roster shows signed vs missing forms",
+    status.length === 4 && Boolean(avaStatus?.form) &&
+      status.filter((r) => !r.form).length === 3
+  );
+
+  // Clean up health fixture.
+  await raw.from("health_forms").delete().eq("student_id", ava.id);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.getHealthForm(sofia.id, ava.id, "any");
+    await p.getPickupRequestsForFamily(sofia.id, sofia.familyId);
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }

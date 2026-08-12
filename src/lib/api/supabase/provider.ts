@@ -7,6 +7,7 @@ import type {
   FeedAudience,
   FeedCategory,
   FeedPost,
+  HealthForm,
   NotificationPrefs,
   PostQuestion,
   ReactionKind,
@@ -1414,6 +1415,130 @@ class SupabaseDataProvider {
           roleName: String(assignment?.character_name ?? ""),
         };
       });
+  }
+
+  /* ── health forms (ported from the mock) ───────────────────────────── */
+
+  private mapHealthForm(row: Row): HealthForm {
+    return {
+      id: String(row.id),
+      studentId: String(row.student_id),
+      seasonId: String(row.season_id),
+      answers: (row.answers ?? {}) as HealthForm["answers"],
+      signedByName: s(row.signed_by_name),
+      signedAt: s(row.signed_at),
+      signedFromIp: s(row.signed_from_ip),
+      expiresOn: String(row.expires_on),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    };
+  }
+
+  private async studentFamilyOrThrow(studentId: string): Promise<string | null> {
+    const { data } = await this.db
+      .from("students").select("family_id").eq("id", studentId).maybeSingle();
+    return data ? String(data.family_id) : null;
+  }
+
+  async getHealthForm(
+    actorId: string,
+    studentId: string,
+    seasonId: string
+  ): Promise<HealthForm | null> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return null;
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("health_forms").select("*")
+      .eq("student_id", studentId).eq("season_id", seasonId).maybeSingle();
+    return data ? this.mapHealthForm(data) : null;
+  }
+
+  async getPreviousHealthForm(
+    actorId: string,
+    studentId: string,
+    seasonId: string
+  ): Promise<HealthForm | null> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return null;
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("health_forms").select("*")
+      .eq("student_id", studentId).neq("season_id", seasonId)
+      .not("signed_at", "is", null)
+      .order("signed_at", { ascending: false }).limit(1);
+    return data?.length ? this.mapHealthForm(data[0]) : null;
+  }
+
+  async saveHealthForm(
+    actorId: string,
+    studentId: string,
+    seasonId: string,
+    answers: HealthForm["answers"],
+    signature?: { name: string; ip: string }
+  ): Promise<HealthForm> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) throw new Error("Student not found");
+    // Only the family signs health forms — staff attest nothing.
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && !(actor.role === "parent" && actor.familyId === familyId)) {
+      throw new AccessDeniedError("Not allowed to modify this family");
+    }
+
+    const { data: season } = await this.db
+      .from("seasons").select("ends_on").eq("id", seasonId).maybeSingle();
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      student_id: studentId,
+      season_id: seasonId,
+      answers,
+      expires_on: season?.ends_on ?? "2027-06-15",
+      updated_at: now,
+    };
+    if (signature) {
+      patch.signed_by_name = signature.name;
+      patch.signed_at = now;
+      patch.signed_from_ip = signature.ip;
+    }
+    const { data, error } = await this.db
+      .from("health_forms")
+      .upsert(patch, { onConflict: "student_id,season_id" })
+      .select().single();
+    if (error) throw new Error(`health form save failed: ${error.message}`);
+    return this.mapHealthForm(data);
+  }
+
+  async getHealthFormStatus(
+    actorId: string,
+    scope: { productionId?: string; classId?: string }
+  ): Promise<Array<{ student: Student; form: HealthForm | null }>> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data: currentSeason } = await this.db
+      .from("seasons").select("id").eq("is_current", true).maybeSingle();
+
+    let query = this.db.from("enrollments").select("student_id").eq("status", "enrolled");
+    if (scope.productionId) query = query.eq("production_id", scope.productionId);
+    else if (scope.classId) query = query.eq("class_id", scope.classId);
+    const { data: enrolled } = await query;
+    const studentIds = [...new Set((enrolled ?? []).map((e) => e.student_id))];
+    if (studentIds.length === 0) return [];
+
+    const [{ data: students }, { data: forms }] = await Promise.all([
+      this.db.from("students").select("*").in("id", studentIds),
+      this.db.from("health_forms").select("*")
+        .in("student_id", studentIds)
+        .eq("season_id", currentSeason?.id ?? "")
+        .not("signed_at", "is", null),
+    ]);
+    return (students ?? []).map((row) => {
+      const student = mapStudent(row);
+      const form = (forms ?? []).find((f) => f.student_id === student.id);
+      return { student, form: form ? this.mapHealthForm(form) : null };
+    });
   }
 
   /* ── feed: staff post, families react & ask (ported from the mock) ─── */
