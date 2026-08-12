@@ -693,7 +693,7 @@ async function main() {
     style: "classic", templateId: templates[0].id,
   }, 2);
   const starPage = products.find((pr) => pr.type === "star_page");
-  let cart = starPage
+  const cart = starPage
     ? await p.addCatalogItemToCart(sofia.id, {
         productId: starPage.id,
         optionValue: starPage.options[0]?.value,
