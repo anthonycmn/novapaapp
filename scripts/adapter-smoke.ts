@@ -987,10 +987,76 @@ async function main() {
   );
   await raw.from("guardians").delete().eq("id", guardian.id);
 
+  /* ── photos & face matching lifecycle ── */
+  const leoP = students.find((st) => st.firstName === "Leo")!;
+  const refA = "https://photos.example.com/leo-ref-1.jpg";
+  const refB = "https://photos.example.com/leo-ref-2.jpg";
+
+  let staffConsent = false;
+  try {
+    await p.grantFaceConsent(dana.id, leoP.id, [refA, refB]);
+  } catch (error) {
+    staffConsent = error instanceof AccessDeniedError;
+  }
+  check("staff can NEVER grant face consent", staffConsent);
+
+  const consent = await p.grantFaceConsent(sofia.id, leoP.id, [refA, refB]);
+  check("parent consent creates embeddings", consent.embeddingsCreated >= 1);
+  check(
+    "embedding count visible to the family only",
+    (await p.countEmbeddingsForStudent(sofia.id, leoP.id)) === consent.embeddingsCreated
+  );
+
+  const ingested = await p.ingestGallery(dana.id, {
+    id: "ignored", externalId: "smug-tech-week", title: "Tech Week",
+    photoCount: 2, url: "https://smugmug.com/tech-week", createdAt: new Date().toISOString(),
+  }, [
+    // Same image as Leo's reference → deterministic mock vector matches.
+    { id: "x1", galleryId: "ignored", externalId: "ph-1", thumbnailUrl: refA, url: refA, width: 800, height: 600 },
+    { id: "x2", galleryId: "ignored", externalId: "ph-2", thumbnailUrl: "https://photos.example.com/crowd.jpg", url: "https://photos.example.com/crowd.jpg", width: 800, height: 600 },
+  ]);
+  check("gallery ingested with dedupe", ingested.photosIngested === 2);
+
+  const matching = await p.runMatching(dana.id);
+  check(
+    "matching finds Leo in the identical photo",
+    matching.photosScanned >= 2 && matching.matchesCreated >= 1,
+    JSON.stringify(matching)
+  );
+  const famMatches = await p.getMatchesForFamily(sofia.id, sofia.familyId);
+  check("family sees their child's matches", famMatches.length >= 1);
+  let matchesDenied = false;
+  try {
+    await p.getMatchesForFamily(minh.id, sofia.familyId);
+  } catch (error) {
+    matchesDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot see the matches", matchesDenied);
+
+  await p.confirmMatch(sofia.id, famMatches[0].match.id);
+  const revoked = await p.revokeFaceConsent(sofia.id, leoP.id);
+  check(
+    "revocation deletes everything and records counts",
+    (revoked.embeddingsDeleted ?? 0) >= 1 && (revoked.matchesDeleted ?? 0) >= 1 &&
+      (revoked.referencePhotosDeleted ?? 0) === 2 &&
+      (await p.countEmbeddingsForStudent(sofia.id, leoP.id)) === 0
+  );
+  const photoHistory = await p.getConsentHistory(sofia.id, leoP.id);
+  check(
+    "consent history shows grant then revoke",
+    photoHistory.length === 2 && photoHistory[0].action === "revoked" && photoHistory[1].action === "granted"
+  );
+
+  // Clean up photo fixtures.
+  await raw.from("photo_galleries").delete().eq("external_id", "smug-tech-week");
+  await raw.from("face_embeddings").delete().not("photo_id", "is", null);
+  await raw.from("face_consent_events").delete().eq("student_id", leoP.id);
+  await raw.from("notifications").delete().eq("type", "photos_posted");
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.grantFaceConsent(sofia.id, ava.id, []);
+    await p.getSyncRuns(dana.id);
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }

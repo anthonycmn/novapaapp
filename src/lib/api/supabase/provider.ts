@@ -66,6 +66,18 @@ import type {
   ThreadWithMessages,
 } from "../messages/types";
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
+import { getFaceMatchProvider } from "../photos/face-provider";
+import { matchFace, type CandidateStudent } from "../photos/matching";
+import {
+  MAX_REFERENCE_PHOTOS,
+  MIN_REFERENCE_PHOTOS,
+  type ConsentEvent,
+  type FaceEmbedding,
+  type Gallery,
+  type GalleryPhoto,
+  type PhotoMatch,
+  type ReferencePhoto,
+} from "../photos/types";
 import {
   toStaffView,
   type Review,
@@ -1571,6 +1583,451 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── photos & face matching (ported; biometric rules preserved) ────── */
+
+  private mapGallery(row: Row): Gallery {
+    return {
+      id: String(row.id),
+      externalId: String(row.external_id),
+      title: String(row.title),
+      productionId: s(row.production_id),
+      photoCount: Number(row.photo_count ?? 0),
+      url: String(row.url),
+      createdAt: String(row.created_at),
+      ingestedAt: s(row.ingested_at),
+    };
+  }
+
+  private mapGalleryPhoto(row: Row): GalleryPhoto {
+    return {
+      id: String(row.id),
+      galleryId: String(row.gallery_id),
+      externalId: String(row.external_id),
+      thumbnailUrl: String(row.thumbnail_url),
+      url: String(row.url),
+      takenAt: s(row.taken_at),
+      width: Number(row.width ?? 0),
+      height: Number(row.height ?? 0),
+    };
+  }
+
+  private mapMatch(row: Row): PhotoMatch {
+    return {
+      id: String(row.id),
+      studentId: String(row.student_id),
+      photoId: String(row.photo_id),
+      similarity: Number(row.similarity),
+      state: row.state as PhotoMatch["state"],
+      createdAt: String(row.created_at),
+      correctedAt: s(row.corrected_at),
+    };
+  }
+
+  private mapEmbedding(row: Row): FaceEmbedding {
+    // pgvector serializes as a "[0.1,0.2,…]" string over the API.
+    const raw = row.embedding;
+    const vector: number[] =
+      typeof raw === "string" ? (JSON.parse(raw) as number[]) : ((raw ?? []) as number[]);
+    return {
+      id: String(row.id),
+      studentId: s(row.student_id),
+      photoId: s(row.photo_id),
+      vector,
+      detectionConfidence: Number(row.detection_confidence),
+      createdAt: String(row.created_at),
+    };
+  }
+
+  private vectorLiteral(vector: number[]): string {
+    return `[${vector.join(",")}]`;
+  }
+
+  private mapConsentEvent(row: Row): ConsentEvent {
+    return {
+      id: String(row.id),
+      studentId: String(row.student_id),
+      action: row.action as ConsentEvent["action"],
+      actorName: String(row.actor_name ?? ""),
+      createdAt: String(row.created_at),
+      embeddingsDeleted: row.embeddings_deleted == null ? undefined : Number(row.embeddings_deleted),
+      matchesDeleted: row.matches_deleted == null ? undefined : Number(row.matches_deleted),
+      referencePhotosDeleted:
+        row.reference_photos_deleted == null ? undefined : Number(row.reference_photos_deleted),
+    };
+  }
+
+  async grantFaceConsent(
+    actorId: string,
+    studentId: string,
+    referenceImageUrls: string[]
+  ): Promise<{ embeddingsCreated: number }> {
+    const actor = await this.actor(actorId);
+    const { data: student } = await this.db
+      .from("students").select("family_id").eq("id", studentId).maybeSingle();
+    if (!student) throw new Error("Student not found");
+    // Only a parent of this child may consent — never staff, never admin.
+    if (actor.role !== "parent" || actor.familyId !== String(student.family_id)) {
+      throw new AccessDeniedError(
+        "Only a parent or guardian of this student can give face-matching consent"
+      );
+    }
+    if (
+      referenceImageUrls.length < MIN_REFERENCE_PHOTOS ||
+      referenceImageUrls.length > MAX_REFERENCE_PHOTOS
+    ) {
+      throw new Error(
+        `Upload between ${MIN_REFERENCE_PHOTOS} and ${MAX_REFERENCE_PHOTOS} reference photos`
+      );
+    }
+
+    const faceProvider = getFaceMatchProvider();
+    let created = 0;
+    for (const imageUrl of referenceImageUrls) {
+      await this.db.from("reference_photos").insert({
+        student_id: studentId, image_url: imageUrl,
+      });
+      const faces = await faceProvider.embedFaces(imageUrl);
+      for (const face of faces) {
+        await this.db.from("face_embeddings").insert({
+          student_id: studentId,
+          embedding: this.vectorLiteral(face.vector),
+          detection_confidence: face.detectionConfidence,
+        });
+        created += 1;
+      }
+    }
+
+    if (created === 0) {
+      // Roll back the reference photos — consent without a usable face is
+      // just retained photos of a child for no purpose.
+      await this.db.from("reference_photos").delete().eq("student_id", studentId);
+      throw new Error(
+        "We couldn't find a face in those photos. Try clearer, front-facing photos."
+      );
+    }
+
+    await this.db.from("students")
+      .update({ consent_face_matching: true, updated_at: new Date().toISOString() })
+      .eq("id", studentId);
+    await this.db.from("face_consent_events").insert({
+      student_id: studentId, action: "granted", actor_name: actor.displayName,
+    });
+    return { embeddingsCreated: created };
+  }
+
+  async revokeFaceConsent(actorId: string, studentId: string): Promise<ConsentEvent> {
+    const actor = await this.actor(actorId);
+    const { data: student } = await this.db
+      .from("students").select("family_id").eq("id", studentId).maybeSingle();
+    if (!student) throw new Error("Student not found");
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && (actor.role !== "parent" || actor.familyId !== String(student.family_id))) {
+      throw new AccessDeniedError("Only a parent or an admin can revoke consent");
+    }
+
+    // Delete everything derived from this child's face, immediately, and
+    // record the COUNTS so the family sees proof rather than a promise.
+    const { count: embCount } = await this.db
+      .from("face_embeddings").select("*", { count: "exact", head: true })
+      .eq("student_id", studentId);
+    const { count: matchCount } = await this.db
+      .from("photo_matches").select("*", { count: "exact", head: true })
+      .eq("student_id", studentId);
+    const { count: refCount } = await this.db
+      .from("reference_photos").select("*", { count: "exact", head: true })
+      .eq("student_id", studentId);
+
+    await this.db.from("face_embeddings").delete().eq("student_id", studentId);
+    await this.db.from("photo_matches").delete().eq("student_id", studentId);
+    await this.db.from("reference_photos").delete().eq("student_id", studentId);
+    await this.db.from("students")
+      .update({ consent_face_matching: false, updated_at: new Date().toISOString() })
+      .eq("id", studentId);
+
+    const { data: event, error } = await this.db
+      .from("face_consent_events")
+      .insert({
+        student_id: studentId, action: "revoked", actor_name: actor.displayName,
+        embeddings_deleted: embCount ?? 0,
+        matches_deleted: matchCount ?? 0,
+        reference_photos_deleted: refCount ?? 0,
+      })
+      .select().single();
+    if (error) throw new Error(`consent event failed: ${error.message}`);
+    return this.mapConsentEvent(event);
+  }
+
+  async getConsentHistory(actorId: string, studentId: string): Promise<ConsentEvent[]> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return [];
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("face_consent_events").select("*").eq("student_id", studentId)
+      .order("created_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapConsentEvent(row));
+  }
+
+  async getReferencePhotos(actorId: string, studentId: string): Promise<ReferencePhoto[]> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return [];
+    // Reference photos are the family's own uploads — family + admin only.
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && actor.familyId !== familyId) {
+      throw new AccessDeniedError("Not your student");
+    }
+    const { data } = await this.db
+      .from("reference_photos").select("*").eq("student_id", studentId);
+    return (data ?? []).map((row) => ({
+      id: String(row.id),
+      studentId: String(row.student_id),
+      imageUrl: String(row.image_url),
+      uploadedAt: String(row.uploaded_at),
+    }));
+  }
+
+  async countEmbeddingsForStudent(actorId: string, studentId: string): Promise<number> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return 0;
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && actor.familyId !== familyId) {
+      throw new AccessDeniedError("Not your student");
+    }
+    const { count } = await this.db
+      .from("face_embeddings").select("*", { count: "exact", head: true })
+      .eq("student_id", studentId);
+    return count ?? 0;
+  }
+
+  async getGalleries(actorId: string): Promise<Gallery[]> {
+    await this.actor(actorId);
+    const { data } = await this.db
+      .from("photo_galleries").select("*").order("created_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapGallery(row));
+  }
+
+  async getGalleryPhotos(actorId: string, galleryId: string): Promise<GalleryPhoto[]> {
+    await this.actor(actorId);
+    const { data } = await this.db
+      .from("gallery_photos").select("*").eq("gallery_id", galleryId);
+    return (data ?? []).map((row) => this.mapGalleryPhoto(row));
+  }
+
+  async getMatchesForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<Array<{ match: PhotoMatch; photo: GalleryPhoto; studentName: string }>> {
+    const actor = await this.actor(actorId);
+    // Matches: the family and admins — NOT staff at large, never another family.
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && actor.familyId !== familyId) {
+      throw new AccessDeniedError("Not your family");
+    }
+    const { data: students } = await this.db
+      .from("students").select("id, first_name, preferred_name").eq("family_id", familyId);
+    const ids = (students ?? []).map((st) => st.id);
+    if (ids.length === 0) return [];
+    const [{ data: matches }, { data: photos }] = await Promise.all([
+      this.db.from("photo_matches").select("*").in("student_id", ids)
+        .neq("state", "rejected").order("created_at", { ascending: false }),
+      this.db.from("gallery_photos").select("*"),
+    ]);
+    return (matches ?? []).flatMap((row) => {
+      const photo = (photos ?? []).find((ph) => ph.id === row.photo_id);
+      if (!photo) return [];
+      const student = (students ?? []).find((st) => st.id === row.student_id);
+      return [{
+        match: this.mapMatch(row),
+        photo: this.mapGalleryPhoto(photo),
+        studentName: String(student?.preferred_name ?? student?.first_name ?? ""),
+      }];
+    });
+  }
+
+  private async matchOwnerOrThrow(actorId: string, matchId: string): Promise<Row> {
+    const actor = await this.actor(actorId);
+    const { data: match } = await this.db
+      .from("photo_matches").select("*").eq("id", matchId).maybeSingle();
+    if (!match) throw new Error("Match not found");
+    const familyId = await this.studentFamilyOrThrow(String(match.student_id));
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && actor.familyId !== familyId) {
+      throw new AccessDeniedError("Not your match to correct");
+    }
+    return match;
+  }
+
+  async rejectMatch(actorId: string, matchId: string): Promise<void> {
+    await this.matchOwnerOrThrow(actorId, matchId);
+    // Keep the row in "rejected" state: it's how we remember never to
+    // re-assert this pairing on the next matching run.
+    await this.db.from("photo_matches")
+      .update({ state: "rejected", corrected_at: new Date().toISOString() })
+      .eq("id", matchId);
+  }
+
+  async confirmMatch(actorId: string, matchId: string): Promise<void> {
+    const match = await this.matchOwnerOrThrow(actorId, matchId);
+    await this.db.from("photo_matches")
+      .update({ state: "confirmed", corrected_at: new Date().toISOString() })
+      .eq("id", matchId);
+
+    // Fold the confirmed face into the student's reference set so future
+    // matching gets better at this child specifically.
+    const { data: photoEmbedding } = await this.db
+      .from("face_embeddings").select("*").eq("photo_id", match.photo_id).limit(1);
+    if (photoEmbedding?.length) {
+      const emb = this.mapEmbedding(photoEmbedding[0]);
+      await this.db.from("face_embeddings").insert({
+        student_id: match.student_id,
+        embedding: this.vectorLiteral(emb.vector),
+        detection_confidence: emb.detectionConfidence,
+      });
+    }
+  }
+
+  async ingestGallery(
+    actorId: string,
+    gallery: Gallery,
+    photos: GalleryPhoto[]
+  ): Promise<{ photosIngested: number }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const { data: galleryRow, error } = await this.db
+      .from("photo_galleries")
+      .upsert(
+        {
+          external_id: gallery.externalId, title: gallery.title,
+          production_id: gallery.productionId ?? null,
+          photo_count: gallery.photoCount, url: gallery.url,
+          ingested_at: new Date().toISOString(),
+        },
+        { onConflict: "external_id" }
+      )
+      .select().single();
+    if (error) throw new Error(`gallery ingest failed: ${error.message}`);
+
+    const { data: existing } = await this.db
+      .from("gallery_photos").select("external_id");
+    const seen = new Set((existing ?? []).map((ph) => String(ph.external_id)));
+    const fresh = photos.filter((photo) => !seen.has(photo.externalId));
+    if (fresh.length) {
+      await this.db.from("gallery_photos").insert(
+        fresh.map((photo) => ({
+          gallery_id: galleryRow.id,
+          external_id: photo.externalId,
+          thumbnail_url: photo.thumbnailUrl,
+          url: photo.url,
+          taken_at: photo.takenAt ?? null,
+          width: photo.width, height: photo.height,
+        }))
+      );
+    }
+    return { photosIngested: fresh.length };
+  }
+
+  /**
+   * Background matching pass. Only students with ACTIVE consent are ever
+   * passed to the matcher — the invariant the privacy promise rests on.
+   */
+  async runMatching(
+    actorId: string
+  ): Promise<{ photosScanned: number; matchesCreated: number }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const faceProvider = getFaceMatchProvider();
+
+    const [{ data: consented }, { data: allEmbeddings }, { data: allMatches },
+      { data: galleryPhotos }, { data: parents }] = await Promise.all([
+      this.db.from("students").select("*").eq("consent_face_matching", true),
+      this.db.from("face_embeddings").select("*"),
+      this.db.from("photo_matches").select("*"),
+      this.db.from("gallery_photos").select("*"),
+      this.db.from("profiles").select("id, family_id").eq("role", "parent"),
+    ]);
+    const embeddings = (allEmbeddings ?? []).map((row) => this.mapEmbedding(row));
+
+    const candidates: CandidateStudent[] = (consented ?? [])
+      .map((studentRow) => ({
+        studentId: String(studentRow.id),
+        embeddings: embeddings.filter((e) => e.studentId === String(studentRow.id)),
+        rejectedPhotoIds: new Set(
+          (allMatches ?? [])
+            .filter((m) => m.student_id === studentRow.id && m.state === "rejected")
+            .map((m) => String(m.photo_id))
+        ),
+      }))
+      .filter((candidate) => candidate.embeddings.length > 0);
+
+    let photosScanned = 0;
+    let matchesCreated = 0;
+    for (const photoRow of galleryPhotos ?? []) {
+      photosScanned += 1;
+      const photoId = String(photoRow.id);
+
+      // Embed the photo's faces once and cache them.
+      let faces = embeddings.filter((e) => e.photoId === photoId);
+      if (faces.length === 0) {
+        const detected = await faceProvider.embedFaces(String(photoRow.thumbnail_url));
+        for (const face of detected) {
+          const { data: inserted } = await this.db
+            .from("face_embeddings")
+            .insert({
+              photo_id: photoId,
+              embedding: this.vectorLiteral(face.vector),
+              detection_confidence: face.detectionConfidence,
+            })
+            .select().single();
+          if (inserted) faces.push(this.mapEmbedding(inserted));
+        }
+      }
+
+      for (const face of faces) {
+        const result = matchFace(face, photoId, candidates);
+        if (!result) continue;
+        const already = (allMatches ?? []).find(
+          (m) => m.student_id === result.studentId && m.photo_id === result.photoId
+        );
+        if (already) continue;
+
+        const { data: created } = await this.db
+          .from("photo_matches")
+          .insert({
+            student_id: result.studentId, photo_id: result.photoId,
+            similarity: result.similarity, state: "matched",
+          })
+          .select().single();
+        if (!created) continue;
+        (allMatches ?? []).push(created);
+        matchesCreated += 1;
+
+        // Tell the family there are new photos of their child.
+        const student = (consented ?? []).find((st) => st.id === result.studentId);
+        if (!student) continue;
+        const name = String(student.preferred_name ?? student.first_name);
+        const familyParents = (parents ?? []).filter(
+          (parent) => parent.family_id === student.family_id
+        );
+        for (const parent of familyParents) {
+          const { data: dupe } = await this.db
+            .from("notifications").select("id").eq("user_id", parent.id)
+            .eq("type", "photos_posted").ilike("body", `%${name}%`).limit(1);
+          if (dupe?.length) continue;
+          await this.db.from("notifications").insert({
+            user_id: parent.id, type: "photos_posted",
+            title: "New photos",
+            body: `We found new photos of ${name}.`,
+            url: "/photos",
+          });
+        }
+      }
+    }
+    return { photosScanned, matchesCreated };
   }
 
   /* ── catalog & core reads/writes (ported) ──────────────────────────── */
