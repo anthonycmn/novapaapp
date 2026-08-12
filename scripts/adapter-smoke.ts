@@ -155,10 +155,99 @@ async function main() {
   await raw.from("casting_confirmations").delete().eq("id", fixture!.id);
   await raw.from("notifications").delete().eq("title", "Playbill name correction");
 
+  /* ── lessons slice ── */
+  const slotsBefore = await p.getLessonSlots(sofia.id);
+  check(
+    "lesson slots read, all open",
+    slotsBefore.length === 9 && slotsBefore.every((r) => r.status === "open"),
+    `${slotsBefore.length} slots`
+  );
+
+  const marcusSlot = slotsBefore.find(
+    (r) => r.teacherName === "Marcus Lee" && r.slot.weekday === 2 && r.slot.startTime === "16:30"
+  )!;
+  const booking = await p.bookLessonSlot(sofia.id, {
+    slotId: marcusSlot.slot.id,
+    studentId: ava.id,
+    goals: "Belting for the spring show",
+  });
+  check("weekly slot booked", booking.status === "active", booking.startDate);
+
+  let doubleBooked = false;
+  try {
+    await p.bookLessonSlot(minh.id, { slotId: marcusSlot.slot.id, studentId: students[0].id });
+  } catch {
+    doubleBooked = true;
+  }
+  // (minh booking sofia's child would also throw — use his own child below)
+  const lien = await raw.from("students").select("id").eq("first_name", "Liên").single();
+  let takenRejected = false;
+  try {
+    await p.bookLessonSlot(minh.id, { slotId: marcusSlot.slot.id, studentId: String(lien.data!.id) });
+  } catch (error) {
+    takenRejected = String(error).includes("taken");
+  }
+  check("taken slot cannot be double-booked", doubleBooked && takenRejected);
+
+  const forMinh = (await p.getLessonSlots(minh.id)).find((r) => r.slot.id === marcusSlot.slot.id)!;
+  check(
+    "other family sees 'taken', never the name",
+    forMinh.status === "taken" && !forMinh.studentName && !forMinh.bookingId
+  );
+  const forSofia = (await p.getLessonSlots(sofia.id)).find((r) => r.slot.id === marcusSlot.slot.id)!;
+  check("owner sees 'yours' with the name", forSofia.status === "yours" && forSofia.studentName?.includes("Ava") === true);
+
+  const myBookings = await p.getMyLessonBookings(sofia.id);
+  check(
+    "family bookings list with next lesson",
+    myBookings.length === 1 && myBookings[0].teacherName === "Marcus Lee" &&
+      new Date(myBookings[0].nextLessonAt).getTime() > Date.now() - 1000
+  );
+
+  const calWithLesson = await p.getFamilyCalendar(sofia.id, sofia.familyId);
+  check(
+    "lesson occurrences on the family calendar",
+    calWithLesson.filter((e) => e.title.includes("Voice lesson — Marcus Lee")).length >= 4
+  );
+
+  const roster = await p.getLessonRoster(dana.id);
+  const rosterRow = roster.find((r) => r.slot.id === marcusSlot.slot.id)!;
+  check(
+    "staff roster shows student, family, goals",
+    rosterRow.studentName?.includes("Ava") === true &&
+      rosterRow.familyName === "The Martinez Family" &&
+      rosterRow.goals === "Belting for the spring show"
+  );
+  let rosterDenied = false;
+  try {
+    await p.getLessonRoster(sofia.id);
+  } catch (error) {
+    rosterDenied = error instanceof AccessDeniedError;
+  }
+  check("roster is staff-only", rosterDenied);
+
+  let cancelDenied = false;
+  try {
+    await p.cancelLessonBooking(minh.id, booking.id);
+  } catch (error) {
+    cancelDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot cancel the booking", cancelDenied);
+
+  await p.cancelLessonBooking(sofia.id, booking.id);
+  const freed = (await p.getLessonSlots(minh.id)).find((r) => r.slot.id === marcusSlot.slot.id)!;
+  check("cancel frees the slot", freed.status === "open");
+
+  // Clean up fixtures so re-runs stay deterministic.
+  await raw.from("lesson_bookings").delete().eq("id", booking.id);
+  await raw.from("notifications").delete().in("title", [
+    "Weekly voice lesson booked 🎉", "New weekly lesson student", "Weekly lesson cancelled",
+  ]);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.getMyLessonBookings(sofia.id);
+    await p.getCastingBoard(dana.id, frozenId);
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }

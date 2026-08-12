@@ -14,7 +14,10 @@ import type {
 import {
   LESSON_CALENDAR_WEEKS,
   LESSON_DISCIPLINES,
+  nextLessonOccurrence,
   upcomingLessonOccurrences,
+  type LessonBooking,
+  type LessonSlot,
 } from "../lessons/types";
 import type {
   CastingConfirmation,
@@ -626,6 +629,270 @@ class SupabaseDataProvider {
       }
     }
     return this.mapConfirmation(updated);
+  }
+
+  /* ── private lessons (ported from the mock) ────────────────────────── */
+
+  private mapSlot(row: Row): LessonSlot {
+    return {
+      id: String(row.id),
+      teacherStaffId: String(row.teacher_staff_id),
+      discipline: row.discipline as LessonSlot["discipline"],
+      weekday: Number(row.weekday),
+      // Postgres `time` serializes as "16:30:00"; the app uses "16:30".
+      startTime: String(row.start_time).slice(0, 5),
+      durationMin: Number(row.duration_min),
+      location: String(row.location ?? ""),
+      pricePerLessonCents: Number(row.price_per_lesson_cents),
+    };
+  }
+
+  private mapBooking(row: Row): LessonBooking {
+    return {
+      id: String(row.id),
+      slotId: String(row.slot_id),
+      studentId: String(row.student_id),
+      familyId: String(row.family_id),
+      startDate: String(row.start_date),
+      status: row.status as LessonBooking["status"],
+      goals: s(row.goals),
+      paymentMethod: "studio_invoice",
+      createdAt: String(row.created_at),
+      cancelledAt: s(row.cancelled_at),
+    };
+  }
+
+  private async lessonWorld() {
+    const [{ data: slots }, { data: bookings }, { data: staff }, { data: students }] =
+      await Promise.all([
+        this.db.from("lesson_slots").select("*"),
+        this.db.from("lesson_bookings").select("*").eq("status", "active"),
+        this.db.from("staff_profiles").select("id, user_id, full_name, title"),
+        this.db.from("students").select("id, family_id, first_name, preferred_name, last_name"),
+      ]);
+    return { slots: slots ?? [], bookings: bookings ?? [], staff: staff ?? [], students: students ?? [] };
+  }
+
+  async getLessonSlots(actorId: string): Promise<
+    Array<{
+      slot: LessonSlot;
+      teacherName: string;
+      teacherTitle: string;
+      status: "open" | "taken" | "yours";
+      bookingId?: string;
+      studentName?: string;
+    }>
+  > {
+    const actor = await this.actor(actorId);
+    const staffView = this.isStaffish(actor);
+    const { slots, bookings, staff, students } = await this.lessonWorld();
+
+    return slots
+      .map((row) => {
+        const slot = this.mapSlot(row);
+        const teacher = staff.find((t) => t.id === row.teacher_staff_id);
+        const booking = bookings.find((b) => b.slot_id === row.id);
+        const mine = booking && actor.familyId === booking.family_id;
+        const student = booking
+          ? students.find((st) => st.id === booking.student_id)
+          : undefined;
+        return {
+          slot,
+          teacherName: String(teacher?.full_name ?? "NOVA PA"),
+          teacherTitle: String(teacher?.title ?? ""),
+          status: (booking ? (mine ? "yours" : "taken") : "open") as
+            | "open" | "taken" | "yours",
+          // Who holds a slot is private: families see "taken", never a name.
+          bookingId: mine || staffView ? String(booking?.id) : undefined,
+          studentName:
+            (mine || staffView) && student
+              ? `${student.preferred_name ?? student.first_name} ${student.last_name}`
+              : undefined,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.teacherName.localeCompare(b.teacherName) ||
+          a.slot.weekday - b.slot.weekday ||
+          a.slot.startTime.localeCompare(b.slot.startTime)
+      );
+  }
+
+  async bookLessonSlot(
+    actorId: string,
+    input: { slotId: string; studentId: string; goals?: string }
+  ): Promise<LessonBooking> {
+    const actor = await this.actor(actorId);
+    const { data: slotRow } = await this.db
+      .from("lesson_slots").select("*").eq("id", input.slotId).maybeSingle();
+    if (!slotRow) throw new Error("That lesson time no longer exists");
+    const { data: student } = await this.db
+      .from("students").select("*").eq("id", input.studentId).maybeSingle();
+    if (!student) throw new Error("Student not found");
+    if (!this.isStaffish(actor)) {
+      this.assertFamilyAccess(actor, String(student.family_id));
+    }
+
+    const slot = this.mapSlot(slotRow);
+    const startMs = nextLessonOccurrence(slot, Date.now());
+    const { data: created, error } = await this.db
+      .from("lesson_bookings")
+      .insert({
+        slot_id: slot.id,
+        student_id: student.id,
+        family_id: student.family_id,
+        start_date: new Date(startMs).toISOString().slice(0, 10),
+        status: "active",
+        goals: input.goals?.trim() || null,
+        payment_method: "studio_invoice",
+      })
+      .select().single();
+    if (error) {
+      // The partial unique index rejects a second active booking.
+      if (error.message.includes("lesson_slot_one_active_idx") || error.code === "23505") {
+        throw new Error("That time was just taken — pick another open slot");
+      }
+      throw new Error(`booking failed: ${error.message}`);
+    }
+
+    const { data: teacher } = await this.db
+      .from("staff_profiles").select("user_id, full_name")
+      .eq("id", slot.teacherStaffId).maybeSingle();
+    const label =
+      LESSON_DISCIPLINES.find((d) => d.value === slot.discipline)?.label ?? "Private";
+    const studentName = String(student.preferred_name ?? student.first_name);
+    const booking = this.mapBooking(created);
+
+    const { data: parents } = await this.db
+      .from("profiles").select("id").eq("family_id", student.family_id).eq("role", "parent");
+    const notifications: Array<Record<string, unknown>> = (parents ?? []).map((parent) => ({
+      user_id: parent.id,
+      type: "schedule_change",
+      title: `Weekly ${label.toLowerCase()} lesson booked 🎉`,
+      body: `${studentName} has a standing ${label.toLowerCase()} lesson with ${teacher?.full_name ?? "NOVA PA"}, starting ${booking.startDate}. It's on your family calendar.`,
+      url: "/store/lessons",
+    }));
+    if (teacher?.user_id) {
+      notifications.push({
+        user_id: teacher.user_id,
+        type: "schedule_change",
+        title: "New weekly lesson student",
+        body: `${studentName} ${student.last_name} booked your ${label.toLowerCase()} slot, starting ${booking.startDate}.`,
+        url: "/admin/lessons",
+      });
+    }
+    if (notifications.length) await this.db.from("notifications").insert(notifications);
+    return booking;
+  }
+
+  async cancelLessonBooking(actorId: string, bookingId: string): Promise<void> {
+    const actor = await this.actor(actorId);
+    const { data: row } = await this.db
+      .from("lesson_bookings").select("*").eq("id", bookingId)
+      .eq("status", "active").maybeSingle();
+    if (!row) throw new Error("Booking not found");
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, String(row.family_id));
+
+    const { error } = await this.db
+      .from("lesson_bookings")
+      .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+      .eq("id", bookingId);
+    if (error) throw new Error(`cancel failed: ${error.message}`);
+
+    const { data: slot } = await this.db
+      .from("lesson_slots").select("start_time, teacher_staff_id").eq("id", row.slot_id).maybeSingle();
+    const { data: teacher } = slot
+      ? await this.db.from("staff_profiles").select("user_id").eq("id", slot.teacher_staff_id).maybeSingle()
+      : { data: null };
+    const { data: student } = await this.db
+      .from("students").select("first_name, preferred_name").eq("id", row.student_id).maybeSingle();
+    if (teacher?.user_id) {
+      await this.db.from("notifications").insert({
+        user_id: teacher.user_id,
+        type: "schedule_change",
+        title: "Weekly lesson cancelled",
+        body: `${student?.preferred_name ?? student?.first_name ?? "A student"}'s weekly slot (${slot ? `${String(slot.start_time).slice(0, 5)} lessons` : "lesson"}) is open again.`,
+        url: "/admin/lessons",
+      });
+    }
+  }
+
+  async getMyLessonBookings(actorId: string): Promise<
+    Array<{
+      booking: LessonBooking;
+      slot: LessonSlot;
+      teacherName: string;
+      studentName: string;
+      nextLessonAt: string;
+    }>
+  > {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return [];
+    const { slots, bookings, staff, students } = await this.lessonWorld();
+
+    return bookings
+      .filter((b) => b.family_id === actor.familyId)
+      .flatMap((b) => {
+        const slotRow = slots.find((sl) => sl.id === b.slot_id);
+        if (!slotRow) return [];
+        const slot = this.mapSlot(slotRow);
+        const teacher = staff.find((t) => t.id === slotRow.teacher_staff_id);
+        const student = students.find((st) => st.id === b.student_id);
+        return [{
+          booking: this.mapBooking(b),
+          slot,
+          teacherName: String(teacher?.full_name ?? "NOVA PA"),
+          studentName: student
+            ? `${student.preferred_name ?? student.first_name} ${student.last_name}`
+            : "Student",
+          nextLessonAt: new Date(nextLessonOccurrence(slot, Date.now())).toISOString(),
+        }];
+      });
+  }
+
+  async getLessonRoster(actorId: string): Promise<
+    Array<{
+      slot: LessonSlot;
+      teacherName: string;
+      studentName?: string;
+      familyName?: string;
+      goals?: string;
+      startDate?: string;
+    }>
+  > {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { slots, bookings, staff, students } = await this.lessonWorld();
+    const { data: families } = await this.db.from("families").select("id, name");
+
+    return slots
+      .map((row) => {
+        const slot = this.mapSlot(row);
+        const teacher = staff.find((t) => t.id === row.teacher_staff_id);
+        const booking = bookings.find((b) => b.slot_id === row.id);
+        const student = booking
+          ? students.find((st) => st.id === booking.student_id)
+          : undefined;
+        const family = booking
+          ? (families ?? []).find((f) => f.id === booking.family_id)
+          : undefined;
+        return {
+          slot,
+          teacherName: String(teacher?.full_name ?? "NOVA PA"),
+          studentName: student
+            ? `${student.preferred_name ?? student.first_name} ${student.last_name}`
+            : undefined,
+          familyName: family ? String(family.name) : undefined,
+          goals: booking ? s(booking.goals) : undefined,
+          startDate: booking ? String(booking.start_date) : undefined,
+        };
+      })
+      .sort(
+        (a, b) =>
+          a.teacherName.localeCompare(b.teacherName) ||
+          a.slot.weekday - b.slot.weekday ||
+          a.slot.startTime.localeCompare(b.slot.startTime)
+      );
   }
 }
 
