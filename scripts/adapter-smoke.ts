@@ -476,6 +476,41 @@ async function main() {
   }
   check("another family cannot request her feedback", feedbackDenied);
 
+  /* ── background jobs ── */
+  // 4 confirmations are still unanswered (Elsa was accepted above).
+  const remind1 = await p.remindPendingCastingConfirmations(dana.id, { olderThanMs: 0 });
+  check("12h reminder sweeps all unanswered confirmations", remind1.reminded === 4, `${remind1.reminded}`);
+  check(
+    "reminder notification reached the family",
+    (await p.getNotifications(sofia.id)).some(
+      (n) => n.title === "Reminder: confirm the playbill name"
+    )
+  );
+  const remind2 = await p.remindPendingCastingConfirmations(dana.id);
+  check("just-reminded confirmations are skipped", remind2.reminded === 0);
+
+  // Rehearsal notices around the seeded 'Let It Go' rehearsal (Elsa + Snow
+  // Chorus): Martinez is called (Ava & Leo), Nguyen is not.
+  const notices1 = await p.runRehearsalNotices(dana.id, { now: "2026-07-29T10:00:00.000Z" });
+  check("rehearsal reminders sent", notices1.reminders >= 1, JSON.stringify(notices1));
+  const sofiaRehearsal = (await p.getNotifications(sofia.id)).find(
+    (n) => n.title.startsWith("Tomorrow:") && n.title.includes("Let It Go")
+  );
+  check(
+    "called family reminded with both kids' names",
+    Boolean(sofiaRehearsal) && sofiaRehearsal!.body.includes("Ava & Leo")
+  );
+  check(
+    "uncalled family not reminded",
+    !(await p.getNotifications(minh.id)).some(
+      (n) => n.title.startsWith("Tomorrow:") && n.title.includes("Let It Go")
+    )
+  );
+  const notices2 = await p.runRehearsalNotices(dana.id, { now: "2026-07-29T11:00:00.000Z" });
+  check("rehearsal notices deduped on re-run", notices2.reminders === 0);
+  const notices3 = await p.runRehearsalNotices(dana.id, { now: "2026-07-30T10:00:00.000Z" });
+  check("post-rehearsal thank-you sent", notices3.thanks >= 1, JSON.stringify(notices3));
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {

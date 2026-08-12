@@ -20,6 +20,7 @@ import {
   type LessonSlot,
 } from "../lessons/types";
 import {
+  CONFIRMATION_REMINDER_MS,
   RECOMMENDATION_THRESHOLD,
   RUBRIC_CRITERIA,
   type AuditionEvaluation,
@@ -1367,6 +1368,221 @@ class SupabaseDataProvider {
           roleName: String(assignment?.character_name ?? ""),
         };
       });
+  }
+
+  /* ── background jobs: reminders & rehearsal notices ────────────────── */
+
+  async remindPendingCastingConfirmations(
+    actorId: string,
+    options?: { olderThanMs?: number }
+  ): Promise<{ reminded: number }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const olderThanMs = options?.olderThanMs ?? CONFIRMATION_REMINDER_MS;
+    // olderThanMs <= 0 means "everything unanswered is due" (test override).
+    const cutoff =
+      olderThanMs <= 0 ? Number.POSITIVE_INFINITY : Date.now() - olderThanMs;
+
+    const [{ data: confirmations }, { data: students }, { data: assignments }, { data: parents }] =
+      await Promise.all([
+        this.db.from("casting_confirmations").select("*").is("name_correct", null),
+        this.db.from("students").select("id, first_name, preferred_name"),
+        this.db.from("casting_assignments").select("id, character_name"),
+        this.db.from("profiles").select("id, family_id").eq("role", "parent"),
+      ]);
+
+    let reminded = 0;
+    for (const confirmation of confirmations ?? []) {
+      const last = confirmation.last_reminded_at
+        ? new Date(String(confirmation.last_reminded_at)).getTime()
+        : 0;
+      if (last > cutoff) continue; // reminded recently
+
+      const student = (students ?? []).find((st) => st.id === confirmation.student_id);
+      const assignment = (assignments ?? []).find(
+        (a) => a.id === confirmation.assignment_id
+      );
+      if (!student || !assignment) continue;
+
+      const familyParents = (parents ?? []).filter(
+        (parent) => parent.family_id === confirmation.family_id
+      );
+      if (familyParents.length) {
+        await this.db.from("notifications").insert(
+          familyParents.map((parent) => ({
+            user_id: parent.id,
+            type: "casting_released",
+            title: "Reminder: confirm the playbill name",
+            body: `${student.preferred_name ?? student.first_name}'s role (${assignment.character_name}) is waiting on your confirmation.`,
+            url: "/casting",
+          }))
+        );
+      }
+      await this.db
+        .from("casting_confirmations")
+        .update({
+          last_reminded_at: new Date().toISOString(),
+          reminder_count: Number(confirmation.reminder_count ?? 0) + 1,
+        })
+        .eq("id", confirmation.id);
+      reminded += 1;
+    }
+    return { reminded };
+  }
+
+  async runRehearsalNotices(
+    actorId: string,
+    options?: { now?: string }
+  ): Promise<{ reminders: number; thanks: number }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const now = options?.now ? new Date(options.now).getTime() : Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+
+    const [
+      { data: events }, { data: enrollments }, { data: students },
+      { data: cast }, { data: roles }, { data: scenes },
+      { data: parents }, { data: notices },
+    ] = await Promise.all([
+      this.db.from("calendar_events").select("*").in("type", ["rehearsal", "tech", "performance"]),
+      this.db.from("enrollments").select("*").eq("status", "enrolled"),
+      this.db.from("students").select("id, family_id, first_name, preferred_name"),
+      this.db.from("casting_assignments").select("*").not("published_at", "is", null),
+      this.db.from("show_roles").select("*"),
+      this.db.from("show_scenes").select("*"),
+      this.db.from("profiles").select("id, family_id").eq("role", "parent"),
+      this.db.from("event_notices").select("*"),
+    ]);
+
+    const heldRoleIds = (studentId: string, productionId: string): Set<string> => {
+      const held = new Set<string>();
+      for (const a of cast ?? []) {
+        if (a.student_id !== studentId || a.production_id !== productionId) continue;
+        for (const r of roles ?? []) {
+          if (r.production_id !== productionId) continue;
+          if (a.character_name === r.name) held.add(String(r.id));
+          else if (a.is_understudy && a.character_name === `${r.name} (Understudy)`)
+            held.add(String(r.id));
+        }
+      }
+      return held;
+    };
+    const studentCalled = (student: Row, event: Row): boolean => {
+      const enrolled = (enrollments ?? []).some(
+        (e) =>
+          e.student_id === student.id &&
+          ((event.class_id && e.class_id === event.class_id) ||
+            (event.production_id && e.production_id === event.production_id))
+      );
+      if (!enrolled) return false;
+      const sceneIds = (event.scene_ids ?? null) as string[] | null;
+      if (!sceneIds?.length || !event.production_id) return true;
+      const held = heldRoleIds(String(student.id), String(event.production_id));
+      if (held.size === 0) return true; // pre-publication fallback
+      return (scenes ?? []).some(
+        (sc) =>
+          sceneIds.includes(String(sc.id)) &&
+          ((sc.role_ids ?? []) as string[]).some((rid) => held.has(rid))
+      );
+    };
+    const alreadySent = (eventKey: string, familyId: string, kind: string) =>
+      (notices ?? []).some(
+        (n) => n.event_key === eventKey && n.family_id === familyId && n.kind === kind
+      );
+    const whenText = (ms: number) =>
+      new Date(ms).toLocaleString("en-US", {
+        weekday: "long", hour: "numeric", minute: "2-digit",
+        timeZone: "America/New_York",
+      });
+
+    let reminders = 0;
+    let thanks = 0;
+    for (const event of events ?? []) {
+      const startsAt = new Date(String(event.starts_at)).getTime();
+      const endsAt = new Date(String(event.ends_at)).getTime();
+      const dueReminder = startsAt > now && startsAt <= now + DAY;
+      const dueThanks = endsAt <= now && endsAt > now - DAY;
+      if (!dueReminder && !dueThanks) continue;
+
+      const namesByFamily = new Map<string, string[]>();
+      for (const student of students ?? []) {
+        if (!studentCalled(student, event)) continue;
+        const names = namesByFamily.get(String(student.family_id)) ?? [];
+        names.push(String(student.preferred_name ?? student.first_name));
+        namesByFamily.set(String(student.family_id), names);
+      }
+
+      for (const [familyId, familyNames] of namesByFamily) {
+        const kind = dueReminder ? "reminder" : "thanks";
+        if (alreadySent(String(event.id), familyId, kind)) continue;
+
+        const names = familyNames.join(" & ");
+        const familyParents = (parents ?? []).filter((pr) => pr.family_id === familyId);
+        if (familyParents.length) {
+          await this.db.from("notifications").insert(
+            familyParents.map((parent) => ({
+              user_id: parent.id,
+              type: "schedule_change",
+              title:
+                kind === "reminder"
+                  ? `Tomorrow: ${event.title}`
+                  : "Thank you for a great rehearsal!",
+              body:
+                kind === "reminder"
+                  ? `${names} ${names.includes("&") ? "are" : "is"} called ${whenText(startsAt)} at ${event.location}.${event.what_to_bring ? ` Bring: ${event.what_to_bring}.` : ""}`
+                  : `${names} did wonderful work at ${event.title}. See the calendar for what's next.`,
+              url: "/calendar",
+            }))
+          );
+        }
+        await this.db.from("event_notices").insert({
+          event_key: String(event.id), family_id: familyId, kind,
+        });
+        if (kind === "reminder") reminders += 1;
+        else thanks += 1;
+      }
+    }
+
+    // Private lessons ride the same job: 24h-before reminder per booking.
+    const [{ data: bookings }, { data: slots }, { data: staff }] = await Promise.all([
+      this.db.from("lesson_bookings").select("*").eq("status", "active"),
+      this.db.from("lesson_slots").select("*"),
+      this.db.from("staff_profiles").select("id, full_name"),
+    ]);
+    for (const booking of bookings ?? []) {
+      const slotRow = (slots ?? []).find((sl) => sl.id === booking.slot_id);
+      if (!slotRow) continue;
+      const slot = this.mapSlot(slotRow);
+      const startMs = nextLessonOccurrence(slot, now);
+      if (!(startMs > now && startMs <= now + DAY)) continue;
+
+      const eventKey = `lesson-${booking.id}-${new Date(startMs).toISOString().slice(0, 10)}`;
+      if (alreadySent(eventKey, String(booking.family_id), "reminder")) continue;
+
+      const student = (students ?? []).find((st) => st.id === booking.student_id);
+      const teacher = (staff ?? []).find((t) => t.id === slot.teacherStaffId);
+      const label =
+        LESSON_DISCIPLINES.find((d) => d.value === slot.discipline)?.label ?? "Private";
+      const familyParents = (parents ?? []).filter(
+        (pr) => pr.family_id === booking.family_id
+      );
+      if (familyParents.length) {
+        await this.db.from("notifications").insert(
+          familyParents.map((parent) => ({
+            user_id: parent.id,
+            type: "schedule_change",
+            title: `Tomorrow: ${label} lesson`,
+            body: `${student?.preferred_name ?? student?.first_name ?? "Your student"}'s ${label.toLowerCase()} lesson with ${teacher?.full_name ?? "NOVA PA"} is ${whenText(startMs)} at ${slot.location}.`,
+            url: "/store/lessons",
+          }))
+        );
+      }
+      await this.db.from("event_notices").insert({
+        event_key: eventKey, family_id: booking.family_id, kind: "reminder",
+      });
+      reminders += 1;
+    }
+    return { reminders, thanks };
   }
 
   /* ── private lessons (ported from the mock) ────────────────────────── */
