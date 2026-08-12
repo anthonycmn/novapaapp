@@ -789,6 +789,62 @@ async function main() {
     (await p.getFamilyDocuments(sofia.id, sofia.familyId)).length === 0
   );
 
+  /* ── private reviews ── */
+  const rw = await p.createReviewWindow(dana.id, {
+    kind: "mid_session", subjectType: "production", subjectId: frozenId,
+    opensAt: new Date(Date.now() - 3600_000).toISOString(),
+    closesAt: new Date(Date.now() + 3600_000).toISOString(),
+  });
+  const openWindows = await p.getOpenReviewWindows(sofia.id);
+  check(
+    "enrolled family sees the open window",
+    openWindows.some((w) => w.window.id === rw.id && w.subjectName === "Frozen Jr.")
+  );
+  const review = await p.submitReview(sofia.id, {
+    windowId: rw.id,
+    scores: { instructionQuality: 5, communication: 4, childGrowth: 5, organization: 3 },
+    comment: "Dana is wonderful with the kids.",
+    isAnonymous: true,
+  });
+  check("anonymous review submitted", review.isAnonymous);
+  let duplicateReview = false;
+  try {
+    await p.submitReview(sofia.id, {
+      windowId: rw.id,
+      scores: { instructionQuality: 5, communication: 5, childGrowth: 5, organization: 5 },
+      comment: "", isAnonymous: false,
+    });
+  } catch (error) {
+    duplicateReview = String(error).includes("already submitted");
+  }
+  check("one review per family per window", duplicateReview);
+
+  const danaStaffId = dana!.staffId!;
+  const staffView = await p.getReviewsForStaff(dana.id, danaStaffId);
+  const anon = staffView.reviews.find((rv) =>
+    rv.comment.includes("wonderful with the kids")
+  );
+  check(
+    "staff view strips identity from anonymous reviews",
+    Boolean(anon) && anon!.attribution === "A family" &&
+      !JSON.stringify(staffView.reviews).includes("Sofia")
+  );
+  const adminView = await p.getAllReviews(dana.id);
+  check(
+    "admin still sees who wrote it",
+    adminView.some((rv) => rv.comment.includes("wonderful") && rv.reviewerName === "Sofia Martinez")
+  );
+  let staffAllDenied = false;
+  try {
+    await p.getAllReviews(marcus!.id);
+  } catch (error) {
+    staffAllDenied = error instanceof AccessDeniedError;
+  }
+  check("non-admin staff cannot read full reviews", staffAllDenied);
+
+  // Clean up review fixtures.
+  await raw.from("review_windows").delete().eq("id", rw.id);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {

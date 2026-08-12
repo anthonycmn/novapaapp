@@ -67,6 +67,12 @@ async function wipe() {
     ["programs", "id"], ["seasons", "id"],
     ["family_hub_invites", "email"],
   ];
+  // Tables with no cascading parent in the list above — wipe explicitly so
+  // reseeds never accumulate duplicates.
+  order.unshift(
+    ["reviews", "id"], ["review_windows", "id"],
+    ["products", "id"], ["button_templates", "id"]
+  );
   for (const [table, pk] of order) {
     const { error } = await db.from(table).delete().not(pk, "is", null);
     if (error) throw new Error(`wipe ${table} failed: ${error.message}`);
@@ -264,6 +270,24 @@ async function main() {
       requiresMessage: x.requiresMessage ?? false,
       messageLabel: x.messageLabel, messageMaxLength: x.messageMaxLength,
     },
+  })));
+
+  await insert("review_windows", seed.reviewWindows.map((x) => ({
+    id: uid(x.id), kind: x.kind, subject_type: x.subjectType,
+    subject_id: uid(x.subjectId), opens_at: x.opensAt, closes_at: x.closesAt,
+  })));
+
+  await insert("reviews", seed.reviews.map((x) => ({
+    id: uid(x.id), window_id: uid(x.windowId), subject_type: x.subjectType,
+    subject_id: uid(x.subjectId), reviewer_user_id: uid(x.reviewerUserId),
+    reviewer_name: x.reviewerName, family_id: uid(x.familyId),
+    staff_ids: (x.staffIds ?? []).map((sid) => uid(sid)),
+    instruction_quality: x.scores.instructionQuality,
+    communication: x.scores.communication,
+    child_growth: x.scores.childGrowth,
+    organization: x.scores.organization,
+    comment: x.comment ?? "", is_anonymous: x.isAnonymous ?? false,
+    created_at: x.createdAt,
   })));
 
   console.log("Done. Demo sign-in: any seed email (e.g. dana@example.com / sofia@example.com) with password", DEMO_PASSWORD);

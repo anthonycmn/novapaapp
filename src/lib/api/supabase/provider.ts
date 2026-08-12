@@ -55,6 +55,16 @@ import type {
   ThreadWithMessages,
 } from "../messages/types";
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
+import {
+  toStaffView,
+  type Review,
+  type ReviewScores,
+  type ReviewSubjectType,
+  type ReviewWindow,
+  type StaffReviewView,
+} from "../reviews/types";
+import { aggregate, trend } from "../reviews/aggregate";
+import type { ReviewAggregate, TrendPoint } from "../reviews/types";
 import { assertUploadAllowed, getStorageProvider } from "../storage";
 import { getServiceClient } from "./client";
 
@@ -1550,6 +1560,265 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── private reviews (ported from the mock) ────────────────────────── */
+
+  private mapReviewWindow(row: Row): ReviewWindow {
+    return {
+      id: String(row.id),
+      kind: row.kind as ReviewWindow["kind"],
+      subjectType: row.subject_type as ReviewSubjectType,
+      subjectId: String(row.subject_id),
+      opensAt: String(row.opens_at),
+      closesAt: String(row.closes_at),
+    };
+  }
+
+  private mapReview(row: Row): Review {
+    return {
+      id: String(row.id),
+      windowId: String(row.window_id),
+      subjectType: row.subject_type as ReviewSubjectType,
+      subjectId: String(row.subject_id),
+      reviewerUserId: String(row.reviewer_user_id),
+      reviewerName: String(row.reviewer_name ?? ""),
+      familyId: String(row.family_id),
+      staffIds: ((row.staff_ids ?? []) as string[]).map(String),
+      scores: {
+        instructionQuality: Number(row.instruction_quality),
+        communication: Number(row.communication),
+        childGrowth: Number(row.child_growth),
+        organization: Number(row.organization),
+      },
+      comment: String(row.comment ?? ""),
+      isAnonymous: Boolean(row.is_anonymous),
+      createdAt: String(row.created_at),
+      flaggedAt: s(row.flagged_at),
+      flagReason: s(row.flag_reason),
+      resolvedAt: s(row.resolved_at),
+      resolutionNote: s(row.resolution_note),
+    };
+  }
+
+  private async familyIsEnrolledInSubject(
+    familyId: string,
+    window: ReviewWindow
+  ): Promise<boolean> {
+    const { data: students } = await this.db
+      .from("students").select("id").eq("family_id", familyId);
+    const ids = (students ?? []).map((st) => st.id);
+    if (ids.length === 0) return false;
+    let query = this.db.from("enrollments").select("id", { count: "exact", head: true })
+      .in("student_id", ids).eq("status", "enrolled");
+    query = window.subjectType === "class"
+      ? query.eq("class_id", window.subjectId)
+      : query.eq("production_id", window.subjectId);
+    const { count } = await query;
+    return (count ?? 0) > 0;
+  }
+
+  async getOpenReviewWindows(
+    actorId: string
+  ): Promise<Array<{ window: ReviewWindow; subjectName: string; alreadySubmitted: boolean }>> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return [];
+    const now = new Date().toISOString();
+    const [{ data: windows }, { data: myReviews }, { data: classes }, { data: productions }] =
+      await Promise.all([
+        this.db.from("review_windows").select("*").lte("opens_at", now).gte("closes_at", now),
+        this.db.from("reviews").select("window_id").eq("family_id", actor.familyId),
+        this.db.from("classes").select("id, name"),
+        this.db.from("productions").select("id, title"),
+      ]);
+
+    const results: Array<{ window: ReviewWindow; subjectName: string; alreadySubmitted: boolean }> = [];
+    for (const row of windows ?? []) {
+      const window = this.mapReviewWindow(row);
+      if (!(await this.familyIsEnrolledInSubject(actor.familyId, window))) continue;
+      const subjectName =
+        window.subjectType === "class"
+          ? String((classes ?? []).find((c) => c.id === window.subjectId)?.name ?? "Class")
+          : String((productions ?? []).find((pr) => pr.id === window.subjectId)?.title ?? "Production");
+      results.push({
+        window,
+        subjectName,
+        alreadySubmitted: (myReviews ?? []).some((r) => r.window_id === window.id),
+      });
+    }
+    return results;
+  }
+
+  async submitReview(
+    actorId: string,
+    input: { windowId: string; scores: ReviewScores; comment: string; isAnonymous: boolean }
+  ): Promise<Review> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "parent" || !actor.familyId) {
+      throw new AccessDeniedError("Only families submit reviews");
+    }
+    const { data: windowRow } = await this.db
+      .from("review_windows").select("*").eq("id", input.windowId).maybeSingle();
+    if (!windowRow) throw new Error("Review window not found");
+    const window = this.mapReviewWindow(windowRow);
+
+    // Postgres serializes timestamptz as "+00:00", not "Z" — compare as
+    // epochs, never as strings.
+    const nowMs = Date.now();
+    if (Date.parse(window.opensAt) > nowMs || Date.parse(window.closesAt) < nowMs) {
+      throw new Error("This review window isn't open");
+    }
+    if (!(await this.familyIsEnrolledInSubject(actor.familyId, window))) {
+      throw new AccessDeniedError("You can only review something you're enrolled in");
+    }
+    for (const value of Object.values(input.scores)) {
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        throw new Error("Each rating must be between 1 and 5");
+      }
+    }
+
+    // Which staff this review is about.
+    let staffIds: string[] = [];
+    if (window.subjectType === "class") {
+      const { data } = await this.db
+        .from("class_staff").select("staff_id").eq("class_id", window.subjectId);
+      staffIds = (data ?? []).map((r) => String(r.staff_id));
+    } else {
+      const { data } = await this.db
+        .from("productions").select("director_staff_id").eq("id", window.subjectId).maybeSingle();
+      if (data?.director_staff_id) staffIds = [String(data.director_staff_id)];
+    }
+
+    const { data: created, error } = await this.db
+      .from("reviews")
+      .insert({
+        window_id: window.id,
+        subject_type: window.subjectType,
+        subject_id: window.subjectId,
+        reviewer_user_id: actor.id,
+        reviewer_name: actor.displayName,
+        family_id: actor.familyId,
+        staff_ids: staffIds,
+        instruction_quality: input.scores.instructionQuality,
+        communication: input.scores.communication,
+        child_growth: input.scores.childGrowth,
+        organization: input.scores.organization,
+        comment: input.comment,
+        is_anonymous: input.isAnonymous,
+      })
+      .select().single();
+    if (error) {
+      // The unique (window_id, family_id) index rejects duplicates.
+      if (error.code === "23505") {
+        throw new Error("You've already submitted a review for this");
+      }
+      throw new Error(`review failed: ${error.message}`);
+    }
+    return this.mapReview(created);
+  }
+
+  async getMyReviews(actorId: string): Promise<Review[]> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return [];
+    const { data } = await this.db
+      .from("reviews").select("*").eq("family_id", actor.familyId)
+      .order("created_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapReview(row));
+  }
+
+  async getReviewsForStaff(
+    actorId: string,
+    staffId: string
+  ): Promise<{ reviews: StaffReviewView[]; aggregate: ReviewAggregate; trend: TrendPoint[] }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    // A staff member may only read their OWN feedback; admins may read anyone's.
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && actor.staffId !== staffId) {
+      throw new AccessDeniedError("You can only see feedback about your own work");
+    }
+    const { data } = await this.db
+      .from("reviews").select("*").contains("staff_ids", [staffId])
+      .order("created_at", { ascending: false });
+    const relevant = (data ?? []).map((row) => this.mapReview(row));
+    return {
+      // Identity stripped here — the return type has no reviewer field.
+      reviews: relevant.map(toStaffView),
+      aggregate: aggregate(relevant, "class", staffId),
+      trend: trend(relevant),
+    };
+  }
+
+  async getAllReviews(actorId: string): Promise<Review[]> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data } = await this.db
+      .from("reviews").select("*").order("created_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapReview(row));
+  }
+
+  async getReviewAggregate(
+    actorId: string,
+    subjectType: ReviewSubjectType,
+    subjectId: string
+  ): Promise<{ aggregate: ReviewAggregate; trend: TrendPoint[] }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data } = await this.db
+      .from("reviews").select("*")
+      .eq("subject_type", subjectType).eq("subject_id", subjectId);
+    const relevant = (data ?? []).map((row) => this.mapReview(row));
+    return { aggregate: aggregate(relevant, subjectType, subjectId), trend: trend(relevant) };
+  }
+
+  async flagReview(actorId: string, reviewId: string, reason: string): Promise<Review> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data, error } = await this.db
+      .from("reviews")
+      .update({
+        flagged_at: new Date().toISOString(), flag_reason: reason,
+        resolved_at: null, resolution_note: null,
+      })
+      .eq("id", reviewId).select().single();
+    if (error) throw new Error(`flag failed: ${error.message}`);
+    return this.mapReview(data);
+  }
+
+  async resolveReview(actorId: string, reviewId: string, note: string): Promise<Review> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data, error } = await this.db
+      .from("reviews")
+      .update({ resolved_at: new Date().toISOString(), resolution_note: note })
+      .eq("id", reviewId).select().single();
+    if (error) throw new Error(`resolve failed: ${error.message}`);
+    return this.mapReview(data);
+  }
+
+  async createReviewWindow(
+    actorId: string,
+    input: Omit<ReviewWindow, "id">
+  ): Promise<ReviewWindow> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data, error } = await this.db
+      .from("review_windows")
+      .insert({
+        kind: input.kind, subject_type: input.subjectType,
+        subject_id: input.subjectId, opens_at: input.opensAt, closes_at: input.closesAt,
+      })
+      .select().single();
+    if (error) throw new Error(`window create failed: ${error.message}`);
+    return this.mapReviewWindow(data);
   }
 
   /* ── household document vault (ported from the mock) ───────────────── */
