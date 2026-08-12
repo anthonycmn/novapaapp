@@ -4,6 +4,7 @@ import { AccessDeniedError, type DataProvider } from "../provider";
 import type {
   AppNotification,
   CalendarEvent,
+  NotificationPrefs,
   Family,
   FamilyCalendarEvent,
   StaffProfile,
@@ -276,6 +277,41 @@ class SupabaseDataProvider {
       .eq("id", notificationId)
       .eq("user_id", actorId);
     if (error) throw new Error(`notification update failed: ${error.message}`);
+  }
+
+  async getUnreadNotificationCount(actorId: string): Promise<number> {
+    await this.actor(actorId);
+    const { count } = await this.db
+      .from("notifications")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", actorId)
+      .is("read_at", null);
+    return count ?? 0;
+  }
+
+  async markAllNotificationsRead(actorId: string): Promise<void> {
+    const { error } = await this.db
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", actorId)
+      .is("read_at", null);
+    if (error) throw new Error(`mark all read failed: ${error.message}`);
+  }
+
+  async getNotificationPrefs(actorId: string): Promise<NotificationPrefs> {
+    await this.actor(actorId);
+    const { data } = await this.db
+      .from("notification_prefs").select("*").eq("user_id", actorId).maybeSingle();
+    return {
+      userId: actorId,
+      enabled: (data?.enabled ?? {}) as NotificationPrefs["enabled"],
+      quietHoursStart: data?.quiet_hours_start
+        ? String(data.quiet_hours_start).slice(0, 5)
+        : undefined,
+      quietHoursEnd: data?.quiet_hours_end
+        ? String(data.quiet_hours_end).slice(0, 5)
+        : undefined,
+    };
   }
 
   /* ── family calendar (ported from the mock, same rules) ────────────── */
