@@ -649,10 +649,42 @@ async function main() {
   // Clean up health fixture.
   await raw.from("health_forms").delete().eq("student_id", ava.id);
 
+  /* ── pickup requests ── */
+  const pickup = await p.createPickupRequest(sofia.id, {
+    studentId: ava.id, kind: "late_pickup",
+    startDate: "2026-08-17", endDate: "2026-08-19",
+    recurringDays: [], pickUpTime: "18:30",
+    reason: "Work schedule during tech week",
+  });
+  check(
+    "pickup request created with computed fee ($5/day x 3)",
+    pickup.status === "pending" && pickup.feeCents === 1500
+  );
+  const staffQueue = await p.getPickupRequestsForStaff(dana.id);
+  check("staff queue lists pending first", staffQueue[0]?.id === pickup.id);
+  const decided = await p.decidePickupRequest(dana.id, pickup.id, {
+    status: "approved", note: "Front desk will supervise.",
+  });
+  check(
+    "approval recorded and family notified",
+    decided.status === "approved" && decided.decidedByName === "Dana Whitfield" &&
+      (await p.getNotifications(sofia.id)).some((n) => n.title === "Pick-up request approved")
+  );
+  const famPickups = await p.getPickupRequestsForFamily(sofia.id, sofia.familyId);
+  check("family sees their request", famPickups.some((r) => r.id === pickup.id));
+  const calPickup = await p.getFamilyCalendar(sofia.id, sofia.familyId);
+  check(
+    "approved pickup lands on the family calendar",
+    calPickup.some((e) => e.id === `pickup-${pickup.id}`)
+  );
+
+  // Clean up pickup fixture.
+  await raw.from("pickup_requests").delete().eq("id", pickup.id);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.getPickupRequestsForFamily(sofia.id, sofia.familyId);
+    await p.getProducts();
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }

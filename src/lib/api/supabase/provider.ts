@@ -9,6 +9,7 @@ import type {
   FeedPost,
   HealthForm,
   NotificationPrefs,
+  PickupRequest,
   PostQuestion,
   ReactionKind,
   Family,
@@ -1539,6 +1540,137 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── early drop-off / late pick-up (ported from the mock) ──────────── */
+
+  private mapPickup(row: Row): PickupRequest {
+    return {
+      id: String(row.id),
+      studentId: String(row.student_id),
+      familyId: String(row.family_id),
+      kind: row.kind as PickupRequest["kind"],
+      startDate: String(row.start_date),
+      endDate: String(row.end_date),
+      recurringDays: (row.recurring_days ?? []) as number[],
+      dropOffTime: row.drop_off_time ? String(row.drop_off_time).slice(0, 5) : undefined,
+      pickUpTime: row.pick_up_time ? String(row.pick_up_time).slice(0, 5) : undefined,
+      reason: String(row.reason ?? ""),
+      supervisingAdult: s(row.supervising_adult),
+      authorizedPickupPerson: s(row.authorized_pickup_person),
+      feeCents: Number(row.fee_cents ?? 0),
+      status: row.status as PickupRequest["status"],
+      decisionNote: s(row.decision_note),
+      decidedByName: s(row.decided_by_name),
+      decidedAt: s(row.decided_at),
+      createdAt: String(row.created_at),
+    };
+  }
+
+  async getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("pickup_requests").select("*").eq("family_id", familyId)
+      .order("created_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapPickup(row));
+  }
+
+  async createPickupRequest(
+    actorId: string,
+    input: Omit<
+      PickupRequest,
+      "id" | "familyId" | "status" | "createdAt" | "decisionNote" | "decidedByName" | "decidedAt" | "feeCents"
+    >
+  ): Promise<PickupRequest> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(input.studentId);
+    if (!familyId) throw new Error("Student not found");
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && !(actor.role === "parent" && actor.familyId === familyId)) {
+      throw new AccessDeniedError("Not allowed to modify this family");
+    }
+
+    // Flat $5/day fee for extended care; org can change this later.
+    const days = Math.max(
+      1,
+      Math.round(
+        (new Date(input.endDate).getTime() - new Date(input.startDate).getTime()) / 86_400_000
+      ) + 1
+    );
+    const { data, error } = await this.db
+      .from("pickup_requests")
+      .insert({
+        student_id: input.studentId,
+        family_id: familyId,
+        kind: input.kind,
+        start_date: input.startDate,
+        end_date: input.endDate,
+        recurring_days: input.recurringDays ?? [],
+        drop_off_time: input.dropOffTime ?? null,
+        pick_up_time: input.pickUpTime ?? null,
+        reason: input.reason ?? "",
+        supervising_adult: input.supervisingAdult ?? null,
+        authorized_pickup_person: input.authorizedPickupPerson ?? null,
+        fee_cents: 500 * days,
+        status: "pending",
+      })
+      .select().single();
+    if (error) throw new Error(`pickup request failed: ${error.message}`);
+    return this.mapPickup(data);
+  }
+
+  async getPickupRequestsForStaff(actorId: string): Promise<PickupRequest[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data } = await this.db.from("pickup_requests").select("*");
+    return (data ?? [])
+      .map((row) => this.mapPickup(row))
+      .sort((a, b) => {
+        if ((a.status === "pending") !== (b.status === "pending")) {
+          return a.status === "pending" ? -1 : 1;
+        }
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+  }
+
+  async decidePickupRequest(
+    actorId: string,
+    requestId: string,
+    decision: { status: "approved" | "denied"; note?: string }
+  ): Promise<PickupRequest> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data: updated, error } = await this.db
+      .from("pickup_requests")
+      .update({
+        status: decision.status,
+        decision_note: decision.note ?? null,
+        decided_by_name: actor.displayName,
+        decided_at: new Date().toISOString(),
+      })
+      .eq("id", requestId)
+      .select().single();
+    if (error) throw new Error(`decision failed: ${error.message}`);
+    const request = this.mapPickup(updated);
+
+    const [{ data: parents }, { data: student }] = await Promise.all([
+      this.db.from("profiles").select("id")
+        .eq("family_id", request.familyId).eq("role", "parent"),
+      this.db.from("students").select("first_name").eq("id", request.studentId).maybeSingle(),
+    ]);
+    if (parents?.length) {
+      await this.db.from("notifications").insert(
+        parents.map((parent) => ({
+          user_id: parent.id,
+          type: "form_due",
+          title: `Pick-up request ${decision.status}`,
+          body: `${student?.first_name ?? "Your student"}: ${decision.note ?? "See details in the app."}`,
+          url: "/family/pickup",
+        }))
+      );
+    }
+    return request;
   }
 
   /* ── feed: staff post, families react & ask (ported from the mock) ─── */
