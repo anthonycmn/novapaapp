@@ -244,6 +244,67 @@ async function main() {
     "Weekly voice lesson booked 🎉", "New weekly lesson student", "Weekly lesson cancelled",
   ]);
 
+  /* ── audition profiles & rubric evaluations ── */
+  const profile = await p.submitAuditionProfile(sofia.id, {
+    studentId: ava.id,
+    productionId: frozenId,
+    preferenceTier: "lead",
+    previousRoles: "Young Anna (2025)",
+    hopes: "A named role this year",
+    acknowledgedNoGuarantee: true,
+  });
+  check(
+    "audition profile submitted by parent",
+    profile.preferenceTier === "lead" && profile.submittedByRole === "parent"
+  );
+
+  let profileDenied = false;
+  try {
+    await p.submitAuditionProfile(minh.id, {
+      studentId: ava.id, productionId: frozenId, preferenceTier: "ensemble",
+      previousRoles: "", hopes: "", acknowledgedNoGuarantee: true,
+    });
+  } catch (error) {
+    profileDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot submit her profile", profileDenied);
+
+  const vocalScores = {
+    pitch_intonation: 2, breath_tone: 3, rhythm_musicality: 3,
+    range_comfort: 2, lyric_diction: 3, song_acting: 2,
+  };
+  const evaluation = await p.submitEvaluation(dana.id, {
+    studentId: ava.id, productionId: frozenId, discipline: "vocal",
+    scores: vocalScores, notes: "Lovely tone, needs breath support.",
+    callbackNotes: "Consider for Young Elsa", growthNotes: "Weekly voice lessons",
+  });
+  check("rubric evaluation saved", evaluation.evaluatorName === "Dana Whitfield");
+
+  let badScores = false;
+  try {
+    await p.submitEvaluation(dana.id, {
+      studentId: ava.id, productionId: frozenId, discipline: "acting",
+      scores: { diction_projection: 9 }, notes: "", callbackNotes: "",
+    });
+  } catch (error) {
+    badScores = String(error).includes("1–5");
+  }
+  check("incomplete/out-of-range scores rejected", badScores);
+
+  const auditionRoster = await p.getAuditionRoster(dana.id, frozenId);
+  const avaRow = auditionRoster.find((r) => r.student.id === ava.id)!;
+  check(
+    "audition roster joins profile + evaluations",
+    auditionRoster.length === 4 && avaRow.profile?.preferenceTier === "lead" &&
+      avaRow.evaluations.length === 1
+  );
+
+  const recs = await p.getGrowthRecommendations(sofia.id, ava.id, frozenId);
+  check(
+    "low vocal average triggers a growth recommendation",
+    recs.length === 1 && recs[0].discipline === "vocal"
+  );
+
   /* ── staff casting board (DESTRUCTIVE: re-run seed-supabase.ts after) ── */
   let boardDenied = false;
   try {
@@ -396,13 +457,29 @@ async function main() {
       responses.some((r) => r.roleName === "Anna (Understudy)")
   );
 
+  /* ── feedback release (uses the submitted board's confirmations) ── */
+  const elsaConf2 = (await p.getMyCastingConfirmations(sofia.id)).find(
+    (c) => c.roleName === "Elsa"
+  )!;
+  const released = await p.requestAuditionFeedback(sofia.id, elsaConf2.confirmation.id);
+  check(
+    "feedback release strips callback notes, keeps growth notes",
+    released.length === 1 && released[0].callbackNotes === "" &&
+      released[0].growthNotes === "Weekly voice lessons" &&
+      released[0].notes.includes("breath support")
+  );
+  let feedbackDenied = false;
+  try {
+    await p.requestAuditionFeedback(minh.id, elsaConf2.confirmation.id);
+  } catch (error) {
+    feedbackDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot request her feedback", feedbackDenied);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.submitEvaluation(dana.id, {
-      studentId: ava.id, productionId: frozenId, discipline: "acting",
-      scores: {}, notes: "", callbackNotes: "",
-    });
+    await p.getHealthForm(sofia.id, ava.id, "any");
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }

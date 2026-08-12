@@ -19,11 +19,18 @@ import {
   type LessonBooking,
   type LessonSlot,
 } from "../lessons/types";
-import type {
-  CastingBoard,
-  CastingConfirmation,
-  ShowRole,
-  ShowScene,
+import {
+  RECOMMENDATION_THRESHOLD,
+  RUBRIC_CRITERIA,
+  type AuditionEvaluation,
+  type AuditionProfile,
+  type CastingBoard,
+  type CastingConfirmation,
+  type Discipline,
+  type GrowthRecommendation,
+  type RoleTier,
+  type ShowRole,
+  type ShowScene,
 } from "../auditions/types";
 import { getServiceClient } from "./client";
 
@@ -842,6 +849,280 @@ class SupabaseDataProvider {
     board.submittedAt = now;
     await this.saveBoard(board);
     return { assignmentsCreated, familiesNotified: notifiedFamilies.size };
+  }
+
+  /* ── audition profiles & rubric evaluations (ported from the mock) ─── */
+
+  private mapAuditionProfile(row: Row): AuditionProfile {
+    return {
+      id: String(row.id),
+      studentId: String(row.student_id),
+      productionId: String(row.production_id),
+      preferenceTier: row.preference_tier as RoleTier,
+      previousRoles: String(row.previous_roles ?? ""),
+      hopes: String(row.hopes ?? ""),
+      acknowledgedNoGuaranteeAt: String(row.acknowledged_at ?? row.created_at),
+      submittedByUserId: String(row.submitted_by_user_id ?? ""),
+      submittedByRole: (row.submitted_by_role ?? "parent") as "parent" | "student",
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    };
+  }
+
+  private mapEvaluation(row: Row): AuditionEvaluation {
+    return {
+      id: String(row.id),
+      studentId: String(row.student_id),
+      productionId: String(row.production_id),
+      discipline: row.discipline as Discipline,
+      // DB stores the evaluator's profile id; the app only renders the name.
+      evaluatorStaffId: String(row.evaluator_user_id ?? ""),
+      evaluatorName: String(row.evaluator_name ?? ""),
+      scores: (row.scores ?? {}) as Record<string, number>,
+      notes: String(row.notes ?? ""),
+      callbackNotes: String(row.callback_notes ?? ""),
+      growthNotes: s(row.growth_notes),
+      createdAt: String(row.created_at),
+      updatedAt: String(row.updated_at),
+    };
+  }
+
+  async submitAuditionProfile(
+    actorId: string,
+    input: {
+      studentId: string;
+      productionId: string;
+      preferenceTier: RoleTier;
+      previousRoles: string;
+      hopes: string;
+      acknowledgedNoGuarantee: boolean;
+    }
+  ): Promise<AuditionProfile> {
+    const actor = await this.actor(actorId);
+    const { data: student } = await this.db
+      .from("students").select("id, family_id, has_login")
+      .eq("id", input.studentId).maybeSingle();
+    if (!student) throw new Error("Student not found");
+
+    // A parent of this child, or the student themself (13+ login). Staff
+    // never write audition profiles.
+    const isOwnParent =
+      actor.role === "parent" && actor.familyId === String(student.family_id);
+    const isSelf =
+      actor.role === "student" &&
+      actor.familyId === String(student.family_id) &&
+      Boolean(student.has_login);
+    if (!isOwnParent && !isSelf) {
+      throw new AccessDeniedError(
+        "Only this student's family can submit their audition profile"
+      );
+    }
+    if (!input.acknowledgedNoGuarantee) {
+      throw new Error(
+        "Please confirm you understand that a preference doesn't guarantee a specific part"
+      );
+    }
+    const registered = await this.registeredStudents(input.productionId);
+    if (!registered.some((st) => st.id === input.studentId)) {
+      throw new Error("This student isn't registered for that production");
+    }
+
+    const { data, error } = await this.db
+      .from("audition_profiles")
+      .upsert(
+        {
+          student_id: input.studentId,
+          production_id: input.productionId,
+          preference_tier: input.preferenceTier,
+          previous_roles: input.previousRoles,
+          hopes: input.hopes,
+          acknowledged_no_guarantee: true,
+          acknowledged_at: new Date().toISOString(),
+          submitted_by_user_id: actor.id,
+          submitted_by_role: actor.role === "student" ? "student" : "parent",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "student_id,production_id" }
+      )
+      .select().single();
+    if (error) throw new Error(`audition profile save failed: ${error.message}`);
+    return this.mapAuditionProfile(data);
+  }
+
+  async getAuditionProfile(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<AuditionProfile | null> {
+    const actor = await this.actor(actorId);
+    const { data: student } = await this.db
+      .from("students").select("family_id").eq("id", studentId).maybeSingle();
+    if (!student) return null;
+    if (!this.isStaffish(actor)) {
+      this.assertFamilyAccess(actor, String(student.family_id));
+    }
+    const { data } = await this.db
+      .from("audition_profiles").select("*")
+      .eq("student_id", studentId).eq("production_id", productionId).maybeSingle();
+    return data ? this.mapAuditionProfile(data) : null;
+  }
+
+  async getAuditionRoster(
+    actorId: string,
+    productionId: string
+  ): Promise<
+    Array<{
+      student: Student;
+      profile: AuditionProfile | null;
+      evaluations: AuditionEvaluation[];
+    }>
+  > {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    const [registered, { data: profiles }, { data: evaluations }] = await Promise.all([
+      this.registeredStudents(productionId),
+      this.db.from("audition_profiles").select("*").eq("production_id", productionId),
+      this.db.from("audition_evaluations").select("*").eq("production_id", productionId),
+    ]);
+    return registered.map((student) => ({
+      student,
+      profile: (() => {
+        const row = (profiles ?? []).find((pr) => pr.student_id === student.id);
+        return row ? this.mapAuditionProfile(row) : null;
+      })(),
+      evaluations: (evaluations ?? [])
+        .filter((e) => e.student_id === student.id)
+        .map((e) => this.mapEvaluation(e)),
+    }));
+  }
+
+  async submitEvaluation(
+    actorId: string,
+    input: {
+      studentId: string;
+      productionId: string;
+      discipline: Discipline;
+      scores: Record<string, number>;
+      notes: string;
+      callbackNotes: string;
+      growthNotes?: string;
+    }
+  ): Promise<AuditionEvaluation> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+
+    // Scores must cover exactly this discipline's criteria, each 1–5.
+    const criteria = RUBRIC_CRITERIA[input.discipline].map((c) => c.key);
+    for (const key of criteria) {
+      const value = input.scores[key];
+      if (!Number.isInteger(value) || value < 1 || value > 5) {
+        throw new Error(`Score each rubric line 1–5 (missing: ${key})`);
+      }
+    }
+
+    const { data, error } = await this.db
+      .from("audition_evaluations")
+      .upsert(
+        {
+          student_id: input.studentId,
+          production_id: input.productionId,
+          discipline: input.discipline,
+          evaluator_user_id: actor.id,
+          evaluator_name: actor.displayName,
+          scores: input.scores,
+          notes: input.notes,
+          callback_notes: input.callbackNotes,
+          growth_notes: input.growthNotes ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "student_id,production_id,discipline" }
+      )
+      .select().single();
+    if (error) throw new Error(`evaluation save failed: ${error.message}`);
+    return this.mapEvaluation(data);
+  }
+
+  async requestAuditionFeedback(
+    actorId: string,
+    confirmationId: string
+  ): Promise<AuditionEvaluation[]> {
+    const actor = await this.actor(actorId);
+    const { data: confirmation } = await this.db
+      .from("casting_confirmations").select("*").eq("id", confirmationId).maybeSingle();
+    if (!confirmation) throw new Error("Confirmation not found");
+    if (!this.isStaffish(actor)) {
+      this.assertFamilyAccess(actor, String(confirmation.family_id));
+    }
+
+    if (!confirmation.feedback_requested_at) {
+      await this.db
+        .from("casting_confirmations")
+        .update({ feedback_requested_at: new Date().toISOString() })
+        .eq("id", confirmationId);
+    }
+    const { data: assignment } = await this.db
+      .from("casting_assignments").select("production_id")
+      .eq("id", confirmation.assignment_id).maybeSingle();
+    if (!assignment) return [];
+
+    // Release rubrics + evaluator notes for THIS child only.
+    // callbackNotes stay staff-internal: strip them from the release.
+    const { data: evaluations } = await this.db
+      .from("audition_evaluations").select("*")
+      .eq("student_id", confirmation.student_id)
+      .eq("production_id", assignment.production_id);
+    return (evaluations ?? []).map((row) => ({
+      ...this.mapEvaluation(row),
+      callbackNotes: "",
+    }));
+  }
+
+  async getGrowthRecommendations(
+    actorId: string,
+    studentId: string,
+    productionId: string
+  ): Promise<GrowthRecommendation[]> {
+    const actor = await this.actor(actorId);
+    const { data: student } = await this.db
+      .from("students").select("family_id").eq("id", studentId).maybeSingle();
+    if (!student) return [];
+    if (!this.isStaffish(actor)) {
+      this.assertFamilyAccess(actor, String(student.family_id));
+    }
+
+    // Same advisory links as the mock; real catalog ids arrive with the
+    // store slice.
+    const OFFERINGS: Record<Discipline, { productIds: string[]; classIds: string[] }> = {
+      vocal: { productIds: ["prod-voice-lessons"], classIds: ["class-voice1"] },
+      dance: { productIds: ["prod-dance-lessons"], classIds: ["class-mtd2"] },
+      acting: { productIds: ["prod-acting-lessons"], classIds: [] },
+    };
+    const LABEL: Record<Discipline, string> = {
+      vocal: "singing",
+      dance: "dance",
+      acting: "acting",
+    };
+
+    const { data: evaluations } = await this.db
+      .from("audition_evaluations").select("*")
+      .eq("student_id", studentId).eq("production_id", productionId);
+
+    const recommendations: GrowthRecommendation[] = [];
+    for (const row of evaluations ?? []) {
+      const evaluation = this.mapEvaluation(row);
+      const values = Object.values(evaluation.scores);
+      if (values.length === 0) continue;
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      if (average >= RECOMMENDATION_THRESHOLD) continue;
+      recommendations.push({
+        discipline: evaluation.discipline,
+        averageScore: Math.round(average * 10) / 10,
+        ...OFFERINGS[evaluation.discipline],
+        message: `Growing ${LABEL[evaluation.discipline]} skills between shows makes the biggest difference at the next audition.`,
+      });
+    }
+    return recommendations;
   }
 
   /* ── understudies & cast-list status (ported from the mock) ────────── */
