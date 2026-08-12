@@ -913,7 +913,7 @@ async function main() {
 
   const send = await p.sendEmail(dana.id, {
     subject: "Tech week details", body: "All the details…",
-    category: "logistics", audience: {},
+    category: "critical", audience: {},
   });
   check("email send recorded with stats", send.stats.total === 3);
   await p.recordEmailOpen(send.id, sofia.id);
@@ -946,6 +946,46 @@ async function main() {
     { id: "rc-new", category: "role", title: "Elsa — Frozen Jr. (2026)" },
   ]);
   check("resume credits saved", withCredits.resumeCredits.length === 1);
+
+  /* ── catalog & core batch ── */
+  const season2 = await p.getCurrentSeason();
+  check("current season resolves", season2.isCurrent && season2.name.includes("2026"));
+  check("programs read", (await p.getPrograms(season2.id)).length === 3);
+  const classes2 = await p.getClasses();
+  check(
+    "classes read with joined staff",
+    classes2.length === 2 && classes2.every((c) => c.staffIds.length === 1)
+  );
+  check("productions read", (await p.getProductions()).length === 2);
+  const famEnr = await p.getEnrollmentsForFamily(sofia.id, sofia.familyId);
+  check("family enrollments read", famEnr.length === 3, `${famEnr.length}`);
+  const avaCast = await p.getCastingForStudent(sofia.id, ava.id);
+  // Board submit earlier in this run added Elsa alongside the seeded
+  // Young Elsa — both published, both visible.
+  check(
+    "family sees only published casting",
+    avaCast.length === 2 &&
+      avaCast.every((c) => ["Young Elsa", "Elsa"].includes(c.characterName))
+  );
+  const updatedFam = await p.updateFamily(sofia.id, sofia.familyId, { city: "Chantilly" });
+  check("parent updates family record", updatedFam.city === "Chantilly");
+  const guardian = await p.inviteGuardian(sofia.id, sofia.familyId, {
+    fullName: "Grandma Rosa", email: "rosa@example.net", relationship: "Grandmother",
+  });
+  check(
+    "guardian invited and listed",
+    (await p.getGuardians(sofia.id, sofia.familyId)).some((g) => g.id === guardian.id)
+  );
+  const broadcast = await p.broadcastNotification(dana.id, {
+    type: "broadcast", title: "Studio closed Friday", body: "Deep clean.", audience: {},
+  });
+  check("broadcast reaches all parents", broadcast.recipients === 3);
+  const review2 = await p.getCastingReview(dana.id, frozenId);
+  check(
+    "casting review joins students + hopes",
+    review2.length === 4 && review2.every((r) => Array.isArray(r.hopes))
+  );
+  await raw.from("guardians").delete().eq("id", guardian.id);
 
   // Unported method fails LOUDLY, never silently.
   let loud = false;

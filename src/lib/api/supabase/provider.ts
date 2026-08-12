@@ -14,9 +14,14 @@ import type {
   OrderItem,
   OrderStatus,
   FeedCategory,
+  CastingAssignment,
+  ClassOffering,
   EmailSend,
   EmailTemplate,
+  Enrollment,
   FeedPost,
+  Program,
+  Season,
   Guardian,
   HealthForm,
   ResumeCredit,
@@ -1566,6 +1571,286 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── catalog & core reads/writes (ported) ──────────────────────────── */
+
+  async updateFamily(
+    actorId: string,
+    familyId: string,
+    patch: Partial<Family>
+  ): Promise<Family> {
+    const actor = await this.actor(actorId);
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && !(actor.role === "parent" && actor.familyId === familyId)) {
+      throw new AccessDeniedError("Not allowed to modify this family");
+    }
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const map: Array<[keyof Family, string]> = [
+      ["name", "name"], ["addressLine1", "address_line1"],
+      ["addressLine2", "address_line2"], ["city", "city"], ["state", "state"],
+      ["zip", "zip"], ["preferredContactMethod", "preferred_contact_method"],
+      ["communicationLanguage", "communication_language"],
+      ["emergencyContacts", "emergency_contacts"],
+      ["authorizedPickups", "authorized_pickups"],
+    ];
+    for (const [key, col] of map) {
+      if (patch[key] !== undefined) row[col] = patch[key];
+    }
+    // staffNotes only via staff.
+    if (patch.staffNotes !== undefined && this.isStaffish(actor)) {
+      row.staff_notes = patch.staffNotes;
+    }
+    const { data, error } = await this.db
+      .from("families").update(row).eq("id", familyId).select().single();
+    if (error) throw new Error(`family update failed: ${error.message}`);
+    const family = mapFamily(data);
+    if (!this.isStaffish(actor)) delete family.staffNotes;
+    return family;
+  }
+
+  private mapGuardian(row: Row): Guardian {
+    return {
+      id: String(row.id),
+      familyId: String(row.family_id),
+      userId: s(row.user_id),
+      fullName: String(row.full_name),
+      email: String(row.email),
+      phone: String(row.phone ?? ""),
+      relationship: String(row.relationship ?? ""),
+      isPrimary: Boolean(row.is_primary),
+    };
+  }
+
+  async getGuardians(actorId: string, familyId: string): Promise<Guardian[]> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("guardians").select("*").eq("family_id", familyId);
+    return (data ?? []).map((row) => this.mapGuardian(row));
+  }
+
+  async inviteGuardian(
+    actorId: string,
+    familyId: string,
+    invite: { fullName: string; email: string; relationship: string }
+  ): Promise<Guardian> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data, error } = await this.db
+      .from("guardians")
+      .insert({
+        family_id: familyId, full_name: invite.fullName,
+        email: invite.email, phone: "", relationship: invite.relationship,
+        is_primary: false,
+      })
+      .select().single();
+    if (error) throw new Error(`guardian invite failed: ${error.message}`);
+    return this.mapGuardian(data);
+  }
+
+  async addShowHistoryEntry(
+    actorId: string,
+    studentId: string,
+    entry: Omit<ShowHistoryEntry, "id" | "studentId" | "fromCasting">
+  ): Promise<ShowHistoryEntry> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) throw new Error("Student not found");
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, familyId);
+    const { data, error } = await this.db
+      .from("show_history")
+      .insert({
+        student_id: studentId, production_title: entry.productionTitle,
+        role: entry.role, season_name: entry.seasonName ?? "",
+        director: entry.director ?? null, venue: entry.venue ?? null,
+        organization: entry.organization ?? null, from_casting: false,
+        year: entry.year ?? "",
+      })
+      .select().single();
+    if (error) throw new Error(`show history failed: ${error.message}`);
+    return {
+      id: String(data.id), studentId, productionTitle: String(data.production_title),
+      role: String(data.role), seasonName: String(data.season_name ?? ""),
+      director: s(data.director), venue: s(data.venue),
+      organization: s(data.organization), fromCasting: false,
+      year: String(data.year ?? ""),
+    };
+  }
+
+  async getCurrentSeason(): Promise<Season> {
+    const { data } = await this.db
+      .from("seasons").select("*").eq("is_current", true).maybeSingle();
+    if (!data) throw new Error("No current season configured");
+    return {
+      id: String(data.id), name: String(data.name),
+      startsOn: String(data.starts_on), endsOn: String(data.ends_on),
+      isCurrent: true,
+    };
+  }
+
+  async getPrograms(seasonId?: string): Promise<Program[]> {
+    let query = this.db.from("programs").select("*");
+    if (seasonId) query = query.eq("season_id", seasonId);
+    const { data } = await query;
+    return (data ?? []).map((row) => ({
+      id: String(row.id), seasonId: String(row.season_id),
+      name: String(row.name), description: s(row.description),
+    }));
+  }
+
+  async getClasses(programId?: string): Promise<ClassOffering[]> {
+    let query = this.db.from("classes").select("*");
+    if (programId) query = query.eq("program_id", programId);
+    const [{ data: classes }, { data: classStaff }] = await Promise.all([
+      query,
+      this.db.from("class_staff").select("*"),
+    ]);
+    return (classes ?? []).map((row) => ({
+      id: String(row.id), programId: String(row.program_id),
+      name: String(row.name), dayOfWeek: Number(row.day_of_week),
+      startTime: String(row.start_time).slice(0, 5),
+      endTime: String(row.end_time).slice(0, 5),
+      location: String(row.location ?? ""),
+      staffIds: (classStaff ?? [])
+        .filter((cs) => cs.class_id === row.id)
+        .map((cs) => String(cs.staff_id)),
+    }));
+  }
+
+  async getProductions(seasonId?: string): Promise<Production[]> {
+    let query = this.db.from("productions").select("*");
+    if (seasonId) query = query.eq("season_id", seasonId);
+    const { data } = await query;
+    return (data ?? []).map((row) => mapProduction(row));
+  }
+
+  private mapEnrollment(row: Row): Enrollment {
+    return {
+      id: String(row.id),
+      studentId: String(row.student_id),
+      classId: s(row.class_id),
+      productionId: s(row.production_id),
+      status: row.status as Enrollment["status"],
+      balanceCents: Number(row.balance_cents ?? 0),
+      source: (row.source ?? "manual") as Enrollment["source"],
+      createdAt: String(row.created_at),
+    };
+  }
+
+  async getEnrollmentsForStudent(actorId: string, studentId: string): Promise<Enrollment[]> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return [];
+    if (!this.isStaffish(actor)) this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("enrollments").select("*").eq("student_id", studentId);
+    return (data ?? []).map((row) => this.mapEnrollment(row));
+  }
+
+  async getEnrollmentsForFamily(actorId: string, familyId: string): Promise<Enrollment[]> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data: students } = await this.db
+      .from("students").select("id").eq("family_id", familyId);
+    const ids = (students ?? []).map((st) => st.id);
+    if (ids.length === 0) return [];
+    const { data } = await this.db
+      .from("enrollments").select("*").in("student_id", ids);
+    return (data ?? []).map((row) => this.mapEnrollment(row));
+  }
+
+  async getCastingForStudent(actorId: string, studentId: string): Promise<CastingAssignment[]> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(studentId);
+    if (!familyId) return [];
+    const staffView = this.isStaffish(actor);
+    if (!staffView) this.assertFamilyAccess(actor, familyId);
+    let query = this.db.from("casting_assignments").select("*").eq("student_id", studentId);
+    // Families see PUBLISHED assignments only.
+    if (!staffView) query = query.not("published_at", "is", null);
+    const { data } = await query;
+    return (data ?? []).map((row) => ({
+      id: String(row.id),
+      productionId: String(row.production_id),
+      studentId: String(row.student_id),
+      characterName: String(row.character_name),
+      castGroup: s(row.cast_group),
+      isUnderstudy: Boolean(row.is_understudy),
+      rehearsalTrack: s(row.rehearsal_track),
+      publishedAt: s(row.published_at),
+    }));
+  }
+
+  async getCastingReview(
+    actorId: string,
+    productionId: string
+  ): Promise<Array<{ student: Student; hopes: HopesEntry[] }>> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) {
+      throw new AccessDeniedError("Casting review is staff-only");
+    }
+    const [registered, { data: hopes }] = await Promise.all([
+      this.registeredStudents(productionId),
+      this.db.from("hopes_entries").select("*"),
+    ]);
+    return registered.map((student) => ({
+      student,
+      hopes: (hopes ?? [])
+        .filter((h) => h.student_id === student.id)
+        .map((h) => this.mapHopes(h)),
+    }));
+  }
+
+  async updateNotificationPrefs(
+    actorId: string,
+    prefs: Partial<Omit<NotificationPrefs, "userId">>
+  ): Promise<NotificationPrefs> {
+    await this.actor(actorId);
+    const current = await this.getNotificationPrefs(actorId);
+    const merged = {
+      enabled: prefs.enabled ?? current.enabled,
+      quiet_hours_start: prefs.quietHoursStart ?? current.quietHoursStart ?? null,
+      quiet_hours_end: prefs.quietHoursEnd ?? current.quietHoursEnd ?? null,
+    };
+    const { error } = await this.db
+      .from("notification_prefs")
+      .upsert({ user_id: actorId, ...merged }, { onConflict: "user_id" });
+    if (error) throw new Error(`prefs save failed: ${error.message}`);
+    return this.getNotificationPrefs(actorId);
+  }
+
+  async broadcastNotification(
+    actorId: string,
+    input: {
+      type: AppNotification["type"];
+      title: string;
+      body: string;
+      url?: string;
+      audience: FeedAudience;
+    }
+  ): Promise<{ recipients: number }> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const parents = (await this.audienceParents(input.audience)).filter(
+      (user) => user.id !== actor.id
+    );
+    // Respect per-type opt-outs.
+    const { data: prefs } = await this.db.from("notification_prefs").select("*");
+    const allowed = parents.filter((user) => {
+      const pref = (prefs ?? []).find((pr) => pr.user_id === user.id);
+      const enabled = (pref?.enabled ?? {}) as Record<string, boolean>;
+      return enabled[input.type] !== false;
+    });
+    if (allowed.length) {
+      await this.db.from("notifications").insert(
+        allowed.map((user) => ({
+          user_id: user.id, type: input.type, title: input.title,
+          body: input.body, url: input.url ?? null,
+        }))
+      );
+    }
+    return { recipients: allowed.length };
   }
 
   /* ── email, calendar tokens, student materials (ported) ────────────── */
