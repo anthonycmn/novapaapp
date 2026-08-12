@@ -246,6 +246,26 @@ async function main() {
     price_per_lesson_cents: x.pricePerLessonCents,
   })));
 
+  await insert("button_templates", seed.buttonTemplates.map((x) => ({
+    id: uid(x.id), production_id: uid(x.productionId), name: x.name,
+    frame_image_url: x.frameImageUrl ?? null, logo_url: x.logoUrl ?? null,
+    accent_color: x.accentColor ?? "#8e1f2f", season_name: x.seasonName ?? "",
+    is_active: x.isActive ?? true,
+  })));
+
+  await insert("products", seed.products.map((x) => ({
+    id: uid(x.id), type: x.type, name: x.name, description: x.description ?? "",
+    base_price_cents: x.basePriceCents,
+    production_id: x.productionId ? uid(x.productionId) : null,
+    is_active: x.isActive ?? true,
+    config: {
+      options: x.options ?? [], optionLabel: x.optionLabel,
+      requiresPhoto: x.requiresPhoto ?? false,
+      requiresMessage: x.requiresMessage ?? false,
+      messageLabel: x.messageLabel, messageMaxLength: x.messageMaxLength,
+    },
+  })));
+
   console.log("Done. Demo sign-in: any seed email (e.g. dana@example.com / sofia@example.com) with password", DEMO_PASSWORD);
 }
 

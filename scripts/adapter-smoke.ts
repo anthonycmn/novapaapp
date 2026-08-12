@@ -681,10 +681,83 @@ async function main() {
   // Clean up pickup fixture.
   await raw.from("pickup_requests").delete().eq("id", pickup.id);
 
+  /* ── store: buttons + catalog + orders ── */
+  const templates = await p.getButtonTemplates(frozenId);
+  check("button templates read", templates.length >= 1);
+  const products = await p.getProducts();
+  check("catalog products read", products.length >= 3, `${products.length} products`);
+
+  await p.addToCart(sofia.id, {
+    photoUrl: "https://example.com/ava.jpg", photoWidth: 1200, photoHeight: 1200,
+    studentName: "Ava Martinez", role: "Elsa", size: "3",
+    style: "classic", templateId: templates[0].id,
+  }, 2);
+  const starPage = products.find((pr) => pr.type === "star_page");
+  let cart = starPage
+    ? await p.addCatalogItemToCart(sofia.id, {
+        productId: starPage.id,
+        optionValue: starPage.options[0]?.value,
+        quantity: 1,
+        customization: { message: "Break a leg, Ava!" } as never,
+      })
+    : await p.getCart(sofia.id);
+  check(
+    "cart holds a button and a catalog item",
+    cart.length === 2 && cart.some((ci) => ci.productType === "spirit_button") &&
+      cart.some((ci) => ci.productType === "star_page"),
+    cart.map((ci) => ci.displayName).join(" | ")
+  );
+  check(
+    "button priced from the size table",
+    cart.find((ci) => ci.productType === "spirit_button")!.unitPriceCents === 700
+  );
+
+  let badOption = false;
+  try {
+    await p.addCatalogItemToCart(sofia.id, {
+      productId: starPage!.id, optionValue: "not-a-real-tier",
+      quantity: 1, customization: {} as never,
+    });
+  } catch (error) {
+    badOption = String(error).includes("option");
+  }
+  check("crafted option value rejected (no price spoofing)", badOption);
+
+  const order = await p.createOrder(sofia.id, "mock-pay-123");
+  check(
+    "checkout creates an NPA-referenced order and empties the cart",
+    order.reference.startsWith("NPA-") && order.items.length === 2 &&
+      (await p.getCart(sofia.id)).length === 0,
+    order.reference
+  );
+  const paid = await p.markOrderPaid(order.reference, "stripe-pi-1");
+  check("webhook marks the order paid", Boolean(paid?.paidAt));
+
+  const ready = await p.updateOrderStatus(dana.id, order.id, "ready");
+  check(
+    "fulfillment status change notifies the family",
+    ready.status === "ready" &&
+      (await p.getNotifications(sofia.id)).some((n) => n.title.includes("is ready"))
+  );
+  let orderDenied = false;
+  try {
+    await p.getOrder(minh.id, order.id);
+  } catch (error) {
+    orderDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot read the order", orderDenied);
+
+  const recart = await p.reorder(sofia.id, order.id);
+  check("reorder restores the lines to the cart", recart.length === 2);
+
+  // Clean up store fixtures.
+  await raw.from("cart_items").delete().eq("user_id", sofia.id);
+  await raw.from("button_orders").delete().eq("id", order.id);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
-    await p.getProducts();
+    await p.grantFaceConsent(sofia.id, ava.id, []);
   } catch (error) {
     loud = String(error).includes("not ported yet");
   }

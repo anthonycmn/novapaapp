@@ -1,10 +1,18 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AccessDeniedError, type DataProvider } from "../provider";
+import { BUTTON_PRICES_CENTS } from "../types";
+import { priceFor, type Customization, type Product } from "../store/catalog";
 import type {
   AppNotification,
+  ButtonDesign,
+  ButtonOrder,
+  ButtonTemplate,
   CalendarEvent,
+  CartItem,
   FeedAudience,
+  OrderItem,
+  OrderStatus,
   FeedCategory,
   FeedPost,
   HealthForm,
@@ -1540,6 +1548,387 @@ class SupabaseDataProvider {
       const form = (forms ?? []).find((f) => f.student_id === student.id);
       return { student, form: form ? this.mapHealthForm(form) : null };
     });
+  }
+
+  /* ── store: buttons, catalog, cart, orders (ported from the mock) ──── */
+
+  private mapTemplate(row: Row): ButtonTemplate {
+    return {
+      id: String(row.id),
+      productionId: String(row.production_id),
+      name: String(row.name),
+      frameImageUrl: s(row.frame_image_url),
+      logoUrl: s(row.logo_url),
+      accentColor: String(row.accent_color ?? "#8e1f2f"),
+      seasonName: String(row.season_name ?? ""),
+      isActive: Boolean(row.is_active),
+    };
+  }
+
+  private mapProduct(row: Row): Product {
+    const config = (row.config ?? {}) as Record<string, unknown>;
+    return {
+      id: String(row.id),
+      type: row.type as Product["type"],
+      name: String(row.name),
+      description: String(row.description ?? ""),
+      basePriceCents: Number(row.base_price_cents),
+      productionId: s(row.production_id),
+      options: (config.options ?? []) as Product["options"],
+      optionLabel: config.optionLabel as string | undefined,
+      requiresPhoto: Boolean(config.requiresPhoto),
+      requiresMessage: Boolean(config.requiresMessage),
+      messageLabel: config.messageLabel as string | undefined,
+      messageMaxLength: config.messageMaxLength as number | undefined,
+      isActive: Boolean(row.is_active),
+    } as Product;
+  }
+
+  private mapCartLine(row: Row): CartItem {
+    return {
+      id: String(row.id),
+      quantity: Number(row.quantity),
+      unitPriceCents: Number(row.unit_price_cents),
+      productType: (row.product_type ?? "spirit_button") as CartItem["productType"],
+      productId: s(row.product_id),
+      optionValue: s(row.option_value),
+      displayName: String(row.display_name ?? ""),
+      customization: (row.customization ?? undefined) as Customization | undefined,
+      templateId: s(row.template_id),
+      photoUrl: s(row.photo_url),
+      photoWidth: row.photo_width == null ? undefined : Number(row.photo_width),
+      photoHeight: row.photo_height == null ? undefined : Number(row.photo_height),
+      studentName: s(row.student_name),
+      role: s(row.role),
+      size: s(row.size_inches) as ButtonDesign["size"] | undefined,
+      style: s(row.style) as ButtonDesign["style"] | undefined,
+    };
+  }
+
+  private lineToRow(item: CartItem | OrderItem): Record<string, unknown> {
+    return {
+      quantity: item.quantity,
+      unit_price_cents: item.unitPriceCents,
+      product_type: item.productType,
+      product_id: item.productId ?? null,
+      option_value: item.optionValue ?? null,
+      display_name: item.displayName,
+      customization: item.customization ?? null,
+      template_id: item.templateId ?? null,
+      photo_url: item.photoUrl ?? null,
+      photo_width: item.photoWidth ?? null,
+      photo_height: item.photoHeight ?? null,
+      student_name: item.studentName ?? null,
+      role: item.role ?? "",
+      size_inches: item.size ?? null,
+      style: item.style ?? null,
+    };
+  }
+
+  private async orderView(row: Row): Promise<ButtonOrder> {
+    const { data: items } = await this.db
+      .from("button_order_items").select("*").eq("order_id", row.id);
+    return {
+      id: String(row.id),
+      familyId: String(row.family_id),
+      reference: String(row.reference),
+      items: (items ?? []).map((item) => this.mapCartLine(item) as OrderItem),
+      subtotalCents: Number(row.subtotal_cents),
+      status: row.status as OrderStatus,
+      paymentRef: String(row.payment_ref ?? ""),
+      paidAt: s(row.paid_at),
+      placedByName: String(row.placed_by_name ?? ""),
+      productionId: String(row.production_id ?? ""),
+      createdAt: String(row.created_at),
+      statusUpdatedAt: String(row.status_updated_at ?? row.created_at),
+      adminNote: s(row.admin_note),
+    };
+  }
+
+  async getButtonTemplates(productionId?: string): Promise<ButtonTemplate[]> {
+    let query = this.db.from("button_templates").select("*").eq("is_active", true);
+    if (productionId) query = query.eq("production_id", productionId);
+    const { data } = await query;
+    return (data ?? []).map((row) => this.mapTemplate(row));
+  }
+
+  async upsertButtonTemplate(
+    actorId: string,
+    template: Omit<ButtonTemplate, "id"> & { id?: string }
+  ): Promise<ButtonTemplate> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const row = {
+      ...(template.id ? { id: template.id } : {}),
+      production_id: template.productionId,
+      name: template.name,
+      frame_image_url: template.frameImageUrl ?? null,
+      logo_url: template.logoUrl ?? null,
+      accent_color: template.accentColor,
+      season_name: template.seasonName,
+      is_active: template.isActive,
+    };
+    const { data, error } = await this.db
+      .from("button_templates").upsert(row).select().single();
+    if (error) throw new Error(`template save failed: ${error.message}`);
+    return this.mapTemplate(data);
+  }
+
+  async getProducts(productionId?: string): Promise<Product[]> {
+    const { data } = await this.db.from("products").select("*").eq("is_active", true);
+    return (data ?? [])
+      .map((row) => this.mapProduct(row))
+      .filter(
+        (product) =>
+          !productionId || !product.productionId || product.productionId === productionId
+      );
+  }
+
+  async getCart(actorId: string): Promise<CartItem[]> {
+    await this.actor(actorId);
+    const { data } = await this.db
+      .from("cart_items").select("*").eq("user_id", actorId).order("created_at");
+    return (data ?? []).map((row) => this.mapCartLine(row));
+  }
+
+  async addToCart(
+    actorId: string,
+    design: ButtonDesign,
+    quantity: number
+  ): Promise<CartItem[]> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "parent" && !this.isStaffish(actor)) {
+      throw new AccessDeniedError("Only families can order buttons");
+    }
+    if (quantity < 1) throw new Error("Quantity must be at least 1");
+
+    const { error } = await this.db.from("cart_items").insert({
+      user_id: actorId,
+      ...this.lineToRow({
+        ...design,
+        id: "",
+        quantity,
+        unitPriceCents: BUTTON_PRICES_CENTS[design.size],
+        productType: "spirit_button",
+        displayName: `${design.size}" spirit button — ${design.studentName}`,
+      }),
+    });
+    if (error) throw new Error(`add to cart failed: ${error.message}`);
+    return this.getCart(actorId);
+  }
+
+  async addCatalogItemToCart(
+    actorId: string,
+    input: {
+      productId: string;
+      optionValue?: string;
+      quantity: number;
+      customization: Customization;
+    }
+  ): Promise<CartItem[]> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "parent" && !this.isStaffish(actor)) {
+      throw new AccessDeniedError("Only families can order");
+    }
+    if (input.quantity < 1) throw new Error("Quantity must be at least 1");
+
+    const { data: productRow } = await this.db
+      .from("products").select("*").eq("id", input.productId).maybeSingle();
+    if (!productRow || !productRow.is_active) throw new Error("Product not available");
+    const product = this.mapProduct(productRow);
+
+    // Reject an option that doesn't belong to this product — otherwise a
+    // crafted request could claim a cheaper tier's price.
+    if (product.options.length > 0) {
+      const valid = product.options.some((option) => option.value === input.optionValue);
+      if (!valid) throw new Error("Choose an option");
+    }
+
+    // Price is computed here from the catalog, never taken from the client.
+    const unitPriceCents = priceFor(product, input.optionValue);
+    const optionLabel = product.options.find(
+      (option) => option.value === input.optionValue
+    )?.label;
+
+    const { error } = await this.db.from("cart_items").insert({
+      user_id: actorId,
+      ...this.lineToRow({
+        id: "",
+        quantity: input.quantity,
+        unitPriceCents,
+        productType: product.type,
+        productId: product.id,
+        optionValue: input.optionValue,
+        displayName: optionLabel ? `${product.name} — ${optionLabel}` : product.name,
+        customization: input.customization,
+      }),
+    });
+    if (error) throw new Error(`add to cart failed: ${error.message}`);
+    return this.getCart(actorId);
+  }
+
+  async updateCartItem(actorId: string, itemId: string, quantity: number): Promise<CartItem[]> {
+    await this.actor(actorId);
+    if (quantity < 1) {
+      await this.db.from("cart_items").delete().eq("id", itemId).eq("user_id", actorId);
+    } else {
+      await this.db.from("cart_items").update({ quantity })
+        .eq("id", itemId).eq("user_id", actorId);
+    }
+    return this.getCart(actorId);
+  }
+
+  async removeCartItem(actorId: string, itemId: string): Promise<CartItem[]> {
+    await this.actor(actorId);
+    await this.db.from("cart_items").delete().eq("id", itemId).eq("user_id", actorId);
+    return this.getCart(actorId);
+  }
+
+  async clearCart(actorId: string): Promise<void> {
+    await this.actor(actorId);
+    await this.db.from("cart_items").delete().eq("user_id", actorId);
+  }
+
+  async createOrder(actorId: string, paymentRef: string): Promise<ButtonOrder> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) throw new AccessDeniedError("Only families can order buttons");
+    const cart = await this.getCart(actorId);
+    if (cart.length === 0) throw new Error("Cart is empty");
+
+    const subtotalCents = cart.reduce(
+      (sum, item) => sum + item.unitPriceCents * item.quantity, 0
+    );
+    const { data: reference, error: refErr } = await this.db.rpc("next_order_reference");
+    if (refErr) throw new Error(`order reference failed: ${refErr.message}`);
+
+    const firstTemplate = cart.find((item) => item.templateId)?.templateId;
+    const { data: template } = firstTemplate
+      ? await this.db.from("button_templates").select("production_id")
+          .eq("id", firstTemplate).maybeSingle()
+      : { data: null };
+
+    const { data: order, error } = await this.db
+      .from("button_orders")
+      .insert({
+        family_id: actor.familyId,
+        reference: String(reference),
+        subtotal_cents: subtotalCents,
+        status: "new",
+        payment_ref: paymentRef,
+        placed_by_name: actor.displayName,
+        production_id: template?.production_id ?? null,
+      })
+      .select().single();
+    if (error) throw new Error(`order create failed: ${error.message}`);
+
+    const { error: itemsErr } = await this.db.from("button_order_items").insert(
+      cart.map((item) => ({ order_id: order.id, ...this.lineToRow(item) }))
+    );
+    if (itemsErr) throw new Error(`order items failed: ${itemsErr.message}`);
+    await this.clearCart(actorId);
+    return this.orderView(order);
+  }
+
+  async markOrderPaid(orderReference: string, paymentRef: string): Promise<ButtonOrder | null> {
+    // Called from the payment webhook — no actor session available. It can
+    // only flip an unpaid order to paid.
+    const { data: order } = await this.db
+      .from("button_orders").select("*").eq("reference", orderReference).maybeSingle();
+    if (!order) return null;
+    if (!order.paid_at) {
+      const { data: updated } = await this.db
+        .from("button_orders")
+        .update({ paid_at: new Date().toISOString(), payment_ref: paymentRef })
+        .eq("id", order.id).select().single();
+      return this.orderView(updated!);
+    }
+    return this.orderView(order);
+  }
+
+  async getOrdersForFamily(actorId: string, familyId: string): Promise<ButtonOrder[]> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data } = await this.db
+      .from("button_orders").select("*").eq("family_id", familyId)
+      .order("created_at", { ascending: false });
+    return Promise.all((data ?? []).map((row) => this.orderView(row)));
+  }
+
+  async getOrder(actorId: string, orderId: string): Promise<ButtonOrder | null> {
+    const actor = await this.actor(actorId);
+    const { data } = await this.db
+      .from("button_orders").select("*").eq("id", orderId).maybeSingle();
+    if (!data) return null;
+    this.assertFamilyAccess(actor, String(data.family_id));
+    return this.orderView(data);
+  }
+
+  async getAllOrders(actorId: string, status?: OrderStatus): Promise<ButtonOrder[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    let query = this.db.from("button_orders").select("*").order("created_at");
+    if (status) query = query.eq("status", status);
+    const { data } = await query;
+    return Promise.all((data ?? []).map((row) => this.orderView(row)));
+  }
+
+  async updateOrderStatus(
+    actorId: string,
+    orderId: string,
+    status: OrderStatus,
+    note?: string
+  ): Promise<ButtonOrder> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const patch: Record<string, unknown> = {
+      status, status_updated_at: new Date().toISOString(),
+    };
+    if (note !== undefined) patch.admin_note = note;
+    const { data: order, error } = await this.db
+      .from("button_orders").update(patch).eq("id", orderId).select().single();
+    if (error) throw new Error(`status update failed: ${error.message}`);
+
+    // Tell the family when their buttons are ready to collect.
+    if (status === "ready" || status === "delivered") {
+      const { data: parents } = await this.db
+        .from("profiles").select("id")
+        .eq("family_id", order.family_id).eq("role", "parent");
+      if (parents?.length) {
+        await this.db.from("notifications").insert(
+          parents.map((parent) => ({
+            user_id: parent.id,
+            type: "broadcast",
+            title:
+              status === "ready"
+                ? `Order ${order.reference} is ready`
+                : `Order ${order.reference} delivered`,
+            body:
+              status === "ready"
+                ? "Your spirit buttons are ready to pick up at the front desk."
+                : "Your spirit buttons have been handed off. Enjoy!",
+            url: "/store/orders",
+          }))
+        );
+      }
+    }
+    return this.orderView(order);
+  }
+
+  async reorder(actorId: string, orderId: string): Promise<CartItem[]> {
+    const actor = await this.actor(actorId);
+    const { data: order } = await this.db
+      .from("button_orders").select("*").eq("id", orderId).maybeSingle();
+    if (!order) throw new Error("Order not found");
+    this.assertFamilyAccess(actor, String(order.family_id));
+    const view = await this.orderView(order);
+    if (view.items.length) {
+      await this.db.from("cart_items").insert(
+        view.items.map((item) => ({ user_id: actorId, ...this.lineToRow(item) }))
+      );
+    }
+    return this.getCart(actorId);
   }
 
   /* ── early drop-off / late pick-up (ported from the mock) ──────────── */
