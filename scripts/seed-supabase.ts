@@ -152,6 +152,7 @@ async function main() {
     title: x.title, bio: x.bio, photo_url: x.photoUrl ?? null,
     specialties: x.specialties ?? [], credits: x.credits ?? null,
     is_published: x.isPublished ?? true,
+    is_health_safety_director: x.isHealthSafetyDirector ?? false,
   })));
 
   await insert("guardians", seed.guardians.map((x) => ({

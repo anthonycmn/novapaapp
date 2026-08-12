@@ -33,6 +33,11 @@ import {
   type ShowRole,
   type ShowScene,
 } from "../auditions/types";
+import type {
+  Message,
+  MessageThread,
+  ThreadWithMessages,
+} from "../messages/types";
 import { getServiceClient } from "./client";
 
 /**
@@ -1368,6 +1373,303 @@ class SupabaseDataProvider {
           roleName: String(assignment?.character_name ?? ""),
         };
       });
+  }
+
+  /* ── direct messages to the office (ported from the mock) ──────────── */
+
+  private mapThread(row: Row): MessageThread {
+    return {
+      id: String(row.id),
+      familyId: String(row.family_id),
+      recipientRole: row.recipient_role as MessageThread["recipientRole"],
+      subject: String(row.subject ?? ""),
+      studentId: s(row.student_id),
+      status: row.status as MessageThread["status"],
+      createdAt: String(row.created_at),
+      lastMessageAt: String(row.last_message_at ?? row.created_at),
+      urgent: Boolean(row.urgent),
+    };
+  }
+
+  private mapMessage(row: Row): Message {
+    return {
+      id: String(row.id),
+      threadId: String(row.thread_id),
+      authorUserId: String(row.sender_user_id),
+      authorName: String(row.sender_name ?? ""),
+      authorSide: (row.author_side ?? "family") as Message["authorSide"],
+      body: String(row.body),
+      createdAt: String(row.created_at),
+      readAt: s(row.read_at),
+    };
+  }
+
+  /** Admins cover everything; health_safety additionally its director. */
+  private async coversRole(actor: User, role: MessageThread["recipientRole"]): Promise<boolean> {
+    if (actor.role === "admin" || actor.role === "super_admin") return true;
+    if (role !== "health_safety") return false;
+    if (!actor.staffId) return false;
+    const { data } = await this.db
+      .from("staff_profiles").select("is_health_safety_director")
+      .eq("id", actor.staffId).maybeSingle();
+    return Boolean(data?.is_health_safety_director);
+  }
+
+  private async notifyRoleCoverage(
+    role: MessageThread["recipientRole"],
+    title: string,
+    body: string,
+    url: string
+  ): Promise<void> {
+    const [{ data: staffUsers }, { data: hsProfiles }] = await Promise.all([
+      this.db.from("profiles").select("id, role, staff_id")
+        .in("role", ["staff", "admin", "super_admin"]),
+      this.db.from("staff_profiles").select("id").eq("is_health_safety_director", true),
+    ]);
+    const hsIds = new Set((hsProfiles ?? []).map((pr) => pr.id));
+    const recipients = (staffUsers ?? []).filter((u) =>
+      u.role === "admin" || u.role === "super_admin"
+        ? true
+        : role === "health_safety" && u.staff_id && hsIds.has(u.staff_id)
+    );
+    if (recipients.length) {
+      await this.db.from("notifications").insert(
+        recipients.map((u) => ({
+          user_id: u.id, type: "direct_message", title, body, url,
+        }))
+      );
+    }
+  }
+
+  async startMessageThread(
+    actorId: string,
+    input: {
+      recipientRole: MessageThread["recipientRole"];
+      subject: string;
+      body: string;
+      studentId?: string;
+    }
+  ): Promise<MessageThread> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) {
+      throw new AccessDeniedError("Only families start message threads");
+    }
+    if (!input.subject.trim() || !input.body.trim()) {
+      throw new Error("Add a subject and a message");
+    }
+    if (input.studentId) {
+      const { data: student } = await this.db
+        .from("students").select("family_id").eq("id", input.studentId).maybeSingle();
+      if (!student || String(student.family_id) !== actor.familyId) {
+        throw new AccessDeniedError("That isn't your student");
+      }
+    }
+
+    const now = new Date().toISOString();
+    const { data: thread, error } = await this.db
+      .from("message_threads")
+      .insert({
+        family_id: actor.familyId,
+        recipient_role: input.recipientRole,
+        subject: input.subject.trim(),
+        student_id: input.studentId ?? null,
+        status: "open",
+        last_message_at: now,
+      })
+      .select().single();
+    if (error) throw new Error(`thread create failed: ${error.message}`);
+
+    const { error: msgErr } = await this.db.from("messages").insert({
+      thread_id: thread.id,
+      sender_user_id: actor.id,
+      sender_name: actor.displayName,
+      author_side: "family",
+      body: input.body.trim(),
+    });
+    if (msgErr) throw new Error(`message insert failed: ${msgErr.message}`);
+
+    await this.notifyRoleCoverage(
+      input.recipientRole,
+      input.recipientRole === "health_safety"
+        ? "New health & safety message"
+        : "New message from a family",
+      input.subject.trim(),
+      `/admin/messages/${thread.id}`
+    );
+    return this.mapThread(thread);
+  }
+
+  private async assertThreadAccess(actor: User, thread: MessageThread): Promise<void> {
+    if (actor.familyId === thread.familyId) return;
+    if (this.isStaffish(actor) && (await this.coversRole(actor, thread.recipientRole))) return;
+    throw new AccessDeniedError("Not your conversation");
+  }
+
+  async replyToThread(actorId: string, threadId: string, body: string): Promise<Message> {
+    const actor = await this.actor(actorId);
+    const { data: threadRow } = await this.db
+      .from("message_threads").select("*").eq("id", threadId).maybeSingle();
+    if (!threadRow) throw new Error("Thread not found");
+    const thread = this.mapThread(threadRow);
+    await this.assertThreadAccess(actor, thread);
+    if (!body.trim()) throw new Error("Write a message first");
+
+    const fromStaff = this.isStaffish(actor);
+    const { data: message, error } = await this.db
+      .from("messages")
+      .insert({
+        thread_id: threadId,
+        sender_user_id: actor.id,
+        sender_name: actor.displayName,
+        author_side: fromStaff ? "staff" : "family",
+        body: body.trim(),
+      })
+      .select().single();
+    if (error) throw new Error(`reply failed: ${error.message}`);
+
+    // A reply reopens a closed thread — the conversation clearly isn't done.
+    await this.db.from("message_threads")
+      .update({
+        last_message_at: String(message.created_at),
+        ...(thread.status === "closed" ? { status: "open" } : {}),
+      })
+      .eq("id", threadId);
+
+    if (fromStaff) {
+      const { data: parents } = await this.db
+        .from("profiles").select("id").eq("family_id", thread.familyId).eq("role", "parent");
+      if (parents?.length) {
+        await this.db.from("notifications").insert(
+          parents.map((parent) => ({
+            user_id: parent.id, type: "direct_message",
+            title: "Reply from NOVA PA", body: thread.subject,
+            url: `/messages/${thread.id}`,
+          }))
+        );
+      }
+    } else {
+      await this.notifyRoleCoverage(
+        thread.recipientRole, "New reply from a family", thread.subject,
+        `/admin/messages/${thread.id}`
+      );
+    }
+    return this.mapMessage(message);
+  }
+
+  private async threadView(thread: MessageThread): Promise<ThreadWithMessages> {
+    const [{ data: messages }, { data: family }, student] = await Promise.all([
+      this.db.from("messages").select("*").eq("thread_id", thread.id).order("created_at"),
+      this.db.from("families").select("name").eq("id", thread.familyId).maybeSingle(),
+      thread.studentId
+        ? this.db.from("students").select("first_name, preferred_name, last_name")
+            .eq("id", thread.studentId).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    const st = (student as { data: Row | null }).data;
+    return {
+      thread,
+      messages: (messages ?? []).map((m) => this.mapMessage(m)),
+      familyName: String(family?.name ?? ""),
+      studentName: st
+        ? `${st.preferred_name ?? st.first_name} ${st.last_name}`
+        : undefined,
+    };
+  }
+
+  async getMyThreads(actorId: string): Promise<MessageThread[]> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return [];
+    const { data } = await this.db
+      .from("message_threads").select("*").eq("family_id", actor.familyId)
+      .order("last_message_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapThread(row));
+  }
+
+  async getThread(actorId: string, threadId: string): Promise<ThreadWithMessages | null> {
+    const actor = await this.actor(actorId);
+    const { data } = await this.db
+      .from("message_threads").select("*").eq("id", threadId).maybeSingle();
+    if (!data) return null;
+    const thread = this.mapThread(data);
+    await this.assertThreadAccess(actor, thread);
+    return this.threadView(thread);
+  }
+
+  async getStaffInbox(actorId: string): Promise<ThreadWithMessages[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data } = await this.db.from("message_threads").select("*");
+    const visible: MessageThread[] = [];
+    for (const row of data ?? []) {
+      const thread = this.mapThread(row);
+      if (await this.coversRole(actor, thread.recipientRole)) visible.push(thread);
+    }
+    visible.sort((a, b) => {
+      if ((a.status === "open") !== (b.status === "open")) {
+        return a.status === "open" ? -1 : 1;
+      }
+      return b.lastMessageAt.localeCompare(a.lastMessageAt);
+    });
+    return Promise.all(visible.map((thread) => this.threadView(thread)));
+  }
+
+  async setThreadStatus(
+    actorId: string,
+    threadId: string,
+    status: MessageThread["status"]
+  ): Promise<MessageThread> {
+    const actor = await this.actor(actorId);
+    const { data: row } = await this.db
+      .from("message_threads").select("*").eq("id", threadId).maybeSingle();
+    if (!row) throw new Error("Thread not found");
+    const thread = this.mapThread(row);
+    if (!this.isStaffish(actor) || !(await this.coversRole(actor, thread.recipientRole))) {
+      throw new AccessDeniedError("Staff only");
+    }
+    const { data: updated, error } = await this.db
+      .from("message_threads").update({ status }).eq("id", threadId).select().single();
+    if (error) throw new Error(`status update failed: ${error.message}`);
+    return this.mapThread(updated);
+  }
+
+  async markThreadRead(actorId: string, threadId: string): Promise<void> {
+    const actor = await this.actor(actorId);
+    const { data: row } = await this.db
+      .from("message_threads").select("*").eq("id", threadId).maybeSingle();
+    if (!row) return;
+    await this.assertThreadAccess(actor, this.mapThread(row));
+    const mySide = this.isStaffish(actor) ? "staff" : "family";
+    // You read the *other* side's messages.
+    await this.db
+      .from("messages")
+      .update({ read_at: new Date().toISOString() })
+      .eq("thread_id", threadId)
+      .neq("author_side", mySide)
+      .is("read_at", null);
+  }
+
+  async getUnreadMessageCount(actorId: string): Promise<number> {
+    const actor = await this.actor(actorId);
+    const { data: threads } = await this.db.from("message_threads").select("*");
+    const visibleIds: string[] = [];
+    for (const row of threads ?? []) {
+      const thread = this.mapThread(row);
+      if (
+        actor.familyId === thread.familyId ||
+        (this.isStaffish(actor) && (await this.coversRole(actor, thread.recipientRole)))
+      ) {
+        visibleIds.push(thread.id);
+      }
+    }
+    if (visibleIds.length === 0) return 0;
+    const mySide = this.isStaffish(actor) ? "staff" : "family";
+    const { count } = await this.db
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .in("thread_id", visibleIds)
+      .neq("author_side", mySide)
+      .is("read_at", null);
+    return count ?? 0;
   }
 
   /* ── background jobs: reminders & rehearsal notices ────────────────── */

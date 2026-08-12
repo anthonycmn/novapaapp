@@ -511,6 +511,51 @@ async function main() {
   const notices3 = await p.runRehearsalNotices(dana.id, { now: "2026-07-30T10:00:00.000Z" });
   check("post-rehearsal thank-you sent", notices3.thanks >= 1, JSON.stringify(notices3));
 
+  /* ── direct messages ── */
+  const thread = await p.startMessageThread(sofia.id, {
+    recipientRole: "health_safety",
+    subject: "Ava's tree nut allergy",
+    body: "Please make sure snack table is nut-free during tech week.",
+    studentId: ava.id,
+  });
+  check("family starts an H&S thread about their child", thread.status === "open");
+
+  const jo = await p.getUserByEmail("jo@example.com");
+  const marcus = await p.getUserByEmail("marcus@example.com");
+  const joInbox = await p.getStaffInbox(jo!.id);
+  check(
+    "H&S director sees the thread with family + student names",
+    joInbox.length === 1 && joInbox[0].familyName === "The Martinez Family" &&
+      joInbox[0].studentName?.includes("Ava") === true
+  );
+  const marcusInbox = await p.getStaffInbox(marcus!.id);
+  check("non-H&S staff does NOT see health threads", marcusInbox.length === 0);
+
+  await p.replyToThread(jo!.id, thread.id, "Absolutely — flagged for the tech-week team.");
+  const sofiaUnread = await p.getUnreadMessageCount(sofia.id);
+  check("family unread count reflects the staff reply", sofiaUnread === 1);
+  await p.markThreadRead(sofia.id, thread.id);
+  check("mark-read zeroes the count", (await p.getUnreadMessageCount(sofia.id)) === 0);
+
+  let threadDenied = false;
+  try {
+    await p.getThread(minh.id, thread.id);
+  } catch (error) {
+    threadDenied = error instanceof AccessDeniedError;
+  }
+  check("another family cannot open the thread", threadDenied);
+
+  const closed = await p.setThreadStatus(dana.id, thread.id, "closed");
+  await p.replyToThread(sofia.id, thread.id, "Thank you!");
+  const reopened = await p.getThread(sofia.id, thread.id);
+  check(
+    "family reply reopens a closed thread",
+    closed.status === "closed" && reopened?.thread.status === "open"
+  );
+
+  // Clean up message fixtures.
+  await raw.from("message_threads").delete().eq("id", thread.id);
+
   // Unported method fails LOUDLY, never silently.
   let loud = false;
   try {
