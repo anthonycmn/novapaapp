@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm --version)",
-      "Bash(git --version)"
+      "Bash(git --version)",
+      "mcp__bbe479a2-3324-412d-aead-276a8b917785__apply_migration",
+      "mcp__bbe479a2-3324-412d-aead-276a8b917785__execute_sql"
     ]
   }
 }
