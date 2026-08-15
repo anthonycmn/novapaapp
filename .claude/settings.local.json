@@ -29,7 +29,10 @@
       "Bash(git add *)",
       "Bash(git commit -m 'Remove temporary cutover diagnostics; log the Netlify secrets discovery *)",
       "Bash(npm run *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(git commit -m 'DECISIONS: demo teardown + casting-privacy verification *)",
+      "Bash(curl -s \"https://tlkuqwsqicxcjdmumkje.supabase.co/auth/v1/settings\" -H \"apikey: sb_publishable_8ar97CkK-C0YlWuOGtI_tA_mwTDVE6H\")",
+      "Bash(git commit -m 'Family signup flow: claim your account with the email you registered with *)"
     ]
   }
 }

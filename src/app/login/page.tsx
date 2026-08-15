@@ -21,11 +21,11 @@ const DEMO_ACCOUNTS = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; email?: string }>;
+  searchParams: Promise<{ error?: string; email?: string; welcome?: string }>;
 }) {
   const user = await getSessionUser();
   if (user) redirect("/dashboard");
-  const { error, email } = await searchParams;
+  const { error, email, welcome } = await searchParams;
   const supabaseMode = (process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") === "supabase";
 
   return (
@@ -44,7 +44,9 @@ export default async function LoginPage({
         <CardHeader>
           <CardTitle as="h2">Sign in</CardTitle>
           <CardDescription>
-            Enter the email on your family account and we&apos;ll sign you in.
+            {welcome
+              ? "Email confirmed! Sign in below to see your family's shows."
+              : "Enter the email on your family account and we'll sign you in."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -93,12 +95,42 @@ export default async function LoginPage({
                     Please enter your password.
                   </p>
                 )}
+                {error === "unconfirmed" && (
+                  <p role="alert" className="text-sm text-destructive">
+                    Almost there — click the confirmation link we emailed you,
+                    then sign in.
+                  </p>
+                )}
+                {error === "already-registered" && (
+                  <p role="alert" className="text-sm text-destructive">
+                    You already have an account with that email — sign in here
+                    with your usual password.
+                  </p>
+                )}
+                {error === "no-family" && (
+                  <p role="alert" className="text-sm text-destructive">
+                    Your email checks out, but we couldn&apos;t find a family
+                    registration under it. Use the email you registered with,
+                    or contact the office and we&apos;ll connect you.
+                  </p>
+                )}
               </div>
             )}
             <Button type="submit" className="w-full">
               {supabaseMode ? "Sign in" : "Continue"}
             </Button>
           </form>
+          {supabaseMode && (
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              First time here?{" "}
+              <a
+                href="/signup"
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Create your account
+              </a>
+            </p>
+          )}
         </CardContent>
       </Card>
 

@@ -19,6 +19,8 @@
  *
  * Run: npx tsx --tsconfig scripts/tsconfig.json scripts/wipe-demo-data.ts
  */
+/* eslint-disable @typescript-eslint/no-explicit-any -- ops script; the
+   query-builder generics aren't worth threading through a one-off wipe */
 import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
