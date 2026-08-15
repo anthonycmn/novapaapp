@@ -33,10 +33,8 @@ export const FAMILY_SECTIONS: NavSection[] = [
 
 export const STAFF_SECTIONS: NavSection[] = [
   { href: "/admin", emoji: "🛠️", label: "Staff tools", description: "Everything waiting on you, system status" },
+  { href: "/staff/shows", emoji: "🎭", label: "My shows", description: "Your productions: casting, roster & curriculum" },
   { href: "/admin/messages", emoji: "📨", label: "Family messages", description: "Inbox for your role" },
-  { href: "/admin/auditions/prod-frozen", emoji: "🎬", label: "Audition roster", description: "Rubrics for Frozen Jr. auditions" },
-  { href: "/admin/casting/prod-frozen", emoji: "🎭", label: "Casting board", description: "Drag students into Frozen Jr. roles" },
-  { href: "/admin/cast-list/prod-frozen", emoji: "📋", label: "Cast list status", description: "Filled and accepted roles at a glance" },
   { href: "/admin/email", emoji: "📧", label: "Email families", description: "Templates, targeting, send history" },
   { href: "/admin/questions", emoji: "💬", label: "Question queue", description: "Answer families privately" },
   { href: "/admin/health", emoji: "🩺", label: "Health & safety", description: "Form status, emergency roster" },

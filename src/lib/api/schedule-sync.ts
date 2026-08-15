@@ -112,6 +112,100 @@ export interface ScheduleSyncResult {
   removed: number;
   adopted: number;
   curriculumSynced: number;
+  staffAssignmentsSynced: number;
+}
+
+/**
+ * Mirror the portal's production staffing into hub production_staff so
+ * "My Shows" knows who works what. The table is bridge-owned: rows the
+ * portal no longer has are removed. Portal people without a hub account
+ * (no portal_users row) are skipped until they get one.
+ */
+async function syncProductionStaff(
+  hubProdsByPortalId: Map<string, string[]>
+): Promise<number> {
+  const hub = getServiceClient();
+  const portal = getPortalReadClient();
+
+  const [
+    { data: assignments },
+    { data: roles },
+    { data: portalUsers },
+    { data: hubStaff },
+  ] = await Promise.all([
+    portal.from("production_assignments").select("production_id, role_id, staff_id, is_not_needed"),
+    portal.from("production_roles").select("id, name"),
+    portal.from("portal_users").select("staff_id, auth_user_id"),
+    hub.from("staff_profiles").select("id, user_id"),
+  ]);
+
+  const roleName = new Map((roles ?? []).map((r) => [String(r.id), String(r.name)]));
+  const authByPortalStaff = new Map(
+    (portalUsers ?? [])
+      .filter((u) => u.staff_id && u.auth_user_id)
+      .map((u) => [String(u.staff_id), String(u.auth_user_id)])
+  );
+  const hubStaffByUser = new Map(
+    (hubStaff ?? []).filter((s) => s.user_id).map((s) => [String(s.user_id), String(s.id)])
+  );
+
+  const desired = new Map<string, Row>();
+  const directors = new Map<string, string>(); // hub production → hub staff
+  for (const a of assignments ?? []) {
+    if (a.is_not_needed || !a.staff_id) continue;
+    const authId = authByPortalStaff.get(String(a.staff_id));
+    const staffId = authId ? hubStaffByUser.get(authId) : undefined;
+    if (!staffId) continue;
+    const role = roleName.get(String(a.role_id)) ?? "Staff";
+    for (const hubProdId of hubProdsByPortalId.get(String(a.production_id)) ?? []) {
+      desired.set(`${hubProdId}|${staffId}|${role}`, {
+        production_id: hubProdId,
+        staff_id: staffId,
+        role,
+      });
+      if (role === "Director") directors.set(hubProdId, staffId);
+    }
+  }
+
+  const { data: current } = await hub
+    .from("production_staff").select("production_id, staff_id, role").range(0, 4999);
+  const currentKeys = new Set(
+    (current ?? []).map((r) => `${r.production_id}|${r.staff_id}|${r.role}`)
+  );
+
+  let changes = 0;
+  const inserts = [...desired.entries()]
+    .filter(([key]) => !currentKeys.has(key))
+    .map(([, row]) => row);
+  if (inserts.length > 0) {
+    const { error } = await hub.from("production_staff").insert(inserts);
+    if (error) throw new Error(`production_staff insert: ${error.message}`);
+    changes += inserts.length;
+  }
+  for (const row of current ?? []) {
+    const key = `${row.production_id}|${row.staff_id}|${row.role}`;
+    if (!desired.has(key)) {
+      const { error } = await hub
+        .from("production_staff")
+        .delete()
+        .eq("production_id", row.production_id)
+        .eq("staff_id", row.staff_id)
+        .eq("role", row.role);
+      if (error) throw new Error(`production_staff delete: ${error.message}`);
+      changes++;
+    }
+  }
+
+  for (const [hubProdId, staffId] of directors) {
+    const { error } = await hub
+      .from("productions")
+      .update({ director_staff_id: staffId })
+      .eq("id", hubProdId)
+      .neq("director_staff_id", staffId);
+    if (error) throw new Error(`director update: ${error.message}`);
+  }
+
+  return changes;
 }
 
 export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
@@ -141,6 +235,7 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
 
   /* 1. Compute the desired portal-sourced event set. */
   const desired = new Map<string, DesiredEvent>();
+  const hubProdsByPortalId = new Map<string, string[]>();
   let curriculumSynced = 0;
 
   for (const hp of hubProds ?? []) {
@@ -149,12 +244,17 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     if (!pp) continue;
     const show = shortName(String(hp.title));
     const hubProdId = String(hp.id);
+    hubProdsByPortalId.set(String(pp.id), [
+      ...(hubProdsByPortalId.get(String(pp.id)) ?? []),
+      hubProdId,
+    ]);
 
-    // Curriculum link flows portal → hub production.
-    const curriculum = pp.curriculum_url ? String(pp.curriculum_url) : null;
-    if ((hp.curriculum_url ?? null) !== curriculum) {
+    // Curriculum: the HUB is the authoring home (super admins upload it in
+    // the app); the portal's link only fills an empty slot, never overwrites.
+    const portalCurriculum = pp.curriculum_url ? String(pp.curriculum_url) : null;
+    if (portalCurriculum && !hp.curriculum_url) {
       const { error } = await hub
-        .from("productions").update({ curriculum_url: curriculum }).eq("id", hubProdId);
+        .from("productions").update({ curriculum_url: portalCurriculum }).eq("id", hubProdId);
       if (error) throw new Error(`curriculum update: ${error.message}`);
       curriculumSynced++;
     }
@@ -321,5 +421,15 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     removed++;
   }
 
-  return { desired: desired.size, created, updated, removed, adopted, curriculumSynced };
+  const staffAssignmentsSynced = await syncProductionStaff(hubProdsByPortalId);
+
+  return {
+    desired: desired.size,
+    created,
+    updated,
+    removed,
+    adopted,
+    curriculumSynced,
+    staffAssignmentsSynced,
+  };
 }
