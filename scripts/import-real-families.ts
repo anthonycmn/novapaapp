@@ -225,7 +225,9 @@ async function main() {
         id: randomUUID(),
         family_id: familyId,
         first_name: first,
-        last_name: last || first,
+        // Single-token camper names stay single: a fabricated last name
+        // breaks sync matching and reads wrong everywhere.
+        last_name: last,
         date_of_birth: dob,
         has_login: false,
       });

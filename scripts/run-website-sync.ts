@@ -9,8 +9,9 @@ import { WebsiteDbRegistrationProvider } from "../src/lib/api/registration/websi
 
 async function main() {
   const provider = getProvider();
-  const admin = await provider.getUserByEmail("dana@example.com");
-  if (!admin) throw new Error("admin demo user not found");
+  const adminEmail = process.argv[2] ?? "cj@novapa.org";
+  const admin = await provider.getUserByEmail(adminEmail);
+  if (!admin) throw new Error(`admin user ${adminEmail} not found`);
 
   const snapshot = await new WebsiteDbRegistrationProvider().fetchSnapshot();
   const run = await provider.syncRegistration(admin.id, snapshot, "manual");
