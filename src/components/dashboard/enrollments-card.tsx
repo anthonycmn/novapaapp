@@ -83,7 +83,7 @@ export function EnrollmentsCard({
         <div className="flex flex-wrap gap-2">
           {totalBalance > 0 && (
             <a
-              href={registration.sawyer.parentAccountUrl}
+              href={registration.parentAccountUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"

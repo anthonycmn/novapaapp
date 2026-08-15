@@ -1,48 +1,65 @@
 /**
  * Registration configuration (#8).
  *
- * SYNC SOURCE OF RECORD: the org's own custom-built registration system.
- * Its schema/API details are still to come, so the app syncs through the
- * `RegistrationProvider` interface with a mock adapter active by default.
- * When the real details arrive, implement one adapter (custom.ts) and flip
- * REGISTRATION_API_URL — nothing else in the app changes.
+ * SYNC SOURCE OF RECORD: the org's own registration system, which lives in the
+ * SAME Supabase project as this app (`public` schema — families, campers,
+ * orders, order_items). There is no HTTP API and none is needed; see
+ * `lib/api/registration/website.ts`.
  *
- * DEEP-LINK DESTINATIONS: the live public site
- * (Desktop/NOVAPA WEB 7-16) currently sends families to two commercial
- * platforms for signup, so those URLs are recorded here for "register" and
- * "pay a balance" links. They are link targets only — not sync sources:
+ * DEEP-LINK DESTINATIONS: families buy at `/register/` on the main site. That
+ * flow runs on this same database and a live Stripe key, and it is where all
+ * 235 enrolments and every dollar of outstanding balance in this app actually
+ * came from.
  *
- *   • Sawyer  (hisawyer.com) — classes, camps, on-stage programs
- *   • RegPack (regpack.com)  — coaching registration, embedded as an iframe
+ * This used to point at Sawyer and RegPack, which is where the *previous*
+ * signup flow sent people. Those links were not merely unconfirmed, they were
+ * wrong: a family clicking "Pay balance" was sent to a Sawyer account that
+ * knows nothing about the balance this app is showing them. Corrected
+ * 15 Aug 2026; every URL below was checked for a 200 before it shipped.
  *
- * Confirm with Tony which of these the custom system replaces before these
- * links ship to families. See NEEDS-FROM-TONY.md #8.
+ * Deep links use `?activity=<id>` — the same `public.activities.id` this app
+ * already stores on an enrolment, which is why no separate mapping is needed.
  */
 
+const SITE = "https://www.northernvirginiaperformingarts.org";
+
 export const registration = {
-  sawyer: {
-    orgSlug: "nova-performing-arts",
-    locationId: "202081",
-    /** Public schedules page — deep link target for new signups. */
-    schedulesUrl:
-      "https://www.hisawyer.com/nova-performing-arts/schedules?location_id%5B%5D=202081",
-    /** Where families manage their own account and balances. */
-    parentAccountUrl: "https://www.hisawyer.com/users/sign_in",
-    /** Deep link to a specific offering. */
-    activitySetUrl: (activitySetId: string) =>
-      `https://www.hisawyer.com/nova-performing-arts/schedules/activity-set/${activitySetId}`,
-    campsUrl:
-      "https://www.hisawyer.com/nova-performing-arts/schedules?location_id%5B%5D=202081&schedule_id=camps&widget_tags=summer+camp",
-  },
+  /** Where families browse and buy. */
+  registrationLandingUrl: `${SITE}/register/`,
 
-  regpack: {
-    /** Group id from the coaching-registration.html iframe embed. */
-    groupId: "100920141",
-    coachingUrl: "https://www.northernvirginiaperformingarts.org/coaching-registration",
-  },
+  /** Their own account: orders, installments, outstanding balance. */
+  parentAccountUrl: `${SITE}/register/account.html`,
 
-  /** Public registration landing page on the main site. */
-  registrationLandingUrl:
-    "https://www.northernvirginiaperformingarts.org/novapa_registration",
-  classesUrl: "https://www.northernvirginiaperformingarts.org/classes",
+  /** Sign-in for the registration system (same auth pool as this app). */
+  signInUrl: `${SITE}/register/signin.html`,
+
+  /**
+   * Deep link to one offering, by the website activity id carried on an
+   * enrolment. This is what the public site's own "Register" buttons use.
+   */
+  activityUrl: (activityId: number | string) =>
+    `${SITE}/register/?activity=${activityId}`,
+
+  /** Public marketing pages, for browsing rather than buying. */
+  classesUrl: `${SITE}/classes`,
+  coachingUrl: `${SITE}/coaching`,
+  campsUrl: `${SITE}/camp-info`,
+
+  /**
+   * The previous commercial platforms. Kept only so a historical enrolment
+   * whose `external_source` names one of them can still be explained to
+   * whoever asks. NOT link targets any more — nothing in the app should send
+   * a family here.
+   */
+  legacy: {
+    sawyer: {
+      orgSlug: "nova-performing-arts",
+      locationId: "202081",
+      schedulesUrl:
+        "https://www.hisawyer.com/nova-performing-arts/schedules?location_id%5B%5D=202081",
+    },
+    regpack: {
+      groupId: "100920141",
+    },
+  },
 } as const;

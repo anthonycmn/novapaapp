@@ -195,7 +195,7 @@ export default async function RegistrationAdminPage() {
             Registration landing page
           </a>
           <a
-            href={registrationConfig.sawyer.schedulesUrl}
+            href={registrationConfig.classesUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline-offset-4 hover:underline"
@@ -203,7 +203,7 @@ export default async function RegistrationAdminPage() {
             Class & camp schedules
           </a>
           <a
-            href={registrationConfig.regpack.coachingUrl}
+            href={registrationConfig.coachingUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary underline-offset-4 hover:underline"
