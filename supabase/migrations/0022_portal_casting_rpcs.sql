@@ -36,7 +36,7 @@ declare
   v_families int := 0;
   v_parents int;
 begin
-  if not is_staffish() then
+  if not coalesce(is_staffish(), false) then
     raise exception 'Casting can only be submitted by staff';
   end if;
 
@@ -133,7 +133,7 @@ declare
   v_families int := 0;
   v_parents int;
 begin
-  if not is_staffish() then
+  if not coalesce(is_staffish(), false) then
     raise exception 'Understudies can only be published by staff';
   end if;
 
