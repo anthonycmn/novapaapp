@@ -64,6 +64,30 @@ export function getWebsiteReadClient(): SupabaseClient {
   return websiteReadClient;
 }
 
+let portalReadClient: SupabaseClient | null = null;
+
+/**
+ * A read-only window onto the STAFF PORTAL's schema, used solely by the
+ * schedule bridge to mirror the season plan (production_schedule,
+ * season_events, curriculum links) into family-hub calendar events.
+ * The portal owns those tables: ONLY EVER SELECT through this client.
+ */
+export function getPortalReadClient(): SupabaseClient {
+  if (portalReadClient) return portalReadClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase is not configured: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required."
+    );
+  }
+  portalReadClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: "staff_portal" },
+  }) as unknown as SupabaseClient;
+  return portalReadClient;
+}
+
 /** True when enough configuration exists to talk to Supabase at all. */
 export function isSupabaseConfigured(): boolean {
   return Boolean(

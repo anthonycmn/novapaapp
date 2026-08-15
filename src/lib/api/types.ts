@@ -167,6 +167,8 @@ export interface Production {
   /** Per-production spirit button frame art (Phase 5). */
   buttonTemplateUrl?: string;
   ticketsUrl?: string;
+  /** Curriculum & materials link, synced from the staff portal's plan. */
+  curriculumUrl?: string;
 }
 
 export interface Enrollment {

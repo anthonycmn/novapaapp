@@ -223,6 +223,7 @@ function mapProduction(row: Row): Production {
     closesOn: s(row.closes_on),
     buttonTemplateUrl: s(row.button_template_url),
     ticketsUrl: s(row.tickets_url),
+    curriculumUrl: s(row.curriculum_url),
   } as Production;
 }
 
