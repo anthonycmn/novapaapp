@@ -78,7 +78,10 @@ async function main() {
   const raw = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } }
+    {
+      auth: { persistSession: false },
+      db: { schema: process.env.NEXT_PUBLIC_SUPABASE_SCHEMA ?? "family_hub" },
+    }
   );
   const { data: frozen } = await raw
     .from("productions").select("id").eq("title", "Frozen Jr.").single();

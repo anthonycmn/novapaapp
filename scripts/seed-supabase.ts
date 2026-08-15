@@ -22,7 +22,13 @@ if (!url || !key) {
   console.error("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
 }
-const db = createClient(url, key, { auth: { persistSession: false } });
+// Schema-pinned: on novapa the family hub lives in the `family_hub` schema,
+// so this client physically cannot reach the website's public tables or the
+// staff portal. (Set NEXT_PUBLIC_SUPABASE_SCHEMA=public for novapa-deh.)
+const db = createClient(url, key, {
+  auth: { persistSession: false },
+  db: { schema: process.env.NEXT_PUBLIC_SUPABASE_SCHEMA ?? "family_hub" },
+});
 
 const DEMO_PASSWORD = "NovapaDemo2026!";
 

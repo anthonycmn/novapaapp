@@ -121,3 +121,34 @@ Running log of decisions made autonomously during the build. Newest at the botto
   (with revocation-count proof), registration sync, and FSA.
 - The mock backend remains the live default until real sign-in lands
   and the cutover is rehearsed; NEXT_PUBLIC_DATA_MODE=supabase flips it.
+
+## The cutover plot twist + repoint to live novapa (2026-08-15, Tony: "GO")
+- 2026-08-11, the same day the family hub integrated with novapa-deh,
+  the staff portal CUT OVER to a different Supabase project: **novapa**
+  (tlkuqwsqicxcjdmumkje). novapa-deh is now a frozen rollback artifact
+  that accepts writes silently. Verified directly: novapa carries the
+  portal's 82 tables, 341 real auth users (325+ parents from website
+  checkout), and NO trigger on auth.users (portal hard rule 2 — the
+  signup-door saga concerned a function never attached on the live
+  side; superseded by portal migration 0081).
+- novapa's `public` schema is OWNED BY THE WEBSITE (47 registration/
+  ticketing tables — families, campers, activities, orders, cast
+  roster, tix_*, SmugMug photos, star-page ads). Name collisions with
+  the family hub (`families`, `orders`, `order_items`) plus a portal
+  storage-bucket collision (`resumes`) rule out replaying into public.
+- Therefore the family hub moves into its own dedicated schema:
+  **family_hub** (mirroring how the portal owns staff_portal), with
+  storage buckets prefixed **fh-**. Consolidated replay migration:
+  supabase/migrations-novapa/family_hub_replay_on_novapa.sql (all 18
+  originals transformed: search_path pinned, SECURITY DEFINER helpers
+  repointed off `public`, 0013 omitted as superseded). PostgREST
+  exposed schemas must gain `family_hub` (currently public,
+  graphql_public, staff_portal).
+- The website's registration tables ARE the long-promised "registration
+  data later" (NEEDS-FROM-TONY #8). New WebsiteDbRegistrationProvider
+  reads them READ-ONLY through a public-schema client and feeds the
+  existing sync engine; cast_roster_2026 renders on the admin casting
+  board page. The family hub never writes to website or portal tables.
+- Live-DB writes are classifier-gated in auto permission mode; the
+  replay applies via MCP apply_migration with Tony's mode-switch +
+  Allow (same sanctioned path as the 0013 episode).

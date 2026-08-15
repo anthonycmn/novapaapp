@@ -3,7 +3,7 @@
  * Deliberately loose — external systems are messy and we normalize on import.
  */
 
-export type RegistrationSource = "sawyer" | "regpack" | "manual" | "mock";
+export type RegistrationSource = "sawyer" | "regpack" | "manual" | "mock" | "website";
 
 /** A registration-system account, which maps to one app family. */
 export interface ExternalAccount {

@@ -78,15 +78,28 @@ class SupabaseStorageProvider implements StorageProvider {
     return Boolean(this.url && this.serviceKey);
   }
 
+  /**
+   * Physical bucket name. The storage bucket namespace is shared across the
+   * whole novapa project and the portal already owns a `resumes` bucket, so
+   * the family hub's buckets carry an `fh-` prefix. Override with
+   * SUPABASE_BUCKET_PREFIX (empty string = unprefixed, for novapa-deh).
+   */
+  private physical(bucket: StorageBucket): string {
+    return `${process.env.SUPABASE_BUCKET_PREFIX ?? "fh-"}${bucket}`;
+  }
+
   async upload(bucket: StorageBucket, path: string, dataUrl: string): Promise<StoredFile> {
     const { contentType, bytes } = parseDataUrl(dataUrl);
 
     const response = await fetch(
-      `${this.url}/storage/v1/object/${bucket}/${encodeURIComponent(path)}`,
+      `${this.url}/storage/v1/object/${this.physical(bucket)}/${encodeURIComponent(path)}`,
       {
         method: "POST",
         headers: {
+          // Both headers: legacy JWT keys use Authorization, new sb_secret_
+          // keys ride the apikey header. Sending both covers either project.
           Authorization: `Bearer ${this.serviceKey}`,
+          apikey: this.serviceKey,
           "Content-Type": contentType,
           "x-upsert": "true",
         },
@@ -100,7 +113,7 @@ class SupabaseStorageProvider implements StorageProvider {
 
     // Buckets are private; the app serves files through signed URLs.
     return {
-      url: `${this.url}/storage/v1/object/${bucket}/${path}`,
+      url: `${this.url}/storage/v1/object/${this.physical(bucket)}/${path}`,
       path,
       bucket,
       sizeBytes: bytes.length,
@@ -109,10 +122,16 @@ class SupabaseStorageProvider implements StorageProvider {
   }
 
   async remove(bucket: StorageBucket, path: string): Promise<void> {
-    await fetch(`${this.url}/storage/v1/object/${bucket}/${encodeURIComponent(path)}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${this.serviceKey}` },
-    });
+    await fetch(
+      `${this.url}/storage/v1/object/${this.physical(bucket)}/${encodeURIComponent(path)}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${this.serviceKey}`,
+          apikey: this.serviceKey,
+        },
+      }
+    );
   }
 }
 
