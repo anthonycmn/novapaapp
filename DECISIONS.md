@@ -169,3 +169,26 @@ Running log of decisions made autonomously during the build. Newest at the botto
   8-12 (believed blocked) — the live site had been silently building in
   supabase mode against the frozen project. The cutover turned that
   from a landmine into the intended configuration.
+
+## Real families imported (2026-08-15, Tony: "SYNC THE REAL FAMILIES IN - GO")
+- scripts/import-real-families.ts: 769 real families, 769 guardians,
+  907 students, and 329 parent profiles attached to EXISTING auth
+  accounts (parents log in with the password they already use on the
+  website; no auth users created or modified). 439 families have no
+  auth account yet — they need the signup/onboarding flow before they
+  can log in. Missing birthdates: 9 approximated from age, 15 unknown
+  defaulted to under-13 (the stricter privacy posture).
+- scripts/create-real-catalog.ts: season "Broadway Bound 2026–27"
+  (now current; demo seasons demoted) + program "Broadway Bound" +
+  24 productions named strictly from the website's own activity
+  catalog and regpack product strings (charlie/httyd/trolls codes
+  resolved to full titles — e.g. "Charlie and the Chocolate Factory
+  (9-12)"). Migration 0019 added 'website' to the account-link source
+  check.
+- Sync engine (scripts/run-website-sync.ts, recorded as a SyncRun):
+  225/234 real enrollments attached. Open issues, visible in the
+  admin health view: 8 class/coaching order items (need hub class
+  offerings with schedules) and 21 order camper names that don't
+  match any camper record.
+- Demo world coexists (3 demo families, demo staff/lessons) until the
+  demo teardown decision.

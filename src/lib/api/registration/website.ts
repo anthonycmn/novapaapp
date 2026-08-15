@@ -48,14 +48,17 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
       throw new RegistrationUnavailableError("Supabase is not configured", this.source);
     }
 
-    const [familyRows, camperRows, itemRows] = await Promise.all([
+    const [familyRows, camperRows, itemRows, activityRows, showTitles] = await Promise.all([
       this.selectAll("families", "id, email, parent_name, is_test"),
       this.selectAll("campers", "id, family_id, name, birthdate"),
       this.selectAll(
         "order_items",
-        "id, show, band, camper_name, unit_price_cents, order:orders(id, email, status, total_cents, amount_today_cents, created_at)"
+        "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, created_at)"
       ),
+      this.selectAll("activities", "id, name, category"),
+      fetchShowTitleMap(),
     ]);
+    const activities = buildActivityMap(activityRows);
 
     const accounts: ExternalAccount[] = [];
     const familyByEmail = new Map<string, string>();
@@ -110,8 +113,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
       const email = str(order.email)?.toLowerCase();
       const familyId = email ? familyByEmail.get(email) : undefined;
       if (!familyId) continue; // reconcile reports the account as unmatched
-      const show = str(row.show) ?? "Unknown offering";
-      const band = str(row.band);
+      const offeringName = resolveOfferingName(row, showTitles, activities);
       const camperName = str(row.camper_name);
       const participantId =
         (camperName && camperByFamilyName.get(`${familyId}:${normalize(camperName)}`)) ??
@@ -134,7 +136,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         source: this.source,
         participantExternalId: participantId,
         accountExternalId: familyId,
-        offeringName: band ? `${show} (${band})` : show,
+        offeringName,
         status,
         balanceCents: Math.round(orderBalance * share),
         amountPaidCents: Math.round(num(order.amount_today_cents) * share),
@@ -171,6 +173,100 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
       if (!data || data.length < page) return all;
     }
   }
+}
+
+/* ── offering-name resolution ───────────────────────────────────────────── */
+
+/**
+ * Order items come in two generations: newer ones reference the activities
+ * catalog (human-written names); older ones carry a short show code
+ * (charlie/httyd/trolls) plus an age band. The codes are named by the
+ * website's own regpack product strings — never guessed here.
+ */
+export interface ActivityInfo {
+  name: string;
+  category?: string;
+}
+
+/** The website declares no FK between order_items and activities, so the join is client-side. */
+export function buildActivityMap(rows: Row[]): Map<number, ActivityInfo> {
+  const map = new Map<number, ActivityInfo>();
+  for (const row of rows) {
+    const id = typeof row.id === "number" ? row.id : Number(row.id);
+    const name = str(row.name);
+    if (Number.isFinite(id) && name) map.set(id, { name, category: str(row.category) });
+  }
+  return map;
+}
+
+export function resolveOfferingName(
+  row: Row,
+  showTitles: Map<string, string>,
+  activities: Map<number, ActivityInfo>
+): string {
+  const code = str(row.show);
+  const band = str(row.band);
+  if (code) {
+    const title = showTitles.get(code.toLowerCase()) ?? code;
+    return band ? `${title} (${band})` : title;
+  }
+  const activity = activities.get(Number(row.activity_id));
+  return activity?.name ?? "Unknown offering";
+}
+
+/** show code → title, from regpack products like "Broadway Bound | Charlie and the Chocolate Factory | Grades K-9". */
+export async function fetchShowTitleMap(): Promise<Map<string, string>> {
+  const db = getWebsiteReadClient();
+  const { data, error } = await db
+    .from("regpack_enrollments")
+    .select("show, product")
+    .not("show", "is", null)
+    .range(0, 1999);
+  if (error) {
+    throw new RegistrationUnavailableError(
+      `Reading regpack_enrollments failed: ${error.message}`,
+      "website"
+    );
+  }
+  const map = new Map<string, string>();
+  for (const row of (data ?? []) as Row[]) {
+    const code = str(row.show)?.toLowerCase();
+    const product = str(row.product);
+    if (!code || !product || map.has(code)) continue;
+    const segments = product.split("|").map((s) => s.trim());
+    if (segments.length >= 2 && segments[1]) map.set(code, segments[1]);
+  }
+  return map;
+}
+
+/**
+ * Every distinct SHOW-type offering name in the order history (coded shows
+ * with their bands, plus camp-category activities). Class/coaching
+ * activities are excluded — those become hub classes, not productions.
+ */
+export async function fetchRealShowOfferings(): Promise<string[]> {
+  const db = getWebsiteReadClient();
+  const [{ data: items, error }, { data: activityRows, error: activityError }, showTitles] =
+    await Promise.all([
+      db.from("order_items").select("show, band, activity_id").range(0, 4999),
+      db.from("activities").select("id, name, category").range(0, 4999),
+      fetchShowTitleMap(),
+    ]);
+  if (error || activityError) {
+    throw new RegistrationUnavailableError(
+      `Reading order data failed: ${(error ?? activityError)!.message}`,
+      "website"
+    );
+  }
+  const activities = buildActivityMap((activityRows ?? []) as unknown as Row[]);
+  const names = new Set<string>();
+  for (const row of (items ?? []) as unknown as Row[]) {
+    const category = activities.get(Number(row.activity_id))?.category;
+    if (!str(row.show) && category !== "camp") continue; // classes/coaching: skip
+    const name = resolveOfferingName(row, showTitles, activities);
+    if (name !== "Unknown offering") names.add(name);
+  }
+  return [...names].sort();
 }
 
 /* ── cast roster (casting module bridge) ────────────────────────────────── */

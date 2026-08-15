@@ -4,7 +4,32 @@
       "Bash(npm --version)",
       "Bash(git --version)",
       "mcp__bbe479a2-3324-412d-aead-276a8b917785__apply_migration",
-      "mcp__bbe479a2-3324-412d-aead-276a8b917785__execute_sql"
+      "mcp__bbe479a2-3324-412d-aead-276a8b917785__execute_sql",
+      "mcp__claude-in-chrome__navigate",
+      "mcp__claude-in-chrome__computer",
+      "Bash(curl -s \"https://tlkuqwsqicxcjdmumkje.supabase.co/rest/v1/families?select=id&limit=1\" -H \"apikey: sb_publishable_8ar97CkK-C0YlWuOGtI_tA_mwTDVE6H\" -H \"Accept-Profile: family_hub\")",
+      "Bash(curl -s \"https://tlkuqwsqicxcjdmumkje.supabase.co/rest/v1/x?limit=1\" -H \"apikey: sb_publishable_8ar97CkK-C0YlWuOGtI_tA_mwTDVE6H\" -H \"Accept-Profile: nope\")",
+      "mcp__22e4a03e-8efa-4644-ba37-ea4917a8aedc__netlify-project-services-updater",
+      "mcp__claude-in-chrome__tabs_context_mcp",
+      "mcp__claude-in-chrome__find",
+      "mcp__claude-in-chrome__get_page_text",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://tlkuqwsqicxcjdmumkje.supabase.co/rest/v1/families?select=id&limit=1\" -H \"apikey: sb_publishable_8ar97CkK-C0YlWuOGtI_tA_mwTDVE6H\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://tlkuqwsqicxcjdmumkje.supabase.co/rest/v1/portal_users?select=user_id&limit=1\" -H \"apikey: sb_publishable_8ar97CkK-C0YlWuOGtI_tA_mwTDVE6H\" -H \"Accept-Profile: staff_portal\")",
+      "Bash(curl -s \"https://tlkuqwsqicxcjdmumkje.supabase.co/rest/v1/portal_users?select=user_id&limit=1\" -H \"apikey: sb_publishable_8ar97CkK-C0YlWuOGtI_tA_mwTDVE6H\" -H \"Accept-Profile: staff_portal\")",
+      "Bash(node scripts/e2e-supabase-rehearsal.mjs)",
+      "Bash(node scripts/e2e-supabase-rehearsal.mjs https://novapa-family-hub.netlify.app)",
+      "Bash(gh run *)",
+      "mcp__bbe479a2-3324-412d-aead-276a8b917785__get_logs",
+      "Bash(curl -s \"https://novapa-family-hub.netlify.app/api/debug-backend?token=fh-cutover-debug-7Qm2xVt9\")",
+      "PowerShell(Get-NetTCPConnection -LocalPort 3100,3101,3102,3103 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { try { Stop-Process -Id $_ -Force -Confirm:$false } catch {} }; \"cleaned\")",
+      "Bash(git commit --allow-empty -m 'Redeploy: secrets rescoped to plain runtime env vars *)",
+      "Bash(git push *)",
+      "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('base64url'\\)\\)\")",
+      "Bash(git rm *)",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Remove temporary cutover diagnostics; log the Netlify secrets discovery *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
