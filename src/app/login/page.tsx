@@ -21,11 +21,12 @@ const DEMO_ACCOUNTS = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; email?: string; welcome?: string }>;
+  searchParams: Promise<{ error?: string; email?: string; welcome?: string; next?: string }>;
 }) {
   const user = await getSessionUser();
-  if (user) redirect("/dashboard");
-  const { error, email, welcome } = await searchParams;
+  const { error, email, welcome, next } = await searchParams;
+  const nextPath = next && /^\/[a-zA-Z0-9/_-]*$/.test(next) ? next : undefined;
+  if (user) redirect(nextPath ?? "/dashboard");
   const supabaseMode = (process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") === "supabase";
 
   return (
@@ -51,6 +52,7 @@ export default async function LoginPage({
         </CardHeader>
         <CardContent>
           <form action={signInWithEmail} className="flex flex-col gap-4">
+            {nextPath && <input type="hidden" name="next" value={nextPath} />}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="email">Email</Label>
               <Input

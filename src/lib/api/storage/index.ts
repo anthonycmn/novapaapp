@@ -14,8 +14,7 @@ export type StorageBucket =
   | "family-documents"
   | "staff-photos"
   | "button-photos"
-  | "reference-photos"
-  | "curriculum";
+  | "reference-photos";
 
 export interface StoredFile {
   url: string;
@@ -190,13 +189,6 @@ export const UPLOAD_LIMITS: Record<
     maxBytes: 12 * 1024 * 1024,
     contentTypes: ["image/jpeg", "image/png", "image/webp"],
     label: "reference photo",
-  },
-  // The one PUBLIC bucket: curriculum is teaching material published to
-  // families on purpose. Everything else stays private.
-  curriculum: {
-    maxBytes: 25 * 1024 * 1024,
-    contentTypes: ["application/pdf", "image/jpeg", "image/png", "image/webp"],
-    label: "curriculum document",
   },
 };
 

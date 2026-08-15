@@ -93,6 +93,10 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim();
   if (!email) redirect("/login?error=missing-email");
 
+  // Optional post-login destination — internal paths only, never a full URL.
+  const nextRaw = String(formData.get("next") ?? "");
+  const nextPath = /^\/[a-zA-Z0-9/_-]*$/.test(nextRaw) ? nextRaw : "/dashboard";
+
   const jar = await cookies();
 
   if (isSupabaseMode()) {
@@ -128,7 +132,7 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
       maxAge: 60 * 60 * 24 * 30,
       path: "/",
     });
-    redirect("/dashboard");
+    redirect(nextPath);
   }
 
   const user = await getProvider().getUserByEmail(email);

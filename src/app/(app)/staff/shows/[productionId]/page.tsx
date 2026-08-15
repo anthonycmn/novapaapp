@@ -1,13 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BookOpen } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { canAccessShow, getShowTeam } from "@/lib/staff-shows";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExternalLinkButton } from "@/components/external-link-button";
-import { CurriculumForm } from "./curriculum-form";
 
 export const metadata = { title: "Show dashboard" };
 
@@ -42,7 +39,6 @@ export default async function ShowDashboardPage({
   const scored = roster.filter((entry) => entry.evaluations.length >= 3).length;
   const responded = responses.filter((r) => r.confirmation.respondedAt).length;
   const boardStatus = board.board.status === "submitted" ? "Casting submitted" : "Draft board";
-  const canEditCurriculum = hasRoleAtLeast(user, "admin");
 
   const castingLinks = [
     { href: `/admin/auditions/${productionId}`, title: "🎬 Audition roster", description: `${roster.length} registered · ${scored} fully scored` },
@@ -87,36 +83,7 @@ export default async function ShowDashboardPage({
         </div>
       </section>
 
-      <section aria-labelledby="curriculum-heading">
-        <h2 id="curriculum-heading" className="mb-2 text-lg font-semibold">
-          Curriculum
-        </h2>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Curriculum &amp; materials</CardTitle>
-            <CardDescription>
-              {production.curriculumUrl
-                ? "Published — visible only to the staff on this show (and admins). Families never see it."
-                : "Nothing published yet. When it's uploaded, only this show's staff and admins can open it."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 pt-0">
-            {production.curriculumUrl && (
-              <ExternalLinkButton href={`/api/curriculum/${productionId}`}>
-                <BookOpen aria-hidden className="size-4" />
-                View current curriculum
-              </ExternalLinkButton>
-            )}
-            {canEditCurriculum && (
-              <CurriculumForm
-                productionId={productionId}
-                hasExisting={Boolean(production.curriculumUrl)}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
+      {/* Curriculum lives in the STAFF PORTAL, never here (Tony, 2026-08-15). */}
       <section aria-labelledby="roster-heading">
         <h2 id="roster-heading" className="mb-2 text-lg font-semibold">
           Roster

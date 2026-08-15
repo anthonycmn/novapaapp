@@ -54,9 +54,6 @@ export default async function MyShowsPage() {
                   <span className="text-sm text-muted-foreground">
                     {enrolledCount} enrolled
                   </span>
-                  {production.curriculumUrl && (
-                    <span className="text-sm text-muted-foreground">· 📖 curriculum</span>
-                  )}
                 </div>
               </CardContent>
             </Card>
