@@ -210,3 +210,18 @@ Running log of decisions made autonomously during the build. Newest at the botto
   "never a cast list"), RLS casting_read restricts families to their
   own students' published rows, and each show/age-band is its own
   production so notifications are per-show by construction.
+
+## Family signup flow (2026-08-15)
+- The "established" signup was the website's checkout; the app itself
+  only had sign-in. /signup now covers the 439 guest-checkout families:
+  create account → Supabase confirmation email (mailer_autoconfirm is
+  OFF on novapa, so ownership is verified by the platform) → first
+  password sign-in auto-provisions the parent profile from the imported
+  guardian record with the matching email.
+- Security stance: a profile (and family data access) is only ever
+  created after a CONFIRMED email + successful password sign-in matches
+  a registered guardian. Confirmed strangers get error=no-family and no
+  profile row. 8/8 e2e-signup-rehearsal.mjs against the real backend.
+- Bulk-inviting the 439 families by email blast should wait for Resend/
+  custom SMTP (NEEDS-FROM-TONY #2) — Supabase's built-in mailer is for
+  trickle signups, not campaigns.
