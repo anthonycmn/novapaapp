@@ -152,3 +152,20 @@ Running log of decisions made autonomously during the build. Newest at the botto
 - Live-DB writes are classifier-gated in auto permission mode; the
   replay applies via MCP apply_migration with Tony's mode-switch +
   Allow (same sanctioned path as the 0013 episode).
+
+## Netlify "secret" env vars never reach the function runtime (2026-08-15)
+- Post-cutover, live login 500'd while local (same build) passed 12/12.
+  A temporary token-gated diagnostic route proved it: NEXT_PUBLIC_* all
+  correct at runtime, but SUPABASE_SERVICE_ROLE_KEY and SESSION_SECRET —
+  both stored with Netlify's "secret" flag — were entirely ABSENT from
+  process.env in deployed functions. This was latent since 8-11: mock
+  mode never read them at runtime, so it only surfaced when supabase
+  mode went live.
+- Fix: recreated them as ordinary env vars (team-visible in Netlify UI,
+  all scopes). CRON_SECRET had the same flaw and an unknowable value —
+  rotated to a fresh value as a plain var; both the scheduled function
+  and the API route read the same env so no code change was needed.
+- Also discovered NEXT_PUBLIC_DATA_MODE=supabase had actually LANDED on
+  8-12 (believed blocked) — the live site had been silently building in
+  supabase mode against the frozen project. The cutover turned that
+  from a landmine into the intended configuration.
