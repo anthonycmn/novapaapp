@@ -192,3 +192,21 @@ Running log of decisions made autonomously during the build. Newest at the botto
   match any camper record.
 - Demo world coexists (3 demo families, demo staff/lessons) until the
   demo teardown decision.
+
+## Demo world wiped (2026-08-15, Tony: "WIPE THE DEMO DATA - GO")
+- scripts/wipe-demo-data.ts, anchored (families without a website
+  link; @example.com auth users; every season except the real one) and
+  asserted before deleting. Gone: 3 demo families, 8 demo accounts,
+  Frozen Jr. / Little Mermaid Jr. demo productions, 4 demo staff,
+  demo lessons/products/templates/reviews/invites.
+- Remaining is real only: 769 families, 907 students, 330 profiles,
+  225 enrollments, 24 productions. Tony's anthonycmn@gmail.com is
+  super_admin.
+- Knock-ons: demo logins are dead (e2e rehearsal needs new fixtures);
+  no staff profiles or store products exist until real ones are added;
+  439 guest-checkout families still need a signup flow.
+- Casting privacy re-verified at Tony's ask: submit notifies only the
+  cast student's own family with only that child's role (provider.ts
+  "never a cast list"), RLS casting_read restricts families to their
+  own students' published rows, and each show/age-band is its own
+  production so notifications are per-show by construction.
