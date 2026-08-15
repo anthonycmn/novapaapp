@@ -1,10 +1,26 @@
 -- ─────────────────────────────────────────────────────────────────────────
+-- SCHEMA OWNERSHIP. Everything below belongs to `family_hub`, the family
+-- hub's own schema — never `public`, which is the website's and sits behind
+-- live checkout (its `families` table is a different table with 772 rows in
+-- it). Unqualified CREATEs land in the first schema on the search_path, so
+-- this header is what keeps them out of Jason's way on any replay route:
+-- `supabase db push`, the SQL editor, or a rebuild into a fresh project.
+-- The app and every script are pinned to the same schema.
+--
+-- `extensions` and NOT `public` as the second entry, matching what is already
+-- deployed: it means nothing here can resolve an unqualified name into the
+-- website's schema even by accident, while pgcrypto stays reachable.
+-- ─────────────────────────────────────────────────────────────────────────
+create schema if not exists family_hub;
+set search_path = family_hub, extensions;
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- 0001_foundation.sql — roles, profiles, families, students, RLS baseline
 -- NOVA PA Family Hub. Applied with `supabase db push` once the project
 -- exists (NEEDS-FROM-TONY.md #1). The mock adapter mirrors these rules.
 -- ─────────────────────────────────────────────────────────────────────────
 
-create extension if not exists "pgcrypto";
+create extension if not exists "pgcrypto" with schema extensions;
 
 -- App roles. Stored on profiles; RLS policies key off helper functions.
 create type app_role as enum ('parent', 'student', 'staff', 'admin', 'super_admin');
@@ -102,22 +118,22 @@ create table hopes_entries (
 -- ─────────────────────────────────────────────────────────────────────────
 
 create or replace function auth_role() returns app_role
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = family_hub, extensions as $$
   select role from profiles where id = auth.uid()
 $$;
 
 create or replace function auth_family_id() returns uuid
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = family_hub, extensions as $$
   select family_id from profiles where id = auth.uid()
 $$;
 
 create or replace function is_staffish() returns boolean
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = family_hub, extensions as $$
   select auth_role() in ('staff', 'admin', 'super_admin')
 $$;
 
 create or replace function is_admin() returns boolean
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = family_hub, extensions as $$
   select auth_role() in ('admin', 'super_admin')
 $$;
 

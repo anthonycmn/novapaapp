@@ -1,4 +1,20 @@
 -- ─────────────────────────────────────────────────────────────────────────
+-- SCHEMA OWNERSHIP. Everything below belongs to `family_hub`, the family
+-- hub's own schema — never `public`, which is the website's and sits behind
+-- live checkout (its `families` table is a different table with 772 rows in
+-- it). Unqualified CREATEs land in the first schema on the search_path, so
+-- this header is what keeps them out of Jason's way on any replay route:
+-- `supabase db push`, the SQL editor, or a rebuild into a fresh project.
+-- The app and every script are pinned to the same schema.
+--
+-- `extensions` and NOT `public` as the second entry, matching what is already
+-- deployed: it means nothing here can resolve an unqualified name into the
+-- website's schema even by accident, while pgcrypto stays reachable.
+-- ─────────────────────────────────────────────────────────────────────────
+create schema if not exists family_hub;
+set search_path = family_hub, extensions;
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- 0003_schedule_forms.sql — calendar events, iCal tokens, health forms,
 -- early drop-off / late pick-up requests.
 -- ─────────────────────────────────────────────────────────────────────────
@@ -250,7 +266,7 @@ create policy email_prefs_write on email_preferences
 -- job reading health_forms_expiry_idx (see scripts/ and NEEDS-FROM-TONY #2).
 create or replace function health_forms_expiring(days_ahead int)
 returns table (student_id uuid, family_id uuid, expires_on date)
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = family_hub, extensions as $$
   select hf.student_id, s.family_id, hf.expires_on
   from health_forms hf
   join students s on s.id = hf.student_id

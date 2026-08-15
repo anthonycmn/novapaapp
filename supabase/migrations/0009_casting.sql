@@ -1,4 +1,20 @@
 -- ─────────────────────────────────────────────────────────────────────────
+-- SCHEMA OWNERSHIP. Everything below belongs to `family_hub`, the family
+-- hub's own schema — never `public`, which is the website's and sits behind
+-- live checkout (its `families` table is a different table with 772 rows in
+-- it). Unqualified CREATEs land in the first schema on the search_path, so
+-- this header is what keeps them out of Jason's way on any replay route:
+-- `supabase db push`, the SQL editor, or a rebuild into a fresh project.
+-- The app and every script are pinned to the same schema.
+--
+-- `extensions` and NOT `public` as the second entry, matching what is already
+-- deployed: it means nothing here can resolve an unqualified name into the
+-- website's schema even by accident, while pgcrypto stays reachable.
+-- ─────────────────────────────────────────────────────────────────────────
+create schema if not exists family_hub;
+set search_path = family_hub, extensions;
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- 0009_casting.sql — audition & casting v2: show roles, audition profiles,
 -- teacher rubric evaluations, casting boards (with understudies),
 -- confirmations, scene/song mapping, and rehearsal-notice bookkeeping.

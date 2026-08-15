@@ -1,4 +1,20 @@
 -- ─────────────────────────────────────────────────────────────────────────
+-- SCHEMA OWNERSHIP. Everything below belongs to `family_hub`, the family
+-- hub's own schema — never `public`, which is the website's and sits behind
+-- live checkout (its `families` table is a different table with 772 rows in
+-- it). Unqualified CREATEs land in the first schema on the search_path, so
+-- this header is what keeps them out of Jason's way on any replay route:
+-- `supabase db push`, the SQL editor, or a rebuild into a fresh project.
+-- The app and every script are pinned to the same schema.
+--
+-- `extensions` and NOT `public` as the second entry, matching what is already
+-- deployed: it means nothing here can resolve an unqualified name into the
+-- website's schema even by accident, while pgcrypto stays reachable.
+-- ─────────────────────────────────────────────────────────────────────────
+create schema if not exists family_hub;
+set search_path = family_hub, extensions;
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- 0006_photos.sql — SmugMug galleries, face embeddings (pgvector), matches,
 -- and the consent audit trail (#6).
 --
@@ -100,7 +116,7 @@ create table face_consent_events (
 -- ─────────────────────────────────────────────────────────────────────────
 create or replace function revoke_face_consent(target_student uuid)
 returns table (embeddings_deleted int, matches_deleted int, reference_photos_deleted int)
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = family_hub, extensions as $$
 declare
   emb_count int;
   match_count int;
@@ -145,7 +161,7 @@ $$;
 -- Safety net: if a student's consent flag is ever turned off by any other
 -- path, the derived biometric data goes with it.
 create or replace function purge_face_data_on_consent_off() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = family_hub, extensions as $$
 begin
   if old.consent_face_matching and not new.consent_face_matching then
     delete from face_embeddings where student_id = new.id;

@@ -1,4 +1,20 @@
 -- ─────────────────────────────────────────────────────────────────────────
+-- SCHEMA OWNERSHIP. Everything below belongs to `family_hub`, the family
+-- hub's own schema — never `public`, which is the website's and sits behind
+-- live checkout (its `families` table is a different table with 772 rows in
+-- it). Unqualified CREATEs land in the first schema on the search_path, so
+-- this header is what keeps them out of Jason's way on any replay route:
+-- `supabase db push`, the SQL editor, or a rebuild into a fresh project.
+-- The app and every script are pinned to the same schema.
+--
+-- `extensions` and NOT `public` as the second entry, matching what is already
+-- deployed: it means nothing here can resolve an unqualified name into the
+-- website's schema even by accident, while pgcrypto stays reachable.
+-- ─────────────────────────────────────────────────────────────────────────
+create schema if not exists family_hub;
+set search_path = family_hub, extensions;
+
+-- ─────────────────────────────────────────────────────────────────────────
 -- 0002_catalog.sql — seasons, programs, classes, productions, enrollments,
 -- casting, show history, staff profiles, staff program assignments.
 -- ─────────────────────────────────────────────────────────────────────────
@@ -137,7 +153,7 @@ create policy staff_profiles_update_own on staff_profiles
 
 -- Enrollments: own family, or staff assigned to the program, or admin.
 create or replace function staff_has_program(target_program uuid) returns boolean
-language sql stable security definer set search_path = public as $$
+language sql stable security definer set search_path = family_hub, extensions as $$
   select exists (
     select 1
     from staff_program_assignments spa
@@ -211,7 +227,7 @@ create policy spa_write on staff_program_assignments
 
 -- Auto-append show history when casting is published.
 create or replace function on_casting_published() returns trigger
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = family_hub, extensions as $$
 begin
   if new.published_at is not null and (old.published_at is null or tg_op = 'INSERT') then
     insert into show_history (student_id, production_title, role, season_name, from_casting, year)
