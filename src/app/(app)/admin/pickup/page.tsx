@@ -18,9 +18,15 @@ export default async function PickupAdminPage() {
   const requests = await provider.getPickupRequestsForStaff(user.id);
 
   // Student names for display — staff can read all students.
-  const { students } = await import("@/lib/api/mock/seed-data");
+  const students = await Promise.all(
+    [...new Set(requests.map((r) => r.studentId))].map((id) =>
+      provider.getStudent(user.id, id)
+    )
+  );
   const nameById = new Map(
-    students.map((s) => [s.id, `${s.preferredName ?? s.firstName} ${s.lastName}`])
+    students
+      .filter((s): s is NonNullable<typeof s> => s !== null)
+      .map((s) => [s.id, `${s.preferredName ?? s.firstName} ${s.lastName}`.trim()])
   );
 
   const pending = requests.filter((r) => r.status === "pending");

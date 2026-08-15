@@ -97,7 +97,11 @@ export default async function DashboardPage() {
         />
       )}
 
-      <UpcomingEvents />
+      <UpcomingEvents
+        actorId={user.id}
+        familyId={user.familyId}
+        isStaff={isStaff}
+      />
 
       <FeatureGrid isStaff={isStaff} />
 
@@ -132,11 +136,26 @@ export default async function DashboardPage() {
   );
 }
 
-async function UpcomingEvents() {
-  // Phase 0: shows the seeded events; Phase 3 replaces this with the full
-  // per-family aggregated calendar.
-  const { events } = await import("@/lib/api/mock/seed-data");
-  const upcoming: CalendarEvent[] = [...events]
+async function UpcomingEvents({
+  actorId,
+  familyId,
+  isStaff,
+}: {
+  actorId: string;
+  familyId?: string;
+  isStaff: boolean;
+}) {
+  // The family's own calendar (their enrollments only); staff without a
+  // family see the org-wide schedule.
+  const provider = getProvider();
+  const events: CalendarEvent[] = familyId
+    ? await provider.getFamilyCalendar(actorId, familyId)
+    : isStaff
+      ? await provider.getAllEvents(actorId)
+      : [];
+  const now = new Date().toISOString();
+  const upcoming: CalendarEvent[] = events
+    .filter((event) => event.endsAt >= now)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
     .slice(0, 3);
 
