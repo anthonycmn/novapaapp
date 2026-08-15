@@ -55,7 +55,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         "order_items",
         "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, created_at)"
       ),
-      this.selectAll("activities", "id, name, category"),
+      this.selectAll("activities", "id, name, category, age_range"),
       fetchShowTitleMap(),
     ]);
     const activities = buildActivityMap(activityRows);
@@ -186,6 +186,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
 export interface ActivityInfo {
   name: string;
   category?: string;
+  ageRange?: string;
 }
 
 /** The website declares no FK between order_items and activities, so the join is client-side. */
@@ -194,9 +195,17 @@ export function buildActivityMap(rows: Row[]): Map<number, ActivityInfo> {
   for (const row of rows) {
     const id = typeof row.id === "number" ? row.id : Number(row.id);
     const name = str(row.name);
-    if (Number.isFinite(id) && name) map.set(id, { name, category: str(row.category) });
+    if (Number.isFinite(id) && name) {
+      map.set(id, { name, category: str(row.category), ageRange: str(row.age_range) });
+    }
   }
   return map;
+}
+
+/** The display/matching name for a class-type activity — the age range
+ *  disambiguates same-named sections (two "Acting" classes). */
+export function classOfferingName(activity: ActivityInfo): string {
+  return activity.ageRange ? `${activity.name} (${activity.ageRange})` : activity.name;
 }
 
 export function resolveOfferingName(
@@ -211,7 +220,10 @@ export function resolveOfferingName(
     return band ? `${title} (${band})` : title;
   }
   const activity = activities.get(Number(row.activity_id));
-  return activity?.name ?? "Unknown offering";
+  if (!activity) return "Unknown offering";
+  return activity.category === "class" || activity.category === "coaching"
+    ? classOfferingName(activity)
+    : activity.name;
 }
 
 /** show code → title, from regpack products like "Broadway Bound | Charlie and the Chocolate Factory | Grades K-9". */
@@ -249,7 +261,7 @@ export async function fetchRealShowOfferings(): Promise<string[]> {
   const [{ data: items, error }, { data: activityRows, error: activityError }, showTitles] =
     await Promise.all([
       db.from("order_items").select("show, band, activity_id").range(0, 4999),
-      db.from("activities").select("id, name, category").range(0, 4999),
+      db.from("activities").select("id, name, category, age_range").range(0, 4999),
       fetchShowTitleMap(),
     ]);
   if (error || activityError) {
