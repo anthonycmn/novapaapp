@@ -120,6 +120,106 @@ describe("reconciliation (pure)", () => {
     expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
   });
 
+  /* ── coaching: the staff portal's, resolved through its catalog ────────── */
+
+  const coachingSnapshot = (activityId: number | undefined) => ({
+    source: "website" as const,
+    fetchedAt: "2026-08-15T12:00:00.000Z",
+    accounts: [
+      {
+        externalId: "a1",
+        source: "website" as const,
+        guardianName: "Sofia Martinez",
+        email: "sofia@example.com",
+      },
+    ],
+    participants: [
+      {
+        externalId: "p1",
+        accountExternalId: "a1",
+        firstName: "Ava",
+        lastName: "Martinez",
+        dateOfBirth: "2015-03-12",
+      },
+    ],
+    enrollments: [
+      {
+        externalId: "e-coach",
+        source: "website" as const,
+        participantExternalId: "p1",
+        accountExternalId: "a1",
+        // Matches no production and no class, by design — coaching is neither.
+        offeringName: "10-Pack Acting Coaching Sessions",
+        offeringCategory: "coaching",
+        offeringActivityId: activityId,
+        status: "enrolled" as const,
+        balanceCents: 0,
+        amountPaidCents: 105000,
+        enrolledAt: "2026-08-01T00:00:00.000Z",
+      },
+    ],
+  });
+
+  it("resolves a coaching purchase against the staff portal's catalog", () => {
+    const plan = reconcile({
+      ...reconcileInput(coachingSnapshot(970404)),
+      coachingActivityIds: new Set([970404]),
+    });
+    expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0].coachingActivityId).toBe(970404);
+    // It is coaching, so it is neither a class nor a production.
+    expect(plan.creates[0].classId).toBeUndefined();
+    expect(plan.creates[0].productionId).toBeUndefined();
+  });
+
+  it("still refuses to guess a coaching offering the portal does not list", () => {
+    // Category says coaching, but the portal's catalog has never heard of it.
+    // The whole point of the catalog is that this stays a visible issue.
+    const plan = reconcile({
+      ...reconcileInput(coachingSnapshot(999999)),
+      coachingActivityIds: new Set([970404]),
+    });
+    expect(plan.creates).toHaveLength(0);
+    const issues = plan.issues.filter((i) => i.kind === "unknown_offering");
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toMatch(/coaching catalog/i);
+  });
+
+  it("degrades to the old behaviour when the portal catalog is unreachable", () => {
+    // fetchCoachingActivityIds() returns an empty set rather than throwing, so
+    // a portal outage must not silently attach coaching to the wrong thing.
+    const plan = reconcile(reconcileInput(coachingSnapshot(970404)));
+    expect(plan.creates).toHaveLength(0);
+    expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(1);
+  });
+
+  it("does not create a duplicate coaching enrolment on a second run", () => {
+    const input = {
+      ...reconcileInput(coachingSnapshot(970404)),
+      coachingActivityIds: new Set([970404]),
+    };
+    const first = reconcile(input);
+    expect(first.counts.enrollmentsCreated).toBe(1);
+
+    const studentId = first.creates[0].studentId;
+    const second = reconcile({
+      ...input,
+      enrollments: [
+        {
+          id: "existing",
+          studentId,
+          coachingActivityId: 970404,
+          status: "enrolled" as const,
+          balanceCents: 0,
+          source: "registration_portal" as const,
+          createdAt: "2026-08-01T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(second.counts.enrollmentsCreated).toBe(0);
+  });
+
   it("does not match a participant into the wrong family", () => {
     const snapshot = {
       source: "mock" as const,

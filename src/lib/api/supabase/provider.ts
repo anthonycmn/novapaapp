@@ -68,6 +68,7 @@ import type {
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
 import { getFaceMatchProvider } from "../photos/face-provider";
 import { reconcile } from "../registration/reconcile";
+import { fetchCoachingActivityIds } from "../registration/website";
 import type {
   AccountLink,
   RegistrationSnapshot,
@@ -1632,7 +1633,8 @@ class SupabaseDataProvider {
     const startedAt = new Date().toISOString();
 
     const [{ data: familiesRows }, { data: guardiansRows }, { data: studentsRows },
-      { data: enrollmentsRows }, productions, classes, { data: linksRows }] =
+      { data: enrollmentsRows }, productions, classes, { data: linksRows },
+      coachingActivityIds] =
       await Promise.all([
         this.db.from("families").select("*"),
         this.db.from("guardians").select("*"),
@@ -1641,6 +1643,10 @@ class SupabaseDataProvider {
         this.getProductions(),
         this.getClasses(),
         this.db.from("registration_account_links").select("*"),
+        // Coaching is the staff portal's; this is the only thing that lets a
+        // coaching purchase resolve. Failing soft to an empty set degrades to
+        // the old behaviour rather than taking the whole sync down.
+        fetchCoachingActivityIds(),
       ]);
 
     // The reconcile plan is pure and identical to the mock's.
@@ -1653,6 +1659,7 @@ class SupabaseDataProvider {
       productions,
       classes,
       links: (linksRows ?? []).map((l) => this.mapAccountLink(l)),
+      coachingActivityIds,
     });
 
     for (const link of plan.autoLinks) {
@@ -1670,6 +1677,7 @@ class SupabaseDataProvider {
         student_id: create.studentId,
         class_id: create.classId ?? null,
         production_id: create.productionId ?? null,
+        coaching_activity_id: create.coachingActivityId ?? null,
         status: create.status,
         balance_cents: create.balanceCents,
         source: "registration_portal",
@@ -2455,6 +2463,8 @@ class SupabaseDataProvider {
       studentId: String(row.student_id),
       classId: s(row.class_id),
       productionId: s(row.production_id),
+      coachingActivityId:
+        row.coaching_activity_id == null ? undefined : Number(row.coaching_activity_id),
       status: row.status as Enrollment["status"],
       balanceCents: Number(row.balance_cents ?? 0),
       source: (row.source ?? "manual") as Enrollment["source"],

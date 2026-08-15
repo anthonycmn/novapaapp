@@ -174,9 +174,15 @@ export interface Production {
 export interface Enrollment {
   id: string;
   studentId: string;
-  /** Enrolled in a class or a production (exactly one set). */
+  /** Enrolled in a class, a production, or coaching (exactly one set). */
   classId?: string;
   productionId?: string;
+  /**
+   * A coaching package, keyed by the website activity id. Coaching lives in
+   * the staff portal; the hub only records that this family bought it, and
+   * resolves the name and price through `staff_portal.v_coaching_catalog`.
+   */
+  coachingActivityId?: number;
   status: "enrolled" | "waitlisted" | "withdrawn";
   balanceCents: number;
   source: "registration_portal" | "manual";

@@ -5,7 +5,38 @@ import type {
   ExternalParticipant,
   RegistrationSnapshot,
 } from "./types";
-import { getWebsiteReadClient } from "../supabase/client";
+import { getWebsiteReadClient, getPortalReadClient } from "../supabase/client";
+
+/**
+ * The staff portal's coaching catalog: the website activity ids it publishes
+ * as coaching services (`staff_portal.v_coaching_catalog`, migration 0087).
+ *
+ * Coaching is the portal's business and stays there — the hub reads this only
+ * so a family's own coaching purchase can resolve to something instead of
+ * failing as an unknown offering. The view is a PRICE LIST: no client, no
+ * child, no session note, so nothing here crosses the portal's Chief-only
+ * coaching data.
+ *
+ * Returns an empty set if the view is unreachable, which degrades to exactly
+ * the old behaviour — coaching reported as unmatched rather than guessed at.
+ */
+export async function fetchCoachingActivityIds(): Promise<Set<number>> {
+  try {
+    const { data, error } = await getPortalReadClient()
+      .from("v_coaching_catalog")
+      .select("activity_id")
+      .eq("is_active", true);
+    if (error) throw error;
+    const ids = new Set<number>();
+    for (const row of data ?? []) {
+      const id = (row as { activity_id: unknown }).activity_id;
+      if (typeof id === "number") ids.add(id);
+    }
+    return ids;
+  } catch {
+    return new Set<number>();
+  }
+}
 
 /**
  * The REAL registration adapter: reads the org's own registration system
@@ -114,6 +145,11 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
       const familyId = email ? familyByEmail.get(email) : undefined;
       if (!familyId) continue; // reconcile reports the account as unmatched
       const offeringName = resolveOfferingName(row, showTitles, activities);
+      const activityId =
+        typeof row.activity_id === "number" ? row.activity_id : undefined;
+      const offeringCategory = activityId
+        ? activities.get(activityId)?.category
+        : undefined;
       const camperName = str(row.camper_name);
       const participantId =
         (camperName && camperByFamilyName.get(`${familyId}:${normalize(camperName)}`)) ??
@@ -137,6 +173,8 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         participantExternalId: participantId,
         accountExternalId: familyId,
         offeringName,
+        offeringCategory,
+        offeringActivityId: activityId,
         status,
         balanceCents: Math.round(orderBalance * share),
         amountPaidCents: Math.round(num(order.amount_today_cents) * share),

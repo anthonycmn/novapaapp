@@ -36,6 +36,7 @@ export { CustomPortalRegistrationProvider, mapSnapshot } from "./custom";
 export {
   WebsiteDbRegistrationProvider,
   fetchWebsiteCastRoster,
+  fetchCoachingActivityIds,
   type WebsiteCastRosterEntry,
 } from "./website";
 export { RegistrationUnavailableError } from "./provider";

@@ -34,6 +34,14 @@ export interface ExternalEnrollment {
   offeringName: string;
   /** Sawyer activity-set id, when known — enables deep linking. */
   activitySetId?: string;
+  /**
+   * The website's `activities.category` for this purchase — "class", "camp",
+   * "performance" or "coaching". Coaching is neither a production nor a class
+   * and resolves against the staff portal's catalog instead; see reconcile.
+   */
+  offeringCategory?: string;
+  /** The website's `activities.id`, the key both systems agree on. */
+  offeringActivityId?: number;
   status: "enrolled" | "waitlisted" | "cancelled";
   /** Outstanding balance in cents (0 when paid in full). */
   balanceCents: number;

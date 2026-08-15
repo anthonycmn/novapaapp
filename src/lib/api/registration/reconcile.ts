@@ -37,12 +37,21 @@ export interface ReconcileInput {
   productions: Production[];
   classes: ClassOffering[];
   links: AccountLink[];
+  /**
+   * Website activity ids the STAFF PORTAL publishes as coaching, from
+   * `staff_portal.v_coaching_catalog`. Coaching is the portal's business and
+   * has no production or class here, so this is the only thing that lets a
+   * coaching purchase resolve. Absent (or empty) and coaching behaves exactly
+   * as it did before: reported as an unknown offering rather than guessed at.
+   */
+  coachingActivityIds?: ReadonlySet<number>;
 }
 
 export interface PlannedEnrollment {
   studentId: string;
   productionId?: string;
   classId?: string;
+  coachingActivityId?: number;
   balanceCents: number;
   status: Enrollment["status"];
   externalId: string;
@@ -189,9 +198,16 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
   // no-op rather than creating duplicates.
   const existingByKey = new Map<string, Enrollment>();
   for (const enrollment of input.enrollments) {
-    const target = enrollment.productionId ?? enrollment.classId ?? "";
+    const target =
+      enrollment.productionId ??
+      enrollment.classId ??
+      (enrollment.coachingActivityId != null
+        ? `coaching:${enrollment.coachingActivityId}`
+        : "");
     existingByKey.set(`${enrollment.studentId}::${target}`, enrollment);
   }
+
+  const coachingIds = input.coachingActivityIds ?? new Set<number>();
 
   for (const external of snapshot.enrollments) {
     const studentId = studentByParticipantId.get(external.participantExternalId);
@@ -201,11 +217,28 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     const productionId = productionByName.get(offeringKey);
     const classId = productionId ? undefined : classByName.get(offeringKey);
 
-    if (!productionId && !classId) {
+    // Coaching belongs to the staff portal, not here. It has no production and
+    // no class, so it resolves against the portal's published catalog by the
+    // activity id both systems key on — never by name, and never by guessing
+    // from the category alone: an activity the portal does not list stays an
+    // unknown offering, which is the whole point of the catalog.
+    const coachingActivityId =
+      !productionId &&
+      !classId &&
+      external.offeringCategory === "coaching" &&
+      external.offeringActivityId != null &&
+      coachingIds.has(external.offeringActivityId)
+        ? external.offeringActivityId
+        : undefined;
+
+    if (!productionId && !classId && coachingActivityId == null) {
       plan.issues.push({
         kind: "unknown_offering",
         externalId: external.externalId,
-        message: `"${external.offeringName}" doesn't match any production or class in the app. Add it, or map it manually.`,
+        message:
+          external.offeringCategory === "coaching"
+            ? `"${external.offeringName}" is coaching, but the staff portal's coaching catalog doesn't list it. Add it there (staff_portal.coaching_service_menu) and it will map on the next sync.`
+            : `"${external.offeringName}" doesn't match any production or class in the app. Add it, or map it manually.`,
       });
       continue;
     }
@@ -217,13 +250,16 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
           ? "waitlisted"
           : "enrolled";
 
-    const existing = existingByKey.get(`${studentId}::${productionId ?? classId}`);
+    const targetKey =
+      productionId ?? classId ?? `coaching:${coachingActivityId}`;
+    const existing = existingByKey.get(`${studentId}::${targetKey}`);
 
     if (!existing) {
       plan.creates.push({
         studentId,
         productionId,
         classId,
+        coachingActivityId,
         balanceCents: external.balanceCents,
         status,
         externalId: external.externalId,
