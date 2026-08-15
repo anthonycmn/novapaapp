@@ -225,3 +225,28 @@ Running log of decisions made autonomously during the build. Newest at the botto
 - Bulk-inviting the 439 families by email blast should wait for Resend/
   custom SMTP (NEEDS-FROM-TONY #2) — Supabase's built-in mailer is for
   trickle signups, not campaigns.
+
+## 2026-08-15 — Casting tools move INTO the staff portal (Tony)
+
+- Tony: "build the casting tools not as a link — build it so that it
+  lives in the staff portal and communicates with the student/parent
+  portal." The staff portal now has its own show dashboard
+  (/show/:productionId, from My shows or Productions) with the live
+  roster, production team, curriculum link, and a native casting board.
+- No sync was built, on purpose: the portal reads and writes the SAME
+  family_hub tables this app uses (casting_boards, show_roles,
+  casting_assignments, casting_confirmations), over PostgREST with the
+  signed-in user's own token — the app's is_staffish() RLS judges every
+  write. A role assigned in the portal simply is the app's truth.
+- Two steps could not ride RLS: submit-casting and publish-understudies
+  write notifications for other users (notifications has no INSERT
+  policy, deliberately) and should be atomic. Migration 0022 adds
+  SECURITY DEFINER RPCs portal_submit_casting / portal_publish_
+  understudies that mirror the provider's semantics exactly: the
+  every-student-has-a-role gate, cast_group only for ensemble, the
+  load-bearing "(Understudy)" suffix, per-family per-child notification
+  wording, one shared timestamp — but inside a real transaction, which
+  the app's own loop never had. show_history still comes from
+  casting_published_trigger; the RPCs never write it.
+- The app's own casting pages are untouched and keep working; the two
+  tools are two doors into one room.
