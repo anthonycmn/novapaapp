@@ -236,6 +236,7 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
   /* 1. Compute the desired portal-sourced event set. */
   const desired = new Map<string, DesiredEvent>();
   const hubProdsByPortalId = new Map<string, string[]>();
+  const reverseCurriculum = new Map<string, string>(); // portal prod → hub prod
   let curriculumSynced = 0;
 
   for (const hp of hubProds ?? []) {
@@ -251,12 +252,22 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
 
     // Curriculum: the HUB is the authoring home (super admins upload it in
     // the app); the portal's link only fills an empty slot, never overwrites.
+    // Skip links that point back at our own gated route — those exist only
+    // because the reverse fill below wrote them into the portal.
     const portalCurriculum = pp.curriculum_url ? String(pp.curriculum_url) : null;
-    if (portalCurriculum && !hp.curriculum_url) {
+    if (
+      portalCurriculum &&
+      !hp.curriculum_url &&
+      !portalCurriculum.includes("/api/curriculum/")
+    ) {
       const { error } = await hub
         .from("productions").update({ curriculum_url: portalCurriculum }).eq("id", hubProdId);
       if (error) throw new Error(`curriculum update: ${error.message}`);
       curriculumSynced++;
+    }
+    // Reverse fill (hub → portal), collected here and written after the loop.
+    if (!portalCurriculum && hp.curriculum_url && !reverseCurriculum.has(String(pp.id))) {
+      reverseCurriculum.set(String(pp.id), hubProdId);
     }
 
     for (const slot of (slots ?? []).filter((s) => s.production_id === pp.id)) {
@@ -419,6 +430,23 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     const { error } = await hub.from("calendar_events").delete().eq("id", e.id);
     if (error) throw new Error(`remove: ${error.message}`);
     removed++;
+  }
+
+  /* Reverse curriculum fill — THE ONE WRITE THE BRIDGE MAKES INTO THE
+   * PORTAL, at Tony's request (2026-08-15): when a curriculum is published
+   * in the hub and the portal's curriculum_url for that production is
+   * EMPTY, fill it with the hub's staff-gated link so the portal's
+   * "My Shows" page shows it. Never overwrites a portal-authored value;
+   * touches no other portal column, ever. */
+  const site = process.env.URL ?? "https://novapa-family-hub.netlify.app";
+  for (const [portalProdId, hubProdId] of reverseCurriculum) {
+    const { error } = await portal
+      .from("productions")
+      .update({ curriculum_url: `${site}/api/curriculum/${hubProdId}` })
+      .eq("id", portalProdId)
+      .is("curriculum_url", null);
+    if (error) throw new Error(`portal curriculum fill: ${error.message}`);
+    curriculumSynced++;
   }
 
   const staffAssignmentsSynced = await syncProductionStaff(hubProdsByPortalId);

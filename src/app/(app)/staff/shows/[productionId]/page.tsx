@@ -96,13 +96,13 @@ export default async function ShowDashboardPage({
             <CardTitle className="text-base">Curriculum &amp; materials</CardTitle>
             <CardDescription>
               {production.curriculumUrl
-                ? "Published — families see this on the show page."
-                : "Nothing published yet. Families will see it on the show page the moment it's uploaded."}
+                ? "Published — visible only to the staff on this show (and admins). Families never see it."
+                : "Nothing published yet. When it's uploaded, only this show's staff and admins can open it."}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pt-0">
             {production.curriculumUrl && (
-              <ExternalLinkButton href={production.curriculumUrl}>
+              <ExternalLinkButton href={`/api/curriculum/${productionId}`}>
                 <BookOpen aria-hidden className="size-4" />
                 View current curriculum
               </ExternalLinkButton>

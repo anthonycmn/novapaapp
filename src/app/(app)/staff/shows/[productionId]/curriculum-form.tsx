@@ -51,7 +51,7 @@ export function CurriculumForm({
       )}
       {state.ok && (
         <p role="status" className="text-sm text-primary">
-          Published — it&apos;s live on the show page.
+          Published — this show&apos;s staff can open it now.
         </p>
       )}
       <Button type="submit" disabled={pending}>

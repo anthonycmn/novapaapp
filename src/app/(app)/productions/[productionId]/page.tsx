@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BookOpen, Ticket } from "lucide-react";
+import { Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
@@ -58,23 +58,6 @@ export default async function ProductionPage({
           </ExternalLinkButton>
         </CardContent>
       </Card>
-
-      {production.curriculumUrl && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Curriculum &amp; materials</CardTitle>
-            <CardDescription>
-              What your performer will learn and work on this season.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ExternalLinkButton href={production.curriculumUrl}>
-              <BookOpen aria-hidden className="size-4" />
-              View the curriculum
-            </ExternalLinkButton>
-          </CardContent>
-        </Card>
-      )}
 
       {templates.length > 0 && (
         <Card>
