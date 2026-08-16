@@ -1,0 +1,14 @@
+-- 0032 — staff bio/headshot approvals from the staff portal.
+-- (Applied to novapa as family_hub_0032_portal_staff_profile_review;
+-- the applied migration is canonical, this file is the repo record.)
+--
+-- portal_review_staff_profile(p_staff, p_approve, p_reason):
+--   approve → merge pending_changes keys (bio/title/credits/photoUrl/
+--   specialties) into the row, is_published = true, clear pending +
+--   rejection, notify the owner 'Your profile is live' → /staff/<id>.
+--   reject → requires a reason; clear pending, record change_rejection,
+--   notify 'Profile changes need another pass' → /staff/edit.
+-- Admin-only (coalesce(is_admin(), false) guard), anon revoked (42501
+-- verified). Wording and semantics copied from the parent portal's
+-- approveStaffChanges / rejectStaffChanges. Body identical to the applied
+-- migration.
