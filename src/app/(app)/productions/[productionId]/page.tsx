@@ -14,6 +14,7 @@ import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-ema
 import { RehearsalTracks } from "@/components/productions/rehearsal-tracks";
 import { ScenesAndSongs } from "@/components/productions/scenes-and-songs";
 import { ScheduleRail } from "@/components/productions/schedule-rail";
+import { ShowFeed } from "@/components/productions/show-feed";
 
 export const metadata = { title: "Production" };
 
@@ -127,6 +128,13 @@ export default async function ProductionPage({
       <div className="grid gap-4 lg:grid-cols-3">
         {/* ---- Left: what a parent reads ---- */}
         <div className="flex flex-col gap-4 lg:col-span-2">
+          <ShowFeed
+            productionId={production.id}
+            productionTitle={production.title}
+            userId={user.id}
+            isStaff={hasRoleAtLeast(user, "staff")}
+          />
+
           {isSweeney && <RehearsalTracks />}
 
           <Card pad={false}>
