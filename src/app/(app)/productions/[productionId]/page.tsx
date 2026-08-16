@@ -1,16 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, Bell, Images, Megaphone, ShoppingBag, Ticket } from "lucide-react";
+import { ArrowRight, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import type { CalendarEvent } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
-import { Avatar } from "@/components/ui/avatar";
-import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
+import { ShowPhotos } from "@/components/productions/show-photos";
 import { RehearsalTracks } from "@/components/productions/rehearsal-tracks";
 import { ScenesAndSongs } from "@/components/productions/scenes-and-songs";
 import { ScheduleRail } from "@/components/productions/schedule-rail";
@@ -41,9 +40,8 @@ export default async function ProductionPage({
   const production = await provider.getProduction(productionId);
   if (!production) notFound();
 
-  const [staff, templates, allEvents] = await Promise.all([
+  const [staff, allEvents] = await Promise.all([
     provider.getStaffProfiles(),
-    provider.getButtonTemplates(productionId),
     user.familyId
       ? provider.getFamilyCalendar(user.id, user.familyId)
       : hasRoleAtLeast(user, "staff")
@@ -137,71 +135,17 @@ export default async function ProductionPage({
 
           {isSweeney && <RehearsalTracks />}
 
-          <Card pad={false}>
-            <SectionHeader title="Keeping up with the show" inCard />
-            <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-4">
-              <Tile
-                href="/feed"
-                Icon={Megaphone}
-                title="Live updates"
-                body="Posts from the directors, and answers to what families ask"
-              />
-              <Tile
-                href="/photos"
-                Icon={Images}
-                title="Photos"
-                body="Rehearsal and performance galleries"
-              />
-              <Tile
-                href="/store"
-                Icon={ShoppingBag}
-                title="Buttons & star pages"
-                body={
-                  templates.length > 0
-                    ? "Design a spirit button for your performer"
-                    : "Opening soon for this show"
-                }
-              />
-              <Tile
-                href="/notifications/settings"
-                Icon={Bell}
-                title="Notifications"
-                body="Choose what we tell you about, and when"
-              />
-            </div>
-          </Card>
+          {/* Photos of their child, as photos. This used to be a tile that
+              said "Photos" and went somewhere else — a parent had to navigate
+              to find out whether there was anything to navigate for. Renders
+              nothing when there are no matches. */}
+          <ShowPhotos userId={user.id} familyId={user.familyId} />
 
           {isSweeney && <ScenesAndSongs />}
 
-          <WhoToEmail />
+          <WhoToEmail director={director} />
 
           <ComingSoonCards />
-
-          {director && (
-            <Card pad={false}>
-              <SectionHeader title="Creative team" inCard />
-              <div className="p-4">
-                <Link
-                  href={`/staff/${director.id}`}
-                  className="inline-flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
-                >
-                  <Avatar
-                    name={director.fullName}
-                    src={director.photoUrl}
-                    className="size-8 text-[11px]"
-                  />
-                  <span>
-                    <span className="block text-[13px] font-medium">
-                      {director.fullName}
-                    </span>
-                    <span className="block text-[12px] text-muted-foreground">
-                      Director
-                    </span>
-                  </span>
-                </Link>
-              </div>
-            </Card>
-          )}
 
           {hasRoleAtLeast(user, "staff") && (
             <Link
@@ -222,29 +166,3 @@ export default async function ProductionPage({
   );
 }
 
-function Tile({
-  href,
-  Icon,
-  title,
-  body,
-}: {
-  href: string;
-  Icon: typeof Bell;
-  title: string;
-  body: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-start gap-2.5 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
-    >
-      <Icon aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
-      <span className="min-w-0">
-        <span className="block text-[13px] font-medium">{title}</span>
-        <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
-          {body}
-        </span>
-      </span>
-    </Link>
-  );
-}

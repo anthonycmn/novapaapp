@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Mail, UtensilsCrossed, HandHeart } from "lucide-react";
 import { STAFF_CONTACTS } from "@/config/contacts";
 import { Card } from "@/components/ui/card";
@@ -10,7 +11,12 @@ import { SectionHeader } from "@/components/ui/section-header";
  * Every row is a mailto, because a parent reading this on a phone at 9pm
  * wants to send the message now, not copy an address into another app.
  */
-export function WhoToEmail() {
+export function WhoToEmail({
+  director,
+}: {
+  /** Folded in from the old "Creative team" card — one person, one place. */
+  director?: { id: string; fullName: string } | null;
+}) {
   return (
     <Card pad={false}>
       <SectionHeader
@@ -22,6 +28,17 @@ export function WhoToEmail() {
           </span>
         }
       />
+      {director && (
+        <p className="border-b bg-muted/40 px-4 py-2 text-[12px] text-muted-foreground">
+          Directing this show:{" "}
+          <Link
+            href={`/staff/${director.id}`}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            {director.fullName}
+          </Link>
+        </p>
+      )}
       <ul className="divide-y">
         {STAFF_CONTACTS.map((contact) => (
           <li key={contact.email} className="px-4 py-3">
