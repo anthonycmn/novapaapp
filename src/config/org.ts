@@ -9,7 +9,14 @@ export const org = {
   name: "Northern Virginia Performing Arts",
   shortName: "NOVA PA",
   programBrand: "Broadway Bound",
-  appName: "NOVA PA Family Hub",
+  /**
+   * Tony, 2026-08-15: "Parents will live in a parent portal not an app."
+   * This is the product's name everywhere a family sees it — sign-in, tab
+   * title, PWA manifest. The install prompt went with the old name: the
+   * portal is a website you visit, not an app you're nagged to install
+   * (it still works installed for anyone who chooses to, but we don't ask).
+   */
+  appName: "NOVA PA Parent Portal",
 
   /** Primary public website. */
   websiteUrl: "https://www.northernvirginiaperformingarts.org",

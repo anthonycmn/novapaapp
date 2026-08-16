@@ -8,7 +8,6 @@ import { getProvider } from "@/lib/api";
 import { Logo } from "@/components/brand/logo";
 import { BottomNav } from "@/components/app-shell/bottom-nav";
 import { MoreMenu } from "@/components/app-shell/more-menu";
-import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -73,7 +72,9 @@ export default async function AppLayout({
       </main>
 
       <BottomNav />
-      <InstallPrompt />
+      {/* No InstallPrompt: parents live in a parent PORTAL, not an app
+          (Tony, 2026-08-15). Installing still works for anyone who wants
+          it; we just stopped asking. */}
     </div>
   );
 }
