@@ -1,32 +1,22 @@
 import {
   Bell,
   CalendarDays,
-  Camera,
-  ClipboardCheck,
   Contact,
-  Drama,
   FileSignature,
-  Gauge,
   GraduationCap,
-  HeartPulse,
   Images,
-  Mail,
-  MailPlus,
   Megaphone,
   MessagesSquare,
   Mic,
   PackageOpen,
   PartyPopper,
-  RotateCcw,
   Settings,
   ShoppingBag,
   Star,
-  Stethoscope,
   Theater,
   TrafficCone,
   UserPen,
   Users,
-  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -70,23 +60,35 @@ export const FAMILY_SECTIONS: NavSection[] = [
   { href: "/notifications/settings", Icon: Settings, label: "Notification settings", description: "What we notify you about, quiet hours", group: "More" },
 ];
 
+/**
+ * Staff sections still surfaced in the parent portal.
+ *
+ * Tony, 16 Aug 2026: "all of the admin/staff tools in the parent portal
+ * [should] port over and be bridged to the staff portal… parents should not
+ * have access to that information."
+ *
+ * Parents never could — every /admin route calls hasRoleAtLeast server-side,
+ * the provider re-checks each call, and RLS sits under all of it. What this
+ * change removes is the *duplication*: the seven staff no longer see a second
+ * copy of their own tools while signed in here. The routes still exist and
+ * are still guarded, so bookmarks and deep links keep working; they are
+ * simply no longer advertised.
+ *
+ * One entry stays, deliberately. The staff portal's BioApprovals page says
+ * why in its own header: "Staff edit their public bios in the parent portal;
+ * families see nothing until it passes this desk." Authoring lives here,
+ * approval lives there. Remove this and the approval queue has no source.
+ */
 export const STAFF_SECTIONS: NavSection[] = [
-  { href: "/admin", Icon: Wrench, label: "Staff tools", description: "Everything waiting on you, system status", group: "Staff & admin" },
-  { href: "/staff/shows", Icon: Drama, label: "My shows", description: "Your productions: casting, roster & curriculum", group: "Staff & admin" },
-  { href: "/admin/messages", Icon: Mail, label: "Family messages", description: "Inbox for your role", group: "Staff & admin" },
-  { href: "/admin/email", Icon: MailPlus, label: "Email families", description: "Templates, targeting, send history", group: "Staff & admin" },
-  { href: "/admin/questions", Icon: MessagesSquare, label: "Question queue", description: "Answer families privately", group: "Staff & admin" },
-  { href: "/admin/health", Icon: Stethoscope, label: "Health & safety", description: "Form status, emergency roster", group: "Staff & admin" },
-  { href: "/admin/pickup", Icon: HeartPulse, label: "Pick-up approvals", description: "Approve requests, daily roster", group: "Staff & admin" },
-  { href: "/admin/store", Icon: PackageOpen, label: "Button orders", description: "Fulfillment, manifest, print sheet", group: "Staff & admin" },
-  { href: "/admin/lessons", Icon: GraduationCap, label: "Lesson roster", description: "Weekly private-lesson slots and students", group: "Staff & admin" },
-  { href: "/admin/photos", Icon: Camera, label: "Photo ingestion", description: "Pull galleries, run matching", group: "Staff & admin" },
-  { href: "/admin/registration", Icon: RotateCcw, label: "Registration sync", description: "Sync health and resync", group: "Staff & admin" },
-  { href: "/admin/directory", Icon: Gauge, label: "Family directory", description: "All families, students, contacts", group: "Staff & admin" },
-  { href: "/admin/staff-profiles", Icon: ClipboardCheck, label: "Profile approvals", description: "Review staff profile changes", group: "Staff & admin" },
-  { href: "/staff/edit", Icon: UserPen, label: "Edit my profile", description: "Bio and photo, admin-approved", group: "Staff & admin" },
-  { href: "/staff/feedback", Icon: Star, label: "My feedback", description: "What families said about your work", group: "Staff & admin" },
+  { href: "/staff/edit", Icon: UserPen, label: "Edit my profile", description: "Your public bio and headshot — admin-approved before families see it", group: "Staff" },
 ];
+
+/**
+ * Where the eleven duplicated tools went, plus the three ported on
+ * 16 Aug 2026 (registration sync, open questions, my feedback). Rendered as
+ * a single outbound link rather than fifteen dead rows.
+ */
+export const STAFF_PORTAL_URL = "https://novapa-staff-portal.netlify.app";
 
 /** Section lists grouped for the sidebar, in declaration order. */
 export function groupSections(sections: NavSection[]): Array<[string, NavSection[]]> {

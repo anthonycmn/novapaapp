@@ -2,9 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Ticket } from "lucide-react";
+import { Home, Ticket, Wrench } from "lucide-react";
 import { org } from "@/config/org";
-import { FAMILY_SECTIONS, STAFF_SECTIONS, groupSections } from "@/config/navigation";
+import {
+  FAMILY_SECTIONS,
+  STAFF_PORTAL_URL,
+  STAFF_SECTIONS,
+  groupSections,
+} from "@/config/navigation";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
@@ -100,6 +105,21 @@ export function Sidebar({
       </div>
 
       <div className="border-t p-2">
+        {/* Staff work happens in the staff portal now — one door, not a
+            second copy of every tool (Tony, 16 Aug 2026). */}
+        {isStaff && (
+          <a
+            href={STAFF_PORTAL_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-1 flex items-center gap-2.5 rounded-md border border-transparent px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Wrench aria-hidden size={15} className="shrink-0" />
+            <span className="flex-1 truncate">Staff portal</span>
+            <span className="sr-only">(opens in a new tab)</span>
+          </a>
+        )}
+
         <a
           href={org.ticketsUrl}
           target="_blank"
