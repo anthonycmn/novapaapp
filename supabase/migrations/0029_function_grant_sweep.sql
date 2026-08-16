@@ -1,0 +1,30 @@
+-- 0029 — grant sweep across pre-portal functions (the 0023 bug class).
+-- (Applied to novapa as family_hub_0029_function_grant_sweep; the applied
+-- migration is canonical, this file is the repo record.)
+--
+-- Found while wiring photos into the staff portal: Supabase default
+-- privileges had granted EXECUTE to anon and PUBLIC on every function
+-- created before we learned (0023) to revoke explicitly.
+--
+-- 1. revoke_face_consent: DESTRUCTIVE and was anon-executable with a
+--    null-vulnerable guard (`if not (is_admin() or ...)` never fires without
+--    a JWT — is_admin() returns NULL and `not null` is null). An anonymous
+--    caller who knew a student uuid could delete a child's biometric data
+--    and flip their consent flag. Guard rewritten with coalesce on every
+--    predicate; anon revoked. Verified 42501 by bare-anon probe.
+-- 2. health_forms_expiring: SECURITY DEFINER with NO guard, anon-executable —
+--    enumerated student/family uuids and health-form expiry dates. Now
+--    staff-gated inside the query; anon revoked. Verified 42501.
+-- 3. next_order_reference: anon could bump the order-reference sequence.
+--    Revoked.
+--
+-- Helper predicates (is_staffish, is_admin, auth_role, auth_family_id,
+-- staff_has_program) KEEP anon EXECUTE on purpose: RLS policies evaluated
+-- under the anon role must be able to call them, and they only read the
+-- caller's own JWT claims — nothing to leak.
+--
+-- See the applied migration for the full bodies (revoke_face_consent and
+-- health_forms_expiring recreated with coalesce guards, then the three
+-- revoke/grant blocks and a PostgREST schema reload).
+
+-- (Bodies identical to family_hub_0029_function_grant_sweep on novapa.)
