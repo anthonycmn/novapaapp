@@ -23,5 +23,17 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  /*
+   * `.claude` holds Claude Code worktrees — full copies of this repo living
+   * inside it. Without this exclusion they get type-checked as part of the
+   * main project, and because `@/*` resolves to the ROOT `src/`, a stale file
+   * in a worktree is checked against today's modules. That is not a
+   * hypothetical: it failed two Netlify deploys on 16 Aug 2026 with
+   * "Property 'emoji' does not exist on type 'NavSection'" pointing at a
+   * more-menu.tsx that had already been deleted from this tree.
+   *
+   * It passed locally each time only because `incremental` let tsc skip
+   * re-checking the file. A clean build is the honest one, so exclude it.
+   */
+  "exclude": ["node_modules", ".claude"]
 }
