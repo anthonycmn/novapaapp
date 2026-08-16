@@ -1,14 +1,22 @@
 import type { Metadata, Viewport } from "next";
-import { Cinzel, DM_Sans } from "next/font/google";
+import { DM_Sans, Outfit } from "next/font/google";
 import { org } from "@/config/org";
 import { ServiceWorkerRegistrar } from "@/components/pwa/service-worker-registrar";
 import "./globals.css";
 
-// Matching the organization's site: Cinzel for headings, DM Sans for body.
-const display = Cinzel({
+/*
+ * The staff portal's two faces, so the parent portal reads as the same
+ * product (Tony, 2026-08-16: "drop the serif, make it match the staff
+ * portal"). DM Sans for everything; Outfit only where the staff portal uses
+ * its display face — the wordmark and the mission plaque.
+ *
+ * This used to be Cinzel, a serif, on every h1/h2/h3. That single rule was
+ * most of what made the two products look like different companies.
+ */
+const display = Outfit({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["500", "600", "700"],
 });
 
 const body = DM_Sans({

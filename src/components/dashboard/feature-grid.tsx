@@ -1,27 +1,28 @@
 import Link from "next/link";
 import { FAMILY_SECTIONS, STAFF_SECTIONS, type NavSection } from "@/config/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { SectionHeader } from "@/components/ui/section-header";
 
 /**
- * Everything the app can do, in one place — rendered from the same section
- * lists as the hamburger menu (src/config/navigation.ts).
+ * Everything the portal can do, in one place — rendered from the same section
+ * lists as the sidebar (src/config/navigation.ts), so the two can never drift.
  */
 function Grid({ items }: { items: NavSection[] }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {items.map((item) => (
-        <Link key={item.href} href={item.href}>
-          <Card className="h-full transition-shadow hover:shadow-md">
-            <CardContent className="flex flex-col gap-1 p-3">
-              <span aria-hidden className="text-xl">
-                {item.emoji}
-              </span>
-              <span className="text-sm font-medium leading-tight">{item.label}</span>
-              <span className="text-xs leading-tight text-muted-foreground">
-                {item.description}
-              </span>
-            </CardContent>
-          </Card>
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {items.map(({ href, label, description, Icon }) => (
+        <Link
+          key={href}
+          href={href}
+          className="flex items-start gap-2.5 rounded-md border bg-card px-3 py-2.5 transition-colors hover:bg-muted"
+        >
+          <Icon aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+          <span className="min-w-0">
+            <span className="block text-[13px] font-medium leading-tight">{label}</span>
+            <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+              {description}
+            </span>
+          </span>
         </Link>
       ))}
     </div>
@@ -30,24 +31,19 @@ function Grid({ items }: { items: NavSection[] }) {
 
 export function FeatureGrid({ isStaff }: { isStaff: boolean }) {
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Everything in the app</CardTitle>
-        <CardDescription>
-          Also in the menu (☰) at the top — same list, always.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4 pt-0">
+    <Card pad={false}>
+      <SectionHeader title="Everything in the portal" inCard />
+      <div className="flex flex-col gap-4 p-4">
         <Grid items={FAMILY_SECTIONS} />
         {isStaff && (
           <div>
-            <h3 className="mb-2 text-sm font-semibold text-muted-foreground">
+            <h3 className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-gold">
               Staff &amp; admin
             </h3>
             <Grid items={STAFF_SECTIONS} />
           </div>
         )}
-      </CardContent>
+      </div>
     </Card>
   );
 }

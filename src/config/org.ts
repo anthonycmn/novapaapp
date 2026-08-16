@@ -18,6 +18,13 @@ export const org = {
    */
   appName: "NOVA PA Parent Portal",
 
+  /**
+   * The organization's mission statement, shown at the top of every family's
+   * dashboard. The capitalization is deliberate and load-bearing — "impACTing"
+   * puts ACT inside the word. Never sentence-case or title-case this string.
+   */
+  mission: "impACTing Lives One Story At a Time",
+
   /** Primary public website. */
   websiteUrl: "https://www.northernvirginiaperformingarts.org",
   /** Alternate/secondary brand domain — confirm which is primary. */

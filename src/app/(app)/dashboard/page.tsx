@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ExternalLink, Ticket } from "lucide-react";
+import { ArrowRight, ExternalLink, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import type { CalendarEvent, Enrollment, Student } from "@/lib/api/types";
@@ -8,9 +8,12 @@ import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { FeatureGrid } from "@/components/dashboard/feature-grid";
+import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { SectionHeader } from "@/components/ui/section-header";
+import { StatTile } from "@/components/ui/stat-tile";
 
 export const metadata = { title: "Home" };
 
@@ -28,111 +31,161 @@ export default async function DashboardPage() {
       provider.getEnrollmentsForFamily(user.id, user.familyId),
     ]);
   }
-  const [productions, classes] = await Promise.all([
+  const [productions, classes, unreadCount] = await Promise.all([
     provider.getProductions(),
     provider.getClasses(),
+    provider.getUnreadNotificationCount(user.id),
   ]);
-  const balanceCents = enrollments
-    .filter((e) => e.status !== "withdrawn")
-    .reduce((sum, e) => sum + e.balanceCents, 0);
+
+  const active = enrollments.filter((e) => e.status !== "withdrawn");
+  const balanceCents = active.reduce((sum, e) => sum + e.balanceCents, 0);
+  const firstName = user.displayName.split(" ")[0];
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">
-          Welcome back, {user.displayName.split(" ")[0]}
-        </h1>
-        <p className="text-muted-foreground">
-          {isStaff ? "Staff dashboard" : user.family?.name ?? org.programBrand}
-        </p>
-      </div>
+    <>
+      {/* Above everything, deliberately — the same place the staff portal puts
+          "We Care". The first thing on the page should be the thing that
+          outranks everything else on it. */}
+      <MissionPlaque />
+      <TipOfTheDay />
 
-      {balanceCents > 0 && (
-        <Card className="border-gold/50 bg-accent">
-          <CardContent className="flex items-center justify-between p-4">
-            <p className="text-sm font-medium text-accent-foreground">
-              Outstanding balance: ${(balanceCents / 100).toFixed(2)}
-            </p>
-            <Badge variant="gold">Payment due</Badge>
-          </CardContent>
-        </Card>
-      )}
-
-      {students.length > 0 && (
-        <section aria-labelledby="students-heading">
-          <h2 id="students-heading" className="mb-2 text-lg font-semibold">
-            Your students
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {students.map((student) => (
-              <Link key={student.id} href={`/family/students/${student.id}`}>
-                <Card className="transition-shadow hover:shadow-md">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <Avatar
-                      name={`${student.firstName} ${student.lastName}`}
-                      src={student.headshotUrl}
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">
-                        {student.preferredName ?? student.firstName} {student.lastName}
-                      </p>
-                      <p className="truncate text-sm text-muted-foreground">
-                        Grade {student.grade}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {user.familyId && (
-        <EnrollmentsCard
-          enrollments={enrollments}
-          students={students}
-          productions={productions}
-          classes={classes}
-        />
-      )}
-
-      <UpcomingEvents
-        actorId={user.id}
-        familyId={user.familyId}
-        isStaff={isStaff}
+      <SectionHeader
+        as="h1"
+        title={firstName ? `Good to see you, ${firstName}` : "Home"}
+        subtitle={
+          isStaff && !user.familyId
+            ? "Staff dashboard"
+            : (user.family?.name ?? org.programBrand)
+        }
+        right={
+          <Link
+            href="/schedule"
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Open the schedule <ArrowRight aria-hidden size={14} />
+          </Link>
+        }
       />
 
-      <FeatureGrid isStaff={isStaff} />
+      {/* ---- The numbers a parent actually opens this for ---- */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label="Balance due"
+          value={balanceCents > 0 ? `$${(balanceCents / 100).toFixed(2)}` : "$0.00"}
+          hint={balanceCents > 0 ? "Payment outstanding" : "Nothing outstanding"}
+          tone={balanceCents > 0 ? "warn" : "good"}
+        />
+        <StatTile
+          label="Students enrolled"
+          value={students.length}
+          hint={`${active.length} active ${active.length === 1 ? "enrollment" : "enrollments"}`}
+          href="/family"
+        />
+        <StatTile
+          label="Unread notifications"
+          value={unreadCount}
+          hint={unreadCount ? "Waiting for you" : "You're all caught up"}
+          tone={unreadCount > 0 ? "warn" : "good"}
+          href="/notifications"
+        />
+        <StatTile
+          label="Productions running"
+          value={productions.length}
+          hint="Show info and tickets"
+          href="/productions"
+        />
+      </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Quick links</CardTitle>
-          <CardDescription>Tickets and the main site open in a new tab.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap gap-2 pt-0">
-          <a
-            href={org.ticketsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90"
-          >
-            <Ticket aria-hidden className="size-4" />
-            Buy tickets on BookTix
-            <ExternalLink aria-hidden className="size-3.5" />
-          </a>
-          <a
-            href={org.websiteUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
-          >
-            {org.shortName} website
-            <ExternalLink aria-hidden className="size-3.5" />
-          </a>
-        </CardContent>
-      </Card>
-    </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {students.length > 0 && (
+          <Card className="lg:col-span-2" pad={false}>
+            <SectionHeader
+              title="Your students"
+              inCard
+              right={
+                <Link
+                  href="/family"
+                  className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+                >
+                  Family profile <ArrowRight aria-hidden size={13} />
+                </Link>
+              }
+            />
+            <div className="grid gap-2 p-4 sm:grid-cols-2">
+              {students.map((student) => (
+                <Link
+                  key={student.id}
+                  href={`/family/students/${student.id}`}
+                  className="flex items-center gap-3 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
+                >
+                  <Avatar
+                    name={`${student.firstName} ${student.lastName}`}
+                    src={student.headshotUrl}
+                    className="size-8 text-[11px]"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium">
+                      {student.preferredName ?? student.firstName} {student.lastName}
+                    </p>
+                    <p className="truncate text-[12px] text-muted-foreground">
+                      Grade {student.grade}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        <UpcomingEvents
+          actorId={user.id}
+          familyId={user.familyId}
+          isStaff={isStaff}
+        />
+
+        {user.familyId && (
+          <div className="lg:col-span-2">
+            <EnrollmentsCard
+              enrollments={enrollments}
+              students={students}
+              productions={productions}
+              classes={classes}
+            />
+          </div>
+        )}
+
+        <Card pad={false}>
+          <SectionHeader title="Quick links" inCard />
+          <div className="flex flex-col gap-2 p-4">
+            <a
+              href={org.ticketsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              <Ticket aria-hidden size={14} />
+              Buy tickets on BookTix
+              <ExternalLink aria-hidden size={13} />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+            <a
+              href={org.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-[13px] font-medium transition-colors hover:bg-muted"
+            >
+              {org.shortName} website
+              <ExternalLink aria-hidden size={13} />
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          </div>
+        </Card>
+
+        <div className="lg:col-span-3">
+          <FeatureGrid isStaff={isStaff} />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -157,31 +210,34 @@ async function UpcomingEvents({
   const upcoming: CalendarEvent[] = events
     .filter((event) => event.endsAt >= now)
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-    .slice(0, 3);
-
-  if (upcoming.length === 0) {
-    return (
-      <Card>
-        <CardContent className="p-6 text-center text-sm text-muted-foreground">
-          No upcoming events — enjoy the quiet before the next show week.
-        </CardContent>
-      </Card>
-    );
-  }
+    .slice(0, 4);
 
   return (
-    <section aria-labelledby="upcoming-heading">
-      <h2 id="upcoming-heading" className="mb-2 text-lg font-semibold">
-        Coming up
-      </h2>
-      <div className="flex flex-col gap-2">
-        {upcoming.map((event) => (
-          <Card key={event.id}>
-            <CardContent className="p-4">
+    <Card pad={false}>
+      <SectionHeader
+        title="Coming up"
+        inCard
+        right={
+          <Link
+            href="/schedule"
+            className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            Schedule <ArrowRight aria-hidden size={13} />
+          </Link>
+        }
+      />
+      {upcoming.length === 0 ? (
+        <p className="p-4 text-center text-[13px] text-muted-foreground">
+          No upcoming events — enjoy the quiet before the next show week.
+        </p>
+      ) : (
+        <ul className="divide-y">
+          {upcoming.map((event) => (
+            <li key={event.id} className="px-4 py-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium">{event.title}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-[13px] font-medium">{event.title}</p>
+                  <p className="text-[12px] text-muted-foreground">
                     {formatEventTime(event.startsAt)} · {event.location}
                   </p>
                 </div>
@@ -192,12 +248,12 @@ async function UpcomingEvents({
                 )}
               </div>
               {event.changeNote && (
-                <p className="mt-1 text-sm text-accent-foreground">{event.changeNote}</p>
+                <p className="mt-1 text-[12px] text-gold">{event.changeNote}</p>
               )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </section>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }

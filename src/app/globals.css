@@ -3,76 +3,91 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * NOVA PA design tokens, taken from the organization's live site
- * (northernvirginiaperformingarts.org):
+ * NOVA PA design tokens.
  *
- *   --navy    #08111F   primary brand colour
- *   --gold    #C8892A   primary accent
- *   --crimson #8B1A2F   secondary accent
- *   supporting: #E8B84B bright gold, #F7D98F pale gold, #FFF4D6 cream,
- *               #0F1E36 / #162B52 navy tints
+ * Tony, 2026-08-16: "I would like the parent portal to look similar to the
+ * staff portal — I think the staff portal looks very clean." So these are the
+ * staff portal's ramps (its src/theme.css), re-expressed as this app's
+ * semantic tokens. The two products now share one palette:
+ *
+ *   ink    cool blue-greys — page, borders, secondary text
+ *   brand  #1B3563 navy — primary actions, links, selected states
+ *   gold   #C8892A — the accent, kept for the mission, balances and awards
+ *
+ * What made the staff portal read as "clean" was not one colour, it was the
+ * combination this file now carries: a *cool* page behind *white* cards
+ * (rather than cream on cream, where nothing separates), hairline cool
+ * borders, and a tighter radius. Density lives further down in @layer base.
  *
  * Some brand colours are used at adjusted lightness for *text*: raw gold
- * #C8892A on cream is only ~3:1, which fails WCAG AA for body copy. Text
- * roles therefore use a deepened gold (#7A5310) while fills and large
+ * #C8892A on white is only ~3:1, which fails WCAG AA for body copy. Text
+ * roles therefore use a deepened gold (#8A5A15) while fills and large
  * display elements keep the true brand gold. tests/contrast.test.ts
- * computes every pair, so this stays honest.
+ * computes every pair from this file, so this stays honest.
  */
 :root {
-  --background: #fdfaf3;
-  --foreground: #08111f;
+  --background: #f5f7fa;
+  --foreground: #141a26;
   --card: #ffffff;
-  --card-foreground: #08111f;
+  --card-foreground: #141a26;
   --popover: #ffffff;
-  --popover-foreground: #08111f;
-  --primary: #08111f;
-  --primary-foreground: #fff4d6;
-  --secondary: #f1e9d8;
-  --secondary-foreground: #2b2010;
-  --muted: #efe9dd;
-  --muted-foreground: #55504a;
-  --accent: #f7d98f;
-  --accent-foreground: #3f2c05;
-  --gold: #7a5310;
-  --destructive: #8b1a2f;
+  --popover-foreground: #141a26;
+  --primary: #1b3563;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f8;
+  --secondary-foreground: #2a3345;
+  --muted: #eaeef4;
+  --muted-foreground: #4c5a72;
+  --accent: #fdf3dc;
+  --accent-foreground: #563608;
+  /* The Tip of the day band. Its own pair rather than --accent, because
+     --accent is a *blue* in dark mode and the tip must read gold in both —
+     the staff portal's tip is a constant gold wash over whatever is behind
+     it, and that warmth is the whole signal. */
+  --tip: #fdf3dc;
+  --tip-foreground: #563608;
+  --gold: #8a5a15;
+  --destructive: #be123c;
   --destructive-foreground: #ffffff;
-  --border: #e2d8c4;
-  --input: #e2d8c4;
-  --ring: #08111f;
-  --radius: 0.75rem;
-  --chart-1: #08111f;
-  --chart-2: #7a5310;
-  --chart-3: #8b1a2f;
-  --chart-4: #162b52;
-  --chart-5: #4a6b8a;
+  --border: #d8dfea;
+  --input: #d8dfea;
+  --ring: #2f5590;
+  --radius: 0.5rem;
+  --chart-1: #1b3563;
+  --chart-2: #8a5a15;
+  --chart-3: #be123c;
+  --chart-4: #2f5590;
+  --chart-5: #5c7cab;
 }
 
 .dark {
   --background: #08111f;
-  --foreground: #f6efdf;
-  --card: #0f1e36;
-  --card-foreground: #f6efdf;
-  --popover: #0f1e36;
-  --popover-foreground: #f6efdf;
-  --primary: #e8b84b;
+  --foreground: #e8edf5;
+  --card: #101d31;
+  --card-foreground: #e8edf5;
+  --popover: #101d31;
+  --popover-foreground: #e8edf5;
+  --primary: #9fc0f0;
   --primary-foreground: #08111f;
-  --secondary: #162b52;
-  --secondary-foreground: #f0e6d2;
-  --muted: #14243f;
-  --muted-foreground: #a9b6c9;
-  --accent: #23375e;
-  --accent-foreground: #f0c86b;
+  --secondary: #17294c;
+  --secondary-foreground: #e8edf5;
+  --muted: #16243c;
+  --muted-foreground: #a7b5ca;
+  --accent: #1d3564;
+  --accent-foreground: #f7d98f;
+  --tip: #2a2314;
+  --tip-foreground: #f7d98f;
   --gold: #e8b84b;
-  --destructive: #ff8fa0;
-  --destructive-foreground: #2a0710;
-  --border: #23375e;
-  --input: #23375e;
-  --ring: #e8b84b;
+  --destructive: #f8a7ba;
+  --destructive-foreground: #3d1420;
+  --border: #243450;
+  --input: #243450;
+  --ring: #5e8ad0;
   --chart-1: #e8b84b;
   --chart-2: #f7d98f;
-  --chart-3: #ff8fa0;
-  --chart-4: #80d4e8;
-  --chart-5: #c090f0;
+  --chart-3: #f27e98;
+  --chart-4: #5fc3f0;
+  --chart-5: #c3b8f4;
 }
 
 @theme inline {
@@ -90,6 +105,8 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-tip: var(--tip);
+  --color-tip-foreground: var(--tip-foreground);
   --color-gold: var(--gold);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
@@ -105,8 +122,10 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-display), ui-serif, Georgia, serif;
+  --font-sans: var(--font-body), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --shadow-card: 0 1px 2px rgb(8 17 31 / 0.06), 0 1px 3px rgb(8 17 31 / 0.06);
+  --shadow-pop: 0 10px 30px -10px rgb(8 17 31 / 0.28);
 }
 
 @layer base {
@@ -128,13 +147,27 @@
     background-color: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+    /* The staff portal's density. 13.5px reads as an operational tool rather
+       than a brochure, and it is the single biggest reason the two products
+       felt like different things at the same zoom level. */
+    font-size: 13.5px;
+    line-height: 1.625;
     /* One-handed phone use: generous tap targets, no accidental zoom. */
     -webkit-tap-highlight-color: transparent;
     text-rendering: optimizeLegibility;
   }
+  /*
+   * Headings are the body face, semibold — no display font, no serif.
+   * `font-display` still exists for the two places the staff portal uses its
+   * display face: the wordmark and the mission plaque.
+   */
   h1, h2, h3 {
-    font-family: var(--font-display);
     letter-spacing: -0.01em;
+  }
+  /* iOS zooms the whole page in when a focused input is under 16px, and
+     nothing else moves — so it reads as the layout breaking. */
+  input, select, textarea {
+    font-size: 16px;
   }
   /* Respect reduced-motion globally. */
   @media (prefers-reduced-motion: reduce) {

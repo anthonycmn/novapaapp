@@ -1,21 +1,29 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { org } from "@/config/org";
+import { LogOut } from "lucide-react";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
-import { Bell } from "lucide-react";
 import { getProvider } from "@/lib/api";
-import { Logo } from "@/components/brand/logo";
-import { BottomNav } from "@/components/app-shell/bottom-nav";
-import { MoreMenu } from "@/components/app-shell/more-menu";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/app-shell/app-shell";
 
 /**
- * Authenticated app shell: slim top bar + bottom tab navigation.
- * Everything inside the (app) route group requires a session.
+ * Authenticated app shell. Everything inside the (app) route group requires
+ * a session.
+ *
+ * Tony, 2026-08-16: "match everything in the staff portal including layout."
+ * So this is the staff portal's shell — a sidebar from `lg` up, a hamburger
+ * drawer below it — and the bottom tab bar is gone, because the staff portal
+ * does not have one. Worth knowing if it ever comes back: a bottom bar is the
+ * better pattern for 769 families on phones, and BottomNav still exists in
+ * src/components/app-shell/bottom-nav.tsx, unreferenced, for exactly that.
  */
+const ROLE_LABEL: Record<string, string> = {
+  parent: "Parent",
+  student: "Student",
+  staff: "Staff",
+  admin: "Admin",
+  super_admin: "Super Admin",
+};
+
 export default async function AppLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -24,57 +32,25 @@ export default async function AppLayout({
   const unreadCount = await getProvider().getUnreadNotificationCount(user.id);
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col">
-      {/* Keyboard users shouldn't have to tab through the header on every
-          page to reach content (WCAG 2.4.1). */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
-      >
-        Skip to main content
-      </a>
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-2 border-b bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-          <Logo size={30} />
-          <span className="font-display tracking-wide">{org.shortName}</span>
-        </Link>
-        <div className="flex items-center gap-1">
-          <Link
-            href="/notifications"
-            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
-            className="relative inline-flex size-11 items-center justify-center rounded-lg hover:bg-accent"
+    <AppShell
+      displayName={user.displayName}
+      roleLabel={user.family?.name ?? ROLE_LABEL[user.role] ?? user.role}
+      isStaff={hasRoleAtLeast(user, "staff")}
+      unreadCount={unreadCount}
+      signOutSlot={
+        <form action={signOut}>
+          <button
+            type="submit"
+            title="Sign out"
+            aria-label="Sign out"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <Bell aria-hidden className="size-5" />
-            {unreadCount > 0 && (
-              <span
-                aria-hidden
-                className="absolute right-1.5 top-1.5 inline-flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-4 text-primary-foreground"
-              >
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </Link>
-          <ThemeToggle />
-          <MoreMenu isStaff={hasRoleAtLeast(user, "staff")} />
-          <form action={signOut}>
-            {/* Default size, not sm: the header is thumb territory and a
-                36px control is below the 44px minimum tap target. */}
-            <Button variant="ghost" type="submit" className="px-3">
-              Sign out
-            </Button>
-          </form>
-          <Avatar name={user.displayName} className="size-8 text-xs" />
-        </div>
-      </header>
-
-      <main id="main-content" tabIndex={-1} className="flex-1 px-4 pb-24 pt-4">
-        {children}
-      </main>
-
-      <BottomNav />
-      {/* No InstallPrompt: parents live in a parent PORTAL, not an app
-          (Tony, 2026-08-15). Installing still works for anyone who wants
-          it; we just stopped asking. */}
-    </div>
+            <LogOut aria-hidden size={14} />
+          </button>
+        </form>
+      }
+    >
+      {children}
+    </AppShell>
   );
 }

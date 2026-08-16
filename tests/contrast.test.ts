@@ -71,6 +71,7 @@ const TEXT_PAIRS: Array<[string, string, string]> = [
   ["primary button", "primary-foreground", "primary"],
   ["secondary button", "secondary-foreground", "secondary"],
   ["accent callout", "accent-foreground", "accent"],
+  ["tip of the day", "tip-foreground", "tip"],
   ["destructive button", "destructive-foreground", "destructive"],
 ];
 
