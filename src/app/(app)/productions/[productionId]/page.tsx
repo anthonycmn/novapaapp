@@ -7,6 +7,7 @@ import type { CalendarEvent } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/ui/section-header";
+import { StatTile } from "@/components/ui/stat-tile";
 import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
 import { ShowPhotos } from "@/components/productions/show-photos";
 import { RehearsalTracks } from "@/components/productions/rehearsal-tracks";
@@ -60,6 +61,40 @@ export default async function ProductionPage({
   const nextCall = [...upcoming].sort((a, b) =>
     a.startsAt.localeCompare(b.startsAt)
   )[0];
+  const performanceCount = events.filter((e) => e.type === "performance").length;
+
+  const opensAt = production.opensOn ? `${production.opensOn}T12:00:00Z` : null;
+  const daysToOpening = opensAt
+    ? Math.ceil((new Date(opensAt).getTime() - Date.now()) / 86_400_000)
+    : null;
+
+  /**
+   * This family's own children's roles in this show, and nothing else.
+   *
+   * getCastingForStudent is called per own-child and the provider scopes each
+   * call to the caller, so there is no path here to another family's casting
+   * — which is the point. Unpublished assignments are filtered out too: a
+   * parent seeing a role before the director releases it is the same leak
+   * from the other direction.
+   */
+  const students = user.familyId
+    ? await provider.getStudentsForFamily(user.id, user.familyId)
+    : [];
+  const myRoles = (
+    await Promise.all(
+      students.map(async (student) => {
+        const assignments = await provider.getCastingForStudent(user.id, student.id);
+        return assignments
+          .filter((a) => a.productionId === production.id && a.publishedAt)
+          .map((a) => ({
+            characterName: a.isUnderstudy
+              ? `${a.characterName} (understudy)`
+              : a.characterName,
+            studentName: student.preferredName ?? student.firstName,
+          }));
+      })
+    )
+  ).flat();
 
   return (
     <>
@@ -84,10 +119,56 @@ export default async function ProductionPage({
         }
       />
 
+      {/* Four tiles across the top, the same shape as the staff portal's show
+          page — but carrying what a FAMILY needs, not what an admin does.
+          Deliberately nothing about anyone else's child: no roster counts, no
+          unresolved names, nothing medical. A parent's own child's role is
+          theirs to see; every other family's is not. */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label={daysToOpening !== null && daysToOpening < 0 ? "The run" : "Opening night"}
+          value={
+            daysToOpening === null
+              ? "TBC"
+              : daysToOpening < 0
+                ? "Under way"
+                : daysToOpening === 0
+                  ? "Tonight"
+                  : `${daysToOpening} days`
+          }
+          hint={opensAt ? formatDate(opensAt) : "Date not set"}
+          tone={daysToOpening !== null && daysToOpening <= 14 ? "warn" : "default"}
+        />
+        <StatTile
+          label="Your next call"
+          value={nextCall ? formatDate(nextCall.startsAt) : "—"}
+          hint={nextCall ? nextCall.title : "Nothing on your calendar yet"}
+          href="/schedule"
+        />
+        <StatTile
+          label={myRoles.length > 1 ? "Your children's roles" : "Your child's role"}
+          value={myRoles.length > 0 ? myRoles[0].characterName : "Not yet cast"}
+          hint={
+            myRoles.length > 1
+              ? myRoles
+                  .slice(1)
+                  .map((r) => r.characterName)
+                  .join(", ")
+              : myRoles.length === 1
+                ? myRoles[0].studentName
+                : "Casting appears here once it is published"
+          }
+          href="/casting"
+        />
+        <StatTile
+          label="Performances"
+          value={performanceCount}
+          hint={performanceCount > 0 ? "Tickets on BookTix" : "Dates to be confirmed"}
+        />
+      </div>
+
       {/* The one question this page exists to answer, at the size it
-          deserves — then the run, for the dates families send to relatives.
-          The generic four-tile stat row that used to sit here said
-          "Calls remaining: 6", which is not a thing anyone needed. */}
+          deserves — then the run, for the dates families send to relatives. */}
       <NextCall event={nextCall} />
 
       <PerformanceStrip events={events} />
