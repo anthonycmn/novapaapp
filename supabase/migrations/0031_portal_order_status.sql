@@ -1,0 +1,9 @@
+-- 0031 — button-order status changes from the staff portal.
+-- (Applied to novapa as family_hub_0031_portal_order_status.)
+--
+-- Mirrors the app's updateOrderStatus: set the status (+ status_updated_at,
+-- optional admin note), and when it lands on ready/delivered, notify the
+-- family's parents with the app's exact wording ('broadcast',
+-- '/store/orders'). One transaction. Hardening per 0023: coalesce guard,
+-- anon revoked explicitly (verified 42501), re-revoke after any
+-- create-or-replace. Body identical to the applied migration.
