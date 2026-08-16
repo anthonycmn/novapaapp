@@ -15,9 +15,10 @@ import { FeedPostCard } from "@/components/feed/post-card";
  * staff until staff choose to publish the answer; that is enforced by RLS on
  * post_questions, not by this component.
  *
- * Scoped by the post's audience: a post tagged with this production, or a
- * post tagged with nothing (which means everyone, and a show-week
- * announcement to the whole org belongs on the show page too).
+ * This show's posts and nothing else. Tony, 16 Aug 2026: "these are two
+ * separate feeds" — the company-wide feed lives on News, and mixing org
+ * announcements in here would make the show feed the same feed with extra
+ * steps. A post belongs here only if it is tagged with this production.
  */
 export async function ShowFeed({
   productionId,
@@ -35,10 +36,9 @@ export async function ShowFeed({
   const provider = getProvider();
   const all = await provider.getFeedForUser(userId);
 
-  const forThisShow = all.filter((post: FeedPost) => {
-    const ids = post.audience?.productionIds ?? [];
-    return ids.length === 0 || ids.includes(productionId);
-  });
+  const forThisShow = all.filter((post: FeedPost) =>
+    (post.audience?.productionIds ?? []).includes(productionId)
+  );
   const posts = forThisShow.slice(0, limit);
 
   const questionsByPost = new Map(
@@ -69,7 +69,7 @@ export async function ShowFeed({
               href="/feed"
               className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
             >
-              All news <ArrowRight aria-hidden size={13} />
+              Company news <ArrowRight aria-hidden size={13} />
             </Link>
           </div>
         }
@@ -83,7 +83,11 @@ export async function ShowFeed({
             <p className="max-w-sm text-[12.5px] text-muted-foreground">
               Rehearsal notes, casting news and show-week details for{" "}
               {productionTitle} will appear here. You can react to a post, or ask
-              a question only staff can see.
+              a question only staff can see. Company-wide announcements stay on{" "}
+              <Link href="/feed" className="text-primary underline-offset-4 hover:underline">
+                News
+              </Link>
+              .
             </p>
           </div>
         ) : (
