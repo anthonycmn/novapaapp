@@ -1,6 +1,14 @@
 # dependencies
 /node_modules
 
+# Claude Code worktrees. These are full copies of the repo living inside the
+# repo, so anything that walks the tree — `eslint .`, and the Netlify source
+# upload — picks up a second, stale copy of every source file.
+/.claude/worktrees/
+
+# Netlify source-upload packages, ~250MB each.
+/deploy-*.zip
+
 # next.js
 /.next/
 /out/
