@@ -131,6 +131,16 @@ talks to `family_hub` two ways:
      status code an old build could also return.
 - **Netlify env gotcha**: variables flagged "secret" never reach function
   runtime. Use plain env vars and redeploy.
+- **Deleted files haunt the next deploy.** Netlify reuses `/opt/build/repo`
+  between upload deploys and extracts the new source *over* the old tree, so
+  a file you delete here is never deleted there. On 16 Aug 2026 a deleted
+  `more-menu.tsx` survived server-side and failed three deploys with
+  `Property 'emoji' does not exist on type 'NavSection'` — naming a path that
+  no longer existed in the repo, which is why every local build passed. If a
+  build fails on a file you know you deleted, that is this: hit **"Clear
+  cache and retry deploy"** in the Netlify UI, which wipes the build
+  directory. (`npx tsc --noEmit` locally will not reproduce it either —
+  `incremental` caches the check. `rm tsconfig.tsbuildinfo` first.)
 
 ## 5. Daily operations (the cookbook)
 
