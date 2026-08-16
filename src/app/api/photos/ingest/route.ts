@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  let user = (await getSessionUser()) ?? (await userFromBearer(request));
+  const user = (await getSessionUser()) ?? (await userFromBearer(request));
   let actorId = user?.id;
 
   if (!user || !hasRoleAtLeast(user, "staff")) {
