@@ -43,18 +43,27 @@ export const org = {
    * looks official but will bounce.
    */
   tax: {
-    legalName: "Northern Virginia Performing Arts",
+    /**
+     * The registered entity, not the trading name. NOVAPA operates as
+     * "CJ Creative, LLC d/b/a Northern Virginia Performing Arts" on the
+     * handbooks and the contractor agreement, and an FSA administrator
+     * matches the EIN against the legal name — so this must be the LLC.
+     */
+    legalName: "CJ Creative, LLC d/b/a Northern Virginia Performing Arts",
     /** Employer Identification Number, formatted 12-3456789. */
     ein: "",
-    addressLine1: "",
-    addressLine2: "",
-    city: "Chantilly",
+    // Settled 15 Aug 2026: four addresses were in circulation across the
+    // portal, the workbook, the website and outbound email. CJ ruled on this
+    // one, and it now matches the staff portal's documents and contracts.
+    addressLine1: "18945 Conference Center Drive",
+    addressLine2: "Plaza C",
+    city: "Leesburg",
     state: "VA",
-    zip: "",
-    phone: "",
+    zip: "20176",
+    phone: "(571) 571-2120",
     /** Who signs the statement. */
     signatoryName: "",
-    signatoryTitle: "Executive Director",
+    signatoryTitle: "Chief Financial Officer",
   },
 } as const;
 
