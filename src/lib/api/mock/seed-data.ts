@@ -66,6 +66,21 @@ export const productions: Production[] = [
     closesOn: "2027-05-02",
     ticketsUrl: "https://novapa.booktix.com",
   },
+  {
+    // The real autumn 2026 Teen Conservatory show. Seeded so the
+    // Sweeney-specific surfaces — rehearsal tracks and the scene/song
+    // breakdown — are reachable in mock mode. Dates are the ones on the
+    // production calendar: opening 10/23, closing 11/1.
+    id: "prod-sweeney",
+    programId: "prog-bb-fall",
+    title: "Sweeney Todd - Teen Conservatory",
+    seasonId: "season-2627",
+    venue: "Loudoun Auditorium, National Conference Center",
+    directorStaffId: "staff-marcus",
+    opensOn: "2026-10-23",
+    closesOn: "2026-11-01",
+    ticketsUrl: "https://novapa.booktix.com",
+  },
 ];
 
 export const classes: ClassOffering[] = [

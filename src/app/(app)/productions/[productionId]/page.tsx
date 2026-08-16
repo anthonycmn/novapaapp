@@ -10,6 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SectionHeader } from "@/components/ui/section-header";
 import { ExternalLinkButton } from "@/components/external-link-button";
 import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
+import { RehearsalTracks } from "@/components/productions/rehearsal-tracks";
+import { ScenesAndSongs } from "@/components/productions/scenes-and-songs";
 
 export const metadata = { title: "Production" };
 
@@ -35,6 +37,9 @@ export default async function ProductionPage({
     provider.getButtonTemplates(productionId),
   ]);
   const director = staff.find((member) => member.id === production.directorStaffId);
+  // The hub calls it "Sweeney Todd - Teen Conservatory"; the staff portal
+  // calls it "Sweeney Todd: School Edition". Match on the title both share.
+  const isSweeney = production.title.toLowerCase().includes("sweeney");
 
   return (
     <div className="flex flex-col gap-4">
@@ -98,6 +103,17 @@ export default async function ProductionPage({
             </Link>
           </CardContent>
         </Card>
+      )}
+
+      {/* Sweeney-specific for now: the breakdown and the MTI code are
+          transcribed from that show's master workbook, so they are keyed to
+          it by title rather than pretended to be generic. The next show gets
+          its own config file beside sweeney-todd.ts. */}
+      {isSweeney && (
+        <>
+          <RehearsalTracks />
+          <ScenesAndSongs />
+        </>
       )}
 
       {/* What a show week actually needs from a parent, in one place: the
