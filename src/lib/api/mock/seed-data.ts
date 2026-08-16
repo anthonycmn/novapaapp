@@ -328,6 +328,9 @@ export const enrollments: Enrollment[] = [
   { id: "enr-5", studentId: "stu-chidi", classId: "class-voice1", status: "enrolled", balanceCents: 0, source: "registration_portal", createdAt: T0 },
   { id: "enr-6", studentId: "stu-amara", classId: "class-mtd2", status: "enrolled", balanceCents: 0, source: "registration_portal", createdAt: T0 },
   { id: "enr-7", studentId: "stu-lien", productionId: "prod-frozen", status: "enrolled", balanceCents: 0, source: "registration_portal", createdAt: T0 },
+  // Teen Conservatory — puts a Sweeney calendar on a demo family so the
+  // production dashboard and its schedule rail have something to show.
+  { id: "enr-8", studentId: "stu-ava", productionId: "prod-sweeney", status: "enrolled", balanceCents: 0, source: "registration_portal", createdAt: T0 },
 ];
 
 export const casting: CastingAssignment[] = [
@@ -774,7 +777,77 @@ export const emailTemplates: EmailTemplate[] = [
   },
 ];
 
+/**
+ * A slice of the real Sweeney Todd calendar, taken from the production's own
+ * Google Calendar feed. Enough to exercise the schedule rail in mock mode:
+ * the move from the rehearsal space to Loudoun Auditorium, a tech call, and
+ * opening night.
+ */
+const sweeneyEvents: CalendarEvent[] = [
+  {
+    id: "evt-sw-1",
+    type: "rehearsal",
+    title: "Rehearsal — Rm A / Rm B",
+    startsAt: "2026-09-24T23:00:00.000Z",
+    endsAt: "2026-09-25T01:00:00.000Z",
+    location: "Rehearsal Space, South Building, National Conference Center",
+    whatToBring: "Script, pencil, water",
+    productionId: "prod-sweeney",
+  },
+  {
+    id: "evt-sw-2",
+    type: "rehearsal",
+    title: "ACT I RUN (full company)",
+    startsAt: "2026-09-27T17:00:00.000Z",
+    endsAt: "2026-09-27T19:00:00.000Z",
+    location: "Rehearsal Space, South Building, National Conference Center",
+    productionId: "prod-sweeney",
+  },
+  {
+    id: "evt-sw-3",
+    type: "rehearsal",
+    title: "COSTUME PARADE (ALL PROPS DUE)",
+    startsAt: "2026-10-04T17:00:00.000Z",
+    endsAt: "2026-10-04T19:00:00.000Z",
+    location: "Loudoun Auditorium, National Conference Center",
+    whatToBring: "Every costume piece and prop",
+    productionId: "prod-sweeney",
+    changedAt: "2026-08-16T12:00:00.000Z",
+    changeNote: "First call in the auditorium — not the rehearsal space",
+  },
+  {
+    id: "evt-sw-4",
+    type: "rehearsal",
+    title: "TECH: ACT I (MANDATORY)",
+    startsAt: "2026-10-19T21:30:00.000Z",
+    endsAt: "2026-10-20T01:00:00.000Z",
+    location: "Loudoun Auditorium, National Conference Center",
+    productionId: "prod-sweeney",
+  },
+  {
+    id: "evt-sw-5",
+    type: "performance",
+    title: "OPENING NIGHT",
+    startsAt: "2026-10-23T23:00:00.000Z",
+    endsAt: "2026-10-24T01:30:00.000Z",
+    callTime: "2026-10-23T21:30:00.000Z",
+    location: "Loudoun Auditorium, National Conference Center",
+    productionId: "prod-sweeney",
+  },
+  {
+    id: "evt-sw-6",
+    type: "performance",
+    title: "MATINEE",
+    startsAt: "2026-10-24T18:00:00.000Z",
+    endsAt: "2026-10-24T20:30:00.000Z",
+    callTime: "2026-10-24T16:30:00.000Z",
+    location: "Loudoun Auditorium, National Conference Center",
+    productionId: "prod-sweeney",
+  },
+];
+
 export const events: CalendarEvent[] = [
+  ...sweeneyEvents,
   {
     id: "evt-1",
     type: "rehearsal",
