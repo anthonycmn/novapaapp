@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Ticket } from "lucide-react";
+import { Bell, Images, Megaphone, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SectionHeader } from "@/components/ui/section-header";
 import { ExternalLinkButton } from "@/components/external-link-button";
+import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
 
 export const metadata = { title: "Production" };
 
@@ -97,6 +99,57 @@ export default async function ProductionPage({
           </CardContent>
         </Card>
       )}
+
+      {/* What a show week actually needs from a parent, in one place: the
+          news the directors post, photos, and who to email about what.
+          Meals and volunteering are announced but not yet open — saying
+          "coming soon" tells a family the thing exists and that they have
+          not missed it. */}
+      <Card pad={false}>
+        <SectionHeader title="Keeping up with the show" inCard />
+        <div className="grid gap-2 p-4 sm:grid-cols-3">
+          <Link
+            href="/feed"
+            className="flex items-start gap-2.5 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
+          >
+            <Megaphone aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium">Live updates</span>
+              <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                Posts from the directors, and answers to what families ask
+              </span>
+            </span>
+          </Link>
+          <Link
+            href="/photos"
+            className="flex items-start gap-2.5 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
+          >
+            <Images aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium">Photos</span>
+              <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                Rehearsal and performance galleries
+              </span>
+            </span>
+          </Link>
+          <Link
+            href="/notifications/settings"
+            className="flex items-start gap-2.5 rounded-md border px-3 py-2.5 transition-colors hover:bg-muted"
+          >
+            <Bell aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium">Notifications</span>
+              <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                Choose what we tell you about, and when
+              </span>
+            </span>
+          </Link>
+        </div>
+      </Card>
+
+      <WhoToEmail />
+
+      <ComingSoonCards />
 
       {hasRoleAtLeast(user, "staff") && (
         <Link
