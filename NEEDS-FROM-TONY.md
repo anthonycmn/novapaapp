@@ -7,12 +7,12 @@ Everything the build needs from you to go from mocks to live integrations. The a
 | # | Item | Used for | Where to get it | Env var(s) |
 |---|------|----------|-----------------|------------|
 | 1 | ~~Supabase project~~ **DONE** — the hub runs on **`novapa`** (`tlkuqwsqicxcjdmumkje`), in its own **`family_hub`** schema, alongside the website's `public` and the staff portal's `staff_portal`. *(Corrected 15 Aug 2026: this row used to name `novapa-deh`, which was retired at the 11 Aug cutover and now only accepts writes silently. Never point anything here.)* | Lets the app's server code read/write its own schema | already set | `SUPABASE_SERVICE_ROLE_KEY` |
-| 2 | Resend API key | Transactional + bulk email (#1) | resend.com → API Keys; verify the org's sending domain | `RESEND_API_KEY`, `EMAIL_FROM_ADDRESS` |
+| 2 | ~~Resend API key~~ **KEY IS IN** (Tony, 15 Aug 2026) — but until the sending **domain is verified** (#12) the default `onboarding@resend.dev` sender only delivers to the Resend account owner's own inbox: "send myself a test" works, family sends will not. Set `EMAIL_FROM_ADDRESS` once the domain verifies. | Transactional + bulk email (#1) | resend.com → Domains | `RESEND_API_KEY` ✓, `EMAIL_FROM_ADDRESS` pending |
 | 3 | Stripe secret + publishable keys (test then live) | Spirit buttons checkout (#11) | dashboard.stripe.com → Developers → API keys | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` |
 | 4 | SmugMug API key + org account OAuth | Gallery ingestion for photo matching (#6) | api.smugmug.com → Apply for API key with the org account | `SMUGMUG_API_KEY`, `SMUGMUG_API_SECRET`, `SMUGMUG_OAUTH_TOKEN`, `SMUGMUG_OAUTH_SECRET` |
 | 5 | **A host for the face-embedding service** (small container running InsightFace/ArcFace, CPU is fine) | AI photo recognition (#6) | Self-hosted deliberately — children's biometric data stays on org-controlled infrastructure (rationale in DECISIONS.md). It needs one endpoint: `POST {image_url} → {faces:[{embedding:number[512], confidence, box}]}`. Until it exists the app uses deterministic mock vectors and the admin page says so. | `FACE_SERVICE_URL`, `FACE_SERVICE_KEY`, `PHOTO_JOB_SECRET` |
 | 6 | VAPID key pair | Web Push (#2) | Generated locally during Phase 2 (`npx web-push generate-vapid-keys`) — no signup needed, just keep the private key secret | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` |
-| 7 | ~~Hosting~~ **DONE** — Netlify site `novapa-family-hub` deploys automatically from GitHub `anthonycmn/novapaapp` | Hosting + deploys | — | (managed by Netlify) |
+| 7 | ~~Hosting~~ **DONE** — Netlify site `novapa-family-hub` hosts the parent portal. *(Corrected 15 Aug 2026: it does **NOT** auto-build on git push — deploys are explicit uploads; the procedure is in HANDOFF.md §4.)* | Hosting + deploys | — | (managed by Netlify) |
 
 ## Information & assets
 
