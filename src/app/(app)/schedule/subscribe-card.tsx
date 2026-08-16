@@ -9,17 +9,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
  * iCal subscription (#5). The webcal:// scheme makes Apple Calendar and
  * Outlook subscribe (rather than one-time import); Google needs the https
  * URL pasted into "From URL".
+ *
+ * `feedUrl` arrives absolute, built on the server from the request host. It
+ * used to be assembled here from `window.location.origin`, which is empty
+ * during SSR — so the server shipped "/api/calendar/…" and the client
+ * hydrated "http://host/api/calendar/…", and React tore down and re-rendered
+ * this whole subtree on every visit to /schedule.
  */
-export function SubscribeCard({ token }: { token: string }) {
+export function SubscribeCard({ feedUrl }: { feedUrl: string }) {
   const [copied, setCopied] = useState(false);
 
-  const origin = typeof window === "undefined" ? "" : window.location.origin;
-  const httpsUrl = `${origin}/api/calendar/${token}`;
-  const webcalUrl = httpsUrl.replace(/^https?:/, "webcal:");
+  const webcalUrl = feedUrl.replace(/^https?:/, "webcal:");
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(httpsUrl);
+      await navigator.clipboard.writeText(feedUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -46,7 +50,7 @@ export function SubscribeCard({ token }: { token: string }) {
             Apple / Outlook
           </a>
           <a
-            href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(httpsUrl)}`}
+            href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-11 items-center rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
@@ -59,7 +63,7 @@ export function SubscribeCard({ token }: { token: string }) {
           </Button>
         </div>
         <p className="break-all rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground">
-          {httpsUrl}
+          {feedUrl}
         </p>
         <p className="text-xs text-muted-foreground">
           This link is private to your family — anyone with it can see your

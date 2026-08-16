@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { CalendarPlus } from "lucide-react";
 import { getProvider } from "@/lib/api";
@@ -8,6 +9,25 @@ import { CalendarViews } from "./calendar-views";
 import { SubscribeCard } from "./subscribe-card";
 
 export const metadata = { title: "Schedule" };
+
+/**
+ * The origin this request came in on, so the calendar-subscription URL can be
+ * built on the server. It has to be absolute (webcal:// and Google's `cid=`
+ * both need a host), and it has to be the *same* string the browser would
+ * produce — building it client-side from `window.location.origin` made the
+ * server render a relative URL and the client an absolute one, which is a
+ * hydration mismatch that throws away the whole card.
+ */
+async function requestOrigin(): Promise<string> {
+  const headerList = await headers();
+  // Netlify sets both x-forwarded-* headers; `next dev` sets neither.
+  const proto = headerList.get("x-forwarded-proto")?.split(",")[0].trim() ?? "http";
+  const host =
+    headerList.get("x-forwarded-host")?.split(",")[0].trim() ??
+    headerList.get("host") ??
+    "localhost:3000";
+  return `${proto}://${host}`;
+}
 
 /**
  * Household calendar (#5): every commitment across all children, merged,
@@ -51,10 +71,11 @@ export default async function SchedulePage() {
     );
   }
 
-  const [events, students, token] = await Promise.all([
+  const [events, students, token, origin] = await Promise.all([
     provider.getFamilyCalendar(user.id, user.familyId),
     provider.getStudentsForFamily(user.id, user.familyId),
     provider.getCalendarToken(user.id, user.familyId),
+    requestOrigin(),
   ]);
 
   const conflictCount = events.filter((e) => e.conflictsWith?.length).length;
@@ -85,7 +106,7 @@ export default async function SchedulePage() {
         }))}
       />
 
-      <SubscribeCard token={token} />
+      <SubscribeCard feedUrl={`${origin}/api/calendar/${token}`} />
     </div>
   );
 }
