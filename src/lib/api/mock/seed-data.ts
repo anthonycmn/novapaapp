@@ -713,6 +713,21 @@ export const feedPosts: FeedPost[] = [
     publishedAt: "2026-07-24T16:30:00.000Z",
     reactionCounts: { heart: 5, clap: 2, star: 0 },
   },
+  {
+    // Tagged to one show, so it appears on that show's feed and nowhere
+    // else — the two-feeds rule the show page depends on.
+    id: "post-sweeney-tracks",
+    authorStaffId: "staff-marcus",
+    authorName: "Colton Sorenson",
+    title: "Rehearsal tracks are live — start with the Ballad",
+    body: "The MTI code is on the show page. Download the tracks to a phone before Monday rather than streaming in the room; the wifi in the South Building will not carry twenty devices.\n\nEverybody learns the Prologue first. Leads, your character block dates are on the show page too.",
+    imageUrls: [],
+    category: "rehearsal",
+    audience: { productionIds: ["prod-sweeney"] },
+    isPinned: true,
+    publishedAt: "2026-08-14T13:00:00.000Z",
+    reactionCounts: { heart: 9, clap: 4, star: 2 },
+  },
 ];
 
 export const postQuestions: PostQuestion[] = [
