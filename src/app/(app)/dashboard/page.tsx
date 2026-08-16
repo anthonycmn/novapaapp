@@ -7,7 +7,6 @@ import type { CalendarEvent, Enrollment, Student } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
-import { FeatureGrid } from "@/components/dashboard/feature-grid";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -31,15 +30,44 @@ export default async function DashboardPage() {
       provider.getEnrollmentsForFamily(user.id, user.familyId),
     ]);
   }
-  const [productions, classes, unreadCount] = await Promise.all([
+  const [productions, classes, unreadCount, familyEvents] = await Promise.all([
     provider.getProductions(),
     provider.getClasses(),
     provider.getUnreadNotificationCount(user.id),
+    user.familyId
+      ? provider.getFamilyCalendar(user.id, user.familyId)
+      : Promise.resolve<CalendarEvent[]>([]),
   ]);
 
   const active = enrollments.filter((e) => e.status !== "withdrawn");
   const balanceCents = active.reduce((sum, e) => sum + e.balanceCents, 0);
   const firstName = user.displayName.split(" ")[0];
+
+  /**
+   * The shows this family is in, each with its next call — what replaced the
+   * grid of every section in the portal. Ordered by whichever opens soonest,
+   * because that is the one a parent is thinking about.
+   */
+  const nowIso = new Date().toISOString();
+  const myShows = [
+    ...new Set(active.map((e) => e.productionId).filter(Boolean)),
+  ]
+    .map((productionId) => {
+      const production = productions.find((p) => p.id === productionId);
+      if (!production) return null;
+      const nextCall = familyEvents
+        .filter((e) => e.productionId === production.id && e.endsAt >= nowIso)
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+      const days = production.opensOn
+        ? Math.ceil(
+            (new Date(`${production.opensOn}T12:00:00Z`).getTime() - Date.now()) /
+              86_400_000
+          )
+        : null;
+      return { production, nextCall, days };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
 
   return (
     <>
@@ -181,9 +209,56 @@ export default async function DashboardPage() {
           </div>
         </Card>
 
-        <div className="lg:col-span-3">
-          <FeatureGrid isStaff={isStaff} />
-        </div>
+        {/* The shows this family is actually in — the one journey a parent
+            takes from here. This replaced a seventeen-tile grid of every
+            section in the portal (Tony, 16 Aug 2026: "I don't want all these
+            buttons that I have to click to go elsewhere"). The sidebar
+            already carries navigation; the grid was a second copy of it. */}
+        {myShows.length > 0 && (
+          <div className="lg:col-span-3">
+            <Card pad={false}>
+              <SectionHeader
+                title={myShows.length === 1 ? "Your show" : "Your shows"}
+                inCard
+                right={
+                  <Link
+                    href="/productions"
+                    className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+                  >
+                    All productions <ArrowRight aria-hidden size={13} />
+                  </Link>
+                }
+              />
+              <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-3">
+                {myShows.map(({ production, nextCall, days }) => (
+                  <Link
+                    key={production.id}
+                    href={`/productions/${production.id}`}
+                    className="rounded-md border p-3 transition-colors hover:bg-muted"
+                  >
+                    <p className="text-[13px] font-medium leading-snug">
+                      {production.title}
+                    </p>
+                    <p className="mt-0.5 text-[12px] text-muted-foreground">
+                      {production.venue.split(",")[0]}
+                      {days !== null &&
+                        (days < 0
+                          ? " · run under way"
+                          : days === 0
+                            ? " · opens tonight"
+                            : ` · opens in ${days} days`)}
+                    </p>
+                    <p className="mt-1.5 text-[12px] text-gold">
+                      {nextCall
+                        ? `Next: ${formatEventTime(nextCall.startsAt)} — ${nextCall.title}`
+                        : "No calls on your calendar yet"}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </>
   );
