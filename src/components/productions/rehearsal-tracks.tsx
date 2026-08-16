@@ -1,76 +1,80 @@
-import { ExternalLink, Music } from "lucide-react";
+import { ChevronRight, ExternalLink, Music } from "lucide-react";
 import { SWEENEY_REHEARSAL_TRACKS } from "@/config/shows/sweeney-todd";
 import { Card } from "@/components/ui/card";
-import { SectionHeader } from "@/components/ui/section-header";
 
 /**
  * MTI rehearsal tracks.
  *
+ * The code is the whole point of this card, so the code IS the card. The
+ * install instructions used to take a full screen of three side-by-side
+ * columns — reference a family reads once, sitting above the things they
+ * check weekly. They are behind a disclosure now.
+ *
  * Rendered from a server component inside the signed-in portal, so the code
- * never reaches an anonymous visitor or the client bundle. Parents and
- * students both see it — Tony, 16 Aug 2026: students may use it provided they
- * are 13 or over, which is exactly the age at which a student gets their own
- * portal account, so having an account IS the age check.
+ * never reaches an anonymous visitor or the client bundle. Students see it
+ * too: 13 is the age a student gets their own account, so having an account
+ * IS the age check.
  */
 export function RehearsalTracks() {
   const { code, streamingUrl, options } = SWEENEY_REHEARSAL_TRACKS;
 
   return (
-    <Card pad={false}>
-      <SectionHeader
-        title="Rehearsal tracks"
-        inCard
-        right={
-          <a
-            href={streamingUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            <Music aria-hidden size={14} />
-            Stream in a browser
-            <ExternalLink aria-hidden size={12} />
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        }
-      />
-
-      <div className="p-4">
-        <div className="rounded-md border border-gold/40 bg-tip px-4 py-3">
-          <p className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-gold">
-            Rehearsal code
-          </p>
-          <p className="mt-0.5 font-mono text-[20px] font-semibold tracking-[0.08em] text-tip-foreground">
-            {code}
-          </p>
-          <p className="mt-1 text-[12px] leading-relaxed text-tip-foreground/80">
-            The same code works everywhere below. It is licensed to our company
-            for this production — please keep it inside the cast and their
-            families.
-          </p>
+    // The top-of-page tracks card jumps here. scroll-mt keeps the heading
+    // clear of the sticky app bar instead of tucked underneath it.
+    <Card pad={false} id="rehearsal-tracks" className="scroll-mt-20">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Music aria-hidden size={17} className="shrink-0 text-gold" />
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold">
+              Rehearsal code
+            </p>
+            <p className="font-mono text-[19px] font-semibold leading-tight tracking-[0.08em]">
+              {code}
+            </p>
+          </div>
         </div>
+        <a
+          href={streamingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          Play in a browser
+          <ExternalLink aria-hidden size={12} />
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+      </div>
 
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+      <details className="group border-t">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-[12.5px] text-muted-foreground hover:text-foreground">
+          <ChevronRight
+            aria-hidden
+            size={13}
+            className="shrink-0 transition-transform group-open:rotate-90"
+          />
+          How to get the tracks on a phone
+        </summary>
+        <div className="grid gap-3 px-4 pb-4 sm:grid-cols-3">
           {options.map((option) => (
             <div key={option.platform} className="rounded-md border p-3">
-              <h3 className="text-[13px] font-semibold">{option.platform}</h3>
-              <ol className="mt-1.5 flex list-decimal flex-col gap-1 pl-4 text-[12.5px] leading-snug text-muted-foreground">
+              <h3 className="text-[12.5px] font-semibold">{option.platform}</h3>
+              <ol className="mt-1 flex list-decimal flex-col gap-0.5 pl-4 text-[12px] leading-snug text-muted-foreground">
                 {option.steps.map((step) => (
                   <li key={step}>{step}</li>
                 ))}
               </ol>
-              <p className="mt-2 text-[11.5px] italic leading-snug text-muted-foreground">
-                {option.note}
-              </p>
             </div>
           ))}
+          <p className="text-[11.5px] leading-relaxed text-muted-foreground sm:col-span-3">
+            Download before rehearsal — the wifi will not carry twenty devices.
+            Students aged 13 and over can sign in with their own account;
+            younger performers should use a parent&apos;s device. The code is
+            licensed to our company for this production, so please keep it
+            inside the cast and their families.
+          </p>
         </div>
-
-        <p className="mt-3 text-[12px] text-muted-foreground">
-          Students aged 13 and over can sign in with their own account and use
-          these too. Younger performers should use a parent&apos;s device.
-        </p>
-      </div>
+      </details>
     </Card>
   );
 }

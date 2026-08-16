@@ -7,12 +7,12 @@ import type { CalendarEvent } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { SectionHeader } from "@/components/ui/section-header";
-import { StatTile } from "@/components/ui/stat-tile";
 import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
 import { ShowPhotos } from "@/components/productions/show-photos";
 import { RehearsalTracks } from "@/components/productions/rehearsal-tracks";
 import { ScenesAndSongs } from "@/components/productions/scenes-and-songs";
 import { ScheduleRail } from "@/components/productions/schedule-rail";
+import { NextCall, PerformanceStrip } from "@/components/productions/next-call";
 import { ShowFeed } from "@/components/productions/show-feed";
 
 export const metadata = { title: "Production" };
@@ -61,11 +61,6 @@ export default async function ProductionPage({
     a.startsAt.localeCompare(b.startsAt)
   )[0];
 
-  const opensAt = production.opensOn ? `${production.opensOn}T12:00:00Z` : null;
-  const daysToOpening = opensAt
-    ? Math.ceil((new Date(opensAt).getTime() - Date.now()) / 86_400_000)
-    : null;
-
   return (
     <>
       <SectionHeader
@@ -89,39 +84,13 @@ export default async function ProductionPage({
         }
       />
 
-      {/* ---- Where the show is, at a glance ---- */}
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatTile
-          label={daysToOpening !== null && daysToOpening < 0 ? "Opened" : "Opening night"}
-          value={
-            daysToOpening === null
-              ? "TBC"
-              : daysToOpening < 0
-                ? "Run under way"
-                : daysToOpening === 0
-                  ? "Tonight"
-                  : `${daysToOpening} days`
-          }
-          hint={opensAt ? formatDate(opensAt) : "Date not set"}
-          tone={daysToOpening !== null && daysToOpening <= 14 ? "warn" : "default"}
-        />
-        <StatTile
-          label="Next call"
-          value={nextCall ? formatDate(nextCall.startsAt) : "—"}
-          hint={nextCall ? nextCall.title : "Nothing on your calendar yet"}
-        />
-        <StatTile
-          label="Calls remaining"
-          value={upcoming.length}
-          hint={`${events.length} on your family's calendar in total`}
-          href="/schedule"
-        />
-        <StatTile
-          label="Venue"
-          value={production.venue.split(",")[0]}
-          hint="Check each call — this show moves buildings mid-run"
-        />
-      </div>
+      {/* The one question this page exists to answer, at the size it
+          deserves — then the run, for the dates families send to relatives.
+          The generic four-tile stat row that used to sit here said
+          "Calls remaining: 6", which is not a thing anyone needed. */}
+      <NextCall event={nextCall} />
+
+      <PerformanceStrip events={events} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* ---- Left: what a parent reads ---- */}

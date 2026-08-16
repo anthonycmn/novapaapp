@@ -106,7 +106,30 @@ export function ScenesAndSongs() {
         )}
       </div>
 
-      <div className="overflow-x-auto p-4">
+      {/* The compact answer first: which scenes, which numbers. Nine columns
+          of dates is reference material, and it goes behind a disclosure —
+          a parent asking "what is my child in" should not have to read a
+          spreadsheet to find out. */}
+      <ul className="divide-y">
+        {scenes.map((scene) => (
+          <li key={`${scene.act}-${scene.scene}`} className="px-4 py-2.5">
+            <div className="flex flex-wrap items-baseline gap-x-2">
+              <span className="text-[12px] font-semibold tabular-nums text-gold">
+                Act {scene.act} · {scene.scene}
+              </span>
+              <span className="text-[12px] text-muted-foreground">{scene.setting}</span>
+            </div>
+            <p className="mt-0.5 text-[13px]">{scene.numbers.join(" · ")}</p>
+          </li>
+        ))}
+      </ul>
+
+      <details className="group border-t">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-[12.5px] text-muted-foreground hover:text-foreground">
+          <span className="transition-transform group-open:rotate-90">›</span>
+          Full table, with who is in each scene and the dates it is worked
+        </summary>
+        <div className="overflow-x-auto p-4 pt-0">
         <table className="w-full min-w-[46rem] text-[12.5px]">
           <thead>
             <tr className="border-b">
@@ -145,12 +168,16 @@ export function ScenesAndSongs() {
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      </details>
 
-      <div className="border-t px-4 py-3">
-        <h3 className="text-[11px] font-bold uppercase tracking-[0.14em] text-gold">
-          Musical numbers
-        </h3>
+      <details className="group border-t">
+        <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-[12.5px] text-muted-foreground hover:text-foreground">
+          <span className="transition-transform group-open:rotate-90">›</span>
+          Every musical number, and who sings it
+        </summary>
+        <div className="px-4 pb-3">
+        <h3 className="sr-only">Musical numbers</h3>
         <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
           {numbers.map((number) => (
             <li key={number.no} className="flex gap-2 text-[12.5px]">
@@ -174,7 +201,8 @@ export function ScenesAndSongs() {
             </li>
           ))}
         </ul>
-      </div>
+        </div>
+      </details>
     </Card>
   );
 }
