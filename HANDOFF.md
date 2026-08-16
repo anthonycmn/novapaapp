@@ -62,9 +62,9 @@ another schema or a write to shared tables.
 **Registration bridge (parent portal ← website).** The hub's
 `WebsiteDbRegistrationProvider` reads `public` directly (service key,
 read-only client). 769 accounts / 235 enrollments reconciled to within 8¢ of
-the website. One known wrinkle: the "10-Pack Acting Coaching Sessions"
-offering has no hub home, so sync runs finish `partial` (NEEDS-FROM-TONY
-#8c).
+the website. Sync runs finish `success` with 0 issues — coaching purchases
+resolve against the portal's `v_coaching_catalog` (closed 15 Aug 2026,
+NEEDS-FROM-TONY #8c).
 
 **Schedule bridge (staff portal → parent portal).** An hourly Netlify
 function (`schedule-sync` in the hub) copies portal rehearsal/class schedules
@@ -215,7 +215,7 @@ been invited yet** — see §9.
 | Face matching | Mock vectors | Self-hosted InsightFace service (NFT #5) |
 | Spirit-button checkout in the parent portal | Mock payment | Stripe keys in hub env (NFT #3) |
 | SmugMug ingestion | Reads `public.smugmug_photos` | SmugMug API OAuth (NFT #4) |
-| FSA statements | Prints "not ready" warning | Org tax details in `org.ts` (NFT #14) |
+| FSA statements | Prints "not ready" warning | Only the EIN + signatory name remain (NFT #14) |
 | Push notifications | Keys exist; in-app notifications are the live channel | — |
 
 `NEEDS-FROM-TONY.md` (this repo) is the canonical unlock list.
