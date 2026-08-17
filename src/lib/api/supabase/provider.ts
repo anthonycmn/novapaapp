@@ -1077,6 +1077,15 @@ class SupabaseDataProvider {
       preferenceTier: row.preference_tier as RoleTier,
       previousRoles: String(row.previous_roles ?? ""),
       hopes: String(row.hopes ?? ""),
+      wantsSpeaking: Boolean(row.wants_speaking),
+      wantsSinging: Boolean(row.wants_singing),
+      wantsDance: Boolean(row.wants_dance),
+      songTitle: s(row.song_title),
+      songUrl: s(row.song_url),
+      auditionVideoUrl: s(row.audition_video_url),
+      danceVideoUrl: s(row.dance_video_url),
+      resumeUrl: s(row.resume_url),
+      notes: s(row.notes),
       acknowledgedNoGuaranteeAt: String(row.acknowledged_at ?? row.created_at),
       submittedByUserId: String(row.submitted_by_user_id ?? ""),
       submittedByRole: (row.submitted_by_role ?? "parent") as "parent" | "student",
@@ -1111,6 +1120,23 @@ class SupabaseDataProvider {
       preferenceTier: RoleTier;
       previousRoles: string;
       hopes: string;
+      /** What to consider them for. Independent — none of them is valid. */
+      wantsSpeaking?: boolean;
+      wantsSinging?: boolean;
+      wantsDance?: boolean;
+      /** Prepared for THIS show, not carried from the last one. */
+      songTitle?: string;
+      songUrl?: string;
+      /**
+       * Storage URLs. Undefined means "the form did not touch this" and the
+       * existing value stands; empty string clears it. Uploads reach storage
+       * directly from the browser, so by the time this runs the file is
+       * already there and only its address is travelling.
+       */
+      auditionVideoUrl?: string;
+      danceVideoUrl?: string;
+      resumeUrl?: string;
+      notes?: string;
       acknowledgedNoGuarantee: boolean;
     }
   ): Promise<AuditionProfile> {
@@ -1152,6 +1178,24 @@ class SupabaseDataProvider {
           preference_tier: input.preferenceTier,
           previous_roles: input.previousRoles,
           hopes: input.hopes,
+          wants_speaking: input.wantsSpeaking ?? false,
+          wants_singing: input.wantsSinging ?? false,
+          wants_dance: input.wantsDance ?? false,
+          song_title: input.songTitle ?? null,
+          song_url: input.songUrl ?? null,
+          // Undefined means "the form did not touch this"; null means cleared.
+          // Sending undefined through would wipe an upload on every save of an
+          // unrelated field.
+          ...(input.auditionVideoUrl !== undefined
+            ? { audition_video_url: input.auditionVideoUrl || null }
+            : {}),
+          ...(input.danceVideoUrl !== undefined
+            ? { dance_video_url: input.danceVideoUrl || null }
+            : {}),
+          ...(input.resumeUrl !== undefined
+            ? { resume_url: input.resumeUrl || null }
+            : {}),
+          notes: input.notes ?? null,
           acknowledged_no_guarantee: true,
           acknowledged_at: new Date().toISOString(),
           submitted_by_user_id: actor.id,

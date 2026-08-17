@@ -21,6 +21,26 @@ const profileSchema = z.object({
   preferenceTier: z.enum(["ensemble", "featured", "supporting", "lead"]),
   previousRoles: z.string().max(2000),
   hopes: z.string().max(2000),
+  wantsSpeaking: z.boolean(),
+  wantsSinging: z.boolean(),
+  wantsDance: z.boolean(),
+  songTitle: z.string().max(200),
+  /**
+   * A link, not an upload — most families put the song on YouTube or Drive.
+   * Anything that is not http(s) is refused rather than stored: a stray
+   * "javascript:" in a field the directing team will click is not something to
+   * find out about later.
+   */
+  songUrl: z
+    .string()
+    .max(500)
+    .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
+      message: "That doesn't look like a web link — it should start with https://",
+    }),
+  auditionVideoUrl: z.string().max(1000),
+  danceVideoUrl: z.string().max(1000),
+  resumeUrl: z.string().max(1000),
+  notes: z.string().max(2000),
   acknowledged: z.literal(true, {
     errorMap: () => ({
       message: "Please confirm you understand that a preference doesn't guarantee a part",
@@ -41,6 +61,15 @@ export async function submitAuditionProfileAction(
     preferenceTier: formData.get("preferenceTier"),
     previousRoles: String(formData.get("previousRoles") ?? ""),
     hopes: String(formData.get("hopes") ?? ""),
+    wantsSpeaking: formData.get("wantsSpeaking") === "on",
+    wantsSinging: formData.get("wantsSinging") === "on",
+    wantsDance: formData.get("wantsDance") === "on",
+    songTitle: String(formData.get("songTitle") ?? "").trim(),
+    songUrl: String(formData.get("songUrl") ?? "").trim(),
+    auditionVideoUrl: String(formData.get("auditionVideoUrl") ?? ""),
+    danceVideoUrl: String(formData.get("danceVideoUrl") ?? ""),
+    resumeUrl: String(formData.get("resumeUrl") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
     acknowledged: formData.get("acknowledged") === "on",
   });
   if (!parsed.success) {
@@ -58,12 +87,24 @@ export async function submitAuditionProfileAction(
       preferenceTier: parsed.data.preferenceTier as RoleTier,
       previousRoles: parsed.data.previousRoles,
       hopes: parsed.data.hopes,
+      wantsSpeaking: parsed.data.wantsSpeaking,
+      wantsSinging: parsed.data.wantsSinging,
+      wantsDance: parsed.data.wantsDance,
+      songTitle: parsed.data.songTitle,
+      songUrl: parsed.data.songUrl,
+      // The uploader always posts these fields, so an empty string here is a
+      // deliberate clear rather than an absent field.
+      auditionVideoUrl: parsed.data.auditionVideoUrl,
+      danceVideoUrl: parsed.data.danceVideoUrl,
+      resumeUrl: parsed.data.resumeUrl,
+      notes: parsed.data.notes,
       acknowledgedNoGuarantee: true,
     });
   } catch (error) {
     return fail(error);
   }
   revalidatePath("/auditions");
+  revalidatePath(`/auditions/${parsed.data.productionId}/${parsed.data.studentId}`);
   return { ok: true };
 }
 

@@ -62,6 +62,36 @@ export const NO_GUARANTEE_TEXT =
 
 /* ── audition profile (family-submitted) ────────────────────────────────── */
 
+/**
+ * What a performer wants to be considered for.
+ *
+ * Three independent answers rather than one ranked preference, because "I sing
+ * but I don't dance" is a normal and common thing to say and a single tier
+ * cannot express it. A child may tick all three, one, or none — none is not an
+ * error, it is a child who will take whatever they are given.
+ */
+export const ROLE_KINDS: Array<{
+  field: "wantsSpeaking" | "wantsSinging" | "wantsDance";
+  label: string;
+  hint: string;
+}> = [
+  {
+    field: "wantsSpeaking",
+    label: "A speaking role",
+    hint: "Lines of their own, on stage in scenes.",
+  },
+  {
+    field: "wantsSinging",
+    label: "A singing role",
+    hint: "A solo, a duet, or a featured sung line.",
+  },
+  {
+    field: "wantsDance",
+    label: "A dance role",
+    hint: "A dance feature, or one of the stronger dancing tracks.",
+  },
+];
+
 export interface AuditionProfile {
   id: string;
   studentId: string;
@@ -72,6 +102,26 @@ export interface AuditionProfile {
   previousRoles: string;
   /** What they hope to get out of the experience. */
   hopes: string;
+
+  /* ── what to consider them for ────────────────────────────────────────── */
+  wantsSpeaking: boolean;
+  wantsSinging: boolean;
+  wantsDance: boolean;
+
+  /* ── what they prepared FOR THIS SHOW ─────────────────────────────────── */
+  /**
+   * Per-production on purpose. These used to live on the student and were
+   * carried from show to show, so a Sweeney panel could be reading the song a
+   * child prepared for Frozen eighteen months earlier.
+   */
+  songTitle?: string;
+  songUrl?: string;
+  /** A self-tape, when they audition by upload rather than in the room. */
+  auditionVideoUrl?: string;
+  danceVideoUrl?: string;
+  resumeUrl?: string;
+  /** Anything else the directing team should know. */
+  notes?: string;
   /** Timestamped acceptance of NO_GUARANTEE_TEXT. Required to submit. */
   acknowledgedNoGuaranteeAt: string;
   /** Who filled it in — the parent, or a 13+ student themselves. */

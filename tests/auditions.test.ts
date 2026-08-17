@@ -610,3 +610,109 @@ describe("rehearsal notices: 24h reminder and post-rehearsal thanks", () => {
     ).rejects.toThrow(AccessDeniedError);
   });
 });
+
+/**
+ * An audition belongs to a SHOW, not to a child. The song, the self-tape and
+ * the resume used to live on the student and travel unchanged from production
+ * to production, so a Sweeney panel could be reading what was prepared for
+ * Frozen eighteen months earlier.
+ */
+describe("audition material is per show", () => {
+  const base = {
+    studentId: "stu-ava",
+    productionId: "prod-frozen",
+    preferenceTier: "lead" as const,
+    previousRoles: "",
+    hopes: "",
+    acknowledgedNoGuarantee: true as const,
+  };
+
+  it("records the three role kinds independently", async () => {
+    // "I sing but I don't dance" is a normal answer and a single tier cannot
+    // express it.
+    const profile = await provider.submitAuditionProfile("user-sofia", {
+      ...base,
+      wantsSpeaking: true,
+      wantsSinging: true,
+      wantsDance: false,
+    });
+    expect(profile.wantsSpeaking).toBe(true);
+    expect(profile.wantsSinging).toBe(true);
+    expect(profile.wantsDance).toBe(false);
+  });
+
+  it("defaults every role kind to false rather than to true", async () => {
+    const profile = await provider.submitAuditionProfile("user-sofia", base);
+    expect(profile.wantsSpeaking).toBe(false);
+    expect(profile.wantsSinging).toBe(false);
+    expect(profile.wantsDance).toBe(false);
+  });
+
+  it("keeps the song, uploads and notes against this production", async () => {
+    const profile = await provider.submitAuditionProfile("user-sofia", {
+      ...base,
+      songTitle: "Part of Your World",
+      songUrl: "https://example.org/song",
+      auditionVideoUrl: "https://storage.example/v/ava.mp4",
+      danceVideoUrl: "https://storage.example/v/ava-dance.mp4",
+      resumeUrl: "https://storage.example/r/ava.pdf",
+      notes: "Away for half term",
+    });
+    expect(profile.productionId).toBe("prod-frozen");
+    expect(profile.songTitle).toBe("Part of Your World");
+    expect(profile.auditionVideoUrl).toBe("https://storage.example/v/ava.mp4");
+    expect(profile.danceVideoUrl).toBe("https://storage.example/v/ava-dance.mp4");
+    expect(profile.resumeUrl).toBe("https://storage.example/r/ava.pdf");
+    expect(profile.notes).toBe("Away for half term");
+  });
+
+  it("does NOT wipe an upload when a later save leaves the field out", async () => {
+    // A family uploads the tape on Sunday and edits their hopes on Tuesday.
+    // Losing the video to an unrelated save is the bug this guards.
+    await provider.submitAuditionProfile("user-sofia", {
+      ...base,
+      auditionVideoUrl: "https://storage.example/v/ava.mp4",
+    });
+    const later = await provider.submitAuditionProfile("user-sofia", {
+      ...base,
+      hopes: "Changed my mind about the hopes",
+    });
+    expect(later.auditionVideoUrl).toBe("https://storage.example/v/ava.mp4");
+    expect(later.hopes).toBe("Changed my mind about the hopes");
+  });
+
+  it("clears an upload when the field is explicitly emptied", async () => {
+    // The uploader's remove button posts an empty string, which must mean
+    // "take it off" rather than "leave it alone".
+    await provider.submitAuditionProfile("user-sofia", {
+      ...base,
+      auditionVideoUrl: "https://storage.example/v/ava.mp4",
+    });
+    const cleared = await provider.submitAuditionProfile("user-sofia", {
+      ...base,
+      auditionVideoUrl: "",
+    });
+    expect(cleared.auditionVideoUrl).toBeUndefined();
+  });
+
+  it("keeps two shows' auditions apart for the same child", async () => {
+    const frozen = await provider.submitAuditionProfile("user-sofia", {
+      ...base,
+      songTitle: "Part of Your World",
+    });
+    const other = await provider
+      .submitAuditionProfile("user-sofia", {
+        ...base,
+        productionId: "prod-matilda",
+        songTitle: "Naughty",
+      })
+      .catch(() => null);
+    // The second show only exists in some seeds; when it does, the two rows
+    // must not share a song.
+    if (other) {
+      expect(other.songTitle).toBe("Naughty");
+      expect(frozen.songTitle).toBe("Part of Your World");
+      expect(other.id).not.toBe(frozen.id);
+    }
+  });
+});

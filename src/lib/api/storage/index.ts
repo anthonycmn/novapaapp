@@ -11,6 +11,7 @@ export type StorageBucket =
   | "headshots"
   | "resumes"
   | "audition-audio"
+  | "audition-video"
   | "family-documents"
   | "staff-photos"
   | "button-photos"
@@ -24,11 +25,32 @@ export interface StoredFile {
   contentType: string;
 }
 
+/** A one-shot permission for the browser to write one file, itself. */
+export interface SignedUpload {
+  /** PUT the raw file here. No auth header needed — the token is in the URL. */
+  uploadUrl: string;
+  /** Where the file will live once written. */
+  path: string;
+  /** The address to store on the record afterwards. */
+  publicUrl: string;
+}
+
 export interface StorageProvider {
   readonly displayName: string;
   isConfigured(): boolean;
   /** `dataUrl` is a `data:<type>;base64,...` string from the client. */
   upload(bucket: StorageBucket, path: string, dataUrl: string): Promise<StoredFile>;
+  /**
+   * Mint a short-lived URL the browser can PUT a file to directly.
+   *
+   * This exists because of a hard ceiling, not a preference: this app is
+   * served by serverless functions with a 6 MB request-body limit, and base64
+   * inflates a file by a third on the way through. Anything larger than about
+   * four megabytes — which is most PDFs and every video — simply cannot reach
+   * the server. Handing the browser a signed URL takes the function out of the
+   * path entirely: only the address travels back.
+   */
+  createSignedUpload(bucket: StorageBucket, path: string): Promise<SignedUpload>;
   remove(bucket: StorageBucket, path: string): Promise<void>;
 }
 
@@ -59,6 +81,12 @@ class MockStorageProvider implements StorageProvider {
     };
     this.files.set(`${bucket}/${path}`, stored);
     return stored;
+  }
+
+  async createSignedUpload(): Promise<SignedUpload> {
+    // Nothing to sign without a bucket. The route reports this honestly rather
+    // than handing back a URL that would silently fail.
+    throw new Error("Storage is not configured, so there is nowhere to upload to.");
   }
 
   async remove(bucket: StorageBucket, path: string): Promise<void> {
@@ -121,6 +149,38 @@ class SupabaseStorageProvider implements StorageProvider {
     };
   }
 
+  async createSignedUpload(bucket: StorageBucket, path: string): Promise<SignedUpload> {
+    const physical = this.physical(bucket);
+    const response = await fetch(
+      `${this.url}/storage/v1/object/upload/sign/${physical}/${path}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.serviceKey}`,
+          apikey: this.serviceKey,
+          "Content-Type": "application/json",
+        },
+        // Replacing a video is the common case — a family re-records — so the
+        // signed URL has to permit an overwrite or the second attempt fails
+        // with a conflict the parent cannot interpret.
+        body: JSON.stringify({ upsert: true }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Could not prepare the upload (${response.status}): ${await response.text()}`
+      );
+    }
+    const data = (await response.json()) as { url?: string };
+    if (!data.url) throw new Error("Storage did not return an upload URL.");
+    return {
+      // Supabase returns a path-with-token relative to /storage/v1.
+      uploadUrl: `${this.url}/storage/v1${data.url.startsWith("/") ? "" : "/"}${data.url}`,
+      path,
+      publicUrl: `${this.url}/storage/v1/object/${physical}/${path}`,
+    };
+  }
+
   async remove(bucket: StorageBucket, path: string): Promise<void> {
     await fetch(
       `${this.url}/storage/v1/object/${this.physical(bucket)}/${encodeURIComponent(path)}`,
@@ -169,6 +229,26 @@ export const UPLOAD_LIMITS: Record<
     maxBytes: 25 * 1024 * 1024,
     contentTypes: ["audio/mpeg", "audio/mp4", "audio/wav", "audio/x-m4a", "audio/webm", "audio/ogg"],
     label: "audition recording",
+  },
+  /*
+   * Self-tapes and dance videos.
+   *
+   * 500 MB because a two-minute clip off a modern phone is routinely 150–300
+   * MB and a family filming in a kitchen has no way to compress it. This is
+   * only viable because the file goes STRAIGHT to storage from the browser —
+   * see uploadDirect(). Nothing this size can pass through a serverless
+   * function on this host, which caps a request body at 6 MB.
+   */
+  "audition-video": {
+    maxBytes: 500 * 1024 * 1024,
+    contentTypes: [
+      "video/mp4",
+      "video/quicktime",
+      "video/webm",
+      "video/x-m4v",
+      "video/mpeg",
+    ],
+    label: "audition video",
   },
   "family-documents": {
     maxBytes: 20 * 1024 * 1024,

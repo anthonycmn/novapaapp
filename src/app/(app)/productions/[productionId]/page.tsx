@@ -122,6 +122,34 @@ export default async function ProductionPage({
   const students = user.familyId
     ? await provider.getStudentsForFamily(user.id, user.familyId)
     : [];
+  /*
+   * Which of this family's children are registered for THIS show, and whether
+   * their audition is in. Drives the auditions tile below — a family with
+   * nobody in this show gets no tile rather than an empty form.
+   */
+  const auditioning = (
+    await Promise.all(
+      students.map(async (student) => {
+        const enrollments = await provider.getEnrollmentsForStudent(user.id, student.id);
+        const inThisShow = enrollments.some(
+          (enrollment) =>
+            enrollment.productionId === production.id && enrollment.status === "enrolled"
+        );
+        if (!inThisShow) return null;
+        const existing = await provider.getAuditionProfile(
+          user.id,
+          student.id,
+          production.id
+        );
+        return {
+          studentId: student.id,
+          studentName: student.preferredName ?? student.firstName,
+          submitted: Boolean(existing),
+        };
+      })
+    )
+  ).filter((row): row is NonNullable<typeof row> => row !== null);
+
   const myRoles = (
     await Promise.all(
       students.map(async (student) => {
@@ -219,6 +247,33 @@ export default async function ProductionPage({
           hint={performanceCount > 0 ? "Tickets on BookTix" : "Dates to be confirmed"}
         />
         {isSweeney && <RehearsalTracksTile />}
+        {/* The auditions tab, and only for a child actually in this show.
+            It sits with the other tiles rather than in the sidebar because a
+            parent arrives here from a "casting is open" post, not from a
+            navigation menu. */}
+        {auditioning.length > 0 && (
+          <StatTile
+            label={auditioning.length > 1 ? "Auditions" : "Audition"}
+            value={
+              auditioning.every((row) => row.submitted)
+                ? "Submitted"
+                : auditioning.some((row) => row.submitted)
+                  ? "Part done"
+                  : "To do"
+            }
+            hint={
+              auditioning.length === 1
+                ? `Song, video and hopes for ${auditioning[0].studentName}`
+                : `${auditioning.length} performers`
+            }
+            tone={auditioning.every((row) => row.submitted) ? "good" : "warn"}
+            href={
+              auditioning.length === 1
+                ? `/auditions/${production.id}/${auditioning[0].studentId}`
+                : "/auditions"
+            }
+          />
+        )}
       </div>
 
       {/* The one question this page exists to answer, at the size it

@@ -561,6 +561,23 @@ export interface DataProvider {
       preferenceTier: RoleTier;
       previousRoles: string;
       hopes: string;
+      /** What to consider them for. Independent — none of them is valid. */
+      wantsSpeaking?: boolean;
+      wantsSinging?: boolean;
+      wantsDance?: boolean;
+      /** Prepared for THIS show, not carried from the last one. */
+      songTitle?: string;
+      songUrl?: string;
+      /**
+       * Storage URLs. Undefined means "the form did not touch this" and the
+       * existing value stands; empty string clears it. Uploads reach storage
+       * directly from the browser, so by the time this runs the file is
+       * already there and only its address is travelling.
+       */
+      auditionVideoUrl?: string;
+      danceVideoUrl?: string;
+      resumeUrl?: string;
+      notes?: string;
       /** Must be true — the no-guarantee acknowledgment. */
       acknowledgedNoGuarantee: boolean;
     }

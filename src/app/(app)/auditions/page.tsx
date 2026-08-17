@@ -1,17 +1,18 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Drama } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
-import { AuditionForm } from "./audition-form";
+import { OfferingTile } from "@/components/productions/offering-tile";
 
 export const metadata = { title: "Auditions" };
 
 /**
- * Family audition hub: one form per registered student per production.
- * A 13+ student with their own login sees only themselves.
+ * One card per performer per show they are auditioning for.
+ *
+ * The audition itself lives on its own page now — see the note there. This is
+ * the way in, and it says at a glance which are done and which are not, since
+ * "did I actually submit that?" is the question a parent opens this page with.
  */
 export default async function AuditionsPage() {
   const user = await getSessionUser();
@@ -24,79 +25,83 @@ export default async function AuditionsPage() {
     provider.getProductions(),
   ]);
 
-  // A student account submits for themself only.
+  // A 13+ student with their own login submits for themself only.
   const visibleStudents =
-    user.role === "student"
-      ? students.filter((student) => student.hasLogin)
-      : students;
+    user.role === "student" ? students.filter((student) => student.hasLogin) : students;
 
-  // Which (student, production) pairs are registered — via enrollments.
-  const rows: Array<{
-    student: (typeof students)[number];
-    production: (typeof productions)[number];
-  }> = [];
-  for (const student of visibleStudents) {
-    const enrollments = await provider.getEnrollmentsForStudent(user.id, student.id);
-    for (const enrollment of enrollments) {
-      if (enrollment.status !== "enrolled" || !enrollment.productionId) continue;
-      const production = productions.find((p) => p.id === enrollment.productionId);
-      if (production) rows.push({ student, production });
-    }
-  }
+  const rows = (
+    await Promise.all(
+      visibleStudents.map(async (student) => {
+        const enrollments = await provider.getEnrollmentsForStudent(user.id, student.id);
+        return Promise.all(
+          enrollments
+            .filter(
+              (enrollment) => enrollment.status === "enrolled" && enrollment.productionId
+            )
+            .map(async (enrollment) => {
+              const production = productions.find((p) => p.id === enrollment.productionId);
+              if (!production) return null;
+              const existing = await provider.getAuditionProfile(
+                user.id,
+                student.id,
+                production.id
+              );
+              return { student, production, existing };
+            })
+        );
+      })
+    )
+  )
+    .flat()
+    .filter((row): row is NonNullable<typeof row> => row !== null);
 
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-2xl font-semibold">Auditions</h1>
         <p className="text-muted-foreground">
-          Tell the creative team about your performer before auditions.
+          Tell each show&apos;s directing team about your performer.
         </p>
       </div>
 
       {rows.length === 0 ? (
         <EmptyState
           icon={<Drama aria-hidden className="size-8" />}
-          title="No productions to audition for"
-          description="When you're registered for a show, the audition form appears here."
+          title="No shows to audition for"
+          description="When your child is registered for a show, its audition form appears here."
         />
       ) : (
-        await Promise.all(
-          rows.map(async ({ student, production }) => {
+        <div className="flex flex-col gap-2">
+          {rows.map(({ student, production, existing }) => {
             const displayName = student.preferredName ?? student.firstName;
-            const existing = await provider.getAuditionProfile(
-              user.id,
-              student.id,
-              production.id
+            /*
+             * "Submitted" is not the same as "finished". A family often saves
+             * the words on Tuesday and uploads the tape on Sunday, so the
+             * badge distinguishes the two rather than calling the first one
+             * done and letting a missing video go unnoticed.
+             */
+            const hasFiles = Boolean(
+              existing?.auditionVideoUrl || existing?.danceVideoUrl || existing?.resumeUrl
             );
             return (
-              <Card key={`${student.id}-${production.id}`}>
-                <CardHeader>
-                  <CardTitle as="h2" className="text-base">
-                    {displayName} — {production.title}
-                  </CardTitle>
-                  <CardDescription>
-                    Headshot, resume, and audition song live in{" "}
-                    <Link
-                      href={`/family/students/${student.id}/materials`}
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      audition materials
-                    </Link>
-                    .
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <AuditionForm
-                    studentId={student.id}
-                    productionId={production.id}
-                    studentName={displayName}
-                    existing={existing}
-                  />
-                </CardContent>
-              </Card>
+              <OfferingTile
+                key={`${student.id}-${production.id}`}
+                href={`/auditions/${production.id}/${student.id}`}
+                Icon={Drama}
+                title={`${displayName} — ${production.title}`}
+                subtitle={
+                  existing
+                    ? hasFiles
+                      ? "Submitted, with recordings"
+                      : "Submitted — you can still add a video or resume"
+                    : "Not started"
+                }
+                meta={existing?.songTitle ? `Song: ${existing.songTitle}` : undefined}
+                badge={existing ? undefined : "To do"}
+              />
             );
-          })
-        )
+          })}
+        </div>
       )}
     </div>
   );

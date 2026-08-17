@@ -3105,6 +3105,23 @@ export class MockDataProvider implements DataProvider {
       preferenceTier: RoleTier;
       previousRoles: string;
       hopes: string;
+      /** What to consider them for. Independent — none of them is valid. */
+      wantsSpeaking?: boolean;
+      wantsSinging?: boolean;
+      wantsDance?: boolean;
+      /** Prepared for THIS show, not carried from the last one. */
+      songTitle?: string;
+      songUrl?: string;
+      /**
+       * Storage URLs. Undefined means "the form did not touch this" and the
+       * existing value stands; empty string clears it. Uploads reach storage
+       * directly from the browser, so by the time this runs the file is
+       * already there and only its address is travelling.
+       */
+      auditionVideoUrl?: string;
+      danceVideoUrl?: string;
+      resumeUrl?: string;
+      notes?: string;
       acknowledgedNoGuarantee: boolean;
     }
   ): Promise<AuditionProfile> {
@@ -3139,6 +3156,23 @@ export class MockDataProvider implements DataProvider {
       existing.preferenceTier = input.preferenceTier;
       existing.previousRoles = input.previousRoles;
       existing.hopes = input.hopes;
+      existing.wantsSpeaking = input.wantsSpeaking ?? false;
+      existing.wantsSinging = input.wantsSinging ?? false;
+      existing.wantsDance = input.wantsDance ?? false;
+      existing.songTitle = input.songTitle || undefined;
+      existing.songUrl = input.songUrl || undefined;
+      existing.notes = input.notes || undefined;
+      // Undefined means the form did not touch it. Assigning through would
+      // wipe an upload every time an unrelated field was saved.
+      if (input.auditionVideoUrl !== undefined) {
+        existing.auditionVideoUrl = input.auditionVideoUrl || undefined;
+      }
+      if (input.danceVideoUrl !== undefined) {
+        existing.danceVideoUrl = input.danceVideoUrl || undefined;
+      }
+      if (input.resumeUrl !== undefined) {
+        existing.resumeUrl = input.resumeUrl || undefined;
+      }
       existing.updatedAt = nowIso();
       return deepClone(existing);
     }
@@ -3150,6 +3184,15 @@ export class MockDataProvider implements DataProvider {
       preferenceTier: input.preferenceTier,
       previousRoles: input.previousRoles,
       hopes: input.hopes,
+      wantsSpeaking: input.wantsSpeaking ?? false,
+      wantsSinging: input.wantsSinging ?? false,
+      wantsDance: input.wantsDance ?? false,
+      songTitle: input.songTitle || undefined,
+      songUrl: input.songUrl || undefined,
+      auditionVideoUrl: input.auditionVideoUrl || undefined,
+      danceVideoUrl: input.danceVideoUrl || undefined,
+      resumeUrl: input.resumeUrl || undefined,
+      notes: input.notes || undefined,
       acknowledgedNoGuaranteeAt: nowIso(),
       submittedByUserId: actor.id,
       submittedByRole: actor.role === "student" ? "student" : "parent",
