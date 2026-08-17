@@ -41,13 +41,22 @@ export default async function ProductionPage({
   const production = await provider.getProduction(productionId);
   if (!production) notFound();
 
-  const [staff, allEvents] = await Promise.all([
+  /**
+   * Two calendars, deliberately.
+   *
+   * `events` is the whole show — every call, from anyone's point of view.
+   * `myEventIds` is the subset this family is actually called to. The page
+   * used to show only the second, which meant a family not yet enrolled (and
+   * every member of staff) opened the show page to an empty schedule and
+   * concluded the calendar was broken. Now the run is always there, with
+   * their own calls marked and selected by default.
+   */
+  const [staff, events, familyEvents] = await Promise.all([
     provider.getStaffProfiles(),
+    provider.getProductionCalendar(user.id, productionId),
     user.familyId
       ? provider.getFamilyCalendar(user.id, user.familyId)
-      : hasRoleAtLeast(user, "staff")
-        ? provider.getAllEvents(user.id)
-        : Promise.resolve<CalendarEvent[]>([]),
+      : Promise.resolve<CalendarEvent[]>([]),
   ]);
 
   const director = staff.find((member) => member.id === production.directorStaffId);
@@ -55,15 +64,33 @@ export default async function ProductionPage({
   // calls it "Sweeney Todd: School Edition". Match on the title both share.
   const isSweeney = production.title.toLowerCase().includes("sweeney");
 
-  const events = allEvents.filter((event) => event.productionId === production.id);
-  const now = new Date().toISOString();
-  const upcoming = events.filter((event) => event.endsAt >= now);
-  const nextCall = [...upcoming].sort((a, b) =>
-    a.startsAt.localeCompare(b.startsAt)
-  )[0];
-  const performanceCount = events.filter((e) => e.type === "performance").length;
+  const myEventIds = familyEvents
+    .filter((event) => event.productionId === production.id)
+    .map((event) => event.id);
+  const mine = new Set(myEventIds);
 
-  const opensAt = production.opensOn ? `${production.opensOn}T12:00:00Z` : null;
+  const now = new Date().toISOString();
+  const byDate = (a: CalendarEvent, b: CalendarEvent) =>
+    a.startsAt.localeCompare(b.startsAt);
+  const upcoming = events.filter((event) => event.endsAt >= now).sort(byDate);
+  // Their own next call if they have one; otherwise the show's, so the hero
+  // still answers "what happens next" for staff and for families whose
+  // enrollment has not landed yet.
+  const nextCall = upcoming.find((event) => mine.has(event.id)) ?? upcoming[0];
+
+  const performances = events.filter((e) => e.type === "performance").sort(byDate);
+  const performanceCount = performances.length;
+
+  /**
+   * Opening night: the production row's own date when it has one, otherwise
+   * the first performance on the calendar. Several shows carry a null
+   * `opensOn` because the run is scheduled in the staff portal rather than
+   * typed into the production record — and "TBC" on a show with seven
+   * performances already on the calendar is just wrong.
+   */
+  const opensAt = production.opensOn
+    ? `${production.opensOn}T12:00:00Z`
+    : (performances[0]?.startsAt ?? null);
   const daysToOpening = opensAt
     ? Math.ceil((new Date(opensAt).getTime() - Date.now()) / 86_400_000)
     : null;
@@ -102,8 +129,15 @@ export default async function ProductionPage({
         as="h1"
         title={production.title}
         subtitle={
-          production.venue +
-          (production.opensOn ? ` · opens ${formatDate(`${production.opensOn}T12:00:00Z`)}` : "")
+          [
+            production.venue,
+            opensAt ? `opens ${formatDate(opensAt)}` : null,
+            performanceCount > 0
+              ? `${performanceCount} ${performanceCount === 1 ? "performance" : "performances"}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")
         }
         right={
           <a
@@ -140,9 +174,9 @@ export default async function ProductionPage({
           tone={daysToOpening !== null && daysToOpening <= 14 ? "warn" : "default"}
         />
         <StatTile
-          label="Your next call"
+          label={nextCall && mine.has(nextCall.id) ? "Your next call" : "Next on the calendar"}
           value={nextCall ? formatDate(nextCall.startsAt) : "—"}
-          hint={nextCall ? nextCall.title : "Nothing on your calendar yet"}
+          hint={nextCall ? nextCall.title : "Nothing scheduled yet"}
           href="/schedule"
         />
         <StatTile
@@ -209,7 +243,11 @@ export default async function ProductionPage({
 
         {/* ---- Right: the calendar, as a list ---- */}
         <div className="lg:col-span-1">
-          <ScheduleRail events={events} productionTitle={production.title} />
+          <ScheduleRail
+            events={events}
+            myEventIds={myEventIds}
+            productionTitle={production.title}
+          />
         </div>
       </div>
     </>

@@ -1098,6 +1098,18 @@ export class MockDataProvider implements DataProvider {
     return deepClone([...store.events].sort((a, b) => a.startsAt.localeCompare(b.startsAt)));
   }
 
+  async getProductionCalendar(
+    actorId: string,
+    productionId: string
+  ): Promise<CalendarEvent[]> {
+    getActor(actorId);
+    return deepClone(
+      store.events
+        .filter((event) => event.productionId === productionId)
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+    );
+  }
+
   async getCalendarToken(actorId: string, familyId: string): Promise<string> {
     const actor = getActor(actorId);
     assertFamilyAccess(actor, familyId);

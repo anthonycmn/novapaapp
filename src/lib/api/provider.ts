@@ -211,6 +211,16 @@ export interface DataProvider {
   getFamilyCalendar(actorId: string, familyId: string): Promise<FamilyCalendarEvent[]>;
   /** All events, staff view (rosters, daily ops). */
   getAllEvents(actorId: string): Promise<CalendarEvent[]>;
+  /**
+   * One show's whole calendar, for any signed-in user.
+   *
+   * getFamilyCalendar answers "what is MY child called to", which is the right
+   * question on the schedule page and the wrong one on a show page: a family
+   * looking at a production wants the run — including the calls their child is
+   * not in, so they can see where the week is going. A rehearsal schedule is
+   * not personal data, so this is not scoped to enrollment.
+   */
+  getProductionCalendar(actorId: string, productionId: string): Promise<CalendarEvent[]>;
   /** Stable per-family token for the iCal feed URL. */
   getCalendarToken(actorId: string, familyId: string): Promise<string>;
   /** Reverse lookup for the public .ics route. Returns null for bad tokens. */

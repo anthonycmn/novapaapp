@@ -546,6 +546,20 @@ class SupabaseDataProvider {
     return (data ?? []).map((row) => this.mapEvent(row));
   }
 
+  async getProductionCalendar(
+    actorId: string,
+    productionId: string
+  ): Promise<CalendarEvent[]> {
+    await this.actor(actorId);
+    const { data, error } = await this.db
+      .from("calendar_events")
+      .select("*")
+      .eq("production_id", productionId)
+      .order("starts_at");
+    if (error) throw new Error(`calendar lookup failed: ${error.message}`);
+    return (data ?? []).map((row) => this.mapEvent(row));
+  }
+
   /* ── casting: family-facing slice (ported from the mock) ───────────── */
 
   private mapRole(row: Row): ShowRole {
