@@ -24,7 +24,7 @@ const WEEKDAYS = [
 
 export function PickupRequestForm({ students }: { students: Student[] }) {
   const [dirty, setDirty] = useState(false);
-  const [kind, setKind] = useState<"early_dropoff" | "late_pickup" | "both">("late_pickup");
+  const [kind, setKind] = useState<"late_dropoff" | "early_pickup" | "both">("early_pickup");
   const [state, formAction, pending] = useActionState(
     async (prev: FamilyFormState, formData: FormData) => {
       const result = await createPickupRequestAction(prev, formData);
@@ -59,8 +59,8 @@ export function PickupRequestForm({ students }: { students: Student[] }) {
         <legend className="text-sm font-medium">What do you need?</legend>
         <div className="flex flex-wrap gap-4">
           {[
-            { value: "early_dropoff", label: "Early drop-off" },
-            { value: "late_pickup", label: "Late pick-up" },
+            { value: "late_dropoff", label: "Late drop-off" },
+            { value: "early_pickup", label: "Early pickup" },
             { value: "both", label: "Both" },
           ].map((option) => (
             <label key={option.value} className="flex min-h-11 items-center gap-2 text-sm">
@@ -114,14 +114,14 @@ export function PickupRequestForm({ students }: { students: Student[] }) {
       </fieldset>
 
       <div className="grid grid-cols-2 gap-3">
-        {kind !== "late_pickup" && (
+        {kind !== "early_pickup" && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="dropOffTime">Drop-off time</Label>
             <Input id="dropOffTime" name="dropOffTime" type="time" />
             <FieldError message={state.errors?.dropOffTime} />
           </div>
         )}
-        {kind !== "early_dropoff" && (
+        {kind !== "late_dropoff" && (
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="pickUpTime">Pick-up time</Label>
             <Input id="pickUpTime" name="pickUpTime" type="time" />

@@ -419,7 +419,7 @@ export interface HealthForm {
   updatedAt: string;
 }
 
-/* ── Early drop-off / late pick-up (Phase 3, #10) ───────────────────────── */
+/* ── Early pickup / late drop-off (Phase 3, #10) ────────────────────────── */
 
 export type PickupRequestStatus = "pending" | "approved" | "denied";
 
@@ -427,7 +427,7 @@ export interface PickupRequest {
   id: string;
   studentId: string;
   familyId: string;
-  kind: "early_dropoff" | "late_pickup" | "both";
+  kind: "late_dropoff" | "early_pickup" | "both";
   /** Single date or inclusive range. */
   startDate: string;
   endDate: string;
@@ -443,6 +443,16 @@ export interface PickupRequest {
   decisionNote?: string;
   decidedByName?: string;
   decidedAt?: string;
+  /**
+   * When a parent pressed "I'm here" at the kerb. Null until they do.
+   *
+   * Tony, 17 Aug 2026: "the ability for the parent to track that and for it to
+   * say I'm here." One arrival per request, so it lives on the request rather
+   * than in an event log nobody would read.
+   */
+  arrivedAt?: string;
+  /** Who pressed it, so the door knows which grown-up is outside. */
+  arrivedByName?: string;
   createdAt: string;
 }
 

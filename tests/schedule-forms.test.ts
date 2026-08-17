@@ -154,7 +154,7 @@ describe("drop-off / pick-up (#10)", () => {
   async function submitRequest() {
     return provider.createPickupRequest("user-sofia", {
       studentId: "stu-ava",
-      kind: "late_pickup",
+      kind: "early_pickup",
       startDate: "2026-09-15",
       endDate: "2026-09-17",
       recurringDays: [],
@@ -204,7 +204,7 @@ describe("drop-off / pick-up (#10)", () => {
     await expect(
       provider.createPickupRequest("user-ngozi", {
         studentId: "stu-ava",
-        kind: "late_pickup",
+        kind: "early_pickup",
         startDate: "2026-09-15",
         endDate: "2026-09-15",
         recurringDays: [],

@@ -4,9 +4,10 @@ import { getSessionUser } from "@/lib/auth/session";
 import { formatCents, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrivalCard } from "@/components/family/arrival-card";
 import { PickupRequestForm } from "./request-form";
 
-export const metadata = { title: "Drop-off & pick-up" };
+export const metadata = { title: "Pickup & drop-off" };
 
 const STATUS_VARIANT = {
   pending: "secondary",
@@ -26,9 +27,47 @@ export default async function PickupPage() {
   ]);
   const studentsById = new Map(students.map((s) => [s.id, s]));
 
+  /**
+   * Approved requests collapse into an event with one button; everything else
+   * stays in the list below as a status.
+   *
+   * Tony, 17 Aug 2026: "the form kinda collapses as this is the event, and then
+   * they click a button that says I'm here." Only approved ones get the button —
+   * pressing "I'm here" for something nobody has agreed to would tell Health &
+   * Safety to expect a child they have not been told about.
+   *
+   * Anything that has already ended drops out: a card offering to announce your
+   * arrival at last Tuesday's pickup is noise on the day that matters.
+   */
+  const today = new Date().toISOString().slice(0, 10);
+  const live = requests.filter(
+    (request) => request.status === "approved" && request.endDate >= today
+  );
+
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Early drop-off & late pick-up</h1>
+      <h1 className="text-2xl font-semibold">Early pickup & late drop-off</h1>
+
+      {live.length > 0 && (
+        <section aria-labelledby="pickup-live" className="flex flex-col gap-2">
+          <h2 id="pickup-live" className="text-lg font-semibold">
+            {live.length === 1 ? "Your next one" : "Coming up"}
+          </h2>
+          {live.map((request) => {
+            const student = studentsById.get(request.studentId);
+            return (
+              <ArrivalCard
+                key={request.id}
+                request={request}
+                studentName={
+                  student ? (student.preferredName ?? student.firstName) : "Your child"
+                }
+                parentName={user.displayName}
+              />
+            );
+          })}
+        </section>
+      )}
 
       {requests.length > 0 && (
         <Card>
@@ -49,9 +88,9 @@ export default async function PickupPage() {
                           ` – ${formatDate(`${request.endDate}T12:00:00Z`)}`}
                       </p>
                       <p className="text-muted-foreground">
-                        {request.kind === "early_dropoff"
+                        {request.kind === "late_dropoff"
                           ? `Drop-off ${request.dropOffTime}`
-                          : request.kind === "late_pickup"
+                          : request.kind === "early_pickup"
                             ? `Pick-up ${request.pickUpTime}`
                             : `${request.dropOffTime} – ${request.pickUpTime}`}{" "}
                         · {formatCents(request.feeCents)}

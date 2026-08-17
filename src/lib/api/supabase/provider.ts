@@ -485,8 +485,8 @@ class SupabaseDataProvider {
       byEvent.set(id, {
         id, type: "other",
         title:
-          rq.kind === "early_dropoff" ? `Early drop-off approved (${rq.drop_off_time})`
-          : rq.kind === "late_pickup" ? `Late pick-up approved (${rq.pick_up_time})`
+          rq.kind === "late_dropoff" ? `Late drop-off approved (${rq.drop_off_time})`
+          : rq.kind === "early_pickup" ? `Early pickup approved (${rq.pick_up_time})`
           : "Extended care approved",
         startsAt: `${rq.start_date}T12:00:00.000Z`,
         endsAt: `${rq.end_date}T12:30:00.000Z`,
@@ -3996,8 +3996,40 @@ class SupabaseDataProvider {
       decisionNote: s(row.decision_note),
       decidedByName: s(row.decided_by_name),
       decidedAt: s(row.decided_at),
+      arrivedAt: s(row.arrived_at),
+      arrivedByName: s(row.arrived_by_name),
       createdAt: String(row.created_at),
     };
+  }
+
+  async markPickupArrived(
+    actorId: string,
+    requestId: string,
+    byName: string
+  ): Promise<{ request: PickupRequest; alreadyArrived: boolean }> {
+    await this.actor(actorId);
+    const { data: current, error: readError } = await this.db
+      .from("pickup_requests")
+      .select("*")
+      .eq("id", requestId)
+      .maybeSingle();
+    if (readError) throw new Error(`pickup lookup failed: ${readError.message}`);
+    if (!current) throw new Error("Request not found");
+
+    // Idempotent: a second press must not restart the clock or fire a second
+    // alert. RLS decides whether this family may touch the row at all.
+    if (current.arrived_at) {
+      return { request: this.mapPickup(current), alreadyArrived: true };
+    }
+
+    const { data, error } = await this.db
+      .from("pickup_requests")
+      .update({ arrived_at: new Date().toISOString(), arrived_by_name: byName })
+      .eq("id", requestId)
+      .select()
+      .single();
+    if (error) throw new Error(`arrival failed: ${error.message}`);
+    return { request: this.mapPickup(data), alreadyArrived: false };
   }
 
   async getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]> {

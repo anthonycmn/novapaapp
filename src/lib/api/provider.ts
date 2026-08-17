@@ -264,12 +264,23 @@ export interface DataProvider {
     scope: { productionId?: string; classId?: string }
   ): Promise<Array<{ student: Student; form: HealthForm | null }>>;
 
-  /* early drop-off / late pick-up (#10) */
+  /* early pickup / late drop-off (#10) */
   getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]>;
   createPickupRequest(
     actorId: string,
     input: Omit<PickupRequest, "id" | "familyId" | "status" | "createdAt" | "decisionNote" | "decidedByName" | "decidedAt" | "feeCents">
   ): Promise<PickupRequest>;
+  /**
+   * A parent pressing "I'm here" at the kerb.
+   *
+   * Idempotent on purpose: a second press must not restart the clock or send a
+   * second alert, because the natural response to silence is to press again.
+   */
+  markPickupArrived(
+    actorId: string,
+    requestId: string,
+    byName: string
+  ): Promise<{ request: PickupRequest; alreadyArrived: boolean }>;
   /** Staff: all pending requests + today's approved roster. */
   getPickupRequestsForStaff(actorId: string): Promise<PickupRequest[]>;
   decidePickupRequest(

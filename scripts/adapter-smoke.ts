@@ -654,7 +654,7 @@ async function main() {
 
   /* ── pickup requests ── */
   const pickup = await p.createPickupRequest(sofia.id, {
-    studentId: ava.id, kind: "late_pickup",
+    studentId: ava.id, kind: "early_pickup",
     startDate: "2026-08-17", endDate: "2026-08-19",
     recurringDays: [], pickUpTime: "18:30",
     reason: "Work schedule during tech week",

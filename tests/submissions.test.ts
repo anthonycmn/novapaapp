@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARRIVAL_RECIPIENTS,
   isOrgAddress,
   SUBMISSION_RECIPIENTS,
 } from "@/config/submission-recipients";
@@ -48,5 +49,33 @@ describe("who keepsake submissions go to", () => {
 describe("keepsake prices", () => {
   it("prices a spirit button at $12", () => {
     expect(SPIRIT_BUTTON_PRICE_CENTS).toBe(1200);
+  });
+});
+
+describe("who hears an arrival", () => {
+  it("is Katie Rivers and Katie Hamburger only", () => {
+    // Tony, 17 Aug 2026: "a notification for the I'm here gets sent to Katie
+    // Rivers and KDH." Two people who can walk to a door — an alert copied to
+    // all five is an alert nobody owns.
+    expect(ARRIVAL_RECIPIENTS.map((r) => r.email).sort()).toEqual([
+      "katie.h@novapa.org",
+      "katie@novapa.org",
+    ]);
+  });
+
+  it("is a strict subset of the submission list", () => {
+    // Derived from it rather than typed twice, so a corrected address cannot
+    // apply to the paperwork and not to the kerb.
+    const all = SUBMISSION_RECIPIENTS.map((r) => r.email);
+    for (const recipient of ARRIVAL_RECIPIENTS) {
+      expect(all).toContain(recipient.email);
+    }
+    expect(ARRIVAL_RECIPIENTS.length).toBeLessThan(SUBMISSION_RECIPIENTS.length);
+  });
+
+  it("still refuses a personal address", () => {
+    for (const recipient of ARRIVAL_RECIPIENTS) {
+      expect(isOrgAddress(recipient.email), recipient.email).toBe(true);
+    }
   });
 });

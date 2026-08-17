@@ -3,13 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { ARRIVAL_RECIPIENTS } from "@/config/submission-recipients";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { formatDate } from "@/lib/format";
+import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { FamilyFormState } from "./family";
+import type { SubmissionState } from "./spirit-button";
 
 const requestSchema = z
   .object({
     studentId: z.string().min(1, "Choose a student"),
-    kind: z.enum(["early_dropoff", "late_pickup", "both"]),
+    kind: z.enum(["late_dropoff", "early_pickup", "both"]),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a start date"),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose an end date"),
     recurringDays: z.array(z.number().int().min(0).max(6)),
@@ -24,18 +28,18 @@ const requestSchema = z
     path: ["endDate"],
   })
   .refine(
-    (data) => data.kind === "late_pickup" || !!data.dropOffTime,
+    (data) => data.kind === "early_pickup" || !!data.dropOffTime,
     { message: "Enter the drop-off time", path: ["dropOffTime"] }
   )
   .refine(
-    (data) => data.kind === "early_dropoff" || !!data.pickUpTime,
+    (data) => data.kind === "late_dropoff" || !!data.pickUpTime,
     { message: "Enter the pick-up time", path: ["pickUpTime"] }
   );
 
 export async function createPickupRequestAction(
   _prev: FamilyFormState,
   formData: FormData
-): Promise<FamilyFormState> {
+): Promise<SubmissionState> {
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
@@ -60,9 +64,126 @@ export async function createPickupRequestAction(
     return { ok: false, errors };
   }
 
-  await getProvider().createPickupRequest(user.id, parsed.data);
+  const provider = getProvider();
+  await provider.createPickupRequest(user.id, parsed.data);
+  const student = await provider.getStudent(user.id, parsed.data.studentId);
+  const childName = student
+    ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+    : "a student";
+
+  /**
+   * Tell the office. Tony, 17 Aug 2026: "A notification is then sent to Katie
+   * Rivers, KDH, Tony, Todd, and Jen" — the whole submission list.
+   *
+   * After the request is stored, so a mail failure cannot lose it.
+   */
+  const outcome = await notifySubmission({
+    subject: `${KIND_LABEL[parsed.data.kind]} — ${childName}`,
+    category: "pickup_request",
+    lines: [
+      `${childName}: ${KIND_LABEL[parsed.data.kind].toLowerCase()} requested.`,
+      "",
+      `Dates:  ${formatDate(`${parsed.data.startDate}T12:00:00Z`)}${
+        parsed.data.endDate !== parsed.data.startDate
+          ? ` – ${formatDate(`${parsed.data.endDate}T12:00:00Z`)}`
+          : ""
+      }`,
+      parsed.data.dropOffTime ? `Arriving:  ${parsed.data.dropOffTime}` : "",
+      parsed.data.pickUpTime ? `Collected: ${parsed.data.pickUpTime}` : "",
+      `Reason: ${parsed.data.reason}`,
+      parsed.data.authorizedPickupPerson
+        ? `Collected by: ${parsed.data.authorizedPickupPerson}`
+        : "",
+      parsed.data.supervisingAdult
+        ? `Supervising adult: ${parsed.data.supervisingAdult}`
+        : "",
+      "",
+      `Requested by ${user.displayName}${user.family ? ` (${user.family.name})` : ""}`,
+      `Reply to: ${user.email}`,
+      "",
+      "It is pending until somebody approves it in the portal.",
+    ],
+  });
+
   revalidatePath("/family/pickup");
-  return { ok: true };
+  revalidatePath("/admin/pickup");
+  return {
+    ok: true,
+    message: submissionMessage(
+      outcome,
+      "You'll see it here as soon as it's approved, and you can tap “I'm here” on the day.",
+    ),
+  };
+}
+
+const KIND_LABEL: Record<"late_dropoff" | "early_pickup" | "both", string> = {
+  early_pickup: "Early pickup",
+  late_dropoff: "Late drop-off",
+  both: "Late drop-off and early pickup",
+};
+
+/**
+ * "I'm here" — a parent at the kerb.
+ *
+ * Goes to Katie Rivers and Katie Hamburger only (Tony, 17 Aug 2026). Two people
+ * who can walk to a door, not the five who get the paperwork: an alert copied
+ * to everybody is an alert nobody owns.
+ *
+ * A repeat press is a no-op that reports the original time rather than sending
+ * again, because pressing twice is exactly what a parent does when nothing
+ * appears to happen.
+ */
+export async function markArrivedAction(requestId: string): Promise<SubmissionState> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  const provider = getProvider();
+  let result;
+  try {
+    result = await provider.markPickupArrived(user.id, requestId, user.displayName);
+  } catch (error) {
+    return {
+      ok: false,
+      errors: { _form: error instanceof Error ? error.message : String(error) },
+    };
+  }
+
+  if (result.alreadyArrived) {
+    revalidatePath("/family/pickup");
+    return { ok: true, message: "Already told them — they know you're here." };
+  }
+
+  const student = await provider.getStudent(user.id, result.request.studentId);
+  const childName = student
+    ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+    : "a student";
+
+  const outcome = await notifySubmission({
+    subject: `HERE NOW — ${user.displayName} for ${childName}`,
+    category: "pickup_arrival",
+    only: ARRIVAL_RECIPIENTS.map((recipient) => recipient.email),
+    lines: [
+      `${user.displayName} is here now for ${childName}.`,
+      "",
+      `${KIND_LABEL[result.request.kind]}${
+        result.request.pickUpTime ? ` · due ${result.request.pickUpTime}` : ""
+      }`,
+      result.request.authorizedPickupPerson
+        ? `Authorised to collect: ${result.request.authorizedPickupPerson}`
+        : "",
+      user.family ? `Household: ${user.family.name}` : "",
+    ],
+  });
+
+  revalidatePath("/family/pickup");
+  revalidatePath("/admin/pickup");
+  return {
+    ok: true,
+    message:
+      outcome.delivered > 0
+        ? "They know you're here. Someone is on their way."
+        : "Saved — but we could not reach anyone by email. Please call the front desk.",
+  };
 }
 
 export async function decidePickupRequestAction(

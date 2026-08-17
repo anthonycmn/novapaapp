@@ -50,7 +50,7 @@ export const FAMILY_SECTIONS: NavSection[] = [
   { href: "/photos", Icon: Images, label: "Photos", description: "Galleries, and photos of your child", group: "On stage" },
   { href: "/family", Icon: Users, label: "Family profile", description: "Guardians, address, emergency contacts", group: "Your family" },
   { href: "/family/documents", Icon: FileSignature, label: "Document vault", description: "Waivers, forms, and receipts", group: "Your family" },
-  { href: "/family/pickup", Icon: TrafficCone, label: "Drop-off & pick-up", description: "Request early drop-off or late pick-up", group: "Your family" },
+  { href: "/family/pickup", Icon: TrafficCone, label: "Pickup & drop-off", description: "Request an early pickup or a late drop-off", group: "Your family" },
   { href: "/messages", Icon: MessagesSquare, label: "Message the office", description: "Admin or Health & Safety, privately", group: "Your family" },
   { href: "/store/buttons", Icon: ShoppingBag, label: "Spirit buttons", description: "Pick a show, add a photo, see the button", group: "Store" },
   { href: "/store/star-pages", Icon: ShoppingBag, label: "Star pages", description: "Playbill tributes to your performer", group: "Store" },

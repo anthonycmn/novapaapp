@@ -1,7 +1,10 @@
 import "server-only";
 import { org } from "@/config/org";
 import { getEmailDeliveryProvider } from "@/lib/api/email";
-import { resolveSubmissionRecipients } from "@/lib/api/submission-recipients";
+import {
+  resolveSubmissionRecipients,
+  type ResolvedRecipient,
+} from "@/lib/api/submission-recipients";
 
 /**
  * Tell the front office a family submitted something.
@@ -15,12 +18,22 @@ export async function notifySubmission({
   subject,
   lines,
   category,
+  only,
 }: {
   subject: string;
   lines: string[];
   category: string;
+  /**
+   * Restrict to a subset by mailbox. An arrival at the kerb goes to two people,
+   * not five — copying everyone makes the alert worthless to whoever has to
+   * walk to the door.
+   */
+  only?: readonly string[];
 }): Promise<{ delivered: number; total: number }> {
-  const recipients = await resolveSubmissionRecipients();
+  const all = await resolveSubmissionRecipients();
+  const recipients: ResolvedRecipient[] = only
+    ? all.filter((recipient) => only.includes(recipient.email))
+    : all;
   const email = getEmailDeliveryProvider();
   const text = lines.filter((line) => line !== undefined).join("\n");
 

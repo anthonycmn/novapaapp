@@ -1063,10 +1063,10 @@ export class MockDataProvider implements DataProvider {
         id: `pickup-${request.id}`,
         type: "other",
         title:
-          request.kind === "early_dropoff"
-            ? `Early drop-off approved (${request.dropOffTime})`
-            : request.kind === "late_pickup"
-              ? `Late pick-up approved (${request.pickUpTime})`
+          request.kind === "late_dropoff"
+            ? `Late drop-off approved (${request.dropOffTime})`
+            : request.kind === "early_pickup"
+              ? `Early pickup approved (${request.pickUpTime})`
               : `Extended care approved`,
         startsAt: `${request.startDate}T12:00:00.000Z`,
         endsAt: `${request.endDate}T12:30:00.000Z`,
@@ -1269,7 +1269,7 @@ export class MockDataProvider implements DataProvider {
       }));
   }
 
-  /* ── early drop-off / late pick-up (#10) ──────────────────────────── */
+  /* ── early pickup / late drop-off (#10) ───────────────────────────── */
 
   async getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]> {
     const actor = getActor(actorId);
@@ -1311,6 +1311,25 @@ export class MockDataProvider implements DataProvider {
     };
     store.pickupRequests.push(request);
     return deepClone(request);
+  }
+
+  async markPickupArrived(
+    actorId: string,
+    requestId: string,
+    byName: string
+  ): Promise<{ request: PickupRequest; alreadyArrived: boolean }> {
+    const actor = getActor(actorId);
+    const request = store.pickupRequests.find((r) => r.id === requestId);
+    if (!request) throw new Error("Request not found");
+    assertFamilyWrite(actor, request.familyId);
+
+    // Pressing twice must not restart the clock or fire a second alert: the
+    // natural response to silence at a door is to press again.
+    if (request.arrivedAt) return { request: deepClone(request), alreadyArrived: true };
+
+    request.arrivedAt = nowIso();
+    request.arrivedByName = byName;
+    return { request: deepClone(request), alreadyArrived: false };
   }
 
   async getPickupRequestsForStaff(actorId: string): Promise<PickupRequest[]> {

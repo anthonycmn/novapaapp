@@ -41,3 +41,19 @@ export const SUBMISSION_RECIPIENTS: SubmissionRecipient[] = [
 export function isOrgAddress(email: string): boolean {
   return email.toLowerCase().endsWith("@novapa.org");
 }
+
+/**
+ * Who gets told a parent has arrived at the kerb.
+ *
+ * Tony, 17 Aug 2026: "a notification for the I'm here gets sent to Katie Rivers
+ * and KDH." A deliberately shorter list than the submission one — an arrival is
+ * a door to answer in the next two minutes, not a record to file. Copying five
+ * people on every pickup would make the alert worthless to the two who have to
+ * walk to the door.
+ */
+export const ARRIVAL_RECIPIENT_NAMES = ["Katie Rivers", "Katie Hamburger"] as const;
+
+export const ARRIVAL_RECIPIENTS: SubmissionRecipient[] = SUBMISSION_RECIPIENTS.filter(
+  (recipient) =>
+    (ARRIVAL_RECIPIENT_NAMES as readonly string[]).includes(recipient.portalName)
+);
