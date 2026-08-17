@@ -1,8 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, MapPin } from "lucide-react";
-import type { CalendarEvent } from "@/lib/api/types";
+import {
+  CalendarDays,
+  Clock,
+  ListMusic,
+  MapPin,
+  Package,
+  UserRound,
+} from "lucide-react";
+import type { CalendarEvent, EventType } from "@/lib/api/types";
 import { formatInTimeZone } from "date-fns-tz";
 import { formatTime } from "@/lib/format";
 import { org } from "@/config/org";
@@ -26,14 +33,44 @@ import { Card } from "@/components/ui/card";
 
 type Filter = "mine" | "all" | "shows";
 
+/**
+ * What kind of call this is, in the words a family uses. "other" gets no
+ * badge — a label that says "Other" tells nobody anything.
+ */
+const EVENT_TYPE_LABEL: Record<EventType, string | null> = {
+  class: "Class",
+  rehearsal: "Rehearsal",
+  tech: "Tech",
+  performance: "Performance",
+  workshop: "Workshop",
+  fitting: "Fitting",
+  photo_call: "Photo call",
+  other: null,
+};
+
+/** "2 hrs", "90 mins" — how long they are gone, without doing the sum. */
+function durationOf(event: CalendarEvent): string {
+  const minutes = Math.round(
+    (new Date(event.endsAt).getTime() - new Date(event.startsAt).getTime()) / 60_000
+  );
+  if (!Number.isFinite(minutes) || minutes <= 0) return "";
+  if (minutes < 60) return `· ${minutes} mins`;
+  const hours = minutes / 60;
+  const rounded = Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+  return `· ${rounded} ${hours === 1 ? "hr" : "hrs"}`;
+}
+
 export function ScheduleRail({
   events,
   myEventIds,
+  sceneNames,
   productionTitle,
 }: {
   events: CalendarEvent[];
   /** Event ids this family is actually called to, for the "My calls" view. */
   myEventIds?: string[];
+  /** ShowScene id → name, so a scene-tagged call can say what it works. */
+  sceneNames?: Record<string, string>;
   productionTitle: string;
 }) {
   const mine = useMemo(() => new Set(myEventIds ?? []), [myEventIds]);
@@ -116,7 +153,7 @@ export function ScheduleRail({
           </p>
         </div>
       ) : (
-        <ol className="max-h-[34rem] overflow-y-auto">
+        <ol className="max-h-[42rem] overflow-y-auto">
           {groups.map((group) => (
             <li key={group.month}>
               <p className="sticky top-0 z-10 border-b bg-muted/95 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground backdrop-blur">
@@ -147,41 +184,116 @@ export function ScheduleRail({
                           <p className="min-w-0 text-[13.5px] font-medium leading-snug">
                             {event.title}
                           </p>
-                          {event.changeNote && (
-                            <span className="shrink-0 rounded-full bg-tip px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold">
-                              Updated
-                            </span>
-                          )}
+                          <span className="flex shrink-0 items-center gap-1">
+                            {EVENT_TYPE_LABEL[event.type] && (
+                              <span
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                  event.type === "performance"
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {EVENT_TYPE_LABEL[event.type]}
+                              </span>
+                            )}
+                            {event.changeNote && (
+                              <span className="rounded-full bg-tip px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold">
+                                Updated
+                              </span>
+                            )}
+                          </span>
                         </div>
 
-                        <p className="mt-0.5 flex items-center gap-1 text-[12.5px] text-muted-foreground">
+                        {/* Start AND finish. A parent reading only the start
+                            time knows when to drop off and not when to come
+                            back, which is the question that actually gets
+                            asked in the car park. */}
+                        <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
                           <CalendarDays aria-hidden size={12} className="shrink-0" />
-                          {formatTime(event.startsAt)}
-                          {event.type === "performance" && (
-                            <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-primary">
-                              Performance
-                            </span>
-                          )}
+                          <span className="font-medium text-foreground">
+                            {formatTime(event.startsAt)} – {formatTime(event.endsAt)}
+                          </span>
+                          <span className="opacity-80">{durationOf(event)}</span>
                         </p>
 
                         {event.callTime && (
-                          <p className="mt-0.5 text-[12.5px] font-medium text-gold">
+                          <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] font-medium text-gold">
+                            <Clock aria-hidden size={12} className="shrink-0" />
                             Be there by {formatTime(event.callTime)}
                           </p>
                         )}
                         {event.location && (
-                          <p className="mt-0.5 flex items-start gap-1 text-[12px] leading-snug text-muted-foreground">
+                          <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
                             <MapPin aria-hidden size={12} className="mt-0.5 shrink-0" />
-                            {event.location}
+                            <span>
+                              {event.location}
+                              {event.mapUrl && (
+                                <>
+                                  {" "}
+                                  <a
+                                    href={event.mapUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="font-medium text-primary underline-offset-4 hover:underline"
+                                  >
+                                    Map
+                                  </a>
+                                </>
+                              )}
+                            </span>
                           </p>
                         )}
                         {event.whatToBring && (
-                          <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">
-                            Bring: {event.whatToBring}
+                          <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
+                            <Package aria-hidden size={12} className="mt-0.5 shrink-0" />
+                            <span>
+                              <span className="font-medium text-foreground">Bring</span>{" "}
+                              {event.whatToBring}
+                            </span>
                           </p>
                         )}
+
+                        {/* Which scenes and numbers this call actually works.
+                            Untagged calls are the whole company, and saying so
+                            is a detail too — it is the difference between
+                            "we're not needed" and "everyone is". */}
+                        {(() => {
+                          const named = (event.sceneIds ?? [])
+                            .map((id) => sceneNames?.[id])
+                            .filter((name): name is string => Boolean(name));
+                          if (named.length === 0) return null;
+                          return (
+                            <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
+                              <ListMusic aria-hidden size={12} className="mt-0.5 shrink-0" />
+                              <span>
+                                <span className="font-medium text-foreground">Working</span>{" "}
+                                {named.join(" · ")}
+                              </span>
+                            </p>
+                          );
+                        })()}
+
+                        {event.contactName && (
+                          <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
+                            <UserRound aria-hidden size={12} className="mt-0.5 shrink-0" />
+                            <span>
+                              <span className="font-medium text-foreground">Ask</span>{" "}
+                              {event.contactEmail ? (
+                                <a
+                                  href={`mailto:${event.contactEmail}`}
+                                  className="text-primary underline-offset-4 hover:underline"
+                                >
+                                  {event.contactName}
+                                </a>
+                              ) : (
+                                event.contactName
+                              )}
+                            </span>
+                          </p>
+                        )}
+
                         {event.changeNote && (
-                          <p className="mt-0.5 text-[12px] leading-snug text-gold">
+                          <p className="mt-1 rounded-md bg-tip px-2 py-1 text-[12px] leading-snug text-tip-foreground">
                             {event.changeNote}
                           </p>
                         )}

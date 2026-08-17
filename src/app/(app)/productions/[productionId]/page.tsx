@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowRight, Ticket } from "lucide-react";
+import { Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import type { CalendarEvent } from "@/lib/api/types";
@@ -51,13 +50,18 @@ export default async function ProductionPage({
    * concluded the calendar was broken. Now the run is always there, with
    * their own calls marked and selected by default.
    */
-  const [staff, events, familyEvents] = await Promise.all([
+  const [staff, events, familyEvents, scenes] = await Promise.all([
     provider.getStaffProfiles(),
     provider.getProductionCalendar(user.id, productionId),
     user.familyId
       ? provider.getFamilyCalendar(user.id, user.familyId)
       : Promise.resolve<CalendarEvent[]>([]),
+    provider.getShowScenes(productionId),
   ]);
+
+  // Scene-tagged rehearsals carry ids; the rail needs names to say what a
+  // call is working.
+  const sceneNames = Object.fromEntries(scenes.map((scene) => [scene.id, scene.name]));
 
   const director = staff.find((member) => member.id === production.directorStaffId);
   // The hub calls it "Sweeney Todd - Teen Conservatory"; the staff portal
@@ -230,15 +234,6 @@ export default async function ProductionPage({
           <WhoToEmail director={director} />
 
           <ComingSoonCards />
-
-          {hasRoleAtLeast(user, "staff") && (
-            <Link
-              href={`/admin/casting-review/${production.id}`}
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-primary underline-offset-4 hover:underline"
-            >
-              Open pre-casting review <ArrowRight aria-hidden size={13} />
-            </Link>
-          )}
         </div>
 
         {/* ---- Right: the calendar, as a list ---- */}
@@ -246,6 +241,7 @@ export default async function ProductionPage({
           <ScheduleRail
             events={events}
             myEventIds={myEventIds}
+            sceneNames={sceneNames}
             productionTitle={production.title}
           />
         </div>
