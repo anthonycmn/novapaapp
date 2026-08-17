@@ -90,9 +90,23 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
         : undefined;
 
       const description = offering?.name ?? production?.title ?? "Program";
-      // Productions carry real dates; classes run the whole period.
-      const startDate = production?.opensOn ?? input.periodStart;
-      const endDate = production?.closesOn ?? input.periodEnd;
+      /*
+       * When the care actually happened, best source first.
+       *
+       * 1. The session dates captured from the catalogue at sync time. These
+       *    are the real week of camp and the only ones that survive the
+       *    catalogue rolling over to next season.
+       * 2. The production's own run, for a show.
+       * 3. The tax-year range — imprecise but true. An administrator reads it
+       *    as "sometime in this plan year", which beats a confident wrong week.
+       */
+      const startDate =
+        enrollment.sessionStartsOn ?? production?.opensOn ?? input.periodStart;
+      const endDate =
+        enrollment.sessionEndsOn ?? production?.closesOn ?? input.periodEnd;
+      /** True when we are falling back to the whole year rather than real dates. */
+      const datesApproximate =
+        !enrollment.sessionStartsOn && !production?.opensOn;
 
       /*
        * What they actually paid, from the registration system.
@@ -112,6 +126,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
         amountCents: paid ?? 0,
         /** True when no payment record exists — reported, not silently zeroed. */
         amountUnknown: paid === undefined,
+        datesApproximate,
       };
     });
 
@@ -154,6 +169,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
     lineItems,
     totalCents: lineItems.reduce((sum, item) => sum + item.amountCents, 0),
     unpricedCount: lineItems.filter((item) => item.amountUnknown).length,
+    approximateDateCount: lineItems.filter((item) => item.datesApproximate).length,
     generatedAt: new Date().toISOString(),
   };
 }

@@ -1,4 +1,8 @@
 import { categoryForShowCode } from "@/config/show-categories";
+import {
+  sessionDatesFromClassTimes,
+  type SessionDates,
+} from "./session-dates";
 import { RegistrationUnavailableError, type RegistrationProvider } from "./provider";
 import type {
   ExternalAccount,
@@ -87,7 +91,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         "order_items",
         "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, created_at)"
       ),
-      this.selectAll("activities", "id, name, category, age_range"),
+      this.selectAll("activities", "id, name, category, age_range, class_times"),
       fetchShowTitleMap(),
     ]);
     const activities = buildActivityMap(activityRows);
@@ -154,9 +158,13 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
        * code→category map keeps ~$96k of camp fees from being silently
        * excluded from families' FSA statements. See src/config/show-categories.
        */
+      const activity = activityId ? activities.get(activityId) : undefined;
       const offeringCategory =
-        (activityId ? activities.get(activityId)?.category : undefined) ??
-        categoryForShowCode(str(row.show));
+        activity?.category ?? categoryForShowCode(str(row.show));
+      // Only where the order line names an activity. A show code identifies the
+      // production but not WHICH session, and guessing the week of care on a
+      // tax statement is exactly the mistake this whole column exists to avoid.
+      const session = activity?.session;
       const camperName = str(row.camper_name);
       const participantId =
         (camperName && camperByFamilyName.get(`${familyId}:${normalize(camperName)}`)) ??
@@ -182,6 +190,8 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         offeringName,
         offeringCategory,
         offeringActivityId: activityId,
+        sessionStartsOn: session?.startsOn,
+        sessionEndsOn: session?.endsOn,
         status,
         balanceCents: Math.round(orderBalance * share),
         amountPaidCents: Math.round(num(order.amount_today_cents) * share),
@@ -232,6 +242,8 @@ export interface ActivityInfo {
   name: string;
   category?: string;
   ageRange?: string;
+  /** When this session runs, parsed from the catalogue's display strings. */
+  session?: SessionDates;
 }
 
 /** The website declares no FK between order_items and activities, so the join is client-side. */
@@ -241,7 +253,12 @@ export function buildActivityMap(rows: Row[]): Map<number, ActivityInfo> {
     const id = typeof row.id === "number" ? row.id : Number(row.id);
     const name = str(row.name);
     if (Number.isFinite(id) && name) {
-      map.set(id, { name, category: str(row.category), ageRange: str(row.age_range) });
+      map.set(id, {
+        name,
+        category: str(row.category),
+        ageRange: str(row.age_range),
+        session: sessionDatesFromClassTimes(row.class_times) ?? undefined,
+      });
     }
   }
   return map;
@@ -306,7 +323,7 @@ export async function fetchRealShowOfferings(): Promise<string[]> {
   const [{ data: items, error }, { data: activityRows, error: activityError }, showTitles] =
     await Promise.all([
       db.from("order_items").select("show, band, activity_id").range(0, 4999),
-      db.from("activities").select("id, name, category, age_range").range(0, 4999),
+      db.from("activities").select("id, name, category, age_range, class_times").range(0, 4999),
       fetchShowTitleMap(),
     ]);
   if (error || activityError) {

@@ -57,6 +57,11 @@ export interface FsaLineItem {
    * only finds out when it is refused.
    */
   amountUnknown?: boolean;
+  /**
+   * True when these dates are the tax-year range rather than the real session.
+   * Honest and imprecise, which is the right way round on a claim form.
+   */
+  datesApproximate?: boolean;
 }
 
 export interface FsaStatement {
@@ -89,6 +94,8 @@ export interface FsaStatement {
    * presenting a confident number that is quietly missing a week of camp.
    */
   unpricedCount: number;
+  /** Camp lines showing a tax-year range instead of the week of care. */
+  approximateDateCount: number;
   totalCents: number;
   generatedAt: string;
 }

@@ -1419,6 +1419,9 @@ export class MockDataProvider implements DataProvider {
         balanceCents: create.balanceCents,
         source: "registration_portal" as const,
         offeringCategory: create.offeringCategory,
+        amountPaidCents: create.amountPaidCents,
+        sessionStartsOn: create.sessionStartsOn,
+        sessionEndsOn: create.sessionEndsOn,
         createdAt: nowIso(),
       };
       store.enrollments.push(enrollment);
@@ -1437,6 +1440,10 @@ export class MockDataProvider implements DataProvider {
       }
       if (update.offeringCategory !== undefined) {
         enrollment.offeringCategory = update.offeringCategory;
+      }
+      if (update.sessionStartsOn !== undefined) {
+        enrollment.sessionStartsOn = update.sessionStartsOn;
+        enrollment.sessionEndsOn = update.sessionEndsOn;
       }
     }
 

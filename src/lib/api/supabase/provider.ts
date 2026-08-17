@@ -1701,6 +1701,8 @@ class SupabaseDataProvider {
         external_source: snapshot.source,
         offering_category: create.offeringCategory ?? null,
         amount_paid_cents: create.amountPaidCents ?? null,
+        session_starts_on: create.sessionStartsOn ?? null,
+        session_ends_on: create.sessionEndsOn ?? null,
       });
     }
     for (const update of plan.updates) {
@@ -1712,6 +1714,10 @@ class SupabaseDataProvider {
       }
       if (update.offeringCategory !== undefined) {
         patch.offering_category = update.offeringCategory;
+      }
+      if (update.sessionStartsOn !== undefined) {
+        patch.session_starts_on = update.sessionStartsOn;
+        patch.session_ends_on = update.sessionEndsOn ?? null;
       }
       if (Object.keys(patch).length) {
         await this.db.from("enrollments").update(patch).eq("id", update.enrollmentId);
@@ -2553,6 +2559,8 @@ class SupabaseDataProvider {
       offeringCategory: s(row.offering_category),
       amountPaidCents:
         row.amount_paid_cents == null ? undefined : Number(row.amount_paid_cents),
+      sessionStartsOn: s(row.session_starts_on),
+      sessionEndsOn: s(row.session_ends_on),
       createdAt: String(row.created_at),
     };
   }

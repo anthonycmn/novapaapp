@@ -42,6 +42,13 @@ export interface ExternalEnrollment {
   offeringCategory?: string;
   /** The website's `activities.id`, the key both systems agree on. */
   offeringActivityId?: number;
+  /**
+   * When the session runs, from the catalogue. Captured because activities is
+   * a live listing: once a season ends it rolls over to next year and the dates
+   * that were true for fees already paid are gone.
+   */
+  sessionStartsOn?: string;
+  sessionEndsOn?: string;
   status: "enrolled" | "waitlisted" | "cancelled";
   /** Outstanding balance in cents (0 when paid in full). */
   balanceCents: number;

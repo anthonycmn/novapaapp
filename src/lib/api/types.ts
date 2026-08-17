@@ -202,6 +202,16 @@ export interface Enrollment {
    * as nothing paid.
    */
   amountPaidCents?: number;
+  /**
+   * When the care actually happened, captured from the catalogue the first
+   * time the sync saw this enrollment and never rewritten afterwards.
+   *
+   * The catalogue rolls over each season — summer 2026's camps already list
+   * July 2027 dates — so this is the only record of the dates that were true
+   * for the fees a family paid.
+   */
+  sessionStartsOn?: string;
+  sessionEndsOn?: string;
   createdAt: string;
 }
 

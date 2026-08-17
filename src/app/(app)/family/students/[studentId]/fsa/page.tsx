@@ -199,6 +199,18 @@ export default async function FsaPage({
                 Ask the front office before you file this.
               </p>
             )}
+
+            {/* Say which dates are the plan year rather than the week of care,
+                so nobody reads a fallback as a precise claim. */}
+            {statement.approximateDateCount > 0 && (
+              <p className="mt-2 text-sm">
+                {statement.approximateDateCount === 1
+                  ? "One line above shows the plan year"
+                  : `${statement.approximateDateCount} lines above show the plan year`}{" "}
+                rather than the exact dates of care, which we do not hold for
+                that session. Ask us if your administrator needs the week.
+              </p>
+            )}
           </section>
 
           <section className="mt-6 text-sm">

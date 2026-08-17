@@ -65,6 +65,12 @@ export interface PlannedEnrollment {
   offeringCategory?: string;
   /** Paid to date, from the snapshot. Undefined when the source has no figure. */
   amountPaidCents?: number;
+  /**
+   * When the care runs, captured from the catalogue at first sight. See the
+   * capture-once rule in the update branch for why it is never rewritten.
+   */
+  sessionStartsOn?: string;
+  sessionEndsOn?: string;
 }
 
 export interface PlannedUpdate {
@@ -84,6 +90,9 @@ export interface PlannedUpdate {
    * fee no matter how many times the sync ran.
    */
   offeringCategory?: string;
+  /** When the care runs. Captured once; see the update rule below. */
+  sessionStartsOn?: string;
+  sessionEndsOn?: string;
 }
 
 export interface ReconcilePlan {
@@ -288,6 +297,8 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         source: snapshot.source,
         offeringCategory: external.offeringCategory,
         amountPaidCents: external.amountPaidCents,
+        sessionStartsOn: external.sessionStartsOn,
+        sessionEndsOn: external.sessionEndsOn,
       });
       plan.counts.enrollmentsCreated += 1;
       continue;
@@ -307,13 +318,37 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     const categoryChanged =
       external.offeringCategory !== undefined &&
       existing.offeringCategory !== external.offeringCategory;
-    if (balanceChanged || statusChanged || paidChanged || categoryChanged) {
+    /*
+     * CAPTURE ONCE, NEVER OVERWRITE.
+     *
+     * The catalogue is a live listing: when a season ends, the same product
+     * rolls over to next year's dates. Summer 2026's camps already read
+     * Jul 2027 because of it. If this backfilled like the others, every sync
+     * after a rollover would rewrite the dates on care a family has already
+     * been given — and on a statement they may already have filed.
+     *
+     * So the dates are written only when the row has none. A wrong capture is
+     * corrected by a human clearing the column; a silent annual rewrite is not
+     * correctable at all, because nobody would know it happened.
+     */
+    const captureSession =
+      external.sessionStartsOn !== undefined &&
+      existing.sessionStartsOn === undefined;
+    if (
+      balanceChanged ||
+      statusChanged ||
+      paidChanged ||
+      categoryChanged ||
+      captureSession
+    ) {
       plan.updates.push({
         enrollmentId: existing.id,
         balanceCents: balanceChanged ? external.balanceCents : undefined,
         status: statusChanged ? status : undefined,
         amountPaidCents: paidChanged ? external.amountPaidCents : undefined,
         offeringCategory: categoryChanged ? external.offeringCategory : undefined,
+        sessionStartsOn: captureSession ? external.sessionStartsOn : undefined,
+        sessionEndsOn: captureSession ? external.sessionEndsOn : undefined,
       });
       plan.counts.enrollmentsUpdated += 1;
       if (balanceChanged) plan.counts.balancesUpdated += 1;
