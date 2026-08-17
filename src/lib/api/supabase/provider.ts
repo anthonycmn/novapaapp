@@ -106,6 +106,7 @@ import { assertUploadAllowed, getStorageProvider } from "../storage";
 import { getPortalReadClient, getServiceClient, getWebsiteReadClient } from "./client";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
+import { runFromEvents, type ProductionRun } from "../productions/run";
 
 /**
  * Supabase adapter for the shared novapa-deh project (`public` schema).
@@ -318,6 +319,32 @@ class SupabaseDataProvider {
       .order("full_name");
     if (error) throw new Error(`staff lookup failed: ${error.message}`);
     return (data ?? []).map(mapStaff);
+  }
+
+  async getProductionRuns(): Promise<Record<string, ProductionRun>> {
+    // One query for every show's run. The alternative — a calendar read per
+    // production — is twenty-four round trips to render one list.
+    const { data } = await this.db
+      .from("calendar_events")
+      .select("production_id, type, starts_at")
+      .eq("type", "performance")
+      .not("production_id", "is", null);
+
+    const byProduction = new Map<string, Array<{ type: string; startsAt: string }>>();
+    for (const row of data ?? []) {
+      const key = String(row.production_id);
+      const list = byProduction.get(key) ?? [];
+      list.push({ type: String(row.type), startsAt: String(row.starts_at) });
+      byProduction.set(key, list);
+    }
+
+    const runs: Record<string, ProductionRun> = {};
+    for (const [productionId, events] of byProduction) {
+      runs[productionId] = runFromEvents(
+        events as Array<Pick<CalendarEvent, "type" | "startsAt">>
+      );
+    }
+    return runs;
   }
 
   async getStaffForFamily(

@@ -4,6 +4,11 @@ import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import type { FamilyCalendarEvent } from "@/lib/api/types";
 import { getSessionUser } from "@/lib/auth/session";
+import {
+  daysUntil,
+  describeRun,
+  openingNight,
+} from "@/lib/api/productions/run";
 import { formatDate, formatEventTime } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLinkButton } from "@/components/external-link-button";
@@ -26,8 +31,9 @@ export default async function ShowsPage() {
   if (!user) redirect("/login");
   const provider = getProvider();
 
-  const [productions, enrollments, events] = await Promise.all([
+  const [productions, runs, enrollments, events] = await Promise.all([
     provider.getProductions(),
+    provider.getProductionRuns(),
     user.familyId
       ? provider.getEnrollmentsForFamily(user.id, user.familyId)
       : Promise.resolve([]),
@@ -55,10 +61,18 @@ export default async function ShowsPage() {
    * is in; making them find it among twenty-four is the thing this page exists
    * to stop.
    */
+  /*
+   * Sorted by when each show ACTUALLY opens, which is a calendar fact rather
+   * than a column: opensOn is null on all twenty-four, so sorting by it left
+   * the list in arbitrary order and dated none of it.
+   */
+  const openingOf = (production: (typeof productions)[number]) =>
+    openingNight(production, runs[production.id]) ?? "9999";
+
   const sorted = [...productions].sort((a, b) => {
     const minePriority = Number(mine.has(b.id)) - Number(mine.has(a.id));
     if (minePriority !== 0) return minePriority;
-    return (a.opensOn ?? "9999").localeCompare(b.opensOn ?? "9999");
+    return openingOf(a).localeCompare(openingOf(b));
   });
 
   const ours = sorted.filter((production) => mine.has(production.id));
@@ -66,12 +80,8 @@ export default async function ShowsPage() {
 
   const tileFor = (production: (typeof productions)[number]) => {
     const nextCall = nextCallFor(production.id);
-    const days = production.opensOn
-      ? Math.ceil(
-          (new Date(`${production.opensOn}T12:00:00Z`).getTime() - Date.now()) /
-            86_400_000
-        )
-      : null;
+    const run = runs[production.id];
+    const days = daysUntil(openingNight(production, run));
     return (
       <OfferingTile
         key={production.id}
@@ -80,9 +90,10 @@ export default async function ShowsPage() {
         title={production.title}
         subtitle={[
           production.venue?.split(",")[0],
-          production.opensOn
-            ? `Opens ${formatDate(`${production.opensOn}T12:00:00Z`)}`
-            : "Dates to be confirmed",
+          describeRun(production, run, formatDate),
+          run && run.performanceCount > 0
+            ? `${run.performanceCount} ${run.performanceCount === 1 ? "performance" : "performances"}`
+            : null,
         ]
           .filter(Boolean)
           .join(" · ")}

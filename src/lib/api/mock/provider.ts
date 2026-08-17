@@ -1,6 +1,7 @@
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
+import { runFromEvents, type ProductionRun } from "../productions/run";
 import type {
   AppNotification,
   ButtonDesign,
@@ -662,6 +663,16 @@ export class MockDataProvider implements DataProvider {
 
   async getStaffProfile(staffId: string): Promise<StaffProfile | null> {
     return deepClone(store.staff.find((s) => s.id === staffId) ?? null);
+  }
+
+  async getProductionRuns(): Promise<Record<string, ProductionRun>> {
+    const runs: Record<string, ProductionRun> = {};
+    for (const production of store.productions) {
+      runs[production.id] = runFromEvents(
+        store.events.filter((event) => event.productionId === production.id)
+      );
+    }
+    return runs;
   }
 
   async getStaffForFamily(

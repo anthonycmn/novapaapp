@@ -4,6 +4,7 @@ import { ArrowRight, BadgeCheck, CalendarDays, Star } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import { todayKey } from "@/lib/calendar/week";
+import { daysUntil, openingNight } from "@/lib/api/productions/run";
 import type {
   AppNotification,
   Enrollment,
@@ -63,6 +64,7 @@ export default async function DashboardPage() {
 
   const [
     productions,
+    runs,
     classes,
     notifications,
     posts,
@@ -71,6 +73,7 @@ export default async function DashboardPage() {
     familyEvents,
   ] = await Promise.all([
     provider.getProductions(),
+    provider.getProductionRuns(),
     provider.getClasses(),
     provider.getNotifications(user.id),
     provider.getFeedForUser(user.id),
@@ -99,8 +102,12 @@ export default async function DashboardPage() {
 
   /*
    * The shows this family is in, soonest first, and how long until each opens.
-   * A show with no opening date on record contributes no countdown rather than
-   * a guessed one — "in 9999 days" is not a thing to print on a dashboard.
+   *
+   * Opening night comes off the CALENDAR, not productions.opensOn — that
+   * column is null on every one of the twenty-four, so reading it alone made
+   * this tile say "no show booked yet" to a family whose child opens in six
+   * weeks. A show with genuinely nothing scheduled still contributes no
+   * countdown, which is the honest case.
    */
   const nowIso = new Date().toISOString();
   const myShows = [...new Set(active.map((e) => e.productionId).filter(Boolean))]
@@ -110,12 +117,7 @@ export default async function DashboardPage() {
       const nextCall = familyEvents
         .filter((e) => e.productionId === production.id && e.endsAt >= nowIso)
         .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
-      const days = production.opensOn
-        ? Math.ceil(
-            (new Date(`${production.opensOn}T12:00:00Z`).getTime() - Date.now()) /
-              86_400_000
-          )
-        : null;
+      const days = daysUntil(openingNight(production, runs[production.id]));
       return { production, nextCall, days };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null)

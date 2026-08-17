@@ -36,6 +36,7 @@ import type {
   User,
 } from "./types";
 import type { OpenOffering } from "./catalog/offerings";
+import type { ProductionRun } from "./productions/run";
 import type {
   AccountLink,
   RegistrationSnapshot,
@@ -153,6 +154,16 @@ export interface DataProvider {
   getClasses(programId?: string): Promise<ClassOffering[]>;
   getProductions(seasonId?: string): Promise<Production[]>;
   getProduction(productionId: string): Promise<Production | null>;
+  /**
+   * Every show's run — first and last performance, and how many — keyed by
+   * production id.
+   *
+   * Exists because `productions.opens_on` is null on all of them: the run is
+   * scheduled in the staff portal and arrives as calendar events. Any page
+   * listing shows needs their dates, and twenty-four separate calendar reads
+   * to build one list is not a page load.
+   */
+  getProductionRuns(): Promise<Record<string, ProductionRun>>;
 
   /* enrollments & casting */
   getEnrollmentsForStudent(actorId: string, studentId: string): Promise<Enrollment[]>;
