@@ -34,12 +34,15 @@ export function NextCall({ event }: { event?: CalendarEvent }) {
   );
 
   return (
-    <div className="mb-4 overflow-hidden rounded-lg border border-primary/30 bg-card shadow-[var(--shadow-card)]">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-primary/20 bg-primary/5 px-5 py-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
+    <div className="mb-4 overflow-hidden rounded-lg border bg-card shadow-[var(--shadow-card)]">
+      {/* The gold band, 12% — the accent for the one thing on this page a
+          parent came to read. Gold sits ON the wash rather than on the card,
+          which is what stops it reading brown (see .gold-band). */}
+      <div className="gold-band flex flex-wrap items-baseline justify-between gap-2 border-b px-5 py-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">
           Your next call
         </p>
-        <p className="text-[12px] text-primary/80">
+        <p className="text-[12px] opacity-80">
           {startsIn <= 0 ? "today" : startsIn === 1 ? "tomorrow" : `in ${startsIn} days`}
         </p>
       </div>

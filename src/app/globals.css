@@ -38,14 +38,30 @@
   --secondary-foreground: #2a3345;
   --muted: #eaeef4;
   --muted-foreground: #4c5a72;
-  --accent: #fdf3dc;
-  --accent-foreground: #563608;
-  /* The Tip of the day band. Its own pair rather than --accent, because
-     --accent is a *blue* in dark mode and the tip must read gold in both —
-     the staff portal's tip is a constant gold wash over whatever is behind
-     it, and that warmth is the whole signal. */
-  --tip: #fdf3dc;
-  --tip-foreground: #563608;
+  /*
+   * Tony, 17 Aug 2026: "all that brown that's throughout the entire thing is
+   * a gold at twelve percent opaque."
+   *
+   * #fdf3dc was the culprit and the staff portal already had the diagnosis in
+   * its own theme.css: "a dark yellow simply is brown". An opaque warm cream
+   * laid over a white card is a slab of tan — it does not read as gold, it
+   * reads as mud, and it was on every accent band, every selected row and
+   * every callout in the portal.
+   *
+   * This is the staff portal's .bar-gold instead, exactly: gold-400 as a 12%
+   * translucent wash. Because it is translucent it composites over whatever
+   * card or row is behind it rather than painting its own surface, which is
+   * what keeps it gold at any depth. The foreground stays gold-700 — the same
+   * value the staff portal uses on the same wash, and the one the contrast
+   * test insists on, since raw gold on near-white is about 3:1 and fails AA
+   * for body copy.
+   */
+  --accent: rgb(232 184 75 / 0.12);
+  --accent-foreground: #8a5a15;
+  /* The Tip of the day band. Kept as its own pair so the tip can never drift
+     from gold even if --accent is repurposed. */
+  --tip: rgb(232 184 75 / 0.12);
+  --tip-foreground: #8a5a15;
   --gold: #8a5a15;
   --destructive: #be123c;
   --destructive-foreground: #ffffff;
@@ -73,17 +89,22 @@
   --secondary-foreground: #e8edf5;
   --muted: #16243c;
   --muted-foreground: #a7b5ca;
-  --accent: #1d3564;
-  --accent-foreground: #f7d98f;
   /* Tony, 17 Aug 2026: "All of the brown that's reading is brown in dark mode
-     should be the gold opaque at twelve percent."
+     should be the gold opaque at twelve percent" — and, that afternoon, the
+     same for the light theme.
 
-     #2a2314 was an opaque brown — gold darkened until it stopped being gold.
-     This is the staff portal's own .bar-gold instead: gold-400 as a 12%
+     #2a2314 was an opaque brown: gold darkened until it stopped being gold.
+     This is the staff portal's own .bar-gold instead — gold-400 as a 12%
      translucent wash, so it composites over whatever card or row is behind it
      rather than laying down a slab of mud, with the full gold as the text on
      top. Values lifted from STAFF PORTAL/src/theme.css so the two products
-     read as one material. */
+     read as one material.
+
+     --accent joins it here. It was a navy, which was defensible on its own but
+     meant a selected row was blue in one theme and gold in the other; the same
+     wash in both is what makes the accent mean one thing. */
+  --accent: rgb(232 184 75 / 0.12);
+  --accent-foreground: #f7d98f;
   --tip: rgb(232 184 75 / 0.12);
   --tip-foreground: #e8b84b;
   --gold: #e8b84b;
@@ -135,6 +156,40 @@
   --font-display: var(--font-display), var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --shadow-card: 0 1px 2px rgb(8 17 31 / 0.06), 0 1px 3px rgb(8 17 31 / 0.06);
   --shadow-pop: 0 10px 30px -10px rgb(8 17 31 / 0.28);
+}
+
+@layer components {
+  /*
+   * The gold band — the staff portal's .bar-gold, and the answer to "make it
+   * gold, not brown".
+   *
+   * There is no gold that is both AA-legible as small text on a white card and
+   * still reads as gold: 4.5:1 on white needs a luminance around #8a5a15, and
+   * a dark yellow simply is brown. Lightening the text is therefore not
+   * available — it would trade a colour complaint for unreadable copy on a
+   * portal parents use in a car park.
+   *
+   * So gold text stops floating on white and sits on gold instead: a 12%
+   * translucent wash of the true brand gold, a hairline of the same at 30%,
+   * and the deepened gold as the text on top. Against that wash the same
+   * #8a5a15 reads as the dark end of a gold band rather than as brown ink,
+   * because the eye judges it against the gold around it.
+   *
+   * The border is not decoration. Twelve per cent of anything is nearly the
+   * surface it sits on, and a band that cannot be told from its card is not a
+   * band.
+   */
+  .gold-band {
+    background-color: var(--tip);
+    color: var(--tip-foreground);
+    border-color: rgb(232 184 75 / 0.3);
+  }
+  /* Hover state for a gold-washed tile: more of the same thing rather than a
+     second colour, so the feedback reads as depth and not as a mode change. */
+  .gold-hover:hover {
+    background-color: rgb(232 184 75 / 0.22);
+    border-color: rgb(232 184 75 / 0.55);
+  }
 }
 
 @layer base {

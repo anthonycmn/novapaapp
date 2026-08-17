@@ -1,5 +1,6 @@
 import {
   Bell,
+  BookOpen,
   CalendarDays,
   Contact,
   FileSignature,
@@ -57,7 +58,10 @@ export const FAMILY_SECTIONS: NavSection[] = [
   { href: "/notifications", Icon: Bell, label: "Notifications", description: "Everything you've been told", group: "Dashboard" },
   { href: "/auditions", Icon: Mic, label: "Auditions", description: "Role preferences and audition info", group: "On stage" },
   { href: "/casting", Icon: PartyPopper, label: "Casting", description: "Your child's role, playbill confirmation, feedback", group: "On stage" },
-  { href: "/productions", Icon: Theater, label: "Productions", description: "Show info and tickets", group: "On stage" },
+  // Split on 17 Aug 2026. One list of both meant scrolling past nine musicals
+  // to find a Tuesday dance class; the labels match the staff portal's own.
+  { href: "/shows", Icon: Theater, label: "Shows", description: "Your show, its calls, and tickets", group: "On stage" },
+  { href: "/classes", Icon: BookOpen, label: "Classes", description: "When your class meets, and its updates", group: "On stage" },
   { href: "/photos", Icon: Images, label: "Photos", description: "Galleries, and photos of your child", group: "On stage" },
   { href: "/family", Icon: Users, label: "Family profile", description: "Guardians, address, emergency contacts", group: "Your family" },
   { href: "/family/documents", Icon: FileSignature, label: "Document vault", description: "Waivers, forms, and receipts", group: "Your family" },

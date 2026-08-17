@@ -22,12 +22,15 @@ import { FeedPostCard } from "@/components/feed/post-card";
  */
 export async function ShowFeed({
   productionId,
+  classId,
   productionTitle,
   userId,
   isStaff,
   limit = 5,
 }: {
-  productionId: string;
+  /** Exactly one of these. A post belongs to a show or to a class. */
+  productionId?: string;
+  classId?: string;
   productionTitle: string;
   userId: string;
   isStaff: boolean;
@@ -36,10 +39,17 @@ export async function ShowFeed({
   const provider = getProvider();
   const all = await provider.getFeedForUser(userId);
 
-  const forThisShow = all.filter((post: FeedPost) =>
-    (post.audience?.productionIds ?? []).includes(productionId)
+  // Classes get the same feed as shows, with the same private question
+  // thread — a Tuesday dance class has as much need of "no class next week"
+  // as a musical does, and there is no reason for it to be a lesser page.
+  const forThisOffering = all.filter((post: FeedPost) =>
+    productionId
+      ? (post.audience?.productionIds ?? []).includes(productionId)
+      : classId
+        ? (post.audience?.classIds ?? []).includes(classId)
+        : false
   );
-  const posts = forThisShow.slice(0, limit);
+  const posts = forThisOffering.slice(0, limit);
 
   const questionsByPost = new Map(
     await Promise.all(
@@ -89,6 +99,16 @@ export async function ShowFeed({
               </Link>
               .
             </p>
+            {/* A question hangs off a post, so with nothing posted there is
+                nothing to ask on yet. Rather than leave a parent with a
+                question and no door, send them to the one that reaches a
+                named person. */}
+            <Link
+              href="/messages/new"
+              className="gold-band gold-hover rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors"
+            >
+              Ask us a question
+            </Link>
           </div>
         ) : (
           <>

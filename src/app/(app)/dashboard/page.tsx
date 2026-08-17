@@ -177,7 +177,7 @@ export default async function DashboardPage() {
                 : "No show booked yet"
           }
           tone={nextShow && nextShow.days !== null && nextShow.days <= 7 ? "warn" : "default"}
-          href={nextShow ? `/productions/${nextShow.production.id}` : "/productions"}
+          href={nextShow ? `/productions/${nextShow.production.id}` : "/shows"}
         />
         <StatTile
           label="Balance due"
@@ -299,10 +299,10 @@ export default async function DashboardPage() {
                 inCard
                 right={
                   <Link
-                    href="/productions"
+                    href="/shows"
                     className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
                   >
-                    All productions <ArrowRight aria-hidden size={13} />
+                    All shows <ArrowRight aria-hidden size={13} />
                   </Link>
                 }
               />
