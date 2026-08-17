@@ -10,8 +10,8 @@ describe("who keepsake submissions go to", () => {
     expect(SUBMISSION_RECIPIENTS.map((r) => r.email).sort()).toEqual([
       "cj@novapa.org",
       "jen@novapa.org",
+      "katie.h@novapa.org",
       "katie@novapa.org",
-      "katieh@novapa.org",
       "todd@novapa.org",
     ]);
   });
