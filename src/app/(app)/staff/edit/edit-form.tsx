@@ -129,6 +129,26 @@ export function StaffEditForm({ profile }: { profile: StaffProfile }) {
         />
       </div>
 
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="familyMessage">A message to your families</Label>
+        <Textarea
+          id="familyMessage"
+          name="familyMessage"
+          defaultValue={value("familyMessage") ?? ""}
+          className="min-h-24"
+          maxLength={600}
+          placeholder="I'm so glad your child is in this class. Here's what we'll be working on, and the best way to reach me…"
+        />
+        {/* The bio is a CV. This is a hello — and it is the part a parent
+            reads first when they are deciding whether they trust you with
+            their nine-year-old for four hours a week. */}
+        <p className="text-xs text-muted-foreground">
+          Shown to the families of the children you teach, under your bio.
+          Write it to them, not about you — what you&apos;re looking forward to,
+          and how they should reach you.
+        </p>
+      </div>
+
       <FieldError message={state.errors?._form} />
 
       <Button type="submit" disabled={pending}>

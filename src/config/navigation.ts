@@ -72,7 +72,7 @@ export const FAMILY_SECTIONS: NavSection[] = [
   { href: "/store/lessons", Icon: GraduationCap, label: "Private lessons", description: "Voice, acting & dance coaching", group: "Store" },
   { href: "/store/orders", Icon: PackageOpen, label: "Your orders", description: "Order history and reorder", group: "Store" },
   { href: "/reviews", Icon: Star, label: "Give feedback", description: "Private feedback on classes and shows", group: "More" },
-  { href: "/staff", Icon: Contact, label: "Our staff", description: "Teaching artists and production team", group: "More" },
+  { href: "/staff", Icon: Contact, label: "Our staff", description: "Bios of the people teaching your children", group: "More" },
   { href: "/notifications/settings", Icon: Settings, label: "Notification settings", description: "What we notify you about, quiet hours", group: "More" },
 ];
 

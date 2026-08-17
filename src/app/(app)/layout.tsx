@@ -4,6 +4,7 @@ import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
 import { getProvider } from "@/lib/api";
 import { AppShell } from "@/components/app-shell/app-shell";
+import { Spot } from "@/components/spot/spot";
 
 /**
  * Authenticated app shell. Everything inside the (app) route group requires
@@ -51,6 +52,11 @@ export default async function AppLayout({
       }
     >
       {children}
+      {/* Spot rides along on every signed-in page: a parent who cannot find
+          something is, by definition, not on the page that would explain it.
+          It costs nothing to run — everything it knows ships in the bundle
+          and is matched in the browser. */}
+      <Spot />
     </AppShell>
   );
 }

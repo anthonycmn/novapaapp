@@ -30,6 +30,7 @@ import type {
   ResumeCredit,
   Season,
   ShowHistoryEntry,
+  StaffAssignment,
   StaffProfile,
   Student,
   User,
@@ -161,6 +162,16 @@ export interface DataProvider {
   /* staff */
   getStaffProfiles(): Promise<StaffProfile[]>;
   getStaffProfile(staffId: string): Promise<StaffProfile | null>;
+  /**
+   * The colleagues assigned to this family's own shows and classes, each with
+   * the role they hold on it.
+   *
+   * Not the whole company. Tony, 17 Aug 2026: "They don't need to see the
+   * whole staff, but they need to see the staff that are assigned to that
+   * class or that show." Twenty-four shows' worth of creative teams is a
+   * directory; the four people teaching your child is an answer.
+   */
+  getStaffForFamily(actorId: string, familyId: string): Promise<StaffAssignment[]>;
 
   /**
    * What is open for registration right now, from the org's own catalogue.
@@ -502,6 +513,7 @@ export interface DataProvider {
       title?: string;
       specialties?: string[];
       credits?: string;
+      familyMessage?: string;
       photoDataUrl?: string;
     }
   ): Promise<StaffProfile>;

@@ -33,6 +33,7 @@ import type {
   ReactionKind,
   Family,
   FamilyCalendarEvent,
+  StaffAssignment,
   StaffProfile,
   Student,
   User,
@@ -104,6 +105,7 @@ import type { ReviewAggregate, TrendPoint } from "../reviews/types";
 import { assertUploadAllowed, getStorageProvider } from "../storage";
 import { getPortalReadClient, getServiceClient, getWebsiteReadClient } from "./client";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
+import { staffForFamily } from "../staff/for-family";
 
 /**
  * Supabase adapter for the shared novapa-deh project (`public` schema).
@@ -198,8 +200,10 @@ function mapStaff(row: Row): StaffProfile {
     photoUrl: s(row.photo_url),
     specialties: (row.specialties ?? []) as string[],
     credits: s(row.credits),
+    familyMessage: s(row.family_message),
     pendingChanges: (row.pending_changes ?? undefined) as StaffProfile["pendingChanges"],
     isPublished: Boolean(row.is_published),
+    isHealthSafetyDirector: Boolean(row.is_health_safety_director),
   };
 }
 
@@ -313,6 +317,48 @@ class SupabaseDataProvider {
       .eq("is_published", true)
       .order("full_name");
     if (error) throw new Error(`staff lookup failed: ${error.message}`);
+    return (data ?? []).map(mapStaff);
+  }
+
+  async getStaffForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<StaffAssignment[]> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+
+    const [students, enrollments, productions, classes, profiles] = await Promise.all([
+      this.getStudentsForFamily(actorId, familyId),
+      this.getEnrollmentsForFamily(actorId, familyId),
+      this.getProductions(),
+      this.getClasses(),
+      // Every profile, published or not: the NAME and the role on a show are
+      // not private — a family meets these people at pickup. What approval
+      // gates is the bio and the photo, and the page enforces that.
+      this.allStaffProfiles(),
+    ]);
+
+    const { data: assignmentRows } = await this.db
+      .from("production_staff")
+      .select("production_id, staff_id, role");
+
+    return staffForFamily({
+      students,
+      enrollments,
+      productions,
+      classes,
+      profiles,
+      productionStaff: (assignmentRows ?? []).map((row) => ({
+        productionId: String(row.production_id),
+        staffId: String(row.staff_id),
+        role: s(row.role),
+      })),
+    });
+  }
+
+  /** Unpublished included — see the note in getStaffForFamily. */
+  private async allStaffProfiles(): Promise<StaffProfile[]> {
+    const { data } = await this.db.from("staff_profiles").select("*").order("full_name");
     return (data ?? []).map(mapStaff);
   }
 
@@ -3193,6 +3239,7 @@ class SupabaseDataProvider {
       title?: string;
       specialties?: string[];
       credits?: string;
+      familyMessage?: string;
       photoDataUrl?: string;
     }
   ): Promise<StaffProfile> {
@@ -3213,6 +3260,7 @@ class SupabaseDataProvider {
     if (changes.title !== undefined) pending.title = changes.title;
     if (changes.specialties !== undefined) pending.specialties = changes.specialties;
     if (changes.credits !== undefined) pending.credits = changes.credits;
+    if (changes.familyMessage !== undefined) pending.familyMessage = changes.familyMessage;
     if (changes.photoDataUrl) {
       assertUploadAllowed("staff-photos", changes.photoDataUrl);
       const stored = await getStorageProvider().upload(
@@ -3271,6 +3319,7 @@ class SupabaseDataProvider {
         ...(pending.title !== undefined ? { title: pending.title } : {}),
         ...(pending.specialties !== undefined ? { specialties: pending.specialties } : {}),
         ...(pending.credits !== undefined ? { credits: pending.credits } : {}),
+        ...(pending.familyMessage !== undefined ? { family_message: pending.familyMessage } : {}),
         ...(pending.photoUrl !== undefined ? { photo_url: pending.photoUrl } : {}),
         pending_changes: null,
         change_rejection: null,

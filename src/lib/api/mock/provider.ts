@@ -1,5 +1,6 @@
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
+import { staffForFamily } from "../staff/for-family";
 import type {
   AppNotification,
   ButtonDesign,
@@ -32,6 +33,7 @@ import type {
   ResumeCredit,
   Season,
   ShowHistoryEntry,
+  StaffAssignment,
   StaffProfile,
   Student,
   User,
@@ -660,6 +662,33 @@ export class MockDataProvider implements DataProvider {
 
   async getStaffProfile(staffId: string): Promise<StaffProfile | null> {
     return deepClone(store.staff.find((s) => s.id === staffId) ?? null);
+  }
+
+  async getStaffForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<StaffAssignment[]> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    return staffForFamily({
+      students: store.students.filter((s) => s.familyId === familyId),
+      enrollments: store.enrollments.filter((enrollment) =>
+        store.students.some(
+          (s) => s.id === enrollment.studentId && s.familyId === familyId
+        )
+      ),
+      productions: store.productions,
+      classes: store.classes,
+      // Unpublished included; the page gates the bio, not the name.
+      profiles: store.staff,
+      productionStaff: store.productions
+        .filter((production) => production.directorStaffId)
+        .map((production) => ({
+          productionId: production.id,
+          staffId: production.directorStaffId!,
+          role: "Director",
+        })),
+    });
   }
 
   /**
@@ -2579,6 +2608,7 @@ export class MockDataProvider implements DataProvider {
       title?: string;
       specialties?: string[];
       credits?: string;
+      familyMessage?: string;
       photoDataUrl?: string;
     }
   ): Promise<StaffProfile> {
@@ -2599,6 +2629,7 @@ export class MockDataProvider implements DataProvider {
     if (changes.title !== undefined) pending.title = changes.title;
     if (changes.specialties !== undefined) pending.specialties = changes.specialties;
     if (changes.credits !== undefined) pending.credits = changes.credits;
+    if (changes.familyMessage !== undefined) pending.familyMessage = changes.familyMessage;
     if (changes.photoDataUrl) {
       pending.photoUrl = await this.store(
         "staff-photos",

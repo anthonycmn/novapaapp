@@ -155,6 +155,14 @@ export interface ClassOffering {
   endTime: string;
   location: string;
   staffIds: string[];
+  /**
+   * The registration listing this class is sold as (`public.activities.id`).
+   *
+   * Set when the offering was written in the staff portal, which knows both
+   * ids at the moment it creates them. It is the only match between the two
+   * systems that cannot quietly go wrong — see the note in reconcile.ts.
+   */
+  registrationActivityId?: number;
 }
 
 export interface Production {
@@ -171,6 +179,11 @@ export interface Production {
   ticketsUrl?: string;
   /** Curriculum & materials link, synced from the staff portal's plan. */
   curriculumUrl?: string;
+  /**
+   * The registration listing this production is sold as
+   * (`public.activities.id`). See ClassOffering.registrationActivityId.
+   */
+  registrationActivityId?: number;
 }
 
 export interface Enrollment {
@@ -251,11 +264,45 @@ export interface StaffProfile {
   photoUrl?: string;
   specialties: string[];
   credits?: string;
+  /**
+   * A short note addressed to the families of the children this person
+   * teaches. Not a bio — a bio is a CV, and a CV is not what a parent wants
+   * when the question is "who is spending four hours a week with my child".
+   */
+  familyMessage?: string;
   /** Receives messages addressed to the Director of Health & Safety. */
   isHealthSafetyDirector?: boolean;
   /** Draft edits awaiting admin approval (Phase 1 #14). */
-  pendingChanges?: Partial<Pick<StaffProfile, "bio" | "title" | "photoUrl" | "specialties" | "credits">>;
+  pendingChanges?: Partial<
+    Pick<
+      StaffProfile,
+      "bio" | "title" | "photoUrl" | "specialties" | "credits" | "familyMessage"
+    >
+  >;
   isPublished: boolean;
+}
+
+/**
+ * One colleague, and where a family meets them.
+ *
+ * A person can hold several roles across a family's offerings — Ryyana is
+ * Vocal Director, Costume Designer and Hair/Make-Up on the same show — so the
+ * roles are a list against one profile rather than one row per assignment. A
+ * card per role would show a parent the same face four times.
+ */
+export interface StaffAssignment {
+  profile: StaffProfile;
+  /** "Vocal Director on Frozen, Kids", "Teaches Acting (9 – 12 yrs)". */
+  roles: Array<{
+    /** The show or class title, as the family knows it. */
+    offering: string;
+    /** Where to read more about it. */
+    href: string;
+    /** Their job on this one. Absent for a class, where teaching is the job. */
+    role?: string;
+    /** Which of the family's children meets them here. */
+    studentNames: string[];
+  }>;
 }
 
 /* ── Calendar (Phase 3, types staked out early) ─────────────────────────── */

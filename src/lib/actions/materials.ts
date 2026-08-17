@@ -196,6 +196,7 @@ export async function submitStaffChangesAction(
       bio: String(formData.get("bio") ?? ""),
       title: String(formData.get("title") ?? ""),
       credits: String(formData.get("credits") ?? ""),
+      familyMessage: String(formData.get("familyMessage") ?? ""),
       specialties: specialtiesRaw
         .split(",")
         .map((entry) => entry.trim())
