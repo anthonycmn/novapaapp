@@ -29,6 +29,8 @@ export interface Guardian {
   phone: string;
   relationship: string; // "Mother", "Father", "Grandparent", …
   isPrimary: boolean;
+  /** Optional photo the parent uploaded of themselves. Never required. */
+  photoUrl?: string;
 }
 
 export interface EmergencyContact {
@@ -264,6 +266,13 @@ export interface CalendarEvent {
    * the per-child, role-driven schedule. Unset = whole production called.
    */
   sceneIds?: string[];
+  /**
+   * Who is called, as the show calendar words it: "Sweeney Todd · Mrs. Lovett
+   * · Ensemble". Free text from a director, not a join — a parent reads it.
+   */
+  calledNote?: string;
+  /** What this call works: its scene and music lines. */
+  worksNote?: string;
   /** Set when the event time/location changed after creation. */
   changedAt?: string;
   changeNote?: string;

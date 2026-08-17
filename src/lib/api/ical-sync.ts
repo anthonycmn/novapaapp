@@ -72,7 +72,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
   const hub = getServiceClient();
   const { data: existing, error: readError } = await hub
     .from("calendar_events")
-    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time")
+    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time, called_note, works_note")
     .eq("external_source", feed.key)
     .eq("production_id", feed.productionId);
   if (readError) throw new Error(`${feed.key}: events read failed: ${readError.message}`);
@@ -99,6 +99,8 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
       String(current.title) !== row.title ||
       String(current.type) !== row.type ||
       String(current.location ?? "") !== row.location ||
+      String(current.called_note ?? "") !== String(row.called_note ?? "") ||
+      String(current.works_note ?? "") !== String(row.works_note ?? "") ||
       Date.parse(String(current.call_time ?? "")) !==
         Date.parse(String(row.call_time ?? ""));
     if (!changed) continue;

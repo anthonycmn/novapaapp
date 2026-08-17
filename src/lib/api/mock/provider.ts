@@ -426,6 +426,40 @@ export class MockDataProvider implements DataProvider {
     return deepClone(guardian);
   }
 
+  async updateGuardian(
+    actorId: string,
+    guardianId: string,
+    patch: Partial<
+      Pick<Guardian, "fullName" | "email" | "phone" | "relationship" | "photoUrl">
+    >
+  ): Promise<Guardian> {
+    const actor = getActor(actorId);
+    const guardian = store.guardians.find((g) => g.id === guardianId);
+    if (!guardian) throw new Error("Guardian not found");
+    assertFamilyAccess(actor, guardian.familyId);
+    // isPrimary and userId decide who the account belongs to, so they are not
+    // in the patch type and cannot be reached from here.
+    Object.assign(guardian, patch);
+    return deepClone(guardian);
+  }
+
+  async addGuardian(
+    actorId: string,
+    familyId: string,
+    guardian: Pick<Guardian, "fullName" | "email" | "phone" | "relationship">
+  ): Promise<Guardian> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    const created: Guardian = {
+      id: nextId("g"),
+      familyId,
+      isPrimary: false,
+      ...guardian,
+    };
+    store.guardians.push(created);
+    return deepClone(created);
+  }
+
   async getStudentsForFamily(actorId: string, familyId: string): Promise<Student[]> {
     const actor = getActor(actorId);
     assertFamilyAccess(actor, familyId);

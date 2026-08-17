@@ -392,6 +392,8 @@ class SupabaseDataProvider {
       classId: s(row.class_id),
       productionId: s(row.production_id),
       sceneIds: (row.scene_ids ?? undefined) as string[] | undefined,
+      calledNote: s(row.called_note),
+      worksNote: s(row.works_note),
       changedAt: s(row.changed_at),
       changeNote: s(row.change_note),
     };
@@ -2365,6 +2367,7 @@ class SupabaseDataProvider {
       phone: String(row.phone ?? ""),
       relationship: String(row.relationship ?? ""),
       isPrimary: Boolean(row.is_primary),
+      photoUrl: s(row.photo_url),
     };
   }
 
@@ -2392,6 +2395,65 @@ class SupabaseDataProvider {
       })
       .select().single();
     if (error) throw new Error(`guardian invite failed: ${error.message}`);
+    return this.mapGuardian(data);
+  }
+
+  async updateGuardian(
+    actorId: string,
+    guardianId: string,
+    patch: Partial<
+      Pick<Guardian, "fullName" | "email" | "phone" | "relationship" | "photoUrl">
+    >
+  ): Promise<Guardian> {
+    const actor = await this.actor(actorId);
+    const { data: current, error: readError } = await this.db
+      .from("guardians")
+      .select("family_id")
+      .eq("id", guardianId)
+      .maybeSingle();
+    if (readError) throw new Error(`guardian lookup failed: ${readError.message}`);
+    if (!current) throw new Error("Guardian not found");
+    this.assertFamilyAccess(actor, String(current.family_id));
+
+    // Column-by-column rather than a spread: is_primary and user_id decide who
+    // the account belongs to, and must not be reachable from a family form.
+    const row: Row = {};
+    if (patch.fullName !== undefined) row.full_name = patch.fullName;
+    if (patch.email !== undefined) row.email = patch.email;
+    if (patch.phone !== undefined) row.phone = patch.phone;
+    if (patch.relationship !== undefined) row.relationship = patch.relationship;
+    if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl;
+
+    const { data, error } = await this.db
+      .from("guardians")
+      .update(row)
+      .eq("id", guardianId)
+      .select()
+      .single();
+    if (error) throw new Error(`guardian update failed: ${error.message}`);
+    return this.mapGuardian(data);
+  }
+
+  async addGuardian(
+    actorId: string,
+    familyId: string,
+    guardian: Pick<Guardian, "fullName" | "email" | "phone" | "relationship">
+  ): Promise<Guardian> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data, error } = await this.db
+      .from("guardians")
+      .insert({
+        family_id: familyId,
+        full_name: guardian.fullName,
+        email: guardian.email,
+        phone: guardian.phone,
+        relationship: guardian.relationship,
+        is_primary: false,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(`guardian add failed: ${error.message}`);
     return this.mapGuardian(data);
   }
 

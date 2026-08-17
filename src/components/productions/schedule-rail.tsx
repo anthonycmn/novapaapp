@@ -10,6 +10,7 @@ import {
   ListMusic,
   MapPin,
   Package,
+  Users,
   UserRound,
 } from "lucide-react";
 import type { CalendarEvent, EventType } from "@/lib/api/types";
@@ -259,25 +260,39 @@ export function ScheduleRail({
                           </p>
                         )}
 
-                        {/* Which scenes and numbers this call actually works.
-                            Untagged calls are the whole company, and saying so
-                            is a detail too — it is the difference between
-                            "we're not needed" and "everyone is". */}
+                        {/* Who is called. The question a parent opens this page
+                            with is "is my child needed on Thursday", and until
+                            now the page could not answer it. */}
                         {(() => {
-                          const named = (event.sceneIds ?? [])
-                            .map((id) => sceneNames?.[id])
-                            .filter((name): name is string => Boolean(name));
-                          if (named.length === 0) return null;
+                          const called =
+                            event.calledNote ??
+                            (event.sceneIds ?? [])
+                              .map((id) => sceneNames?.[id])
+                              .filter((name): name is string => Boolean(name))
+                              .join(" · ");
+                          if (!called) return null;
                           return (
-                            <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
-                              <ListMusic aria-hidden size={12} className="mt-0.5 shrink-0" />
-                              <span>
-                                <span className="font-medium text-foreground">Working</span>{" "}
-                                {named.join(" · ")}
+                            <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug">
+                              <Users aria-hidden size={12} className="mt-0.5 shrink-0 text-gold" />
+                              <span className="text-muted-foreground">
+                                <span className="font-medium text-foreground">Called</span>{" "}
+                                {called}
                               </span>
                             </p>
                           );
                         })()}
+
+                        {/* What the call works, so a family can tell whether
+                            tonight is their child's material. */}
+                        {event.worksNote && (
+                          <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
+                            <ListMusic aria-hidden size={12} className="mt-0.5 shrink-0" />
+                            <span>
+                              <span className="font-medium text-foreground">Working</span>{" "}
+                              {event.worksNote}
+                            </span>
+                          </p>
+                        )}
 
                         {event.contactName && (
                           <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">

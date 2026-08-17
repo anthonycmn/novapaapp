@@ -105,6 +105,27 @@ export interface DataProvider {
     familyId: string,
     invite: { fullName: string; email: string; relationship: string }
   ): Promise<Guardian>;
+  /**
+   * Edit a parent's own details. Families keep their own contact information
+   * current far better than an office can, so this is theirs to change —
+   * but not `isPrimary` or `userId`, which decide who the account belongs to.
+   */
+  updateGuardian(
+    actorId: string,
+    guardianId: string,
+    patch: Partial<Pick<Guardian, "fullName" | "email" | "phone" | "relationship" | "photoUrl">>
+  ): Promise<Guardian>;
+  /**
+   * Add another parent or guardian to the household, without sending them an
+   * invitation. Tony, 17 Aug 2026: "Add a second parent, add a third parent,
+   * add a fourth parent if they would like to." A record of who a child's
+   * grown-ups are is useful even before anyone gets a login.
+   */
+  addGuardian(
+    actorId: string,
+    familyId: string,
+    guardian: Pick<Guardian, "fullName" | "email" | "phone" | "relationship">
+  ): Promise<Guardian>;
 
   /* students */
   getStudentsForFamily(actorId: string, familyId: string): Promise<Student[]>;

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { formatInTimeZone } from "date-fns-tz";
 import { org } from "@/config/org";
-import { callTimeFor, cleanTitle, eventTypeFor } from "@/lib/ical/map";
+import {
+  calledFrom,
+  calledNoteFor,
+  callTimeFor,
+  cleanTitle,
+  descriptionLines,
+  eventTypeFor,
+  worksNoteFor,
+} from "@/lib/ical/map";
 import { parseIcal } from "@/lib/ical/parse";
 
 const et = (iso: string) => formatInTimeZone(new Date(iso), org.timeZone, "yyyy-MM-dd h:mm a");
@@ -124,5 +132,86 @@ describe("ical parsing", () => {
     expect(parseIcal(folded)[0].summary).toBe(
       "A very long rehearsal title that Google wrapped across lines"
     );
+  });
+});
+
+describe("who is called to each rehearsal", () => {
+  // The real shape of a Sweeney event description, HTML and all.
+  const twoRoom =
+    "<b>WEEK 1 · Monday 24 August 2026</b><br><br><b>JOINT</b> — Colton + Ryyana<br>" +
+    "Read-through and music intro<br>Scene: Act I - Prologue through Sc. 3 (read)<br>" +
+    "Music: The Ballad of Sweeney Todd<br>" +
+    "<b>CALLED (12): Sweeney Todd · Mrs. Lovett · Anthony</b><br>" +
+    "<b>PARENT ROOM</b> — Tony Cimino-Johnson<br>PARENT MEET AND GREET<br>" +
+    "<b>CALLED: no student call</b><br>" +
+    "<hr><b>CALLED — 12 of 12:</b><br>" +
+    "<b>Sweeney Todd · Mrs. Lovett · Anthony · Johanna · Toby · Judge Turpin · " +
+    "Beadle · Beggar Woman · Pirelli · Fogg · Ensemble · Young Lucy</b><br><br>" +
+    "<b>NOT CALLED — 0 of 12:</b> nobody, this is a full-company call";
+
+  const leadsOnly =
+    "<b>ROOM B</b> — Ryyana Cunningham, Choreographer<br>Movement and staging - LEADS ONLY<br>" +
+    "Scene: Act I Sc. 3, 6, 7<br>Music: Johanna's window<br>" +
+    "<hr><b>CALLED — 5 of 12:</b><br><b>Sweeney Todd · Mrs. Lovett · Johanna · Judge Turpin · Beadle</b><br>" +
+    "<b>NOT CALLED — 7 of 12:</b> Anthony · Toby";
+
+  it("prefers the whole-event summary over the per-room lists", () => {
+    // A two-room call has two CALLED lines; the family cares about the event.
+    const called = calledFrom(twoRoom);
+    expect(called.calledCount).toBe(12);
+    expect(called.companyCount).toBe(12);
+    expect(called.called).toHaveLength(12);
+    expect(called.called[0]).toBe("Sweeney Todd");
+    expect(called.called.at(-1)).toBe("Young Lucy");
+  });
+
+  it("reads a partial call", () => {
+    const called = calledFrom(leadsOnly);
+    expect(called.calledCount).toBe(5);
+    expect(called.companyCount).toBe(12);
+    expect(called.called).toEqual([
+      "Sweeney Todd",
+      "Mrs. Lovett",
+      "Johanna",
+      "Judge Turpin",
+      "Beadle",
+    ]);
+  });
+
+  it("splits on the middle dot, not on commas", () => {
+    // "Mrs. Lovett" and "Colton Sorenson, Director" both contain punctuation
+    // that a comma split would tear in half.
+    expect(calledFrom(leadsOnly).called).toContain("Mrs. Lovett");
+  });
+
+  it("falls back to per-room lists when there is no summary footer", () => {
+    const noFooter =
+      "<b>ROOM A</b><br>Music call<br><b>CALLED (2): Toby · Pirelli</b><br>" +
+      "<b>ROOM B</b><br><b>CALLED (2): Toby · Fogg</b>";
+    expect(calledFrom(noFooter).called).toEqual(["Toby", "Pirelli", "Fogg"]);
+  });
+
+  it("says so when nobody is called", () => {
+    const parentsOnly =
+      "<b>PARENT ROOM</b><br>PARENT MEET AND GREET<br><b>CALLED: no student call</b>";
+    expect(calledNoteFor(parentsOnly)).toBe("No student call");
+  });
+
+  it("returns nothing rather than guessing when the description is silent", () => {
+    expect(calledNoteFor("<b>Some note with no call list</b>")).toBeUndefined();
+    expect(calledNoteFor("")).toBeUndefined();
+  });
+
+  it("collects what the call works from Scene and Music", () => {
+    expect(worksNoteFor(leadsOnly)).toBe("Act I Sc. 3, 6, 7 · Johanna's window");
+  });
+
+  it("does not repeat an identical Scene line from two rooms", () => {
+    const repeated = "Scene: Act I Sc. 4<br><b>ROOM B</b><br>Scene: Act I Sc. 4";
+    expect(worksNoteFor(repeated)).toBe("Act I Sc. 4");
+  });
+
+  it("decodes entities and strips tags when flattening a description", () => {
+    expect(descriptionLines("<b>A &amp; B</b><br>C&nbsp;D")).toEqual(["A & B", "C D"]);
   });
 });
