@@ -1700,12 +1700,16 @@ class SupabaseDataProvider {
         external_id: create.externalId,
         external_source: snapshot.source,
         offering_category: create.offeringCategory ?? null,
+        amount_paid_cents: create.amountPaidCents ?? null,
       });
     }
     for (const update of plan.updates) {
       const patch: Record<string, unknown> = {};
       if (update.balanceCents !== undefined) patch.balance_cents = update.balanceCents;
       if (update.status !== undefined) patch.status = update.status;
+      if (update.amountPaidCents !== undefined) {
+        patch.amount_paid_cents = update.amountPaidCents;
+      }
       if (Object.keys(patch).length) {
         await this.db.from("enrollments").update(patch).eq("id", update.enrollmentId);
       }
@@ -1868,12 +1872,10 @@ class SupabaseDataProvider {
       productions,
       periodStart: period.start,
       periodEnd: period.end,
-      // Same demo figures as the mock until payment records exist.
-      paidByEnrollmentId: Object.fromEntries(
-        enrollments
-          .filter((enrollment) => enrollment.studentId === studentId)
-          .map((enrollment) => [enrollment.id, enrollment.classId ? 22000 : 45000])
-      ),
+      // No override: the amount comes from enrollment.amountPaidCents, synced
+      // from the registration system. This used to invent a figure — $220 for a
+      // class, $450 for a production — which is not a thing to put on a
+      // family's tax paperwork, however plausible it looks.
     });
   }
 
@@ -2546,6 +2548,8 @@ class SupabaseDataProvider {
       balanceCents: Number(row.balance_cents ?? 0),
       source: (row.source ?? "manual") as Enrollment["source"],
       offeringCategory: s(row.offering_category),
+      amountPaidCents:
+        row.amount_paid_cents == null ? undefined : Number(row.amount_paid_cents),
       createdAt: String(row.created_at),
     };
   }

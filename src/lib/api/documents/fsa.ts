@@ -54,7 +54,10 @@ export interface FsaInput {
   productions: Production[];
   periodStart: string;
   periodEnd: string;
-  /** Amount actually paid per enrollment, in cents. */
+  /**
+   * Override the paid figure per enrollment. Used by tests and by a total
+   * corrected by hand; the snapshot value on the enrollment is the default.
+   */
   paidByEnrollmentId?: Record<string, number>;
 }
 
@@ -91,14 +94,26 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
       const startDate = production?.opensOn ?? input.periodStart;
       const endDate = production?.closesOn ?? input.periodEnd;
 
+      /*
+       * What they actually paid, from the registration system.
+       *
+       * The old fallback was max(0, -balance), which is ZERO for anything paid
+       * in full — so a real statement would have listed a family's camps at
+       * $0.00 each. An override is still honoured for tests and for a figure
+       * corrected by hand, but the snapshot is the source now.
+       */
       const paid =
-        input.paidByEnrollmentId?.[enrollment.id] ??
-        // Fall back to what we know: total charged minus what's still owed.
-        Math.max(0, -enrollment.balanceCents);
+        input.paidByEnrollmentId?.[enrollment.id] ?? enrollment.amountPaidCents;
 
-      return { description, startDate, endDate, amountCents: paid };
-    })
-    .filter((item) => item.amountCents > 0);
+      return {
+        description,
+        startDate,
+        endDate,
+        amountCents: paid ?? 0,
+        /** True when no payment record exists — reported, not silently zeroed. */
+        amountUnknown: paid === undefined,
+      };
+    });
 
   const ageAtPeriodEnd = ageOn(student.dateOfBirth, input.periodEnd);
   const tooOld = ageAtPeriodEnd >= FSA_AGE_LIMIT;
@@ -138,6 +153,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
     periodEnd: input.periodEnd,
     lineItems,
     totalCents: lineItems.reduce((sum, item) => sum + item.amountCents, 0),
+    unpricedCount: lineItems.filter((item) => item.amountUnknown).length,
     generatedAt: new Date().toISOString(),
   };
 }

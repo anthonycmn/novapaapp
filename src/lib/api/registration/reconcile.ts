@@ -63,12 +63,20 @@ export interface PlannedEnrollment {
    * no way to tell them apart.
    */
   offeringCategory?: string;
+  /** Paid to date, from the snapshot. Undefined when the source has no figure. */
+  amountPaidCents?: number;
 }
 
 export interface PlannedUpdate {
   enrollmentId: string;
   balanceCents?: number;
   status?: Enrollment["status"];
+  /**
+   * Paid to date. Tracked as its own change, because a family paying off a
+   * balance moves this even when nothing else about the enrollment does — and
+   * an FSA statement built from a stale figure understates what they can claim.
+   */
+  amountPaidCents?: number;
 }
 
 export interface ReconcilePlan {
@@ -272,6 +280,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         externalId: external.externalId,
         source: snapshot.source,
         offeringCategory: external.offeringCategory,
+        amountPaidCents: external.amountPaidCents,
       });
       plan.counts.enrollmentsCreated += 1;
       continue;
@@ -279,11 +288,17 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
     const balanceChanged = existing.balanceCents !== external.balanceCents;
     const statusChanged = existing.status !== status;
-    if (balanceChanged || statusChanged) {
+    // A payment moves this even when the balance lands back on zero and the
+    // status never changes, so it is its own test rather than a passenger.
+    const paidChanged =
+      external.amountPaidCents !== undefined &&
+      existing.amountPaidCents !== external.amountPaidCents;
+    if (balanceChanged || statusChanged || paidChanged) {
       plan.updates.push({
         enrollmentId: existing.id,
         balanceCents: balanceChanged ? external.balanceCents : undefined,
         status: statusChanged ? status : undefined,
+        amountPaidCents: paidChanged ? external.amountPaidCents : undefined,
       });
       plan.counts.enrollmentsUpdated += 1;
       if (balanceChanged) plan.counts.balancesUpdated += 1;

@@ -194,6 +194,14 @@ export interface Enrollment {
    * unclassified fee is left OFF an FSA statement rather than guessed at.
    */
   offeringCategory?: string;
+  /**
+   * Paid to date for this enrollment, from the registration system.
+   *
+   * Undefined means we have NO payment record, which is not the same as zero:
+   * an FSA statement reports the first as unknown and would report the second
+   * as nothing paid.
+   */
+  amountPaidCents?: number;
   createdAt: string;
 }
 

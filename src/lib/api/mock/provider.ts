@@ -2505,16 +2505,10 @@ export class MockDataProvider implements DataProvider {
       productions: store.productions,
       periodStart: period.start,
       periodEnd: period.end,
-      // Mock: treat orders paid through the app as the paid amount.
-      paidByEnrollmentId: Object.fromEntries(
-        store.enrollments
-          .filter((enrollment) => enrollment.studentId === studentId)
-          .map((enrollment) => [
-            enrollment.id,
-            // Demo figure: classes ~ $220, productions ~ $450.
-            enrollment.classId ? 22000 : 45000,
-          ])
-      ),
+      // No override: the amount comes from enrollment.amountPaidCents, the same
+      // field the Supabase adapter reads. This used to invent a figure per
+      // enrollment, which made the mock disagree with production about the one
+      // number on the page that has to be right.
     });
   }
 

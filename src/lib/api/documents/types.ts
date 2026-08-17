@@ -49,6 +49,14 @@ export interface FsaLineItem {
   startDate: string;
   endDate: string;
   amountCents: number;
+  /**
+   * True when the registration system has no payment record for this fee.
+   *
+   * Distinct from an amount of zero. A claim form that quietly says $0.00 is
+   * worse than one that admits a gap, because the family files the first and
+   * only finds out when it is refused.
+   */
+  amountUnknown?: boolean;
 }
 
 export interface FsaStatement {
@@ -73,6 +81,14 @@ export interface FsaStatement {
    * something can see it was excluded on purpose and why.
    */
   excludedCount: number;
+  /**
+   * Camp fees we could not price, because the registration system has no
+   * payment record for them.
+   *
+   * Surfaced so the statement can say "this total is incomplete" instead of
+   * presenting a confident number that is quietly missing a week of camp.
+   */
+  unpricedCount: number;
   totalCents: number;
   generatedAt: string;
 }

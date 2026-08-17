@@ -321,16 +321,16 @@ export const users: User[] = [
 ];
 
 export const enrollments: Enrollment[] = [
-  { id: "enr-1", studentId: "stu-ava", productionId: "prod-frozen", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "camp", createdAt: T0 },
-  { id: "enr-2", studentId: "stu-ava", classId: "class-mtd2", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "class", createdAt: T0 },
-  { id: "enr-3", studentId: "stu-leo", productionId: "prod-frozen", status: "enrolled", balanceCents: 7500, source: "registration_portal", offeringCategory: "camp", createdAt: T0 },
-  { id: "enr-4", studentId: "stu-chidi", productionId: "prod-frozen", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "camp", createdAt: T0 },
-  { id: "enr-5", studentId: "stu-chidi", classId: "class-voice1", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "coaching", createdAt: T0 },
-  { id: "enr-6", studentId: "stu-amara", classId: "class-mtd2", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "class", createdAt: T0 },
-  { id: "enr-7", studentId: "stu-lien", productionId: "prod-frozen", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "camp", createdAt: T0 },
+  { id: "enr-1", studentId: "stu-ava", productionId: "prod-frozen", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "camp", amountPaidCents: 45000, createdAt: T0 },
+  { id: "enr-2", studentId: "stu-ava", classId: "class-mtd2", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "class", amountPaidCents: 22000, createdAt: T0 },
+  { id: "enr-3", studentId: "stu-leo", productionId: "prod-frozen", status: "enrolled", balanceCents: 7500, source: "registration_portal", offeringCategory: "camp", amountPaidCents: 37500, createdAt: T0 },
+  { id: "enr-4", studentId: "stu-chidi", productionId: "prod-frozen", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "camp", amountPaidCents: 45000, createdAt: T0 },
+  { id: "enr-5", studentId: "stu-chidi", classId: "class-voice1", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "coaching", amountPaidCents: 18000, createdAt: T0 },
+  { id: "enr-6", studentId: "stu-amara", classId: "class-mtd2", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "class", amountPaidCents: 22000, createdAt: T0 },
+  { id: "enr-7", studentId: "stu-lien", productionId: "prod-frozen", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "camp", amountPaidCents: 45000, createdAt: T0 },
   // Teen Conservatory — puts a Sweeney calendar on a demo family so the
   // production dashboard and its schedule rail have something to show.
-  { id: "enr-8", studentId: "stu-ava", productionId: "prod-sweeney", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "performance", createdAt: T0 },
+  { id: "enr-8", studentId: "stu-ava", productionId: "prod-sweeney", status: "enrolled", balanceCents: 0, source: "registration_portal", offeringCategory: "performance", amountPaidCents: 60000, createdAt: T0 },
 ];
 
 export const casting: CastingAssignment[] = [

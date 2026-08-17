@@ -419,16 +419,44 @@ describe("only camp fees reach an FSA statement", () => {
     expect(statement.totalCents).toBe(30000);
   });
 
-  it("still qualifies a camp paid in full, even with nothing to price", () => {
-    // A fully paid camp leaves a zero balance and produces no priced line.
-    // Telling that family they do not qualify would be wrong about the law.
+  it("lists a camp with no payment record, and marks it unpriced", () => {
+    // It still qualifies — telling that family they do not would be wrong about
+    // the law. But the line says "not on record" rather than $0.00, because a
+    // confident zero on a claim form is a quiet lie they only discover when it
+    // is refused.
     const statement = buildFsaStatement({
       ...base,
       student: ava,
       enrollments: [enrollment("e-camp", "camp")],
     });
     expect(statement.eligible).toBe(true);
-    expect(statement.lineItems).toHaveLength(0);
+    expect(statement.lineItems).toHaveLength(1);
+    expect(statement.lineItems[0].amountUnknown).toBe(true);
+    expect(statement.unpricedCount).toBe(1);
+    expect(statement.totalCents).toBe(0);
+  });
+
+  it("uses the paid amount synced from the registration system", () => {
+    const statement = buildFsaStatement({
+      ...base,
+      student: ava,
+      enrollments: [{ ...enrollment("e-camp", "camp"), amountPaidCents: 61500 }],
+    });
+    expect(statement.totalCents).toBe(61500);
+    expect(statement.lineItems[0].amountUnknown).toBe(false);
+    expect(statement.unpricedCount).toBe(0);
+  });
+
+  it("does not invent an amount from the balance", () => {
+    // The old fallback was max(0, -balance), which is ZERO for anything paid in
+    // full — so every real statement would have listed camps at $0.00 each.
+    const statement = buildFsaStatement({
+      ...base,
+      student: ava,
+      enrollments: [{ ...enrollment("e-camp", "camp"), balanceCents: -75000 }],
+    });
+    expect(statement.totalCents).toBe(0);
+    expect(statement.unpricedCount).toBe(1);
   });
 
   it("explains a camp-less household rather than blaming their age", () => {

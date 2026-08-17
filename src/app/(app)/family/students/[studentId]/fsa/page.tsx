@@ -165,13 +165,21 @@ export default async function FsaPage({
                       <td className="py-1.5">{formatDate(`${item.startDate}T12:00:00Z`)}</td>
                       <td className="py-1.5">{formatDate(`${item.endDate}T12:00:00Z`)}</td>
                       <td className="py-1.5 text-right tabular-nums">
-                        {formatCents(item.amountCents)}
+                        {/* An unpriced camp says so. Printing $0.00 for a week
+                            a family paid for would be a quiet lie on a form
+                            they file. */}
+                        {item.amountUnknown ? (
+                          <span className="italic">not on record</span>
+                        ) : (
+                          formatCents(item.amountCents)
+                        )}
                       </td>
                     </tr>
                   ))}
                   <tr className="font-bold">
                     <td className="py-2" colSpan={3}>
                       Total paid
+                      {statement.unpricedCount > 0 && " (incomplete)"}
                     </td>
                     <td className="py-2 text-right tabular-nums">
                       {formatCents(statement.totalCents)}
@@ -179,6 +187,17 @@ export default async function FsaPage({
                   </tr>
                 </tbody>
               </table>
+            )}
+
+            {/* Say it plainly rather than presenting a confident number that
+                is quietly missing a week of camp. */}
+            {statement.unpricedCount > 0 && (
+              <p className="mt-2 text-sm font-medium">
+                {statement.unpricedCount === 1
+                  ? "One camp above has no payment on record, so this total is incomplete."
+                  : `${statement.unpricedCount} camps above have no payment on record, so this total is incomplete.`}{" "}
+                Ask the front office before you file this.
+              </p>
             )}
           </section>
 
