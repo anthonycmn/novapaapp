@@ -1,3 +1,4 @@
+import { categoryForShowCode } from "@/config/show-categories";
 import { RegistrationUnavailableError, type RegistrationProvider } from "./provider";
 import type {
   ExternalAccount,
@@ -147,9 +148,15 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
       const offeringName = resolveOfferingName(row, showTitles, activities);
       const activityId =
         typeof row.activity_id === "number" ? row.activity_id : undefined;
-      const offeringCategory = activityId
-        ? activities.get(activityId)?.category
-        : undefined;
+      /*
+       * The activity id is the good answer, and most summer-camp lines do not
+       * have one — they carry only a show code. Falling back to the verified
+       * code→category map keeps ~$96k of camp fees from being silently
+       * excluded from families' FSA statements. See src/config/show-categories.
+       */
+      const offeringCategory =
+        (activityId ? activities.get(activityId)?.category : undefined) ??
+        categoryForShowCode(str(row.show));
       const camperName = str(row.camper_name);
       const participantId =
         (camperName && camperByFamilyName.get(`${familyId}:${normalize(camperName)}`)) ??

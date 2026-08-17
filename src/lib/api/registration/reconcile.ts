@@ -77,6 +77,13 @@ export interface PlannedUpdate {
    * an FSA statement built from a stale figure understates what they can claim.
    */
   amountPaidCents?: number;
+  /**
+   * Backfilled as well as created. Every enrollment that existed before this
+   * column did has a null category, and a null category is excluded from FSA
+   * statements — so without this, an established family would never see a camp
+   * fee no matter how many times the sync ran.
+   */
+  offeringCategory?: string;
 }
 
 export interface ReconcilePlan {
@@ -293,12 +300,20 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     const paidChanged =
       external.amountPaidCents !== undefined &&
       existing.amountPaidCents !== external.amountPaidCents;
-    if (balanceChanged || statusChanged || paidChanged) {
+    // Backfill, not just create. Every row that predates the column has a null
+    // category, and a null category is excluded from FSA statements — so
+    // without this an established family would never see a camp fee, however
+    // often the sync ran.
+    const categoryChanged =
+      external.offeringCategory !== undefined &&
+      existing.offeringCategory !== external.offeringCategory;
+    if (balanceChanged || statusChanged || paidChanged || categoryChanged) {
       plan.updates.push({
         enrollmentId: existing.id,
         balanceCents: balanceChanged ? external.balanceCents : undefined,
         status: statusChanged ? status : undefined,
         amountPaidCents: paidChanged ? external.amountPaidCents : undefined,
+        offeringCategory: categoryChanged ? external.offeringCategory : undefined,
       });
       plan.counts.enrollmentsUpdated += 1;
       if (balanceChanged) plan.counts.balancesUpdated += 1;

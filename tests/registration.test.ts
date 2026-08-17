@@ -1,3 +1,4 @@
+import { categoryForShowCode, SHOW_CODE_CATEGORY } from "@/config/show-categories";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AccessDeniedError } from "@/lib/api/provider";
 import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
@@ -422,5 +423,36 @@ describe("custom portal payload mapping", () => {
     const snapshot = mapSnapshot({});
     expect(snapshot.accounts).toEqual([]);
     expect(snapshot.enrollments).toEqual([]);
+  });
+});
+
+describe("show codes that carry no activity id", () => {
+  it("resolves the verified summer shows to camp", () => {
+    // order_items records a purchase EITHER with an activity_id OR with a show
+    // code — never both — and 156 of 241 have only the code. Without this the
+    // summer camps stay unclassified, and unclassified is excluded from every
+    // FSA statement.
+    expect(categoryForShowCode("charlie")).toBe("camp");
+    expect(categoryForShowCode("trolls")).toBe("camp");
+    expect(categoryForShowCode("httyd")).toBe("camp");
+  });
+
+  it("ignores case and surrounding space", () => {
+    expect(categoryForShowCode("  CHARLIE ")).toBe("camp");
+  });
+
+  it("returns nothing for a show nobody has verified", () => {
+    // Null is excluded, and excluded is recoverable. Guessing is not.
+    expect(categoryForShowCode("newshow2027")).toBeUndefined();
+    expect(categoryForShowCode(undefined)).toBeUndefined();
+    expect(categoryForShowCode("")).toBeUndefined();
+  });
+
+  it("only ever claims camp", () => {
+    // A wrong category here puts a non-qualifying fee on a family's tax
+    // paperwork. Anything other than camp belongs in activities.category.
+    for (const category of Object.values(SHOW_CODE_CATEGORY)) {
+      expect(category).toBe("camp");
+    }
   });
 });

@@ -1432,6 +1432,12 @@ export class MockDataProvider implements DataProvider {
         enrollment.balanceCents = update.balanceCents;
       }
       if (update.status !== undefined) enrollment.status = update.status;
+      if (update.amountPaidCents !== undefined) {
+        enrollment.amountPaidCents = update.amountPaidCents;
+      }
+      if (update.offeringCategory !== undefined) {
+        enrollment.offeringCategory = update.offeringCategory;
+      }
     }
 
     const run: SyncRun = {

@@ -1710,6 +1710,9 @@ class SupabaseDataProvider {
       if (update.amountPaidCents !== undefined) {
         patch.amount_paid_cents = update.amountPaidCents;
       }
+      if (update.offeringCategory !== undefined) {
+        patch.offering_category = update.offeringCategory;
+      }
       if (Object.keys(patch).length) {
         await this.db.from("enrollments").update(patch).eq("id", update.enrollmentId);
       }
