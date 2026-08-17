@@ -57,8 +57,11 @@ export const org = {
      * matches the EIN against the legal name — so this must be the LLC.
      */
     legalName: "CJ Creative, LLC d/b/a Northern Virginia Performing Arts",
-    /** Employer Identification Number, formatted 12-3456789. */
-    ein: "",
+    /**
+     * Employer Identification Number, formatted 12-3456789.
+     * Given by Tony, 17 Aug 2026.
+     */
+    ein: "47-4903843",
     // Settled 15 Aug 2026: four addresses were in circulation across the
     // portal, the workbook, the website and outbound email. CJ ruled on this
     // one, and it now matches the staff portal's documents and contracts.
@@ -68,8 +71,13 @@ export const org = {
     state: "VA",
     zip: "20176",
     phone: "(571) 571-2120",
-    /** Who signs the statement. */
-    signatoryName: "",
+    /**
+     * Who signs the statement. Tony, 17 Aug 2026: "Todd signs it" — which
+     * matches the title already here, and the INVOICE_TO mailbox on the staff
+     * portal. Full name rather than "Todd", because this line is a
+     * certification an FSA administrator reads alongside the EIN.
+     */
+    signatoryName: "Todd Cimino-Johnson",
     signatoryTitle: "Chief Financial Officer",
   },
 } as const;

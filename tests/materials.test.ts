@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { org, taxDetailsComplete } from "@/config/org";
 import { AccessDeniedError } from "@/lib/api/provider";
 import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
 import { ageOn, buildFsaStatement, FSA_AGE_LIMIT } from "@/lib/api/documents/fsa";
@@ -469,5 +470,29 @@ describe("only camp fees reach an FSA statement", () => {
     expect(statement.eligible).toBe(false);
     expect(statement.ineligibleReason).toMatch(/day camp/i);
     expect(statement.ineligibleReason).not.toMatch(/covers children under/i);
+  });
+});
+
+describe("the org details an FSA administrator checks", () => {
+  it("is complete enough to issue a statement", () => {
+    // The page prints a visible warning instead of a form that looks official
+    // and bounces, so this going false is a silent regression for 160 families.
+    expect(taxDetailsComplete()).toBe(true);
+  });
+
+  it("formats the EIN as 12-3456789", () => {
+    // An administrator matches the EIN against the legal name; a stray space or
+    // a missing hyphen gets the claim refused, not queried.
+    expect(org.tax.ein).toMatch(/^\d{2}-\d{7}$/);
+  });
+
+  it("names the legal entity, not the trading name", () => {
+    // The EIN belongs to the LLC, and the two have to agree.
+    expect(org.tax.legalName).toMatch(/CJ Creative, LLC/);
+  });
+
+  it("gives the signatory a full name and a title", () => {
+    expect(org.tax.signatoryName.trim().split(/\s+/).length).toBeGreaterThan(1);
+    expect(org.tax.signatoryTitle.trim().length).toBeGreaterThan(0);
   });
 });
