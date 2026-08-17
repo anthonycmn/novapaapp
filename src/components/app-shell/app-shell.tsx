@@ -18,14 +18,12 @@ import { Sidebar } from "@/components/app-shell/sidebar";
 export function AppShell({
   displayName,
   roleLabel,
-  isStaff,
   unreadCount,
   signOutSlot,
   children,
 }: {
   displayName: string;
   roleLabel: string;
-  isStaff: boolean;
   unreadCount: number;
   signOutSlot?: React.ReactNode;
   children: React.ReactNode;
@@ -54,7 +52,6 @@ export function AppShell({
     <Sidebar
       displayName={displayName}
       roleLabel={roleLabel}
-      isStaff={isStaff}
       onNavigate={() => setOpen(false)}
       signOutSlot={signOutSlot}
     />

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { getSessionUser } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
 import { getProvider } from "@/lib/api";
 import { AppShell } from "@/components/app-shell/app-shell";
@@ -36,7 +36,6 @@ export default async function AppLayout({
     <AppShell
       displayName={user.displayName}
       roleLabel={user.family?.name ?? ROLE_LABEL[user.role] ?? user.role}
-      isStaff={hasRoleAtLeast(user, "staff")}
       unreadCount={unreadCount}
       signOutSlot={
         <form action={signOut}>

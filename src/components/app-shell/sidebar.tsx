@@ -2,13 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Ticket, Wrench } from "lucide-react";
+import { LayoutDashboard, Ticket } from "lucide-react";
 import { org } from "@/config/org";
-import {
-  FAMILY_SECTIONS,
-  STAFF_PORTAL_URL,
-  groupSections,
-} from "@/config/navigation";
+import { FAMILY_SECTIONS, groupSections } from "@/config/navigation";
 import { Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
@@ -27,13 +23,11 @@ import { cn } from "@/lib/utils";
 export function Sidebar({
   displayName,
   roleLabel,
-  isStaff,
   onNavigate,
   signOutSlot,
 }: {
   displayName: string;
   roleLabel: string;
-  isStaff: boolean;
   /** Mobile drawer closes itself on selection; the desktop rail passes nothing. */
   onNavigate?: () => void;
   signOutSlot?: React.ReactNode;
@@ -109,21 +103,11 @@ export function Sidebar({
       </div>
 
       <div className="border-t p-2">
-        {/* Staff work happens in the staff portal now — one door, not a
-            second copy of every tool (Tony, 16 Aug 2026). */}
-        {isStaff && (
-          <a
-            href={STAFF_PORTAL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mb-1 flex items-center gap-2.5 rounded-md border border-transparent px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Wrench aria-hidden size={15} className="shrink-0" />
-            <span className="flex-1 truncate">Staff portal</span>
-            <span className="sr-only">(opens in a new tab)</span>
-          </a>
-        )}
-
+        {/* Nothing staff-facing here at all, including the way out to the
+            staff portal (Tony, 17 Aug 2026: "remove the staff portal link
+            too"). Staff reach their own tools the way they always did — by
+            going to the staff portal — and this sidebar is now purely a
+            parent's. */}
         <a
           href={org.ticketsUrl}
           target="_blank"
