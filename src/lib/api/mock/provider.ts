@@ -1418,6 +1418,7 @@ export class MockDataProvider implements DataProvider {
         status: create.status,
         balanceCents: create.balanceCents,
         source: "registration_portal" as const,
+        offeringCategory: create.offeringCategory,
         createdAt: nowIso(),
       };
       store.enrollments.push(enrollment);

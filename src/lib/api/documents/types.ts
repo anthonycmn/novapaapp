@@ -65,6 +65,14 @@ export interface FsaStatement {
   periodStart: string;
   periodEnd: string;
   lineItems: FsaLineItem[];
+  /**
+   * Enrollments deliberately left off: classes, lessons, performances, and
+   * anything the registration system did not classify.
+   *
+   * Reported rather than silently dropped, so a parent who remembers paying for
+   * something can see it was excluded on purpose and why.
+   */
+  excludedCount: number;
   totalCents: number;
   generatedAt: string;
 }

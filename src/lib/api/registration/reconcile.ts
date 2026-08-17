@@ -56,6 +56,13 @@ export interface PlannedEnrollment {
   status: Enrollment["status"];
   externalId: string;
   source: RegistrationSource;
+  /**
+   * activities.category from the registration system. Carried through because
+   * a Dependent Care FSA turns on it: day camp is qualifying care, a weekly
+   * class is not. It used to be dropped here, which is why the statement had
+   * no way to tell them apart.
+   */
+  offeringCategory?: string;
 }
 
 export interface PlannedUpdate {
@@ -264,6 +271,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         status,
         externalId: external.externalId,
         source: snapshot.source,
+        offeringCategory: external.offeringCategory,
       });
       plan.counts.enrollmentsCreated += 1;
       continue;

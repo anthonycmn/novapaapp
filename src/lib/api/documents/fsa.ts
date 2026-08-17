@@ -14,6 +14,26 @@ import type { FsaLineItem, FsaStatement } from "./types";
 
 export const FSA_AGE_LIMIT = 13;
 
+/**
+ * The only kind of fee that goes on the statement.
+ *
+ * Tony, 17 Aug 2026: "only camp fees on the FSA statement."
+ *
+ * That matches the rule rather than merely following an instruction: a
+ * Dependent Care FSA reimburses care that lets a parent work, which day camp
+ * is. A weekly after-school class, a private lesson and a performance ticket
+ * are not, at any age.
+ *
+ * The comparison is deliberately exact. An enrollment with NO category is one
+ * we could not classify, and it is left off — on a document a family files with
+ * the IRS, "we are not sure" has to mean "not claimed".
+ */
+export const FSA_ELIGIBLE_CATEGORY = "camp";
+
+export function isFsaEligibleFee(offeringCategory: string | undefined): boolean {
+  return offeringCategory?.trim().toLowerCase() === FSA_ELIGIBLE_CATEGORY;
+}
+
 export function ageOn(dateOfBirth: string, on: string): number {
   const birth = new Date(dateOfBirth);
   const at = new Date(on);
@@ -44,9 +64,22 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
   const classById = new Map(classes.map((offering) => [offering.id, offering]));
   const productionById = new Map(productions.map((production) => [production.id, production]));
 
-  const lineItems: FsaLineItem[] = enrollments
+  const mine = enrollments
     .filter((enrollment) => enrollment.studentId === student.id)
-    .filter((enrollment) => enrollment.status !== "withdrawn")
+    .filter((enrollment) => enrollment.status !== "withdrawn");
+
+  // Everything this child is enrolled in that is NOT qualifying care. Counted
+  // rather than discarded, so the statement can say what it left out instead of
+  // a parent wondering why a fee they remember paying is missing.
+  const excludedCount = mine.filter(
+    (enrollment) => !isFsaEligibleFee(enrollment.offeringCategory)
+  ).length;
+
+  const campEnrollments = mine.filter((enrollment) =>
+    isFsaEligibleFee(enrollment.offeringCategory)
+  );
+
+  const lineItems: FsaLineItem[] = campEnrollments
     .map((enrollment) => {
       const offering = enrollment.classId ? classById.get(enrollment.classId) : undefined;
       const production = enrollment.productionId
@@ -68,7 +101,17 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
     .filter((item) => item.amountCents > 0);
 
   const ageAtPeriodEnd = ageOn(student.dateOfBirth, input.periodEnd);
-  const eligible = ageAtPeriodEnd < FSA_AGE_LIMIT;
+  const tooOld = ageAtPeriodEnd >= FSA_AGE_LIMIT;
+  /*
+   * Two independent tests, and both have to pass. Age is the IRS one; the
+   * category decides whether what was bought is care at all.
+   *
+   * Eligibility turns on HAVING a camp enrollment, not on our being able to
+   * price it. A camp paid in full leaves a zero balance, and with no payment
+   * records yet that produces no priced line — telling such a family they do
+   * not qualify would be wrong about the law, not merely about the total.
+   */
+  const eligible = !tooOld && campEnrollments.length > 0;
 
   const primary = guardians.find((guardian) => guardian.isPrimary) ?? guardians[0];
 
@@ -80,7 +123,15 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
     eligible,
     ineligibleReason: eligible
       ? undefined
-      : `Dependent Care FSA covers children under ${FSA_AGE_LIMIT}. ${student.firstName} is ${ageAtPeriodEnd} at the end of this period.`,
+      : tooOld
+        ? `Dependent Care FSA covers children under ${FSA_AGE_LIMIT}. ${student.firstName} is ${ageAtPeriodEnd} at the end of this period.`
+        : `A Dependent Care FSA reimburses care that lets a parent work, which means day camp. ${student.firstName} has no camp fees in this period` +
+          (excludedCount > 0
+            ? ` — the ${excludedCount} other ${
+                excludedCount === 1 ? "enrollment is a class, lesson or performance" : "enrollments are classes, lessons or performances"
+              }, which do not qualify at any age.`
+            : "."),
+    excludedCount,
     familyName: family.name,
     guardianName: primary?.fullName ?? "",
     periodStart: input.periodStart,

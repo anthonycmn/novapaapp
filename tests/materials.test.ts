@@ -128,7 +128,11 @@ describe("Dependent Care FSA eligibility", () => {
       student: ava,
       paidByEnrollmentId: { "enr-1": 45000, "enr-2": 22000 },
     });
-    expect(statement.totalCents).toBe(67000);
+    // enr-2 is a CLASS and no longer counts: only camp fees go on the
+    // statement (Tony, 17 Aug 2026), so the $220 term drops out of the total.
+    expect(statement.totalCents).toBe(45000);
+    expect(statement.lineItems).toHaveLength(1);
+    expect(statement.excludedCount).toBeGreaterThan(0);
     expect(statement.guardianName).toBe("Sofia Martinez");
   });
 
@@ -344,5 +348,98 @@ describe("email tracking (#1)", () => {
     await expect(
       provider.getEmailEngagement("user-sofia", send.id)
     ).rejects.toThrow(AccessDeniedError);
+  });
+});
+
+describe("only camp fees reach an FSA statement", () => {
+  const base = {
+    family: seed.families[0],
+    guardians: seed.guardians.filter((g) => g.familyId === "fam-martinez"),
+    classes: seed.classes,
+    productions: seed.productions,
+    periodStart: "2026-01-01",
+    periodEnd: "2026-12-31",
+  };
+  const ava = seed.students.find((s) => s.id === "stu-ava")!;
+
+  const enrollment = (id: string, category: string | undefined, productionId = "prod-frozen") => ({
+    id,
+    studentId: "stu-ava",
+    productionId,
+    status: "enrolled" as const,
+    balanceCents: 0,
+    source: "registration_portal" as const,
+    offeringCategory: category,
+    createdAt: "2026-01-01T00:00:00.000Z",
+  });
+
+  it("keeps camp and drops classes, coaching and performances", () => {
+    const statement = buildFsaStatement({
+      ...base,
+      student: ava,
+      enrollments: [
+        enrollment("e-camp", "camp"),
+        enrollment("e-class", "class"),
+        enrollment("e-coach", "coaching"),
+        enrollment("e-perf", "performance"),
+      ],
+      paidByEnrollmentId: {
+        "e-camp": 50000,
+        "e-class": 22000,
+        "e-coach": 18000,
+        "e-perf": 9000,
+      },
+    });
+    expect(statement.lineItems).toHaveLength(1);
+    expect(statement.totalCents).toBe(50000);
+    expect(statement.excludedCount).toBe(3);
+  });
+
+  it("leaves out an enrollment the registration system did not classify", () => {
+    // On a document a family files with the IRS, "we are not sure" has to mean
+    // "not claimed" — never "claimed anyway".
+    const statement = buildFsaStatement({
+      ...base,
+      student: ava,
+      enrollments: [enrollment("e-unknown", undefined)],
+      paidByEnrollmentId: { "e-unknown": 40000 },
+    });
+    expect(statement.lineItems).toHaveLength(0);
+    expect(statement.totalCents).toBe(0);
+    expect(statement.eligible).toBe(false);
+  });
+
+  it("matches the category case-insensitively", () => {
+    const statement = buildFsaStatement({
+      ...base,
+      student: ava,
+      enrollments: [enrollment("e-camp", " Camp ")],
+      paidByEnrollmentId: { "e-camp": 30000 },
+    });
+    expect(statement.totalCents).toBe(30000);
+  });
+
+  it("still qualifies a camp paid in full, even with nothing to price", () => {
+    // A fully paid camp leaves a zero balance and produces no priced line.
+    // Telling that family they do not qualify would be wrong about the law.
+    const statement = buildFsaStatement({
+      ...base,
+      student: ava,
+      enrollments: [enrollment("e-camp", "camp")],
+    });
+    expect(statement.eligible).toBe(true);
+    expect(statement.lineItems).toHaveLength(0);
+  });
+
+  it("explains a camp-less household rather than blaming their age", () => {
+    const statement = buildFsaStatement({
+      ...base,
+      student: ava,
+      enrollments: [enrollment("e-class", "class")],
+      paidByEnrollmentId: { "e-class": 22000 },
+    });
+    expect(statement.eligible).toBe(false);
+    expect(statement.ineligibleReason).toMatch(/day camp/i);
+    expect(statement.ineligibleReason).not.toMatch(/covers children under/i);
   });
 });

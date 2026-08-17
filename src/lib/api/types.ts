@@ -188,6 +188,12 @@ export interface Enrollment {
   status: "enrolled" | "waitlisted" | "withdrawn";
   balanceCents: number;
   source: "registration_portal" | "manual";
+  /**
+   * What kind of thing this is, from the registration system: camp, class,
+   * coaching or performance. Undefined means unclassified — and an
+   * unclassified fee is left OFF an FSA statement rather than guessed at.
+   */
+  offeringCategory?: string;
   createdAt: string;
 }
 

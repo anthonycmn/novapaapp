@@ -1699,6 +1699,7 @@ class SupabaseDataProvider {
         source: "registration_portal",
         external_id: create.externalId,
         external_source: snapshot.source,
+        offering_category: create.offeringCategory ?? null,
       });
     }
     for (const update of plan.updates) {
@@ -2544,6 +2545,7 @@ class SupabaseDataProvider {
       status: row.status as Enrollment["status"],
       balanceCents: Number(row.balance_cents ?? 0),
       source: (row.source ?? "manual") as Enrollment["source"],
+      offeringCategory: s(row.offering_category),
       createdAt: String(row.created_at),
     };
   }

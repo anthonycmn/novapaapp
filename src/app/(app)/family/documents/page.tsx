@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { FileText, Lock } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { DOCUMENT_CATEGORIES } from "@/lib/api/documents/types";
+import { isFsaEligibleFee } from "@/lib/api/documents/fsa";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -32,17 +33,20 @@ export default async function DocumentsPage() {
   /**
    * Each child's paperwork, gathered once for the panel above the uploads.
    *
-   * `hasSpend` decides whether an FSA statement would say anything: a child
-   * with no live enrollment has nothing to reimburse, and offering them a
-   * statement produces an empty page a parent then has to interpret.
+   * `hasCampFees` decides whether an FSA statement would say anything. It is
+   * camp specifically, not any enrollment (Tony, 17 Aug 2026: "only camp fees
+   * on the FSA statement") — a term of classes is not care that lets a parent
+   * work, so a statement built from it is a claim that gets refused.
    */
   const paperwork: StudentPaperwork[] = await Promise.all(
     students.map(async (student) => ({
       student,
       healthForm: await provider.getHealthForm(user.id, student.id, season.id),
-      hasSpend: enrollments.some(
+      hasCampFees: enrollments.some(
         (enrollment) =>
-          enrollment.studentId === student.id && enrollment.status !== "withdrawn"
+          enrollment.studentId === student.id &&
+          enrollment.status !== "withdrawn" &&
+          isFsaEligibleFee(enrollment.offeringCategory)
       ),
     }))
   );

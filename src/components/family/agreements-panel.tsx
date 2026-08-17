@@ -21,8 +21,12 @@ import { SectionHeader } from "@/components/ui/section-header";
 export interface StudentPaperwork {
   student: Student;
   healthForm: HealthForm | null;
-  /** Whether this child has anything an FSA statement could be built from. */
-  hasSpend: boolean;
+  /**
+   * Whether this child has CAMP fees — the only kind a Dependent Care FSA
+   * reimburses. A term of classes is not care that lets a parent work, and
+   * offering a statement for one produces a claim that gets refused.
+   */
+  hasCampFees: boolean;
 }
 
 function healthState(form: HealthForm | null): {
@@ -133,9 +137,13 @@ export function AgreementsPanel({
  * The Dependent Care FSA statement, per child who qualifies.
  *
  * The test is the IRS one and it is done here rather than taken on trust: the
- * dependent must be under 13 for the care period. A statement for a fourteen
- * year old is not a favour to a family — it is a reimbursement claim that gets
- * refused, after they have filed it.
+ * dependent must be under 13 for the care period, AND the fee must be for day
+ * camp — care that lets a parent work. Tony, 17 Aug 2026: "only camp fees on
+ * the FSA statement."
+ *
+ * Both tests are applied here rather than taken on trust. A statement for a
+ * fourteen year old, or one padded with class fees, is not a favour to a family
+ * — it is a reimbursement claim that gets refused after they have filed it.
  */
 function FsaPanel({
   paperwork,
@@ -144,15 +152,16 @@ function FsaPanel({
   paperwork: StudentPaperwork[];
   periodEnd: string;
 }) {
-  const rows = paperwork.map(({ student, hasSpend }) => ({
+  const rows = paperwork.map(({ student, hasCampFees }) => ({
     student,
-    hasSpend,
+    hasCampFees,
     age: ageOn(student.dateOfBirth, periodEnd),
   }));
-  const eligible = rows.filter((row) => row.age < FSA_AGE_LIMIT && row.hasSpend);
+  const eligible = rows.filter((row) => row.age < FSA_AGE_LIMIT && row.hasCampFees);
+  const noCamp = rows.filter((row) => row.age < FSA_AGE_LIMIT && !row.hasCampFees);
   const tooOld = rows.filter((row) => row.age >= FSA_AGE_LIMIT);
 
-  if (eligible.length === 0 && tooOld.length === 0) return null;
+  if (eligible.length === 0 && tooOld.length === 0 && noCamp.length === 0) return null;
 
   return (
     <Card pad={false}>
@@ -168,8 +177,9 @@ function FsaPanel({
 
       {eligible.length === 0 ? (
         <p className="px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
-          A Dependent Care FSA covers children under {FSA_AGE_LIMIT}. Nobody in
-          this household qualifies for the current period.
+          A Dependent Care FSA reimburses care that lets a parent work — day
+          camp. Classes, private lessons and performances do not qualify at any
+          age, and nobody in this household has camp fees for the current period.
         </p>
       ) : (
         <ul className="divide-y">
@@ -180,7 +190,7 @@ function FsaPanel({
                 title={`${student.preferredName ?? student.firstName}'s FSA statement`}
                 tone="good"
                 state="Ready"
-                detail={`Age ${age} at the end of the period. Lists every program, its dates and what you paid, with our name, address and tax ID.`}
+                detail={`Age ${age} at the end of the period. Lists your camp fees only, their dates and what you paid, with our name, address and tax ID.`}
                 href={`/family/students/${student.id}/fsa`}
                 action="Open statement"
                 inset
