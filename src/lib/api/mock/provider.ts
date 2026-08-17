@@ -1,4 +1,5 @@
 import { AccessDeniedError, type DataProvider } from "../provider";
+import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import type {
   AppNotification,
   ButtonDesign,
@@ -659,6 +660,24 @@ export class MockDataProvider implements DataProvider {
 
   async getStaffProfile(staffId: string): Promise<StaffProfile | null> {
     return deepClone(store.staff.find((s) => s.id === staffId) ?? null);
+  }
+
+  /**
+   * A demo catalogue. In production this is the org's own `public.activities`;
+   * here it is one of each kind, put through the same mapping so the sold-out
+   * and unbookable rules are exercised rather than assumed.
+   */
+  async listOpenOfferings(): Promise<OpenOffering[]> {
+    return [
+      { id: 900_001, category: "class", name: "Musical Theatre I · Tuesdays", age_range: "8 – 11 yrs", price_cents: 29500, open_spots: 6 },
+      { id: 900_002, category: "class", name: "Acting for the Camera", age_range: "12 – 15 yrs", price_cents: 34500, open_spots: 3 },
+      { id: 900_003, category: "camp", name: "Broadway Bound | Frozen, Kids", age_range: "5 – 9 yrs", price_cents: 69500, open_spots: 12 },
+      { id: 900_004, category: "coaching", name: "Private voice coaching · 30 min", price_cents: 6500, open_spots: 20 },
+      // Full, so it must not appear — the waitlist keeps it active upstream.
+      { id: 900_005, category: "camp", name: "Ages 5–9 Day Camp · Oct 12", price_cents: 7900, open_spots: 0 },
+    ]
+      .map((row) => offeringFromRow({ ...row, active: true, bookable: true, hidden: false }))
+      .filter((offering): offering is OpenOffering => offering !== null);
   }
 
   /* ── feed (#7) ─────────────────────────────────────────────────────── */

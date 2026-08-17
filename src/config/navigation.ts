@@ -40,10 +40,21 @@ export interface NavSection {
   group: string;
 }
 
+/*
+ * These three used to be a group called "This week", which was the wrong
+ * shape: the week was split across three destinations, so answering "have we
+ * got anything on tonight, and has anything changed?" meant visiting all
+ * three. The dashboard now carries all of it (Tony, 17 Aug 2026).
+ *
+ * They stay in the sidebar because each is still the FULL version of what the
+ * dashboard shows a slice of — the month view and the iCal subscription, every
+ * announcement rather than the last three, every notification ever sent. The
+ * group is named for what they are rather than for when they happen.
+ */
 export const FAMILY_SECTIONS: NavSection[] = [
-  { href: "/schedule", Icon: CalendarDays, label: "Schedule", description: "Every rehearsal and class, all children merged", group: "This week" },
-  { href: "/feed", Icon: Megaphone, label: "News", description: "Announcements, ask staff a private question", group: "This week" },
-  { href: "/notifications", Icon: Bell, label: "Notifications", description: "Everything you've been told", group: "This week" },
+  { href: "/schedule", Icon: CalendarDays, label: "Full calendar", description: "Month view, conflicts, and add to your own calendar", group: "Dashboard" },
+  { href: "/feed", Icon: Megaphone, label: "News", description: "Announcements, ask staff a private question", group: "Dashboard" },
+  { href: "/notifications", Icon: Bell, label: "Notifications", description: "Everything you've been told", group: "Dashboard" },
   { href: "/auditions", Icon: Mic, label: "Auditions", description: "Role preferences and audition info", group: "On stage" },
   { href: "/casting", Icon: PartyPopper, label: "Casting", description: "Your child's role, playbill confirmation, feedback", group: "On stage" },
   { href: "/productions", Icon: Theater, label: "Productions", description: "Show info and tickets", group: "On stage" },

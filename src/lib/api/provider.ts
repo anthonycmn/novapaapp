@@ -34,6 +34,7 @@ import type {
   Student,
   User,
 } from "./types";
+import type { OpenOffering } from "./catalog/offerings";
 import type {
   AccountLink,
   RegistrationSnapshot,
@@ -160,6 +161,13 @@ export interface DataProvider {
   /* staff */
   getStaffProfiles(): Promise<StaffProfile[]>;
   getStaffProfile(staffId: string): Promise<StaffProfile | null>;
+
+  /**
+   * What is open for registration right now, from the org's own catalogue.
+   * Empty when the catalogue is unreachable — the dashboard then says nothing
+   * rather than showing a family a stale list of things to buy.
+   */
+  listOpenOfferings(): Promise<OpenOffering[]>;
 
   /* staff-only: pre-casting review (#4) — students enrolled in a
    * production with their hopes entries and audition materials. */

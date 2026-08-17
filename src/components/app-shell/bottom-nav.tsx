@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, Home, Image as ImageIcon, Megaphone, Users } from "lucide-react";
+import { Calendar, Image as ImageIcon, LayoutDashboard, Megaphone, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/feed", label: "News", icon: Megaphone },
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/photos", label: "Photos", icon: ImageIcon },

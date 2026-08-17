@@ -1,21 +1,51 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, ExternalLink, Ticket } from "lucide-react";
+import { ArrowRight, CalendarDays } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
-import type { CalendarEvent, Enrollment, Student } from "@/lib/api/types";
+import { todayKey } from "@/lib/calendar/week";
+import type {
+  AppNotification,
+  Enrollment,
+  FamilyCalendarEvent,
+  Student,
+} from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
+import {
+  AlertBand,
+  NewsPanel,
+  NotificationsPanel,
+  RegisterPanel,
+  StaffHighlight,
+} from "@/components/dashboard/panels";
+import { WeekCalendar } from "@/components/dashboard/week-calendar";
 import { Avatar } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatTile } from "@/components/ui/stat-tile";
 
-export const metadata = { title: "Home" };
+export const metadata = { title: "Dashboard" };
 
+/**
+ * The dashboard — the one page a parent should be able to open and know where
+ * they stand.
+ *
+ * It replaced a home page that summarised the portal and a "This week" group
+ * in the sidebar that split the same week across three destinations (Tony,
+ * 17 Aug 2026: "I would like for this week to turn into a dashboard and
+ * replace home… everything under this week to be on the dashboard"). Those
+ * three pages still exist and are still the place to go for the whole
+ * calendar, the whole feed and every notification ever sent; what changed is
+ * that you no longer have to visit all three to find out whether anything is
+ * happening tonight.
+ *
+ * The order down the page is the order the questions get asked: has anything
+ * gone wrong, when is the show, what have we got on this week, what have I
+ * been told, what can I sign up for, who are these people.
+ */
 export default async function DashboardPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
@@ -30,28 +60,50 @@ export default async function DashboardPage() {
       provider.getEnrollmentsForFamily(user.id, user.familyId),
     ]);
   }
-  const [productions, classes, unreadCount, familyEvents] = await Promise.all([
+
+  const [
+    productions,
+    classes,
+    notifications,
+    posts,
+    staff,
+    offerings,
+    familyEvents,
+  ] = await Promise.all([
     provider.getProductions(),
     provider.getClasses(),
-    provider.getUnreadNotificationCount(user.id),
+    provider.getNotifications(user.id),
+    provider.getFeedForUser(user.id),
+    provider.getStaffProfiles(),
+    provider.listOpenOfferings(),
     user.familyId
       ? provider.getFamilyCalendar(user.id, user.familyId)
-      : Promise.resolve<CalendarEvent[]>([]),
+      : isStaff
+        ? (provider.getAllEvents(user.id) as Promise<FamilyCalendarEvent[]>)
+        : Promise.resolve<FamilyCalendarEvent[]>([]),
   ]);
 
   const active = enrollments.filter((e) => e.status !== "withdrawn");
   const balanceCents = active.reduce((sum, e) => sum + e.balanceCents, 0);
   const firstName = user.displayName.split(" ")[0];
+  const today = todayKey();
 
-  /**
-   * The shows this family is in, each with its next call — what replaced the
-   * grid of every section in the portal. Ordered by whichever opens soonest,
-   * because that is the one a parent is thinking about.
+  const unread = notifications.filter((n) => !n.readAt);
+  /*
+   * A broadcast is what gets sent when something changes for everybody at
+   * once — a closure, a venue move, a cancelled night. Unread ones come out of
+   * the list and go to the top of the page; once read they take their place in
+   * the ordinary run of notifications like anything else.
+   */
+  const alerts: AppNotification[] = unread.filter((n) => n.type === "broadcast");
+
+  /*
+   * The shows this family is in, soonest first, and how long until each opens.
+   * A show with no opening date on record contributes no countdown rather than
+   * a guessed one — "in 9999 days" is not a thing to print on a dashboard.
    */
   const nowIso = new Date().toISOString();
-  const myShows = [
-    ...new Set(active.map((e) => e.productionId).filter(Boolean)),
-  ]
+  const myShows = [...new Set(active.map((e) => e.productionId).filter(Boolean))]
     .map((productionId) => {
       const production = productions.find((p) => p.id === productionId);
       if (!production) return null;
@@ -67,7 +119,11 @@ export default async function DashboardPage() {
       return { production, nextCall, days };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null)
-    .sort((a, b) => (a.days ?? 9999) - (b.days ?? 9999));
+    .sort((a, b) => (a.days ?? Number.MAX_SAFE_INTEGER) - (b.days ?? Number.MAX_SAFE_INTEGER));
+
+  /** The next show still ahead of us — a run under way is not a countdown. */
+  const nextShow = myShows.find((show) => show.days !== null && show.days >= 0);
+  const showRunning = myShows.some((show) => show.days !== null && show.days < 0);
 
   return (
     <>
@@ -77,9 +133,11 @@ export default async function DashboardPage() {
       <MissionPlaque />
       <TipOfTheDay />
 
+      <AlertBand alerts={alerts} />
+
       <SectionHeader
         as="h1"
-        title={firstName ? `Good to see you, ${firstName}` : "Home"}
+        title={firstName ? `Good to see you, ${firstName}` : "Dashboard"}
         subtitle={
           isStaff && !user.familyId
             ? "Staff dashboard"
@@ -90,13 +148,37 @@ export default async function DashboardPage() {
             href="/schedule"
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
-            Open the schedule <ArrowRight aria-hidden size={14} />
+            Full calendar <ArrowRight aria-hidden size={14} />
           </Link>
         }
       />
 
-      {/* ---- The numbers a parent actually opens this for ---- */}
       <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile
+          label={nextShow ? `${nextShow.production.title} opens` : "Next show"}
+          value={
+            nextShow
+              ? nextShow.days === 0
+                ? "Tonight"
+                : nextShow.days === 1
+                  ? "Tomorrow"
+                  : nextShow.days
+              : showRunning
+                ? "Now"
+                : "—"
+          }
+          hint={
+            nextShow
+              ? nextShow.days === 0 || nextShow.days === 1
+                ? "Break a leg"
+                : "days away"
+              : showRunning
+                ? "The run is under way"
+                : "No show booked yet"
+          }
+          tone={nextShow && nextShow.days !== null && nextShow.days <= 7 ? "warn" : "default"}
+          href={nextShow ? `/productions/${nextShow.production.id}` : "/productions"}
+        />
         <StatTile
           label="Balance due"
           value={balanceCents > 0 ? `$${(balanceCents / 100).toFixed(2)}` : "$0.00"}
@@ -104,27 +186,58 @@ export default async function DashboardPage() {
           tone={balanceCents > 0 ? "warn" : "good"}
         />
         <StatTile
+          label="Unread notifications"
+          value={unread.length}
+          hint={unread.length ? "Waiting for you" : "You're all caught up"}
+          tone={unread.length > 0 ? "warn" : "good"}
+          href="/notifications"
+        />
+        <StatTile
           label="Students enrolled"
           value={students.length}
           hint={`${active.length} active ${active.length === 1 ? "enrollment" : "enrollments"}`}
           href="/family"
         />
-        <StatTile
-          label="Unread notifications"
-          value={unreadCount}
-          hint={unreadCount ? "Waiting for you" : "You're all caught up"}
-          tone={unreadCount > 0 ? "warn" : "good"}
-          href="/notifications"
-        />
-        <StatTile
-          label="Productions running"
-          value={productions.length}
-          hint="Show info and tickets"
-          href="/productions"
-        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
+        {/* The week, at the top and two columns wide, because it is the thing
+            the page is for. Everything on it is here because this family is
+            registered for it — one child's Sweeney calls and another's Tuesday
+            class, merged, in one place. */}
+        <div className="lg:col-span-2">
+          <Card pad={false}>
+            <WeekCalendar
+              events={familyEvents}
+              students={students.map((student) => ({
+                id: student.id,
+                name: student.preferredName ?? student.firstName,
+              }))}
+            />
+            <div className="border-t px-4 py-2 text-center">
+              <Link
+                href="/schedule"
+                className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
+              >
+                <CalendarDays aria-hidden size={13} />
+                Month view, conflicts, and add to your own calendar
+                <ArrowRight aria-hidden size={13} />
+              </Link>
+            </div>
+          </Card>
+        </div>
+
+        <NotificationsPanel
+          notifications={notifications.slice(0, 5)}
+          unreadCount={unread.length}
+        />
+
+        <div className="lg:col-span-2">
+          <NewsPanel posts={posts.slice(0, 3)} />
+        </div>
+
+        <RegisterPanel offerings={offerings} />
+
         {students.length > 0 && (
           <Card className="lg:col-span-2" pad={false}>
             <SectionHeader
@@ -165,14 +278,10 @@ export default async function DashboardPage() {
           </Card>
         )}
 
-        <UpcomingEvents
-          actorId={user.id}
-          familyId={user.familyId}
-          isStaff={isStaff}
-        />
+        <StaffHighlight staff={staff} dayKey={today} />
 
         {user.familyId && (
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <EnrollmentsCard
               enrollments={enrollments}
               students={students}
@@ -182,38 +291,6 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        <Card pad={false}>
-          <SectionHeader title="Quick links" inCard />
-          <div className="flex flex-col gap-2 p-4">
-            <a
-              href={org.ticketsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            >
-              <Ticket aria-hidden size={14} />
-              Buy tickets on BookTix
-              <ExternalLink aria-hidden size={13} />
-              <span className="sr-only">(opens in a new tab)</span>
-            </a>
-            <a
-              href={org.websiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-[13px] font-medium transition-colors hover:bg-muted"
-            >
-              {org.shortName} website
-              <ExternalLink aria-hidden size={13} />
-              <span className="sr-only">(opens in a new tab)</span>
-            </a>
-          </div>
-        </Card>
-
-        {/* The shows this family is actually in — the one journey a parent
-            takes from here. This replaced a seventeen-tile grid of every
-            section in the portal (Tony, 16 Aug 2026: "I don't want all these
-            buttons that I have to click to go elsewhere"). The sidebar
-            already carries navigation; the grid was a second copy of it. */}
         {myShows.length > 0 && (
           <div className="lg:col-span-3">
             <Card pad={false}>
@@ -261,74 +338,5 @@ export default async function DashboardPage() {
         )}
       </div>
     </>
-  );
-}
-
-async function UpcomingEvents({
-  actorId,
-  familyId,
-  isStaff,
-}: {
-  actorId: string;
-  familyId?: string;
-  isStaff: boolean;
-}) {
-  // The family's own calendar (their enrollments only); staff without a
-  // family see the org-wide schedule.
-  const provider = getProvider();
-  const events: CalendarEvent[] = familyId
-    ? await provider.getFamilyCalendar(actorId, familyId)
-    : isStaff
-      ? await provider.getAllEvents(actorId)
-      : [];
-  const now = new Date().toISOString();
-  const upcoming: CalendarEvent[] = events
-    .filter((event) => event.endsAt >= now)
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-    .slice(0, 4);
-
-  return (
-    <Card pad={false}>
-      <SectionHeader
-        title="Coming up"
-        inCard
-        right={
-          <Link
-            href="/schedule"
-            className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground"
-          >
-            Schedule <ArrowRight aria-hidden size={13} />
-          </Link>
-        }
-      />
-      {upcoming.length === 0 ? (
-        <p className="p-4 text-center text-[13px] text-muted-foreground">
-          No upcoming events — enjoy the quiet before the next show week.
-        </p>
-      ) : (
-        <ul className="divide-y">
-          {upcoming.map((event) => (
-            <li key={event.id} className="px-4 py-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium">{event.title}</p>
-                  <p className="text-[12px] text-muted-foreground">
-                    {formatEventTime(event.startsAt)} · {event.location}
-                  </p>
-                </div>
-                {event.changeNote && (
-                  <Badge variant="gold" className="shrink-0">
-                    Updated
-                  </Badge>
-                )}
-              </div>
-              {event.changeNote && (
-                <p className="mt-1 text-[12px] text-gold">{event.changeNote}</p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
   );
 }

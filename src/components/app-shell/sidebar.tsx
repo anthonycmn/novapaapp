@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Ticket, Wrench } from "lucide-react";
+import { LayoutDashboard, Ticket, Wrench } from "lucide-react";
 import { org } from "@/config/org";
 import {
   FAMILY_SECTIONS,
@@ -68,8 +68,8 @@ export function Sidebar({
           )}
           aria-current={isActive("/dashboard") ? "page" : undefined}
         >
-          <Home aria-hidden size={15} className="shrink-0" />
-          <span className="flex-1 truncate">Home</span>
+          <LayoutDashboard aria-hidden size={15} className="shrink-0" />
+          <span className="flex-1 truncate">Dashboard</span>
         </Link>
 
         {groups.map(([group, sections]) => (

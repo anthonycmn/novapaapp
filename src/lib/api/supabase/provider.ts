@@ -102,7 +102,8 @@ import {
 import { aggregate, trend } from "../reviews/aggregate";
 import type { ReviewAggregate, TrendPoint } from "../reviews/types";
 import { assertUploadAllowed, getStorageProvider } from "../storage";
-import { getPortalReadClient, getServiceClient } from "./client";
+import { getPortalReadClient, getServiceClient, getWebsiteReadClient } from "./client";
+import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 
 /**
  * Supabase adapter for the shared novapa-deh project (`public` schema).
@@ -313,6 +314,35 @@ class SupabaseDataProvider {
       .order("full_name");
     if (error) throw new Error(`staff lookup failed: ${error.message}`);
     return (data ?? []).map(mapStaff);
+  }
+
+  /**
+   * What is open for registration right now, straight from the org's own
+   * catalogue in the `public` schema — the same table the public site's
+   * Register buttons read.
+   *
+   * A failure returns an empty list rather than throwing. This is one card on
+   * a dashboard; the catalogue being briefly unreachable should not take down
+   * a parent's schedule, their notifications and their child's next call with
+   * it.
+   */
+  async listOpenOfferings(): Promise<OpenOffering[]> {
+    try {
+      const { data, error } = await getWebsiteReadClient()
+        .from("activities")
+        .select("id, category, name, age_range, price_cents, open_spots, active, bookable, hidden")
+        .eq("active", true)
+        .eq("bookable", true)
+        .eq("hidden", false)
+        .range(0, 4999);
+      if (error) throw new Error(error.message);
+      return (data ?? [])
+        .map((row) => offeringFromRow(row as Record<string, unknown>))
+        .filter((offering): offering is OpenOffering => offering !== null);
+    } catch (error) {
+      console.error("[catalog] could not read what's open:", error);
+      return [];
+    }
   }
 
   async getProduction(productionId: string): Promise<Production | null> {
