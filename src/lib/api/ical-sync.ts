@@ -1,5 +1,6 @@
 import { ICAL_FEEDS, type IcalFeed } from "@/config/ical-feeds";
-import { parseIcal, type IcalEvent } from "@/lib/ical/parse";
+import { parseIcal } from "@/lib/ical/parse";
+import { rowFor } from "@/lib/ical/map";
 import { getServiceClient } from "@/lib/api/supabase/client";
 
 /**
@@ -29,61 +30,6 @@ export interface IcalFeedResult {
 
 export interface IcalSyncResult {
   feeds: IcalFeedResult[];
-}
-
-/**
- * Performances are what families buy tickets for and plan around, so they are
- * typed differently from calls. "No rehearsal" markers are neither.
- */
-export function eventTypeFor(summary: string): string {
-  const s = summary.toLowerCase();
-  if (/no rehearsal|no call|off book deadline/.test(s)) return "other";
-  if (/opening night|matinee|closing performance|performance/.test(s)) return "performance";
-  if (/\bevening\b/.test(s) && /curtain/.test(s)) return "performance";
-  if (/tech|cue to cue|dry tech|wet tech/.test(s)) return "tech";
-  if (/photo|headshot/.test(s)) return "photo_call";
-  if (/fitting|costume measure/.test(s)) return "fitting";
-  return "rehearsal";
-}
-
-export function cleanTitle(summary: string, prefix?: RegExp): string {
-  const stripped = prefix ? summary.replace(prefix, "").trim() : summary.trim();
-  return stripped || summary;
-}
-
-/**
- * The calendar states call times inside the title — "(call 12:30, curtain
- * 2:00)". Surface that as a real field so the rail can say "be there by".
- *
- * Both times are on a 12-hour clock and every performance is afternoon or
- * evening, so an hour under 8 means PM. Without that, "call 12:30, curtain
- * 2:00" reads as curtain being ten hours BEFORE the call and the matinees
- * silently lose their call time — four of the seven shows.
- */
-export function callTimeFor(summary: string, startIso: string): string | null {
-  const call = summary.match(/call\s*(\d{1,2}):(\d{2})/i);
-  const curtain = summary.match(/curtain\s*(\d{1,2}):(\d{2})/i);
-  if (!call || !curtain) return null;
-  const pm = (h: number) => (h < 8 ? h + 12 : h);
-  const callMins = pm(Number(call[1])) * 60 + Number(call[2]);
-  const curtainMins = pm(Number(curtain[1])) * 60 + Number(curtain[2]);
-  const diff = curtainMins - callMins;
-  if (diff <= 0 || diff > 6 * 60) return null;
-  return new Date(new Date(startIso).getTime() - diff * 60_000).toISOString();
-}
-
-export function rowFor(event: IcalEvent, feed: IcalFeed) {
-  return {
-    type: eventTypeFor(event.summary),
-    title: cleanTitle(event.summary, feed.titlePrefix),
-    starts_at: event.start,
-    ends_at: event.end,
-    call_time: callTimeFor(event.summary, event.start),
-    location: event.location ?? "",
-    production_id: feed.productionId,
-    external_source: feed.key,
-    external_ref: event.uid,
-  };
 }
 
 type Row = Record<string, unknown>;
