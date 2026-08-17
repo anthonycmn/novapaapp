@@ -5,6 +5,7 @@ import { getProvider } from "@/lib/api";
 import type { CalendarEvent } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
+import { requestOrigin } from "@/lib/request-origin";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
@@ -50,14 +51,21 @@ export default async function ProductionPage({
    * concluded the calendar was broken. Now the run is always there, with
    * their own calls marked and selected by default.
    */
-  const [staff, events, familyEvents, scenes] = await Promise.all([
-    provider.getStaffProfiles(),
-    provider.getProductionCalendar(user.id, productionId),
-    user.familyId
-      ? provider.getFamilyCalendar(user.id, user.familyId)
-      : Promise.resolve<CalendarEvent[]>([]),
-    provider.getShowScenes(productionId),
-  ]);
+  const [staff, events, familyEvents, scenes, calendarToken, origin] =
+    await Promise.all([
+      provider.getStaffProfiles(),
+      provider.getProductionCalendar(user.id, productionId),
+      user.familyId
+        ? provider.getFamilyCalendar(user.id, user.familyId)
+        : Promise.resolve<CalendarEvent[]>([]),
+      provider.getShowScenes(productionId),
+      // The subscribable feed is per-family, so staff without a family get
+      // no button rather than a broken one.
+      user.familyId
+        ? provider.getCalendarToken(user.id, user.familyId)
+        : Promise.resolve<string | null>(null),
+      requestOrigin(),
+    ]);
 
   // Scene-tagged rehearsals carry ids; the rail needs names to say what a
   // call is working.
@@ -242,6 +250,7 @@ export default async function ProductionPage({
             events={events}
             myEventIds={myEventIds}
             sceneNames={sceneNames}
+            feedUrl={calendarToken ? `${origin}/api/calendar/${calendarToken}` : undefined}
             productionTitle={production.title}
           />
         </div>

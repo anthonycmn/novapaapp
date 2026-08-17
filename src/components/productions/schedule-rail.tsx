@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
+  CalendarPlus,
+  Check,
   Clock,
+  Copy,
   ListMusic,
   MapPin,
   Package,
@@ -64,6 +67,7 @@ export function ScheduleRail({
   events,
   myEventIds,
   sceneNames,
+  feedUrl,
   productionTitle,
 }: {
   events: CalendarEvent[];
@@ -71,6 +75,8 @@ export function ScheduleRail({
   myEventIds?: string[];
   /** ShowScene id → name, so a scene-tagged call can say what it works. */
   sceneNames?: Record<string, string>;
+  /** Absolute tokenised iCal feed for this family; omitted for staff. */
+  feedUrl?: string;
   productionTitle: string;
 }) {
   const mine = useMemo(() => new Set(myEventIds ?? []), [myEventIds]);
@@ -324,6 +330,72 @@ export function ScheduleRail({
           </button>
         )}
       </div>
+
+      {feedUrl && <SubscribeRow feedUrl={feedUrl} />}
     </Card>
+  );
+}
+
+/**
+ * Put the family's own calendar on their phone, from the page they are
+ * already on.
+ *
+ * The feed is the household's whole schedule rather than this one show —
+ * that is what belongs in a personal calendar, and it is the same tokenised
+ * feed /schedule offers. webcal:// makes Apple Calendar and Outlook
+ * *subscribe* rather than import a dead snapshot, so rehearsal changes keep
+ * arriving; Google needs the https URL pasted into "From URL", which is what
+ * its own button does for you.
+ */
+function SubscribeRow({ feedUrl }: { feedUrl: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(feedUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked — the Google and Apple buttons still work.
+    }
+  }
+
+  return (
+    <div className="border-t px-4 py-3">
+      <p className="flex items-center gap-1.5 text-[12.5px] font-medium">
+        <CalendarPlus aria-hidden size={13} className="shrink-0 text-gold" />
+        Add these dates to your own calendar
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <a
+          href={feedUrl.replace(/^https?:/, "webcal:")}
+          className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          Apple / Outlook
+        </a>
+        <a
+          href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-muted"
+        >
+          Google
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+        <button
+          type="button"
+          onClick={copy}
+          className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-muted"
+        >
+          {copied ? <Check aria-hidden size={12} /> : <Copy aria-hidden size={12} />}
+          {copied ? "Copied" : "Copy link"}
+        </button>
+      </div>
+      <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground">
+        Subscribe once and every change syncs itself. This link is private to
+        your family — anyone who has it can see your schedule, so please
+        don&apos;t post it anywhere public.
+      </p>
+    </div>
   );
 }
