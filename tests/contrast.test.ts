@@ -17,16 +17,57 @@ const CSS = readFileSync(
   "utf8"
 );
 
-/** Pull `--token: #hex;` pairs out of a `:root { }` / `.dark { }` block. */
+/**
+ * Pull colour tokens out of a `:root { }` / `.dark { }` block.
+ *
+ * Handles both `#hex` and `rgb(r g b / a)`. The translucent form matters: the
+ * gold wash behind a tip is 12% gold, and a contrast check that skipped it
+ * would silently stop testing the one token most likely to go pale-on-pale.
+ * Alpha is composited over the block's own --card, which is what those washes
+ * actually sit on.
+ */
 function readTokens(selector: string): Record<string, string> {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const block = new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(CSS);
   if (!block) throw new Error(`No ${selector} block found in globals.css`);
+
   const tokens: Record<string, string> = {};
+  const translucent: Array<[string, [number, number, number], number]> = [];
+
   for (const match of block[1].matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]{3,8});/g)) {
     tokens[match[1]] = match[2];
   }
+  for (const match of block[1].matchAll(
+    /--([\w-]+):\s*rgb\(\s*(\d+)\s+(\d+)\s+(\d+)\s*\/\s*([\d.]+)\s*\);/g
+  )) {
+    translucent.push([
+      match[1],
+      [Number(match[2]), Number(match[3]), Number(match[4])],
+      Number(match[5]),
+    ]);
+  }
+
+  const backdrop = tokens.card ?? tokens.background;
+  if (translucent.length > 0 && !backdrop) {
+    throw new Error(`${selector} has translucent tokens but no --card to composite over`);
+  }
+  for (const [name, [r, g, b], alpha] of translucent) {
+    tokens[name] = flatten([r, g, b], alpha, backdrop!);
+  }
   return tokens;
+}
+
+/** Composite a translucent colour over an opaque one, as the browser would. */
+function flatten(
+  [r, g, b]: [number, number, number],
+  alpha: number,
+  over: string
+): string {
+  const base = toRgb(over);
+  const mix = [r, g, b].map((channel, index) =>
+    Math.round(channel * alpha + base[index] * (1 - alpha))
+  );
+  return `#${mix.map((value) => value.toString(16).padStart(2, "0")).join("")}`;
 }
 
 function toRgb(hex: string): [number, number, number] {

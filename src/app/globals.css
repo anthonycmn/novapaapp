@@ -75,8 +75,17 @@
   --muted-foreground: #a7b5ca;
   --accent: #1d3564;
   --accent-foreground: #f7d98f;
-  --tip: #2a2314;
-  --tip-foreground: #f7d98f;
+  /* Tony, 17 Aug 2026: "All of the brown that's reading is brown in dark mode
+     should be the gold opaque at twelve percent."
+
+     #2a2314 was an opaque brown — gold darkened until it stopped being gold.
+     This is the staff portal's own .bar-gold instead: gold-400 as a 12%
+     translucent wash, so it composites over whatever card or row is behind it
+     rather than laying down a slab of mud, with the full gold as the text on
+     top. Values lifted from STAFF PORTAL/src/theme.css so the two products
+     read as one material. */
+  --tip: rgb(232 184 75 / 0.12);
+  --tip-foreground: #e8b84b;
   --gold: #e8b84b;
   --destructive: #f8a7ba;
   --destructive-foreground: #3d1420;

@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Bell, Menu } from "lucide-react";
-import { org } from "@/config/org";
-import { Logo } from "@/components/brand/logo";
+import { Wordmark } from "@/components/brand/logo";
 import { Sidebar } from "@/components/app-shell/sidebar";
 
 /**
@@ -95,11 +94,10 @@ export function AppShell({
           >
             <Menu aria-hidden size={18} />
           </button>
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <Logo size={24} />
-            <span className="font-display text-[15px] font-semibold tracking-wide">
-              {org.shortName}
-            </span>
+          {/* On a phone the top bar IS the top-left corner, so it carries the
+              same wordmark as the desktop rail rather than a second treatment. */}
+          <Link href="/dashboard" className="flex min-w-0 items-center">
+            <Wordmark size={24} />
           </Link>
           <Link
             href="/notifications"

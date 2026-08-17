@@ -10,7 +10,7 @@ import {
   STAFF_SECTIONS,
   groupSections,
 } from "@/config/navigation";
-import { Logo } from "@/components/brand/logo";
+import { Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -52,11 +52,8 @@ export function Sidebar({
       aria-label="Primary"
       className="flex h-full w-60 shrink-0 flex-col border-r bg-card"
     >
-      <div className="flex items-center gap-2 border-b px-3 py-3">
-        <Logo size={26} />
-        <span className="font-display text-[15px] font-semibold tracking-wide">
-          {org.shortName}
-        </span>
+      <div className="flex items-center border-b px-3 py-3">
+        <Wordmark size={28} />
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
