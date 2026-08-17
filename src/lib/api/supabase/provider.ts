@@ -63,8 +63,11 @@ import {
 import type {
   Message,
   MessageThread,
+  MessageTopic,
+  StartThreadInput,
   ThreadWithMessages,
 } from "../messages/types";
+import { describeRecipient, topicFromRow } from "../messages/topics";
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
 import { getFaceMatchProvider } from "../photos/face-provider";
 import { reconcile } from "../registration/reconcile";
@@ -99,7 +102,7 @@ import {
 import { aggregate, trend } from "../reviews/aggregate";
 import type { ReviewAggregate, TrendPoint } from "../reviews/types";
 import { assertUploadAllowed, getStorageProvider } from "../storage";
-import { getServiceClient } from "./client";
+import { getPortalReadClient, getServiceClient } from "./client";
 
 /**
  * Supabase adapter for the shared novapa-deh project (`public` schema).
@@ -225,6 +228,10 @@ function mapProduction(row: Row): Production {
     buttonTemplateUrl: s(row.button_template_url),
     ticketsUrl: s(row.tickets_url),
     curriculumUrl: s(row.curriculum_url),
+    registrationActivityId:
+      typeof row.registration_activity_id === "number"
+        ? row.registration_activity_id
+        : undefined,
   } as Production;
 }
 
@@ -2546,6 +2553,10 @@ class SupabaseDataProvider {
       startTime: String(row.start_time).slice(0, 5),
       endTime: String(row.end_time).slice(0, 5),
       location: String(row.location ?? ""),
+      registrationActivityId:
+        typeof row.registration_activity_id === "number"
+          ? row.registration_activity_id
+          : undefined,
       staffIds: (classStaff ?? [])
         .filter((cs) => cs.class_id === row.id)
         .map((cs) => String(cs.staff_id)),
@@ -4384,6 +4395,12 @@ class SupabaseDataProvider {
       id: String(row.id),
       familyId: String(row.family_id),
       recipientRole: row.recipient_role as MessageThread["recipientRole"],
+      routeId: s(row.route_id),
+      routeTopic: s(row.route_topic),
+      recipientStaffId: s(row.recipient_staff_id),
+      recipientName: s(row.recipient_name),
+      recipientTitle: s(row.recipient_title),
+      recipientEmail: s(row.recipient_email),
       subject: String(row.subject ?? ""),
       studentId: s(row.student_id),
       status: row.status as MessageThread["status"],
@@ -4406,10 +4423,20 @@ class SupabaseDataProvider {
     };
   }
 
-  /** Admins cover everything; health_safety additionally its director. */
-  private async coversRole(actor: User, role: MessageThread["recipientRole"]): Promise<boolean> {
+  /**
+   * Who may read a thread.
+   *
+   * Three ways in, and the order matters. The person it is ADDRESSED to comes
+   * first: Jason is not an administrator and does not run health & safety, so
+   * without this a registration question routed to him would be invisible to
+   * the one person it was sent to. Then administrators, who see everything.
+   * Then the health & safety director, which is the cover that stops a message
+   * about a child's medication depending on one inbox.
+   */
+  private async coversThread(actor: User, thread: MessageThread): Promise<boolean> {
+    if (thread.recipientStaffId && actor.staffId === thread.recipientStaffId) return true;
     if (actor.role === "admin" || actor.role === "super_admin") return true;
-    if (role !== "health_safety") return false;
+    if (thread.recipientRole !== "health_safety") return false;
     if (!actor.staffId) return false;
     const { data } = await this.db
       .from("staff_profiles").select("is_health_safety_director")
@@ -4443,14 +4470,38 @@ class SupabaseDataProvider {
     }
   }
 
+  /**
+   * The concerns a family can pick, live from the staff portal's contact tree.
+   *
+   * Nothing here is configured in this app. CJ onboards a colleague and points
+   * a route at them in the portal, and the next parent to open the message form
+   * sees it — no deploy, no second list to keep in step. That is the whole
+   * reason this reads across the bridge instead of holding its own copy.
+   *
+   * A failure returns an empty list rather than throwing. The form treats that
+   * as "the bridge is down" and shows the two fallback roles, because a family
+   * being unable to reach anybody is a worse outcome than a shorter menu.
+   */
+  async listMessageTopics(): Promise<MessageTopic[]> {
+    try {
+      const { data, error } = await getPortalReadClient()
+        .from("v_family_contact_routes")
+        .select("*")
+        .order("category")
+        .order("sort_order");
+      if (error) throw new Error(error.message);
+      return (data ?? [])
+        .map((row) => topicFromRow(row as Record<string, unknown>))
+        .filter((topic): topic is MessageTopic => topic !== null);
+    } catch (error) {
+      console.error("[messages] could not read the contact tree:", error);
+      return [];
+    }
+  }
+
   async startMessageThread(
     actorId: string,
-    input: {
-      recipientRole: MessageThread["recipientRole"];
-      subject: string;
-      body: string;
-      studentId?: string;
-    }
+    input: StartThreadInput
   ): Promise<MessageThread> {
     const actor = await this.actor(actorId);
     if (!actor.familyId) {
@@ -4467,12 +4518,30 @@ class SupabaseDataProvider {
       }
     }
 
+    /*
+     * The topic is resolved HERE, against the live list, rather than trusted
+     * from the form. A posted routeId is just a string off the wire: resolving
+     * it means a thread cannot be addressed to somebody who is not on a
+     * family-facing route, or to an address that is not theirs.
+     */
+    const topic = input.topicId
+      ? (await this.listMessageTopics()).find((t) => t.routeId === input.topicId)
+      : undefined;
+    const recipientRole: MessageThread["recipientRole"] =
+      topic?.recipientRole ?? input.recipientRole ?? "admin";
+
     const now = new Date().toISOString();
     const { data: thread, error } = await this.db
       .from("message_threads")
       .insert({
         family_id: actor.familyId,
-        recipient_role: input.recipientRole,
+        recipient_role: recipientRole,
+        route_id: topic?.routeId ?? null,
+        route_topic: topic?.topic ?? null,
+        recipient_staff_id: topic?.staffId ?? null,
+        recipient_name: topic?.recipientName ?? null,
+        recipient_title: topic?.recipientTitle ?? null,
+        recipient_email: topic?.recipientEmail ?? null,
         subject: input.subject.trim(),
         student_id: input.studentId ?? null,
         status: "open",
@@ -4490,20 +4559,70 @@ class SupabaseDataProvider {
     });
     if (msgErr) throw new Error(`message insert failed: ${msgErr.message}`);
 
-    await this.notifyRoleCoverage(
-      input.recipientRole,
-      input.recipientRole === "health_safety"
-        ? "New health & safety message"
-        : "New message from a family",
-      input.subject.trim(),
-      `/admin/messages/${thread.id}`
-    );
-    return this.mapThread(thread);
+    const mapped = this.mapThread(thread);
+    // In-portal notification to everyone who covers this, and an email to the
+    // one person it is addressed to. Both, not either: the email is how they
+    // find out today, the notification is how a colleague picks it up when
+    // they are away.
+    await Promise.all([
+      this.notifyRoleCoverage(
+        recipientRole,
+        recipientRole === "health_safety"
+          ? "New health & safety message"
+          : "New message from a family",
+        input.subject.trim(),
+        `/admin/messages/${thread.id}`
+      ),
+      this.emailThreadRecipient(mapped, actor.displayName, input.body.trim(), true),
+    ]);
+    return mapped;
+  }
+
+  /**
+   * Email the colleague a thread is addressed to.
+   *
+   * Never throws: a mail failure must not lose the message. The thread and its
+   * first message are already saved by the time this runs, so the worst case is
+   * that somebody finds it in the portal instead of their inbox.
+   */
+  private async emailThreadRecipient(
+    thread: MessageThread,
+    fromName: string,
+    body: string,
+    isNew: boolean
+  ): Promise<void> {
+    if (!thread.recipientEmail) return;
+    try {
+      const { getEmailDeliveryProvider } = await import("@/lib/api/email");
+      const site = process.env.URL ?? "https://novapa-family-hub.netlify.app";
+      const who = describeRecipient(thread);
+      await getEmailDeliveryProvider().send({
+        to: thread.recipientEmail,
+        subject: isNew
+          ? `[${thread.routeTopic ?? "Message"}] ${thread.subject}`
+          : `Re: ${thread.subject}`,
+        text: [
+          ...(who ? [`${who} —`, ""] : []),
+          isNew
+            ? `${fromName} has sent a message about "${thread.routeTopic ?? thread.subject}".`
+            : `${fromName} has replied about "${thread.subject}".`,
+          "",
+          body,
+          "",
+          // Reply in the portal, not by hitting reply — that is what keeps the
+          // whole conversation somewhere CJ can read it.
+          `Reply here so the conversation stays on the record: ${site}/admin/messages/${thread.id}`,
+        ].join("\n"),
+        category: "family_message",
+      });
+    } catch (error) {
+      console.error("[messages] could not email the recipient:", error);
+    }
   }
 
   private async assertThreadAccess(actor: User, thread: MessageThread): Promise<void> {
     if (actor.familyId === thread.familyId) return;
-    if (this.isStaffish(actor) && (await this.coversRole(actor, thread.recipientRole))) return;
+    if (this.isStaffish(actor) && (await this.coversThread(actor, thread))) return;
     throw new AccessDeniedError("Not your conversation");
   }
 
@@ -4550,10 +4669,16 @@ class SupabaseDataProvider {
         );
       }
     } else {
-      await this.notifyRoleCoverage(
-        thread.recipientRole, "New reply from a family", thread.subject,
-        `/admin/messages/${thread.id}`
-      );
+      // A family reply goes back to the same person, not to whoever happens to
+      // be reading the inbox — otherwise the second half of a conversation
+      // lands somewhere different from the first.
+      await Promise.all([
+        this.notifyRoleCoverage(
+          thread.recipientRole, "New reply from a family", thread.subject,
+          `/admin/messages/${thread.id}`
+        ),
+        this.emailThreadRecipient(thread, actor.displayName, body.trim(), false),
+      ]);
     }
     return this.mapMessage(message);
   }
@@ -4604,7 +4729,7 @@ class SupabaseDataProvider {
     const visible: MessageThread[] = [];
     for (const row of data ?? []) {
       const thread = this.mapThread(row);
-      if (await this.coversRole(actor, thread.recipientRole)) visible.push(thread);
+      if (await this.coversThread(actor, thread)) visible.push(thread);
     }
     visible.sort((a, b) => {
       if ((a.status === "open") !== (b.status === "open")) {
@@ -4625,7 +4750,7 @@ class SupabaseDataProvider {
       .from("message_threads").select("*").eq("id", threadId).maybeSingle();
     if (!row) throw new Error("Thread not found");
     const thread = this.mapThread(row);
-    if (!this.isStaffish(actor) || !(await this.coversRole(actor, thread.recipientRole))) {
+    if (!this.isStaffish(actor) || !(await this.coversThread(actor, thread))) {
       throw new AccessDeniedError("Staff only");
     }
     const { data: updated, error } = await this.db
@@ -4658,7 +4783,7 @@ class SupabaseDataProvider {
       const thread = this.mapThread(row);
       if (
         actor.familyId === thread.familyId ||
-        (this.isStaffish(actor) && (await this.coversRole(actor, thread.recipientRole)))
+        (this.isStaffish(actor) && (await this.coversThread(actor, thread)))
       ) {
         visibleIds.push(thread.id);
       }

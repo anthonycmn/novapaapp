@@ -83,6 +83,8 @@ import type {
   Message,
   MessageRecipientRole,
   MessageThread,
+  MessageTopic,
+  StartThreadInput,
   ThreadStatus,
   ThreadWithMessages,
 } from "../messages/types";
@@ -2729,10 +2731,67 @@ export class MockDataProvider implements DataProvider {
 
   /* ── direct messages to the office ────────────────────────────────── */
 
-  /** Does this staff member cover messages addressed to `role`? */
-  private coversRole(actor: User, role: MessageRecipientRole): boolean {
+  /**
+   * The demo contact tree. In production this is read live from the staff
+   * portal, so nothing here is a source of truth — it exists to cover the
+   * three shapes that behave differently: a health topic, a topic owned by
+   * somebody who is neither an administrator nor the health director, and the
+   * catch-all everyone falls back to.
+   */
+  private static readonly TOPICS: MessageTopic[] = [
+    {
+      routeId: "route-allergies",
+      category: "Health & safety",
+      topic: "Allergies or dietary needs",
+      blurb: "Food allergies, EpiPens, anything we need to know before your child eats with us.",
+      priority: "Immediate",
+      sortOrder: 1,
+      staffId: "staff-jo",
+      recipientName: "Jo Castillo",
+      recipientTitle: "Stage Manager & Director of Health and Safety",
+      recipientEmail: "jo@example.org",
+      recipientRole: "health_safety",
+    },
+    {
+      routeId: "route-choreography",
+      category: "Rehearsals",
+      topic: "A question about choreography",
+      blurb: "Dance calls, and what your child should wear to them.",
+      priority: "Standard",
+      sortOrder: 10,
+      staffId: "staff-priya",
+      recipientName: "Priya Raman",
+      recipientTitle: "Choreographer & Teaching Artist",
+      recipientEmail: "priya@example.org",
+      // Neither an administrator nor the health director: the case that proves
+      // the named person can read their own thread.
+      recipientRole: "admin",
+    },
+    {
+      routeId: "route-anything",
+      category: "Families",
+      topic: "Something else — I need help",
+      blurb: "Not sure who to ask? Send it here and we will get it to the right person.",
+      priority: "Standard",
+      sortOrder: 99,
+      staffId: "staff-dana",
+      recipientName: "Dana Whitfield",
+      recipientTitle: "Artistic Director",
+      recipientEmail: "dana@example.org",
+      recipientRole: "admin",
+    },
+  ];
+
+  /**
+   * Who may read a thread: the person it is addressed to, then administrators,
+   * then the health & safety director as cover. The named person comes first
+   * because they may be neither of the other two — a registration question
+   * routed to the CTO would otherwise be invisible to the CTO.
+   */
+  private coversThread(actor: User, thread: MessageThread): boolean {
+    if (thread.recipientStaffId && actor.staffId === thread.recipientStaffId) return true;
     if (isAdmin(actor)) return true; // admins cover everything
-    if (role !== "health_safety") return false;
+    if (thread.recipientRole !== "health_safety") return false;
     const profile = store.staff.find((s) => s.id === actor.staffId);
     return Boolean(profile?.isHealthSafetyDirector);
   }
@@ -2754,14 +2813,19 @@ export class MockDataProvider implements DataProvider {
     };
   }
 
+  /**
+   * The demo contact tree. In production this is read live from the staff
+   * portal; here it is a handful of routes covering the shapes that matter —
+   * a health topic, a topic owned by somebody who is neither an administrator
+   * nor the health director, and the catch-all.
+   */
+  async listMessageTopics(): Promise<MessageTopic[]> {
+    return MockDataProvider.TOPICS;
+  }
+
   async startMessageThread(
     actorId: string,
-    input: {
-      recipientRole: MessageRecipientRole;
-      subject: string;
-      body: string;
-      studentId?: string;
-    }
+    input: StartThreadInput
   ): Promise<MessageThread> {
     const actor = getActor(actorId);
     if (!actor.familyId) {
@@ -2778,10 +2842,23 @@ export class MockDataProvider implements DataProvider {
       }
     }
 
+    // Resolved against the real list, never trusted from the form.
+    const topic = input.topicId
+      ? MockDataProvider.TOPICS.find((t) => t.routeId === input.topicId)
+      : undefined;
+    const recipientRole: MessageRecipientRole =
+      topic?.recipientRole ?? input.recipientRole ?? "admin";
+
     const thread: MessageThread = {
       id: nextId("thr"),
       familyId: actor.familyId,
-      recipientRole: input.recipientRole,
+      recipientRole,
+      routeId: topic?.routeId,
+      routeTopic: topic?.topic,
+      recipientStaffId: topic?.staffId,
+      recipientName: topic?.recipientName,
+      recipientTitle: topic?.recipientTitle,
+      recipientEmail: topic?.recipientEmail,
       subject: input.subject.trim(),
       studentId: input.studentId,
       status: "open",
@@ -2801,16 +2878,16 @@ export class MockDataProvider implements DataProvider {
       createdAt: nowIso(),
     });
 
-    // Notify everyone who covers that role, so nothing waits on one inbox.
+    // Notify everyone who covers this, so nothing waits on one inbox.
     for (const staff of store.users) {
       if (!isStaffish(staff)) continue;
-      if (!this.coversRole(staff, input.recipientRole)) continue;
+      if (!this.coversThread(staff, thread)) continue;
       store.notifications.push({
         id: nextId("ntf"),
         userId: staff.id,
         type: "direct_message",
         title:
-          input.recipientRole === "health_safety"
+          recipientRole === "health_safety"
             ? "New health & safety message"
             : "New message from a family",
         body: input.subject.trim(),
@@ -2824,7 +2901,7 @@ export class MockDataProvider implements DataProvider {
 
   private assertThreadAccess(actor: User, thread: MessageThread): void {
     if (actor.familyId === thread.familyId) return;
-    if (isStaffish(actor) && this.coversRole(actor, thread.recipientRole)) return;
+    if (isStaffish(actor) && this.coversThread(actor, thread)) return;
     throw new AccessDeniedError("Not your conversation");
   }
 
@@ -2866,7 +2943,7 @@ export class MockDataProvider implements DataProvider {
       }
     } else {
       for (const staff of store.users) {
-        if (!isStaffish(staff) || !this.coversRole(staff, thread.recipientRole)) continue;
+        if (!isStaffish(staff) || !this.coversThread(staff, thread)) continue;
         store.notifications.push({
           id: nextId("ntf"),
           userId: staff.id,
@@ -2904,7 +2981,7 @@ export class MockDataProvider implements DataProvider {
     const actor = getActor(actorId);
     if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
     return store.threads
-      .filter((thread) => this.coversRole(actor, thread.recipientRole))
+      .filter((thread) => this.coversThread(actor, thread))
       .sort((a, b) => {
         // Open before closed, then most recent first.
         if ((a.status === "open") !== (b.status === "open")) {
@@ -2923,7 +3000,7 @@ export class MockDataProvider implements DataProvider {
     const actor = getActor(actorId);
     const thread = store.threads.find((t) => t.id === threadId);
     if (!thread) throw new Error("Thread not found");
-    if (!isStaffish(actor) || !this.coversRole(actor, thread.recipientRole)) {
+    if (!isStaffish(actor) || !this.coversThread(actor, thread)) {
       throw new AccessDeniedError("Staff only");
     }
     thread.status = status;
@@ -2948,7 +3025,7 @@ export class MockDataProvider implements DataProvider {
     const actor = getActor(actorId);
     const visible = store.threads.filter((thread) => {
       if (actor.familyId === thread.familyId) return true;
-      return isStaffish(actor) && this.coversRole(actor, thread.recipientRole);
+      return isStaffish(actor) && this.coversThread(actor, thread);
     });
     const mySide = isStaffish(actor) ? "staff" : "family";
     const threadIds = new Set(visible.map((thread) => thread.id));

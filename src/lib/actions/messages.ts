@@ -4,16 +4,27 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
-import type { MessageRecipientRole } from "@/lib/api/messages/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
-const startSchema = z.object({
-  recipientRole: z.enum(["admin", "health_safety"]),
-  subject: z.string().min(1, "Add a subject").max(150),
-  body: z.string().min(1, "Write your message").max(5000),
-  studentId: z.string().optional(),
-});
+/**
+ * A family sends one of two shapes: a topic they picked out of the contact
+ * tree, or — only when the bridge to the staff portal is down and they were
+ * shown the fallback list — one of the two roles. One of the two must be
+ * present, because a message addressed to nobody is not a message.
+ */
+const startSchema = z
+  .object({
+    topicId: z.string().optional(),
+    recipientRole: z.enum(["admin", "health_safety"]).optional(),
+    subject: z.string().min(1, "Add a subject").max(150),
+    body: z.string().min(1, "Write your message").max(5000),
+    studentId: z.string().optional(),
+  })
+  .refine((input) => Boolean(input.topicId || input.recipientRole), {
+    message: "Choose what your message is about",
+    path: ["topicId"],
+  });
 
 export async function startThreadAction(
   _prev: FamilyFormState,
@@ -23,7 +34,8 @@ export async function startThreadAction(
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
   const parsed = startSchema.safeParse({
-    recipientRole: formData.get("recipientRole"),
+    topicId: String(formData.get("topicId") ?? "") || undefined,
+    recipientRole: String(formData.get("recipientRole") ?? "") || undefined,
     subject: formData.get("subject"),
     body: formData.get("body"),
     studentId: String(formData.get("studentId") ?? "") || undefined,
@@ -39,10 +51,7 @@ export async function startThreadAction(
 
   let threadId: string;
   try {
-    const thread = await getProvider().startMessageThread(user.id, {
-      ...parsed.data,
-      recipientRole: parsed.data.recipientRole as MessageRecipientRole,
-    });
+    const thread = await getProvider().startMessageThread(user.id, parsed.data);
     threadId = thread.id;
   } catch (error) {
     return {

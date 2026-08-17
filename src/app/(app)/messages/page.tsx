@@ -53,7 +53,11 @@ export default async function MessagesPage() {
                     <div className="min-w-0">
                       <p className="truncate font-medium">{thread.subject}</p>
                       <p className="truncate text-sm text-muted-foreground">
-                        {roleLabel.get(thread.recipientRole)} ·{" "}
+                        {/* The person, when we have one. Threads sent before
+                            topics existed only ever knew a role, and saying
+                            "the office" for those is honest; inventing a name
+                            for them would not be. */}
+                        {thread.recipientName ?? roleLabel.get(thread.recipientRole)} ·{" "}
                         {formatEventTime(thread.lastMessageAt)}
                       </p>
                     </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AccessDeniedError, getProvider } from "@/lib/api";
+import { describeRecipient } from "@/lib/api/messages/topics";
 import { RECIPIENT_ROLES } from "@/lib/api/messages/types";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
@@ -32,9 +33,11 @@ export default async function ThreadPage({
   // Opening the thread marks the other side's messages read.
   await provider.markThreadRead(user.id, threadId);
 
-  const roleLabel = RECIPIENT_ROLES.find(
-    (role) => role.value === view.thread.recipientRole
-  )?.label;
+  // The person we told them it was going to, as at the moment they sent it.
+  // Older threads only ever knew a role, so they still say "the office".
+  const sentTo =
+    describeRecipient(view.thread) ||
+    RECIPIENT_ROLES.find((role) => role.value === view.thread.recipientRole)?.label;
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,7 +53,8 @@ export default async function ThreadPage({
           {view.thread.status === "closed" && <Badge variant="secondary">Closed</Badge>}
         </div>
         <p className="text-muted-foreground">
-          To {roleLabel}
+          To {sentTo}
+          {view.thread.routeTopic && ` · ${view.thread.routeTopic}`}
           {view.studentName && ` · about ${view.studentName}`} ·{" "}
           {formatEventTime(view.thread.createdAt)}
         </p>

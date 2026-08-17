@@ -54,8 +54,9 @@ import type {
 } from "./documents/types";
 import type {
   Message,
-  MessageRecipientRole,
   MessageThread,
+  MessageTopic,
+  StartThreadInput,
   ThreadStatus,
   ThreadWithMessages,
 } from "./messages/types";
@@ -513,19 +514,17 @@ export interface DataProvider {
   }>;
 
   /* direct messages to the office */
-  startMessageThread(
-    actorId: string,
-    input: {
-      recipientRole: MessageRecipientRole;
-      subject: string;
-      body: string;
-      studentId?: string;
-    }
-  ): Promise<MessageThread>;
+  /**
+   * The concerns a family can pick, live from the staff portal's contact tree.
+   * Empty when the bridge is unreachable — the form then falls back to the two
+   * roles rather than showing a family nothing.
+   */
+  listMessageTopics(): Promise<MessageTopic[]>;
+  startMessageThread(actorId: string, input: StartThreadInput): Promise<MessageThread>;
   replyToThread(actorId: string, threadId: string, body: string): Promise<Message>;
   getMyThreads(actorId: string): Promise<MessageThread[]>;
   getThread(actorId: string, threadId: string): Promise<ThreadWithMessages | null>;
-  /** Threads addressed to a role this staff member covers. */
+  /** Threads a staff member covers, or is named on. */
   getStaffInbox(actorId: string): Promise<ThreadWithMessages[]>;
   setThreadStatus(actorId: string, threadId: string, status: ThreadStatus): Promise<MessageThread>;
   markThreadRead(actorId: string, threadId: string): Promise<void>;

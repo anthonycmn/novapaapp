@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import { AccessDeniedError, getProvider } from "@/lib/api";
+import { describeRecipient } from "@/lib/api/messages/topics";
 import { RECIPIENT_ROLES } from "@/lib/api/messages/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { setThreadStatusAction } from "@/lib/actions/messages";
@@ -35,9 +36,9 @@ export default async function AdminThreadPage({
 
   await provider.markThreadRead(user.id, threadId);
 
-  const roleLabel = RECIPIENT_ROLES.find(
-    (role) => role.value === view.thread.recipientRole
-  )?.label;
+  const sentTo =
+    describeRecipient(view.thread) ||
+    RECIPIENT_ROLES.find((role) => role.value === view.thread.recipientRole)?.label;
 
   return (
     <div className="flex flex-col gap-4">
@@ -60,7 +61,8 @@ export default async function AdminThreadPage({
         </div>
         <p className="text-muted-foreground">
           {view.familyName}
-          {view.studentName && ` · about ${view.studentName}`} · to {roleLabel} ·{" "}
+          {view.studentName && ` · about ${view.studentName}`}
+          {view.thread.routeTopic && ` · ${view.thread.routeTopic}`} · to {sentTo} ·{" "}
           {formatEventTime(view.thread.createdAt)}
         </p>
       </div>

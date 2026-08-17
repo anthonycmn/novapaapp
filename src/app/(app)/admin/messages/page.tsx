@@ -74,8 +74,14 @@ export default async function AdminMessagesPage() {
                         ) : (
                           awaitingReply && <Badge>Needs reply</Badge>
                         )}
-                        <span className="text-xs text-muted-foreground">
-                          {roleLabel.get(thread.recipientRole)}
+                        {/* Whose it is, not merely who can see it. A shared
+                            inbox where every line says "the office" leaves
+                            everybody assuming somebody else has it. */}
+                        <span className="text-right text-xs text-muted-foreground">
+                          {thread.routeTopic && (
+                            <span className="block">{thread.routeTopic}</span>
+                          )}
+                          {thread.recipientName ?? roleLabel.get(thread.recipientRole)}
                         </span>
                       </div>
                     </CardContent>

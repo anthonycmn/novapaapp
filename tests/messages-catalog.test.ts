@@ -20,6 +20,80 @@ async function healthThread() {
   });
 }
 
+describe("a message reaches the person whose concern it is", () => {
+  /**
+   * The family picks "A question about choreography". Priya owns that route,
+   * and she is neither an administrator nor the health & safety director —
+   * which is exactly the case the old role-only model had no answer for.
+   */
+  async function choreographyThread() {
+    return provider.startMessageThread("user-sofia", {
+      topicId: "route-choreography",
+      subject: "Tap shoes for Ava",
+      body: "Does she need character shoes for Thursday?",
+    });
+  }
+
+  it("records who it was addressed to, in the family's own words", async () => {
+    const thread = await choreographyThread();
+    expect(thread.routeTopic).toBe("A question about choreography");
+    expect(thread.recipientName).toBe("Priya Raman");
+    expect(thread.recipientTitle).toBe("Choreographer & Teaching Artist");
+    expect(thread.recipientEmail).toBe("priya@example.org");
+  });
+
+  it("the person it is addressed to can read it, even as ordinary staff", async () => {
+    const thread = await choreographyThread();
+    expect(await provider.getStaffInbox("user-priya")).toHaveLength(1);
+    expect(await provider.getThread("user-priya", thread.id)).not.toBeNull();
+    // ...and it stays private from the staff member next to her.
+    expect(await provider.getStaffInbox("user-marcus")).toHaveLength(0);
+  });
+
+  it("naming somebody does not hide the thread from the administrators", async () => {
+    // The whole point of keeping a coverage role: nothing waits on one inbox.
+    await choreographyThread();
+    expect(await provider.getStaffInbox("user-dana")).toHaveLength(1);
+  });
+
+  it("a health topic still reaches the health & safety cover", async () => {
+    await provider.startMessageThread("user-sofia", {
+      topicId: "route-allergies",
+      subject: "Ava's EpiPen",
+      body: "Where should we store it?",
+      studentId: "stu-ava",
+    });
+    expect(await provider.getStaffInbox("user-jo")).toHaveLength(1);
+    expect(await provider.getStaffInbox("user-dana")).toHaveLength(1);
+    expect(await provider.getStaffInbox("user-marcus")).toHaveLength(0);
+  });
+
+  it("refuses to invent a recipient it cannot resolve", async () => {
+    // A routeId is a string off the wire. One that is not on the live list
+    // must not address a thread to anybody — it falls back to the office.
+    const thread = await provider.startMessageThread("user-sofia", {
+      topicId: "route-that-does-not-exist",
+      subject: "Hello",
+      body: "…",
+    });
+    expect(thread.recipientName).toBeUndefined();
+    expect(thread.recipientEmail).toBeUndefined();
+    expect(thread.recipientRole).toBe("admin");
+    // And it is still readable by the office, rather than lost.
+    expect(await provider.getStaffInbox("user-dana")).toHaveLength(1);
+  });
+
+  it("every offered topic can actually be delivered to", async () => {
+    const topics = await provider.listMessageTopics();
+    expect(topics.length).toBeGreaterThan(0);
+    for (const topic of topics) {
+      expect(topic.recipientEmail).toMatch(/@/);
+      expect(topic.recipientName).not.toBe("");
+      expect(topic.staffId).not.toBe("");
+    }
+  });
+});
+
 describe("messages route to a role, not a person", () => {
   it("a family can start a thread and see it", async () => {
     const thread = await healthThread();
