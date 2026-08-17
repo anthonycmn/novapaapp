@@ -468,10 +468,18 @@ export interface ButtonTemplate {
   isActive: boolean;
 }
 
+/**
+ * One price, every size. Tony, 17 Aug 2026: "The spirit buttons are twelve
+ * dollars." The table is kept keyed by size rather than collapsed to a
+ * constant so a future per-size price is a data change, not a refactor of
+ * the cart, the order and the print sheet.
+ */
+export const SPIRIT_BUTTON_PRICE_CENTS = 1200;
+
 export const BUTTON_PRICES_CENTS: Record<ButtonSize, number> = {
-  "2.25": 500,
-  "3": 700,
-  "3.5": 900,
+  "2.25": SPIRIT_BUTTON_PRICE_CENTS,
+  "3": SPIRIT_BUTTON_PRICE_CENTS,
+  "3.5": SPIRIT_BUTTON_PRICE_CENTS,
 };
 
 /** Minimum pixels needed for a crisp print at each size (300 DPI + bleed). */

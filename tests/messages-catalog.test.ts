@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { AccessDeniedError } from "@/lib/api/provider";
 import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
 import { priceFor } from "@/lib/api/store/catalog";
+import { SPIRIT_BUTTON_PRICE_CENTS } from "@/lib/api/types";
 import * as seed from "@/lib/api/mock/seed-data";
 
 const provider = new MockDataProvider();
@@ -219,8 +220,9 @@ describe("store catalog: star pages and lessons", () => {
     ]);
 
     const order = await provider.createOrder("user-sofia", "pay-1");
-    // 2 buttons at $5 + one $65 lesson.
-    expect(order.subtotalCents).toBe(2 * 500 + 6500);
+    // 2 spirit buttons + one $65 lesson. Priced off the constant rather than a
+    // literal, so a price change is a one-line change and not a broken test.
+    expect(order.subtotalCents).toBe(2 * SPIRIT_BUTTON_PRICE_CENTS + 6500);
   });
 
   it("a lesson carries its teacher preference through to the order", async () => {
