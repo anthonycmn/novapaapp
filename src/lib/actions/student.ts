@@ -3,10 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { assertUploadAllowed } from "@/lib/api/storage";
 import { getSessionUser } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
 const studentSchema = z.object({
+  /*
+   * Legal name and date of birth are editable now (Tony, 17 Aug 2026), and they
+   * carry a consequence the other fields do not: the registration reconcile
+   * matches Jason system participants to app students BY NAME. Rename a child
+   * here and the next sync stops matching them, which breaks the enrollment and
+   * balance link. The form says so; this is why it says so.
+   */
+  firstName: z.string().trim().min(1, "Legal first name is required").max(60),
+  lastName: z.string().trim().min(1, "Legal last name is required").max(60),
+  dateOfBirth: z
+    .string()
+    .regex(/^d{4}-d{2}-d{2}$/, "Enter a date of birth"),
   preferredName: z.string().max(60).optional(),
   pronouns: z.string().max(30).optional(),
   grade: z.string().min(1, "Grade is required"),
@@ -33,6 +46,9 @@ export async function updateStudentAction(
 
   const raw = Object.fromEntries(
     [
+      "firstName",
+      "lastName",
+      "dateOfBirth",
       "preferredName",
       "pronouns",
       "grade",
@@ -60,11 +76,30 @@ export async function updateStudentAction(
     return { ok: false, errors };
   }
 
-  const patch = { ...parsed.data };
+  const patch: Record<string, unknown> = { ...parsed.data };
   if (patch.auditionSongUrl === "") patch.auditionSongUrl = undefined;
+
+  // A photo of their child, if they chose one this time. An empty field means
+  // "I didn't touch it", never "delete the photo".
+  const headshotDataUrl = String(formData.get("headshotDataUrl") ?? "");
+  if (headshotDataUrl) {
+    try {
+      assertUploadAllowed("button-photos", headshotDataUrl);
+    } catch (error) {
+      return {
+        ok: false,
+        errors: {
+          headshotDataUrl: error instanceof Error ? error.message : "Bad photo",
+        },
+      };
+    }
+    patch.headshotUrl = headshotDataUrl;
+  }
 
   await getProvider().updateStudent(user.id, studentId, patch);
   revalidatePath(`/family/students/${studentId}`);
+  revalidatePath("/family");
+  revalidatePath("/family/edit");
   return { ok: true };
 }
 

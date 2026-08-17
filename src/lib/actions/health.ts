@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
+import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { FamilyFormState } from "./family";
+import type { SubmissionState } from "./spirit-button";
 
 const answersSchema = z.object({
   allergies: z.string().max(1000),
@@ -30,7 +32,7 @@ export async function saveHealthFormAction(
   seasonId: string,
   _prev: FamilyFormState,
   formData: FormData
-): Promise<FamilyFormState> {
+): Promise<SubmissionState> {
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
@@ -71,12 +73,53 @@ export async function saveHealthFormAction(
     headerList.get("x-real-ip") ??
     "unknown";
 
-  await getProvider().saveHealthForm(user.id, studentId, seasonId, parsed.data, {
+  const provider = getProvider();
+  await provider.saveHealthForm(user.id, studentId, seasonId, parsed.data, {
     name: signatureParsed.data,
     ip,
   });
 
+  /**
+   * Tell the office a form landed.
+   *
+   * Tony, 17 Aug 2026: "If they edit a health form, they need to hit a submit
+   * button so that it syncs with the staff portal and we get it in the staff
+   * portal." The signed form is already visible to staff the instant it saves —
+   * RLS on health_forms grants is_staffish() read, and migration 0035 shapes it
+   * for the staff portal — so there is no copy to push. What was missing is
+   * anyone knowing to look.
+   *
+   * Deliberately no medical detail in the message. It says whose form and that
+   * it is signed; the answers stay behind a login. An email is not the place to
+   * put a child's allergies.
+   */
+  const student = await provider.getStudent(user.id, studentId);
+  const childName = student
+    ? `${student.preferredName ?? student.firstName} ${student.lastName}`
+    : "a student";
+
+  const outcome = await notifySubmission({
+    subject: `Health form signed — ${childName}`,
+    category: "health_form_submitted",
+    lines: [
+      `${childName}'s health form has been signed and is on file.`,
+      "",
+      `Signed by: ${signatureParsed.data}`,
+      `Submitted by ${user.displayName}${user.family ? ` (${user.family.name})` : ""}`,
+      "",
+      "The answers are in the portal — not in this email. Open the student's",
+      "profile to read them.",
+    ],
+  });
+
   revalidatePath(`/family/students/${studentId}/health`);
   revalidatePath("/family");
-  return { ok: true };
+  revalidatePath("/family/edit");
+  return {
+    ok: true,
+    message: submissionMessage(
+      outcome,
+      "Staff can see it now. You can update and re-sign it any time."
+    ),
+  };
 }

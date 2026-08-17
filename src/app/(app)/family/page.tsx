@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Pencil } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { reviewProfile } from "@/lib/profile-completeness";
+import { ProfileAlerts } from "@/components/family/profile-alerts";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -28,6 +31,7 @@ export default async function FamilyPage() {
   }
 
   const provider = getProvider();
+  const season = await provider.getCurrentSeason();
   const [family, students, guardians] = await Promise.all([
     provider.getFamily(user.id, user.familyId),
     provider.getStudentsForFamily(user.id, user.familyId),
@@ -36,17 +40,46 @@ export default async function FamilyPage() {
 
   if (!family) redirect("/login");
 
+  /**
+   * What is still missing, red first. The rules live in one tested module
+   * rather than being scattered through this page, because "is this profile
+   * complete" is asked here, on the dashboard and by the front office, and
+   * three copies of the answer would drift.
+   */
+
+  // One health form per student for this season. Per-student rather than the
+  // staff-scoped status call, which is keyed by production and would answer a
+  // different question.
+  const healthForms = new Map(
+    await Promise.all(
+      students.map(
+        async (student) =>
+          [student.id, await provider.getHealthForm(user.id, student.id, season.id)] as const
+      )
+    )
+  );
+
+  const review = reviewProfile({
+    family,
+    guardians,
+    students,
+    healthForms,
+  });
+
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">{family.name}</h1>
         <Link
           href="/family/edit"
-          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
         >
-          Edit
+          <Pencil aria-hidden size={13} />
+          Edit family
         </Link>
       </div>
+
+      <ProfileAlerts review={review} />
 
       <section aria-labelledby="fam-students">
         <h2 id="fam-students" className="mb-2 text-lg font-semibold">Students</h2>
