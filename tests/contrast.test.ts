@@ -113,6 +113,9 @@ const TEXT_PAIRS: Array<[string, string, string]> = [
   ["secondary button", "secondary-foreground", "secondary"],
   ["accent callout", "accent-foreground", "accent"],
   ["tip of the day", "tip-foreground", "tip"],
+  // "Your next call" — the loud yellow band. It carries an 11px uppercase
+  // label, so it is body text by WCAG's reckoning and gets the full 4.5:1.
+  ["your next call", "tip-foreground", "tip-strong"],
   ["destructive button", "destructive-foreground", "destructive"],
 ];
 

@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Users } from "lucide-react";
+import { UserPen, Users } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import type { StaffAssignment } from "@/lib/api/types";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { StaffBioCard } from "@/components/staff/bio-card";
@@ -62,14 +62,31 @@ export default async function StaffDirectoryPage() {
     );
   }
 
+  const isStaff = hasRoleAtLeast(user, "staff");
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold">Our staff</h1>
-        <p className="text-muted-foreground">
-          The people teaching and directing your children. Tap anyone to read
-          their bio.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-semibold">Our staff</h1>
+          <p className="text-muted-foreground">
+            The people teaching and directing your children. Tap anyone to read
+            their bio.
+          </p>
+        </div>
+        {/* The only way in to bio authoring now that the sidebar has no Staff
+            section. It has to live somewhere: the staff portal's Bio approvals
+            queue has no other source, so losing this link would quietly stop
+            every profile in the org from ever being written. */}
+        {isStaff && (
+          <Link
+            href="/staff/edit"
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[13px] font-medium transition-colors hover:bg-muted"
+          >
+            <UserPen aria-hidden size={14} />
+            Edit my profile
+          </Link>
+        )}
       </div>
 
       {assignments.length === 0 ? (

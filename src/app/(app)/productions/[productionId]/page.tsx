@@ -278,7 +278,7 @@ export default async function ProductionPage({
 
       {/* The one question this page exists to answer, at the size it
           deserves — then the run, for the dates families send to relatives. */}
-      <NextCall event={nextCall} />
+      <NextCall event={nextCall} productionId={production.id} />
 
       <PerformanceStrip events={events} />
 

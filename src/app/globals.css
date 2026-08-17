@@ -62,6 +62,10 @@
      from gold even if --accent is repurposed. */
   --tip: rgb(232 184 75 / 0.12);
   --tip-foreground: #8a5a15;
+  /* The loud one — see .gold-band-strong. Amber rather than the brand gold,
+     and at 38%, because on a white card 12% is a whisper and this element has
+     to shout. */
+  --tip-strong: rgb(251 191 36 / 0.38);
   --gold: #8a5a15;
   --destructive: #be123c;
   --destructive-foreground: #ffffff;
@@ -107,6 +111,11 @@
   --accent-foreground: #f7d98f;
   --tip: rgb(232 184 75 / 0.12);
   --tip-foreground: #e8b84b;
+  /* Much lower than the light theme's 38%, and not a mistake. A bright wash
+     on a dark card closes on the gold text from below: at 38% the pair falls
+     to 3.65:1 and fails AA. Here the band stays dark and the TEXT carries the
+     yellow, which is the way round that works on a dark ground. */
+  --tip-strong: rgb(251 191 36 / 0.18);
   --gold: #e8b84b;
   --destructive: #f8a7ba;
   --destructive-foreground: #3d1420;
@@ -137,6 +146,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-tip: var(--tip);
   --color-tip-foreground: var(--tip-foreground);
+  --color-tip-strong: var(--tip-strong);
   --color-gold: var(--gold);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
@@ -189,6 +199,22 @@
   .gold-hover:hover {
     background-color: rgb(232 184 75 / 0.22);
     border-color: rgb(232 184 75 / 0.55);
+  }
+
+  /*
+   * The loud one. Tony, 17 Aug 2026: "make your next call in yellow."
+   *
+   * Twelve per cent is right for a band that appears half a dozen times on a
+   * page — it recedes, which is the job. "Your next call" is the opposite
+   * case: one element, once, carrying the single fact a parent opened the
+   * page for. At 12% it read as another quiet stripe, so this is the same
+   * gold at 38% — unmistakably yellow, still a wash rather than a slab, and
+   * still carrying the deepened gold as text so it clears AA.
+   */
+  .gold-band-strong {
+    background-color: var(--tip-strong);
+    color: var(--tip-foreground);
+    border-color: rgb(232 184 75 / 0.6);
   }
 }
 

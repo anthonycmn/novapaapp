@@ -7,7 +7,6 @@ import { org } from "@/config/org";
 import {
   FAMILY_SECTIONS,
   STAFF_PORTAL_URL,
-  STAFF_SECTIONS,
   groupSections,
 } from "@/config/navigation";
 import { Wordmark } from "@/components/brand/logo";
@@ -40,9 +39,17 @@ export function Sidebar({
   signOutSlot?: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const groups = groupSections(
-    isStaff ? [...FAMILY_SECTIONS, ...STAFF_SECTIONS] : FAMILY_SECTIONS
-  );
+  /*
+   * Families only. Tony, 17 Aug 2026: "there shouldn't be any staff page stuff
+   * on the left hand side navigation."
+   *
+   * This is a parent's portal, and a Staff group in the sidebar — even one
+   * only staff could see — made it read as two products sharing a menu. Staff
+   * still author their bio here, because the staff portal's Bio approvals has
+   * no other source, but they reach it from Our staff, where they are already
+   * looking at profiles, rather than from a section of their own.
+   */
+  const groups = groupSections(FAMILY_SECTIONS);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);

@@ -1,4 +1,5 @@
-import { CalendarDays, Clock, MapPin, Package } from "lucide-react";
+import Link from "next/link";
+import { BadgeCheck, CalendarDays, Clock, MapPin, Package, Star } from "lucide-react";
 import type { CalendarEvent } from "@/lib/api/types";
 import { formatEventTime } from "@/lib/format";
 
@@ -14,7 +15,14 @@ import { formatEventTime } from "@/lib/format";
  * ninety minutes apart on performance days, and a family that reads only the
  * curtain time arrives an hour and a half late for their child.
  */
-export function NextCall({ event }: { event?: CalendarEvent }) {
+export function NextCall({
+  event,
+  productionId,
+}: {
+  event?: CalendarEvent;
+  /** Preselects the show in the store, so nobody picks it twice. */
+  productionId?: string;
+}) {
   if (!event) {
     return (
       <div className="mb-4 rounded-lg border bg-card p-5 shadow-[var(--shadow-card)]">
@@ -35,10 +43,9 @@ export function NextCall({ event }: { event?: CalendarEvent }) {
 
   return (
     <div className="mb-4 overflow-hidden rounded-lg border bg-card shadow-[var(--shadow-card)]">
-      {/* The gold band, 12% — the accent for the one thing on this page a
-          parent came to read. Gold sits ON the wash rather than on the card,
-          which is what stops it reading brown (see .gold-band). */}
-      <div className="gold-band flex flex-wrap items-baseline justify-between gap-2 border-b px-5 py-2">
+      {/* Yellow, and louder than the rest of the page on purpose: this is the
+          one fact a parent opened the show page to find. */}
+      <div className="gold-band-strong flex flex-wrap items-baseline justify-between gap-2 border-b px-5 py-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em]">
           Your next call
         </p>
@@ -82,6 +89,27 @@ export function NextCall({ event }: { event?: CalendarEvent }) {
             Changed — {event.changeNote}
           </p>
         )}
+
+        {/* Buttons and star pages, right where a family is already thinking
+            about the show (Tony, 17 Aug 2026). Both are bought FOR a
+            production, so the show page is where the thought occurs — the
+            store is where you go once you have already had it. */}
+        <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
+          <Link
+            href={productionId ? `/store/buttons?show=${productionId}` : "/store/buttons"}
+            className="gold-band gold-hover inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors"
+          >
+            <BadgeCheck aria-hidden size={14} />
+            Spirit buttons
+          </Link>
+          <Link
+            href={productionId ? `/store/star-pages?show=${productionId}` : "/store/star-pages"}
+            className="gold-band gold-hover inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-[12.5px] font-medium transition-colors"
+          >
+            <Star aria-hidden size={14} />
+            Star pages
+          </Link>
+        </div>
       </div>
     </div>
   );

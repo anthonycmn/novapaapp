@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowRight, CalendarDays } from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarDays, Star } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import { todayKey } from "@/lib/calendar/week";
@@ -237,6 +237,42 @@ export default async function DashboardPage() {
         </div>
 
         <RegisterPanel offerings={offerings} />
+
+        {/* Spirit buttons and star pages, on the dashboard rather than only
+            behind the Store group (Tony, 17 Aug 2026). Both are impulse buys
+            tied to a show a family is already looking at, and a menu heading
+            two clicks away is where an impulse goes to die. */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:col-span-2">
+          <Link
+            href="/store/buttons"
+            className="gold-hover flex items-start gap-3 rounded-lg border bg-card p-4 shadow-[var(--shadow-card)] transition-colors"
+          >
+            <span className="gold-band inline-flex size-9 shrink-0 items-center justify-center rounded-md border">
+              <BadgeCheck aria-hidden size={17} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-semibold">Spirit buttons</span>
+              <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
+                Pick a show, add a photo, see the button before you order.
+              </span>
+            </span>
+          </Link>
+
+          <Link
+            href="/store/star-pages"
+            className="gold-hover flex items-start gap-3 rounded-lg border bg-card p-4 shadow-[var(--shadow-card)] transition-colors"
+          >
+            <span className="gold-band inline-flex size-9 shrink-0 items-center justify-center rounded-md border">
+              <Star aria-hidden size={17} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-semibold">Star pages</span>
+              <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
+                A playbill tribute to your performer, from the whole family.
+              </span>
+            </span>
+          </Link>
+        </div>
 
         {students.length > 0 && (
           <Card className="lg:col-span-2" pad={false}>
