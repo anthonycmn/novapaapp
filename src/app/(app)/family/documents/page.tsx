@@ -7,6 +7,10 @@ import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
+import {
+  AgreementsPanel,
+  type StudentPaperwork,
+} from "@/components/family/agreements-panel";
 import { DeleteDocumentButton, DocumentUploadForm } from "./document-forms";
 
 export const metadata = { title: "Documents" };
@@ -18,10 +22,30 @@ export default async function DocumentsPage() {
   if (!user.familyId) redirect("/dashboard");
 
   const provider = getProvider();
-  const [documents, students] = await Promise.all([
+  const season = await provider.getCurrentSeason();
+  const [documents, students, enrollments] = await Promise.all([
     provider.getFamilyDocuments(user.id, user.familyId),
     provider.getStudentsForFamily(user.id, user.familyId),
+    provider.getEnrollmentsForFamily(user.id, user.familyId),
   ]);
+
+  /**
+   * Each child's paperwork, gathered once for the panel above the uploads.
+   *
+   * `hasSpend` decides whether an FSA statement would say anything: a child
+   * with no live enrollment has nothing to reimburse, and offering them a
+   * statement produces an empty page a parent then has to interpret.
+   */
+  const paperwork: StudentPaperwork[] = await Promise.all(
+    students.map(async (student) => ({
+      student,
+      healthForm: await provider.getHealthForm(user.id, student.id, season.id),
+      hasSpend: enrollments.some(
+        (enrollment) =>
+          enrollment.studentId === student.id && enrollment.status !== "withdrawn"
+      ),
+    }))
+  );
 
   const categoryLabel = new Map(
     DOCUMENT_CATEGORIES.map((category) => [category.value, category.label])
@@ -35,11 +59,17 @@ export default async function DocumentsPage() {
       <div>
         <h1 className="text-2xl font-semibold">Document vault</h1>
         <p className="text-muted-foreground">
-          Waivers, forms, and receipts, kept in one place. Private to your
-          family and NOVA PA staff.
+          Everything you have signed, everything still to sign, and your tax
+          paperwork. Private to your family and NOVA PA staff.
         </p>
       </div>
 
+      {/* What we asked them for, before what they chose to keep. A parent
+          opening this page mid-season is far likelier to be here because
+          somebody told them a form was missing than to file a receipt. */}
+      <AgreementsPanel paperwork={paperwork} periodEnd={season.endsOn} />
+
+      <h2 className="mt-2 text-lg font-semibold">Your own files</h2>
       {documents.length === 0 ? (
         <EmptyState
           icon={<FileText aria-hidden className="size-8" />}
