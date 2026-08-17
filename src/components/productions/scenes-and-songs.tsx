@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { SWEENEY_NUMBERS, SWEENEY_SCENES } from "@/config/shows/sweeney-todd";
+import type { ShowScene } from "@/lib/api/auditions/types";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 
@@ -16,6 +16,18 @@ import { SectionHeader } from "@/components/ui/section-header";
  * named role as well as themselves: a child playing Toby IS in the Prologue,
  * and a list that hid it would be wrong in a way families would notice on
  * opening night.
+ *
+ * THE ROWS COME FROM family_hub.show_scenes, not from a file. Tony, 17 Aug
+ * 2026: "I want the scene map to be bridged from one to the other so it's the
+ * same regardless." The staff portal reads the same table, so a correction made
+ * on one side is the correction families see — there is no copy to drift,
+ * because there is no copy. Until today this read a 347-line config checked
+ * into the app, and the two agreed only because somebody had made them agree
+ * once.
+ *
+ * It takes rows as props rather than fetching: the page is a server component
+ * and already has the production, so fetching here would be a second round trip
+ * and a loading state for something the server can hand over rendered.
  */
 
 const COMPANY_TERMS = ["full company", "company", "ensemble"];
@@ -48,23 +60,37 @@ function matches(haystack: string, character: string): boolean {
   return false;
 }
 
-export function ScenesAndSongs() {
+export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
   const [character, setCharacter] = useState<string>("");
+
+  // One table, two lists. kind is what separates a scene from a number, and
+  // sortOrder is the workbook's own order for both.
+  const allScenes = useMemo(
+    () => rows.filter((r) => r.kind === "scene").sort((a, b) => a.sortOrder - b.sortOrder),
+    [rows]
+  );
+  const allNumbers = useMemo(
+    () => rows.filter((r) => r.kind === "song").sort((a, b) => a.sortOrder - b.sortOrder),
+    [rows]
+  );
 
   const scenes = useMemo(
     () =>
       character
-        ? SWEENEY_SCENES.filter((s) => matches(s.characters.join(", "), character))
-        : SWEENEY_SCENES,
-    [character]
+        ? allScenes.filter((s) => matches(s.characters ?? "", character))
+        : allScenes,
+    [allScenes, character]
   );
   const numbers = useMemo(
     () =>
       character
-        ? SWEENEY_NUMBERS.filter((n) => matches(n.sungBy, character))
-        : SWEENEY_NUMBERS,
-    [character]
+        ? allNumbers.filter((n) => matches(n.characters ?? "", character))
+        : allNumbers,
+    [allNumbers, character]
   );
+
+  // A show with no breakdown loaded says so rather than rendering empty tables.
+  if (rows.length === 0) return null;
 
   return (
     <Card pad={false}>
@@ -112,14 +138,17 @@ export function ScenesAndSongs() {
           spreadsheet to find out. */}
       <ul className="divide-y">
         {scenes.map((scene) => (
-          <li key={`${scene.act}-${scene.scene}`} className="px-4 py-2.5">
+          <li key={scene.id} className="px-4 py-2.5">
             <div className="flex flex-wrap items-baseline gap-x-2">
               <span className="text-[12px] font-semibold tabular-nums text-gold">
-                Act {scene.act} · {scene.scene}
+                {scene.act ? `Act ${scene.act} · ` : ""}
+                {scene.label ?? scene.name}
               </span>
-              <span className="text-[12px] text-muted-foreground">{scene.setting}</span>
+              {scene.setting && (
+                <span className="text-[12px] text-muted-foreground">{scene.setting}</span>
+              )}
             </div>
-            <p className="mt-0.5 text-[13px]">{scene.numbers.join(" · ")}</p>
+            {scene.numbers && <p className="mt-0.5 text-[13px]">{scene.numbers}</p>}
           </li>
         ))}
       </ul>
@@ -147,22 +176,24 @@ export function ScenesAndSongs() {
           </thead>
           <tbody>
             {scenes.map((scene) => (
-              <tr key={`${scene.act}-${scene.scene}`} className="border-b last:border-0">
+              <tr key={scene.id} className="border-b last:border-0">
                 <td className="px-2 py-1.5 font-medium">{scene.act}</td>
-                <td className="whitespace-nowrap px-2 py-1.5 font-medium">{scene.scene}</td>
+                <td className="whitespace-nowrap px-2 py-1.5 font-medium">
+                  {scene.label ?? scene.name}
+                </td>
                 <td className="px-2 py-1.5 text-muted-foreground">{scene.setting}</td>
-                <td className="px-2 py-1.5">{scene.numbers.join("; ")}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">
-                  {scene.characters.join(", ")}
+                <td className="px-2 py-1.5">{scene.numbers}</td>
+                <td className="px-2 py-1.5 text-muted-foreground">{scene.characters}</td>
+                {/* Dates are the workbook's own strings — "8/31, 9/10" — and
+                    say when material is worked, not when anybody is called. */}
+                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">
+                  {scene.musicDates}
                 </td>
                 <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">
-                  {scene.musicCalls}
+                  {scene.blockingDates}
                 </td>
                 <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">
-                  {scene.blocking}
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">
-                  {scene.staging}
+                  {scene.stagingDates}
                 </td>
               </tr>
             ))}
@@ -180,22 +211,26 @@ export function ScenesAndSongs() {
         <h3 className="sr-only">Musical numbers</h3>
         <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
           {numbers.map((number) => (
-            <li key={number.no} className="flex gap-2 text-[12.5px]">
+            <li key={number.id} className="flex gap-2 text-[12.5px]">
               <span
                 className={
-                  number.no === "CUT"
+                  number.isCut
                     ? "w-8 shrink-0 text-[11px] font-semibold uppercase text-muted-foreground"
                     : "w-8 shrink-0 tabular-nums text-muted-foreground"
                 }
               >
-                {number.no}
+                {number.isCut ? "CUT" : number.numberNo}
               </span>
               <span className="min-w-0">
-                <span className={number.no === "CUT" ? "line-through" : "font-medium"}>
-                  {number.title}
+                {/* The row's name carries its own running number — "10.
+                    Johanna (Anthony)" — and that number already has a column
+                    of its own to the left, so printing it twice would read as
+                    a mistake. */}
+                <span className={number.isCut ? "line-through" : "font-medium"}>
+                  {number.name.replace(/^\s*\d+\.\s*/, "")}
                 </span>
                 <span className="block text-[11.5px] text-muted-foreground">
-                  {number.sungBy}
+                  {number.characters}
                 </span>
               </span>
             </li>

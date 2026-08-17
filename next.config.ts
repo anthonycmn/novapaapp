@@ -1,6 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /*
+   * Build output directory, overridable per process.
+   *
+   * Two Next processes started from one checkout share .next and quietly
+   * destroy each other's chunks. The symptom is a build that fails
+   * prerendering with "a[d] is not a function", or a dev page stuck on
+   * Loading forever — neither of which points at the cause. Set NEXT_DIST_DIR
+   * to give a second process its own directory. Unset, this is stock.
+   */
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   reactStrictMode: true,
   images: {
     remotePatterns: [

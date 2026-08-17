@@ -463,6 +463,33 @@ export interface ShowScene {
   /** ShowRole ids called for this scene/number. */
   roleIds: string[];
   sortOrder: number;
+
+  /*
+   * The workbook breakdown, added 17 Aug 2026 so the family-facing scene list
+   * can be read from this table instead of a file checked into the app.
+   *
+   * All optional: a production seeded from an MTI role map has the roleIds and
+   * none of this, and a page that assumed otherwise would break every show
+   * that is not Sweeney. Every field is the workbook's own text, kept as
+   * written rather than parsed — the dates especially are things like
+   * "8/31, 9/10" and mean "worked on", not a call time.
+   */
+  act?: string | null;
+  /** "Sc. 4", "Prologue" — the workbook's own scene label. */
+  label?: string | null;
+  setting?: string | null;
+  /** Musical numbers worked in this scene, as one string. */
+  numbers?: string | null;
+  /** Who appears, verbatim — includes "Full Company" and "Ensemble". */
+  characters?: string | null;
+  musicDates?: string | null;
+  blockingDates?: string | null;
+  stagingDates?: string | null;
+  runDates?: string | null;
+  /** Running order for a musical number. Null when the number is cut. */
+  numberNo?: number | null;
+  /** Listed rather than omitted: a family who knows the show looks for it. */
+  isCut?: boolean;
 }
 
 /* ── recommendations ────────────────────────────────────────────────────── */

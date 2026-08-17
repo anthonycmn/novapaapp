@@ -611,6 +611,20 @@ class SupabaseDataProvider {
       kind: row.kind as ShowScene["kind"],
       roleIds: ((row.role_ids ?? []) as string[]).map(String),
       sortOrder: Number(row.sort_order ?? 0),
+      // The workbook breakdown, carried through as written. This mapper used
+      // to stop at roleIds, which is why the family-facing scene list had to
+      // read a file instead of this table.
+      act: (row.act as string | null) ?? null,
+      label: (row.label as string | null) ?? null,
+      setting: (row.setting as string | null) ?? null,
+      numbers: (row.numbers as string | null) ?? null,
+      characters: (row.characters as string | null) ?? null,
+      musicDates: (row.music_dates as string | null) ?? null,
+      blockingDates: (row.blocking_dates as string | null) ?? null,
+      stagingDates: (row.staging_dates as string | null) ?? null,
+      runDates: (row.run_dates as string | null) ?? null,
+      numberNo: row.number_no == null ? null : Number(row.number_no),
+      isCut: Boolean(row.is_cut),
     }));
   }
 

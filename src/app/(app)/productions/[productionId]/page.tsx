@@ -245,7 +245,11 @@ export default async function ProductionPage({
               nothing when there are no matches. */}
           <ShowPhotos userId={user.id} familyId={user.familyId} />
 
-          {isSweeney && <ScenesAndSongs />}
+          {/* No longer gated on the title. The component reads the rows it is
+              handed and renders nothing when a show has no breakdown loaded,
+              so any production that gets one gets the list — Sweeney was only
+              special because its breakdown lived in a file. */}
+          <ScenesAndSongs rows={scenes} />
 
           <WhoToEmail director={director} />
 
