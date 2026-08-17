@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/api";
 import { corsHeaders, userFromBearer } from "@/lib/auth/portal-bridge";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { smugMugStatus } from "@/lib/api/photos/smugmug";
 import { runIngestAndMatch, isMatchingRunning } from "@/lib/jobs/photo-matching";
 
 /**
@@ -23,13 +24,23 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }
 
-/** Job status, so the portal can poll honestly instead of guessing. */
+/**
+ * Job status, so the portal can poll honestly instead of guessing.
+ *
+ * Also reports whether SmugMug is actually connected. Without this the portal
+ * cannot tell "ingest found one gallery" from "ingest found one MOCK gallery",
+ * and those look identical on the page — which is how somebody ends up
+ * reviewing face matches against a seeded rehearsal album and believing it.
+ */
 export async function GET(request: NextRequest) {
   const user = (await getSessionUser()) ?? (await userFromBearer(request));
   if (!user || !hasRoleAtLeast(user, "staff")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders() });
   }
-  return NextResponse.json({ running: isMatchingRunning() }, { headers: corsHeaders() });
+  return NextResponse.json(
+    { running: isMatchingRunning(), smugmug: smugMugStatus() },
+    { headers: corsHeaders() }
+  );
 }
 
 export async function POST(request: NextRequest) {
