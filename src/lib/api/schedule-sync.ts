@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { ICAL_OWNED_PRODUCTION_IDS } from "@/config/ical-feeds";
 import { getPortalReadClient, getServiceClient } from "./supabase/client";
 
 /**
@@ -236,6 +237,11 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
   const hubProdsByPortalId = new Map<string, string[]>();
 
   for (const hp of hubProds ?? []) {
+    // A show whose calendar comes from an iCal feed has exactly one writer.
+    // Generating portal-sourced events for it too would show families every
+    // call twice; skipping it here also means the stale sweep below removes
+    // any portal rows this show still has from before the feed took over.
+    if (ICAL_OWNED_PRODUCTION_IDS.has(String(hp.id))) continue;
     const portalTitle = PORTAL_TITLE_MAP[String(hp.title)];
     const pp = portalTitle ? portalByTitle.get(portalTitle) : undefined;
     if (!pp) continue;
@@ -318,7 +324,7 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
   for (let from = 0; ; from += 1000) {
     const { data, error } = await hub
       .from("calendar_events")
-      .select("id, production_id, class_id, type, title, starts_at, ends_at, location, external_ref")
+      .select("id, production_id, class_id, type, title, starts_at, ends_at, location, external_ref, external_source")
       .range(from, from + 999);
     if (error) throw new Error(`events read: ${error.message}`);
     existing.push(...((data ?? []) as Row[]));
@@ -397,11 +403,19 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     if (error) throw new Error(`insert: ${error.message}`);
   }
 
-  // Remove FUTURE portal-sourced events the plan no longer contains.
+  /**
+   * Remove FUTURE portal-sourced events the plan no longer contains.
+   *
+   * The external_source check is load-bearing and was missing: this filter
+   * matched ANY event carrying an external_ref, so every hour it deleted the
+   * rows written by the iCal import — which is why a 62-event Sweeney import
+   * left no trace in the database. The job may only delete what it wrote.
+   */
   const nowIso = new Date().toISOString();
   const stale = existing.filter(
     (e) =>
       e.external_ref &&
+      String(e.external_source ?? "staff_portal") === "staff_portal" &&
       !desired.has(String(e.external_ref)) &&
       String(e.starts_at) > nowIso
   );

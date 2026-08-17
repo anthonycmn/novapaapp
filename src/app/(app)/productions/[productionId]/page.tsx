@@ -10,7 +10,10 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
 import { ShowPhotos } from "@/components/productions/show-photos";
-import { RehearsalTracks } from "@/components/productions/rehearsal-tracks";
+import {
+  RehearsalTracksHelp,
+  RehearsalTracksTile,
+} from "@/components/productions/rehearsal-tracks";
 import { ScenesAndSongs } from "@/components/productions/scenes-and-songs";
 import { ScheduleRail } from "@/components/productions/schedule-rail";
 import { NextCall, PerformanceStrip } from "@/components/productions/next-call";
@@ -170,7 +173,11 @@ export default async function ProductionPage({
           Deliberately nothing about anyone else's child: no roster counts, no
           unresolved names, nothing medical. A parent's own child's role is
           theirs to see; every other family's is not. */}
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={`mb-4 grid gap-3 sm:grid-cols-2 ${
+          isSweeney ? "xl:grid-cols-5" : "xl:grid-cols-4"
+        }`}
+      >
         <StatTile
           label={daysToOpening !== null && daysToOpening < 0 ? "The run" : "Opening night"}
           value={
@@ -211,6 +218,7 @@ export default async function ProductionPage({
           value={performanceCount}
           hint={performanceCount > 0 ? "Tickets on BookTix" : "Dates to be confirmed"}
         />
+        {isSweeney && <RehearsalTracksTile />}
       </div>
 
       {/* The one question this page exists to answer, at the size it
@@ -229,7 +237,7 @@ export default async function ProductionPage({
             isStaff={hasRoleAtLeast(user, "staff")}
           />
 
-          {isSweeney && <RehearsalTracks />}
+          {isSweeney && <RehearsalTracksHelp />}
 
           {/* Photos of their child, as photos. This used to be a tile that
               said "Photos" and went somewhere else — a parent had to navigate

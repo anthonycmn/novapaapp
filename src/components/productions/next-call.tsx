@@ -18,7 +18,7 @@ export function NextCall({ event }: { event?: CalendarEvent }) {
   if (!event) {
     return (
       <div className="mb-4 rounded-lg border bg-card p-5 shadow-[var(--shadow-card)]">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
           Next call
         </p>
         <p className="mt-1 text-[15px] font-medium">Nothing scheduled yet</p>
@@ -34,12 +34,12 @@ export function NextCall({ event }: { event?: CalendarEvent }) {
   );
 
   return (
-    <div className="mb-4 overflow-hidden rounded-lg border border-gold/40 bg-card shadow-[var(--shadow-card)]">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gold/25 bg-tip px-5 py-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold">
+    <div className="mb-4 overflow-hidden rounded-lg border border-primary/30 bg-card shadow-[var(--shadow-card)]">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-primary/20 bg-primary/5 px-5 py-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
           Your next call
         </p>
-        <p className="text-[12px] text-tip-foreground/80">
+        <p className="text-[12px] text-primary/80">
           {startsIn <= 0 ? "today" : startsIn === 1 ? "tomorrow" : `in ${startsIn} days`}
         </p>
       </div>
@@ -51,24 +51,24 @@ export function NextCall({ event }: { event?: CalendarEvent }) {
 
         <div className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
           <p className="flex items-start gap-2 text-[13.5px]">
-            <CalendarDays aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+            <CalendarDays aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
             {formatEventTime(event.startsAt)}
           </p>
           {event.callTime && (
-            <p className="flex items-start gap-2 text-[13.5px] font-medium text-gold">
+            <p className="flex items-start gap-2 text-[13.5px] font-medium text-primary">
               <Clock aria-hidden size={15} className="mt-0.5 shrink-0" />
               Be there by {formatEventTime(event.callTime)}
             </p>
           )}
           {event.location && (
             <p className="flex items-start gap-2 text-[13.5px] text-muted-foreground">
-              <MapPin aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+              <MapPin aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
               {event.location}
             </p>
           )}
           {event.whatToBring && (
             <p className="flex items-start gap-2 text-[13.5px] text-muted-foreground">
-              <Package aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+              <Package aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
               Bring: {event.whatToBring}
             </p>
           )}
@@ -97,7 +97,7 @@ export function PerformanceStrip({ events }: { events: CalendarEvent[] }) {
   const now = Date.now();
   return (
     <div className="mb-4 rounded-lg border bg-card p-4 shadow-[var(--shadow-card)]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">
         The run · {shows.length} performances
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
