@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowRight, BadgeCheck, CalendarDays, Star } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
+import { registration } from "@/config/registration";
 import { todayKey } from "@/lib/calendar/week";
 import { daysUntil, openingNight } from "@/lib/api/productions/run";
 import type {
@@ -184,8 +185,15 @@ export default async function DashboardPage() {
         <StatTile
           label="Balance due"
           value={balanceCents > 0 ? `$${(balanceCents / 100).toFixed(2)}` : "$0.00"}
-          hint={balanceCents > 0 ? "Payment outstanding" : "Nothing outstanding"}
+          hint={balanceCents > 0 ? "Tap to pay in your account" : "Nothing outstanding"}
           tone={balanceCents > 0 ? "warn" : "good"}
+          /*
+           * Balances are owed to the registration system and paid there —
+           * that is where the money and the ledger both live, so paying here
+           * would leave a family chased for what they had already settled.
+           * The tile says what is owed and hands them straight to it.
+           */
+          href={balanceCents > 0 ? registration.parentAccountUrl : undefined}
         />
         <StatTile
           label="Unread notifications"

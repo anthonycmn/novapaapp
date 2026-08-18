@@ -5,7 +5,11 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
-import { describeButton, getPaymentProvider } from "@/lib/api/payments";
+import {
+  describeButton,
+  getPaymentProvider,
+  livePaymentsBlockedBecause,
+} from "@/lib/api/payments";
 import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import type { Customization } from "@/lib/api/store/catalog";
 import { assertUploadAllowed } from "@/lib/api/storage";
@@ -176,6 +180,13 @@ export async function checkoutAction(): Promise<void> {
   const provider = getProvider();
   const cart = await provider.getCart(user.id);
   if (cart.length === 0) redirect("/store/cart");
+
+  /*
+   * Fail closed before an order exists. A half-configured Stripe would charge
+   * a family and never mark the order paid — see livePaymentsBlockedBecause.
+   */
+  const blocked = livePaymentsBlockedBecause();
+  if (blocked) redirect(`/store/cart?error=${encodeURIComponent(blocked)}`);
 
   const payments = getPaymentProvider();
   const headerList = await headers();

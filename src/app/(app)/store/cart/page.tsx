@@ -12,7 +12,12 @@ import { CartItems } from "./cart-items";
 
 export const metadata = { title: "Cart" };
 
-export default async function CartPage() {
+export default async function CartPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
@@ -32,6 +37,15 @@ export default async function CartPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Your cart</h1>
+
+      {/* Checkout refuses rather than charging into a half-configured
+          processor. Saying "nothing has been charged" is the part that
+          matters to somebody who just pressed Pay. */}
+      {error && (
+        <Card className="border-destructive/50">
+          <CardContent className="p-4 text-sm">{error}</CardContent>
+        </Card>
+      )}
 
       {cart.length === 0 ? (
         <Card>

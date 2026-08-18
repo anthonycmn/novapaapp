@@ -138,3 +138,27 @@ export function setPaymentProvider(provider: PaymentProvider | null): void {
 export function describeButton(studentName: string, role: string, size: string): string {
   return `${studentName} — ${role} (${size}" button) · ${org.programBrand}`;
 }
+
+/**
+ * Why live payments must not run right now, or null when they may.
+ *
+ * There is one dangerous half-configured state, and it is the state you pass
+ * THROUGH during setup: STRIPE_SECRET_KEY set, STRIPE_WEBHOOK_SECRET not.
+ * Stripe only hands you the signing secret after you create the endpoint, so
+ * for a few minutes the key exists and the secret does not.
+ *
+ * In that window checkout is live — a family is really charged — while the
+ * webhook answers 503 and never marks the order paid. They pay, and their
+ * order sits pending forever, with nothing in the app to say why.
+ *
+ * So the answer is to fail closed and take no money at all. The alternative
+ * failure, falling back to the mock, would hand out spirit buttons for free;
+ * of the two, refusing to sell is the one you can apologise for.
+ */
+export function livePaymentsBlockedBecause(): string | null {
+  if (!process.env.STRIPE_SECRET_KEY) return null; // mock mode; nothing to protect
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    return "Card payments are being set up and aren't quite ready. Nothing has been charged — please try again shortly.";
+  }
+  return null;
+}
