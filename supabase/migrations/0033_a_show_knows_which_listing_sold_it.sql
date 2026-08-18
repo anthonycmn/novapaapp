@@ -28,7 +28,7 @@
 --
 -- Each becomes an `unknown_offering` issue, which is at least visible. But
 -- visible is not the same as handled: 0129 exists because three children were
--- booked onto 21 September and appeared on no register at all.
+-- booked onto 21 September and appeared on no attendance sheet at all.
 --
 -- ---------------------------------------------------------------------------
 -- WHY AN ID FIXES IT AND A BETTER NAME WOULD NOT
@@ -220,9 +220,9 @@ begin
 
     if v_id is null then
       -- day_of_week/start/end are NOT NULL on this table. A class with no
-      -- timetable yet gets a placeholder Monday rather than failing the
+      -- schedule yet gets a placeholder Monday rather than failing the
       -- publish — the listing is the thing that has to go live, and the
-      -- timetable is editable here afterwards.
+      -- schedule is editable here afterwards.
       insert into family_hub.classes (program_id, name, day_of_week, start_time, end_time,
                                       location, registration_activity_id)
       values (v_program, p_title, coalesce(p_day_of_week, 1),

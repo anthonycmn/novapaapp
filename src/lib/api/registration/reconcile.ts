@@ -66,7 +66,7 @@ export interface PlannedEnrollment {
   /** Paid to date, from the snapshot. Undefined when the source has no figure. */
   amountPaidCents?: number;
   /**
-   * When the care runs, captured from the catalogue at first sight. See the
+   * When the care runs, captured from the catalog at first sight. See the
    * capture-once rule in the update branch for why it is never rewritten.
    */
   sessionStartsOn?: string;
@@ -355,7 +355,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     /*
      * CAPTURE ONCE, NEVER OVERWRITE.
      *
-     * The catalogue is a live listing: when a season ends, the same product
+     * The catalog is a live listing: when a season ends, the same product
      * rolls over to next year's dates. Summer 2026's camps already read
      * Jul 2027 because of it. If this backfilled like the others, every sync
      * after a rollover would rewrite the dates on care a family has already
