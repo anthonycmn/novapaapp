@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Drama, Ticket } from "lucide-react";
 import { org } from "@/config/org";
@@ -56,12 +57,18 @@ export default async function ShowsPage() {
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
 
   /*
-   * The family's own shows first, then everything else by opening night. A
-   * parent opening this page is nearly always looking for the show their child
-   * is in; making them find it among twenty-four is the thing this page exists
-   * to stop.
-   */
-  /*
+   * ONLY the shows this family is registered for. Tony, 17 Aug 2026: "when I
+   * see shows in the parent portal I only want to see the shows I've
+   * registered for — not all of them."
+   *
+   * The page used to lead with theirs and list the other twenty-three below,
+   * on the theory that it helped families discover what else was running. It
+   * did not: these are internal production records, not bookable offerings —
+   * several are tech placeholders and next season's — so the list answered a
+   * question nobody asked while burying the one show a parent came for.
+   * Discovery belongs to "Sign up for something" on the dashboard, which reads
+   * the real catalogue and links straight to booking.
+   *
    * Sorted by when each show ACTUALLY opens, which is a calendar fact rather
    * than a column: opensOn is null on all twenty-four, so sorting by it left
    * the list in arbitrary order and dated none of it.
@@ -69,14 +76,11 @@ export default async function ShowsPage() {
   const openingOf = (production: (typeof productions)[number]) =>
     openingNight(production, runs[production.id]) ?? "9999";
 
-  const sorted = [...productions].sort((a, b) => {
-    const minePriority = Number(mine.has(b.id)) - Number(mine.has(a.id));
-    if (minePriority !== 0) return minePriority;
-    return openingOf(a).localeCompare(openingOf(b));
-  });
-
-  const ours = sorted.filter((production) => mine.has(production.id));
-  const rest = sorted.filter((production) => !mine.has(production.id));
+  // Staff have no family, and no enrolments — for them the whole season is
+  // the point of the page.
+  const ours = productions
+    .filter((production) => (user.familyId ? mine.has(production.id) : true))
+    .sort((a, b) => openingOf(a).localeCompare(openingOf(b)));
 
   const tileFor = (production: (typeof productions)[number]) => {
     const nextCall = nextCallFor(production.id);
@@ -123,32 +127,32 @@ export default async function ShowsPage() {
         </ExternalLinkButton>
       </div>
 
-      {productions.length === 0 ? (
+      {ours.length === 0 ? (
         <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            No shows announced yet.
+          <CardContent className="flex flex-col items-center gap-2 p-10 text-center">
+            <Drama aria-hidden className="size-8 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              {user.familyId
+                ? "You're not in a show at the moment"
+                : "No shows announced yet"}
+            </p>
+            {user.familyId && (
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Once your child is registered for one, it appears here with its
+                calls and its run. What&apos;s open to sign up for is on your{" "}
+                <Link
+                  href="/dashboard"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  dashboard
+                </Link>
+                .
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <>
-          {ours.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {ours.length === 1 ? "Your show" : "Your shows"}
-              </h2>
-              {ours.map(tileFor)}
-            </section>
-          )}
-
-          {rest.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {ours.length > 0 ? "Everything else on" : "On this season"}
-              </h2>
-              {rest.map(tileFor)}
-            </section>
-          )}
-        </>
+        <section className="flex flex-col gap-2">{ours.map(tileFor)}</section>
       )}
     </div>
   );

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BookOpen } from "lucide-react";
 import { getProvider } from "@/lib/api";
@@ -35,14 +36,17 @@ export default async function ClassesPage() {
       .filter(Boolean)
   );
 
-  const sorted = [...classes].sort((a, b) => {
-    const minePriority = Number(mine.has(b.id)) - Number(mine.has(a.id));
-    if (minePriority !== 0) return minePriority;
-    return a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime);
-  });
-
-  const ours = sorted.filter((offering) => mine.has(offering.id));
-  const rest = sorted.filter((offering) => !mine.has(offering.id));
+  /*
+   * ONLY the classes this family is registered for — same rule as Shows, and
+   * for the same reason (Tony, 17 Aug 2026: "the same is true for classes").
+   * A parent opening this page wants their Tuesday, not a prospectus; what is
+   * open to sign up for lives on the dashboard, read from the real catalogue.
+   *
+   * Staff have no family and no enrolments, so for them it is the whole list.
+   */
+  const ours = classes
+    .filter((offering) => (user.familyId ? mine.has(offering.id) : true))
+    .sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime));
 
   const tileFor = (offering: (typeof classes)[number]) => (
     <OfferingTile
@@ -52,7 +56,9 @@ export default async function ClassesPage() {
       title={offering.name}
       subtitle={classSchedule(offering)}
       meta={offering.location || undefined}
-      badge={mine.has(offering.id) ? "You're in this" : undefined}
+      // No "you're in this" badge any more: every class on the page is one
+      // they are in, so it marked nothing.
+      badge={undefined}
     />
   );
 
@@ -60,32 +66,32 @@ export default async function ClassesPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Classes</h1>
 
-      {classes.length === 0 ? (
+      {ours.length === 0 ? (
         <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            No classes running at the moment.
+          <CardContent className="flex flex-col items-center gap-2 p-10 text-center">
+            <BookOpen aria-hidden className="size-8 text-muted-foreground" />
+            <p className="text-sm font-medium">
+              {user.familyId
+                ? "You're not in a class at the moment"
+                : "No classes running at the moment"}
+            </p>
+            {user.familyId && (
+              <p className="max-w-sm text-sm text-muted-foreground">
+                Once your child is enrolled in one, it appears here with its day
+                and time. What&apos;s open to sign up for is on your{" "}
+                <Link
+                  href="/dashboard"
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  dashboard
+                </Link>
+                .
+              </p>
+            )}
           </CardContent>
         </Card>
       ) : (
-        <>
-          {ours.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {ours.length === 1 ? "Your class" : "Your classes"}
-              </h2>
-              {ours.map(tileFor)}
-            </section>
-          )}
-
-          {rest.length > 0 && (
-            <section className="flex flex-col gap-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {ours.length > 0 ? "Everything else running" : "Running now"}
-              </h2>
-              {rest.map(tileFor)}
-            </section>
-          )}
-        </>
+        <section className="flex flex-col gap-2">{ours.map(tileFor)}</section>
       )}
     </div>
   );
