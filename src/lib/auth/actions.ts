@@ -69,7 +69,7 @@ export async function signUpWithEmail(formData: FormData): Promise<void> {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
-  const site = process.env.URL ?? "https://novapa-family-hub.netlify.app";
+  const site = process.env.URL ?? "https://portal.novapa.org";
   const { data, error } = await anon.auth.signUp({
     email,
     password,

@@ -4833,7 +4833,7 @@ class SupabaseDataProvider {
     if (!thread.recipientEmail) return;
     try {
       const { getEmailDeliveryProvider } = await import("@/lib/api/email");
-      const site = process.env.URL ?? "https://novapa-family-hub.netlify.app";
+      const site = process.env.URL ?? "https://portal.novapa.org";
       const who = describeRecipient(thread);
       await getEmailDeliveryProvider().send({
         to: thread.recipientEmail,

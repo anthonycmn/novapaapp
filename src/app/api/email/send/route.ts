@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
   const production =
     productionIds.length === 1 ? await provider.getProduction(productionIds[0]) : null;
   // Tracking endpoints live on the hub regardless of who composed the email.
-  const origin = `https://${request.headers.get("host") ?? "novapa-family-hub.netlify.app"}`;
+  const origin = `https://${request.headers.get("host") ?? "portal.novapa.org"}`;
 
   let delivered = 0;
   for (const recipient of recipients) {
