@@ -1,9 +1,11 @@
 import "server-only";
+import { EXTENDED_CARE_DAY_CENTS } from "@/config/fees";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { BUTTON_PRICES_CENTS } from "../types";
 import { priceFor, type Customization, type Product } from "../store/catalog";
 import type {
+  AbsenceReport,
   AppNotification,
   ButtonDesign,
   ButtonOrder,
@@ -4174,6 +4176,104 @@ class SupabaseDataProvider {
 
   /* ── early drop-off / late pick-up (ported from the mock) ──────────── */
 
+  /* ── absences from a show ─────────────────────────────────────────── */
+
+  private mapAbsence(row: Row): AbsenceReport {
+    return {
+      id: String(row.id),
+      familyId: String(row.family_id),
+      studentId: String(row.student_id),
+      productionId: s(row.production_id),
+      offeringTitle: String(row.offering_title ?? ""),
+      startsOn: String(row.starts_on),
+      endsOn: String(row.ends_on),
+      reason: String(row.reason ?? ""),
+      reportedByName: s(row.reported_by_name),
+      notified: (row.notified ?? []) as string[],
+      createdAt: String(row.created_at),
+    };
+  }
+
+  async getAbsenceReportsForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<AbsenceReport[]> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    const { data, error } = await this.db
+      .from("absence_reports")
+      .select("*")
+      .eq("family_id", familyId)
+      .order("starts_on", { ascending: false });
+    if (error) throw new Error(`absence lookup failed: ${error.message}`);
+    return (data ?? []).map((row) => this.mapAbsence(row));
+  }
+
+  async createAbsenceReport(
+    actorId: string,
+    input: Omit<AbsenceReport, "id" | "familyId" | "createdAt" | "notified">
+  ): Promise<AbsenceReport> {
+    const actor = await this.actor(actorId);
+    const familyId = await this.studentFamilyOrThrow(input.studentId);
+    if (!familyId) throw new Error("Student not found");
+    const isAdminActor = actor.role === "admin" || actor.role === "super_admin";
+    if (!isAdminActor && !(actor.role === "parent" && actor.familyId === familyId)) {
+      throw new AccessDeniedError("Not allowed to modify this family");
+    }
+
+    const { data, error } = await this.db
+      .from("absence_reports")
+      .insert({
+        family_id: familyId,
+        student_id: input.studentId,
+        production_id: input.productionId ?? null,
+        offering_title: input.offeringTitle,
+        starts_on: input.startsOn,
+        ends_on: input.endsOn,
+        reason: input.reason ?? "",
+        reported_by_name: input.reportedByName ?? null,
+      })
+      .select()
+      .single();
+    if (error) throw new Error(`absence report failed: ${error.message}`);
+    return this.mapAbsence(data);
+  }
+
+  async recordAbsenceNotified(
+    actorId: string,
+    reportId: string,
+    mailboxes: string[]
+  ): Promise<void> {
+    const actor = await this.actor(actorId);
+    const { data: current } = await this.db
+      .from("absence_reports")
+      .select("family_id")
+      .eq("id", reportId)
+      .maybeSingle();
+    if (!current) throw new Error("No such absence report");
+    if (!this.isStaffish(actor)) {
+      this.assertFamilyAccess(actor, String(current.family_id));
+    }
+    // Best effort by design: the report is already safe, and failing to write
+    // down who was emailed must not turn into an error the parent sees.
+    const { error } = await this.db
+      .from("absence_reports")
+      .update({ notified: mailboxes })
+      .eq("id", reportId);
+    if (error) console.error(`absence notified stamp failed: ${error.message}`);
+  }
+
+  async getAbsenceReportsForStaff(actorId: string): Promise<AbsenceReport[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    const { data, error } = await this.db
+      .from("absence_reports")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(`absence lookup failed: ${error.message}`);
+    return (data ?? []).map((row) => this.mapAbsence(row));
+  }
+
   private mapPickup(row: Row): PickupRequest {
     return {
       id: String(row.id),
@@ -4253,7 +4353,7 @@ class SupabaseDataProvider {
       throw new AccessDeniedError("Not allowed to modify this family");
     }
 
-    // Flat $5/day fee for extended care; org can change this later.
+    // Flat daily fee for extended care; the rate lives in src/config/fees.
     const days = Math.max(
       1,
       Math.round(
@@ -4274,7 +4374,7 @@ class SupabaseDataProvider {
         reason: input.reason ?? "",
         supervising_adult: input.supervisingAdult ?? null,
         authorized_pickup_person: input.authorizedPickupPerson ?? null,
-        fee_cents: 500 * days,
+        fee_cents: EXTENDED_CARE_DAY_CENTS * days,
         status: "pending",
       })
       .select().single();

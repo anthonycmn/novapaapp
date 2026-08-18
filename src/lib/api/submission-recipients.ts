@@ -1,6 +1,6 @@
 import "server-only";
 import { isOrgAddress, SUBMISSION_RECIPIENTS } from "@/config/submission-recipients";
-import { getPortalReadClient } from "./supabase/client";
+import { getPortalReadClient, getServiceClient } from "./supabase/client";
 
 export interface ResolvedRecipient {
   name: string;
@@ -59,4 +59,61 @@ export async function resolveSubmissionRecipients(): Promise<ResolvedRecipient[]
       jobTitle: fromPortal?.jobTitle,
     };
   });
+}
+
+/**
+ * Everybody who administers the portal — role, not a name list.
+ *
+ * Tony, 18 Aug 2026: "Make sure that pickup and drop off notifications go to
+ * admin and super admin." A hand-kept list of five names cannot answer that
+ * question: it was right the day it was written and goes wrong the day someone
+ * is promoted. So this asks the profiles table who currently holds the role.
+ *
+ * Org mailboxes only, the same rule the configured list follows. A pickup
+ * notice names a child, their household and when they will be alone at a kerb;
+ * that does not go to somebody's personal inbox because their account happens
+ * to carry the role. Anyone dropped for that reason is named in the log.
+ *
+ * A read failure returns nothing rather than throwing: the caller merges this
+ * with the configured recipients, so a database wobble degrades to the old
+ * five-name behavior instead of losing the notification.
+ */
+export async function resolveAdminRecipients(): Promise<ResolvedRecipient[]> {
+  try {
+    const db = getServiceClient();
+    const { data, error } = await db
+      .from("profiles")
+      .select("display_name, email, role")
+      .in("role", ["admin", "super_admin"]);
+    if (error) throw new Error(error.message);
+
+    const byEmail = new Map<string, ResolvedRecipient>();
+    for (const row of data ?? []) {
+      const email = String(row.email ?? "").trim();
+      if (!email) continue;
+      if (!isOrgAddress(email)) {
+        console.error(
+          `portal ${row.role} ${email} is not an @novapa.org address; not notified`
+        );
+        continue;
+      }
+      const key = email.toLowerCase();
+      if (byEmail.has(key)) continue;
+      const name = String(row.display_name ?? "").trim();
+      byEmail.set(key, {
+        // Several rows carry the mailbox as their display name. Showing
+        // "katie@novapa.org (katie@novapa.org)" in a log helps nobody.
+        name: name && name !== email ? name : email.split("@")[0],
+        email,
+        jobTitle: row.role === "super_admin" ? "Super Admin" : "Admin",
+      });
+    }
+    return [...byEmail.values()];
+  } catch (error) {
+    console.error(
+      "could not read portal admins:",
+      error instanceof Error ? error.message : error
+    );
+    return [];
+  }
 }

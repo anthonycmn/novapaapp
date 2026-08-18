@@ -1,4 +1,5 @@
 import type {
+  AbsenceReport,
   AppNotification,
   ButtonDesign,
   ButtonOrder,
@@ -294,6 +295,26 @@ export interface DataProvider {
     actorId: string,
     scope: { productionId?: string; classId?: string }
   ): Promise<Array<{ student: Student; form: HealthForm | null }>>;
+
+  /* absences from a show */
+  getAbsenceReportsForFamily(actorId: string, familyId: string): Promise<AbsenceReport[]>;
+  /**
+   * File one. Returns the stored row so the caller can notify AFTER it is
+   * safe — a mail failure must never lose a parent telling us their child is
+   * ill.
+   */
+  createAbsenceReport(
+    actorId: string,
+    input: Omit<AbsenceReport, "id" | "familyId" | "createdAt" | "notified">
+  ): Promise<AbsenceReport>;
+  /** Records who the notification reached, once the mail has been attempted. */
+  recordAbsenceNotified(
+    actorId: string,
+    reportId: string,
+    mailboxes: string[]
+  ): Promise<void>;
+  /** Staff: every report, most recent first. */
+  getAbsenceReportsForStaff(actorId: string): Promise<AbsenceReport[]>;
 
   /* early pickup / late drop-off (#10) */
   getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]>;

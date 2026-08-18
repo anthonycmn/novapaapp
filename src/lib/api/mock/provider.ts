@@ -1,3 +1,4 @@
+import { EXTENDED_CARE_DAY_CENTS } from "@/config/fees";
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
@@ -8,6 +9,7 @@ import {
 } from "../messages/offering-topics";
 import { runFromEvents, type ProductionRun } from "../productions/run";
 import type {
+  AbsenceReport,
   AppNotification,
   ButtonDesign,
   ButtonOrder,
@@ -155,6 +157,7 @@ interface Store {
   events: CalendarEvent[];
   healthForms: HealthForm[];
   pickupRequests: PickupRequest[];
+  absenceReports: AbsenceReport[];
   /** familyId → iCal token */
   calendarTokens: Map<string, string>;
   accountLinks: AccountLink[];
@@ -230,6 +233,7 @@ function buildStore(): Store {
     events: deepClone(seed.events),
     healthForms: deepClone(seed.healthForms),
     pickupRequests: [],
+    absenceReports: [],
     calendarTokens: new Map([
       ["fam-martinez", "cal-tok-martinez-8f3a"],
       ["fam-okafor", "cal-tok-okafor-2b7c"],
@@ -1335,6 +1339,61 @@ export class MockDataProvider implements DataProvider {
       }));
   }
 
+  /* ── absences from a show ─────────────────────────────────────────── */
+
+  async getAbsenceReportsForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<AbsenceReport[]> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    return deepClone(
+      store.absenceReports
+        .filter((report) => report.familyId === familyId)
+        .sort((a, b) => b.startsOn.localeCompare(a.startsOn))
+    );
+  }
+
+  async createAbsenceReport(
+    actorId: string,
+    input: Omit<AbsenceReport, "id" | "familyId" | "createdAt" | "notified">
+  ): Promise<AbsenceReport> {
+    const actor = getActor(actorId);
+    const student = store.students.find((s) => s.id === input.studentId);
+    if (!student) throw new Error("Student not found");
+    assertFamilyWrite(actor, student.familyId);
+
+    const report: AbsenceReport = {
+      ...input,
+      id: nextId("abs"),
+      familyId: student.familyId,
+      notified: [],
+      createdAt: nowIso(),
+    };
+    store.absenceReports.push(report);
+    return deepClone(report);
+  }
+
+  async recordAbsenceNotified(
+    actorId: string,
+    reportId: string,
+    mailboxes: string[]
+  ): Promise<void> {
+    const actor = getActor(actorId);
+    const report = store.absenceReports.find((r) => r.id === reportId);
+    if (!report) throw new Error("No such absence report");
+    assertFamilyWrite(actor, report.familyId);
+    report.notified = [...mailboxes];
+  }
+
+  async getAbsenceReportsForStaff(actorId: string): Promise<AbsenceReport[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    return deepClone(
+      [...store.absenceReports].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    );
+  }
+
   /* ── early pickup / late drop-off (#10) ───────────────────────────── */
 
   async getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]> {
@@ -1359,7 +1418,7 @@ export class MockDataProvider implements DataProvider {
     if (!student) throw new Error("Student not found");
     assertFamilyWrite(actor, student.familyId);
 
-    // Flat $5/day fee for extended care; org can change this later.
+    // Flat daily fee for extended care; the rate lives in src/config/fees.
     const days =
       Math.max(
         1,
@@ -1371,7 +1430,7 @@ export class MockDataProvider implements DataProvider {
       ...input,
       id: nextId("pr"),
       familyId: student.familyId,
-      feeCents: 500 * days,
+      feeCents: EXTENDED_CARE_DAY_CENTS * days,
       status: "pending",
       createdAt: nowIso(),
     };

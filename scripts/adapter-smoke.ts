@@ -5,6 +5,8 @@
  */
 import { createSupabaseProvider } from "../src/lib/api/supabase/provider";
 import { AccessDeniedError } from "../src/lib/api/provider";
+import { EXTENDED_CARE_DAY_CENTS } from "../src/config/fees";
+import { formatCents } from "../src/lib/format";
 
 const results: Array<[string, boolean, string?]> = [];
 const check = (name: string, ok: boolean, detail?: string) => {
@@ -660,8 +662,8 @@ async function main() {
     reason: "Work schedule during tech week",
   });
   check(
-    "pickup request created with computed fee ($5/day x 3)",
-    pickup.status === "pending" && pickup.feeCents === 1500
+    `pickup request created with computed fee (${formatCents(EXTENDED_CARE_DAY_CENTS)}/day x 3)`,
+    pickup.status === "pending" && pickup.feeCents === EXTENDED_CARE_DAY_CENTS * 3
   );
   const staffQueue = await p.getPickupRequestsForStaff(dana.id);
   check("staff queue lists pending first", staffQueue[0]?.id === pickup.id);

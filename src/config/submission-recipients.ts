@@ -57,3 +57,23 @@ export const ARRIVAL_RECIPIENTS: SubmissionRecipient[] = SUBMISSION_RECIPIENTS.f
   (recipient) =>
     (ARRIVAL_RECIPIENT_NAMES as readonly string[]).includes(recipient.portalName)
 );
+
+/**
+ * Fold several recipient lists into one, first mention winning.
+ *
+ * Pickup notifications go to a named list AND to whoever currently holds admin
+ * or super admin (Tony, 18 Aug 2026), and those two overlap — Katie Rivers is
+ * on both. Mailing her the same "HERE NOW" twice would teach her to ignore the
+ * second one, which is the copy that might not be a duplicate next time.
+ *
+ * Case-insensitive, because a mailbox typed two ways is still one person.
+ */
+export function mergeRecipients<T extends { email: string }>(...lists: T[][]): T[] {
+  const byEmail = new Map<string, T>();
+  for (const recipient of lists.flat()) {
+    const key = recipient.email.trim().toLowerCase();
+    if (!key || byEmail.has(key)) continue;
+    byEmail.set(key, recipient);
+  }
+  return [...byEmail.values()];
+}

@@ -146,6 +146,28 @@ export default async function FamilyPage() {
           <p className="mt-2 text-muted-foreground">
             Preferred contact: {family.preferredContactMethod.toUpperCase()}
           </p>
+
+          {/* Shown here because the profile review calls a household without
+              one incomplete: a parent who has just added an emergency contact
+              should be able to see that we have it. */}
+          <div className="mt-3 border-t pt-3">
+            <p className="font-medium">Emergency contacts</p>
+            {(family.emergencyContacts ?? []).length === 0 ? (
+              <p className="text-muted-foreground">
+                None yet — add someone other than a parent we can call.
+              </p>
+            ) : (
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {family.emergencyContacts.map((contact) => (
+                  <li key={contact.id} className="text-muted-foreground">
+                    <span className="text-foreground">{contact.fullName}</span>
+                    {contact.relationship ? ` · ${contact.relationship}` : ""}
+                    {contact.phone ? ` · ${contact.phone}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

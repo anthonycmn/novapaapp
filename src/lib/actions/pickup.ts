@@ -73,13 +73,16 @@ export async function createPickupRequestAction(
 
   /**
    * Tell the office. Tony, 17 Aug 2026: "A notification is then sent to Katie
-   * Rivers, KDH, Tony, Todd, and Jen" — the whole submission list.
+   * Rivers, KDH, Tony, Todd, and Jen" — the whole submission list — and on
+   * 18 Aug: "Make sure that pickup and drop off notifications go to admin and
+   * super admin", so whoever holds those roles today is added to it.
    *
    * After the request is stored, so a mail failure cannot lose it.
    */
   const outcome = await notifySubmission({
     subject: `${KIND_LABEL[parsed.data.kind]} — ${childName}`,
     category: "pickup_request",
+    includeAdmins: true,
     lines: [
       `${childName}: ${KIND_LABEL[parsed.data.kind].toLowerCase()} requested.`,
       "",
@@ -125,9 +128,11 @@ const KIND_LABEL: Record<"late_dropoff" | "early_pickup" | "both", string> = {
 /**
  * "I'm here" — a parent at the kerb.
  *
- * Goes to Katie Rivers and Katie Hamburger only (Tony, 17 Aug 2026). Two people
- * who can walk to a door, not the five who get the paperwork: an alert copied
- * to everybody is an alert nobody owns.
+ * Goes to Katie Rivers and Katie Hamburger (Tony, 17 Aug 2026) — two people who
+ * can walk to a door, rather than the five who get the paperwork — plus admins
+ * and super admins (Tony, 18 Aug 2026). The named pair is still who OWNS the
+ * door; the roles are copied because a parent standing at the kerb is the
+ * organization's responsibility, not one front-desk shift's.
  *
  * A repeat press is a no-op that reports the original time rather than sending
  * again, because pressing twice is exactly what a parent does when nothing
@@ -162,6 +167,7 @@ export async function markArrivedAction(requestId: string): Promise<SubmissionSt
     subject: `HERE NOW — ${user.displayName} for ${childName}`,
     category: "pickup_arrival",
     only: ARRIVAL_RECIPIENTS.map((recipient) => recipient.email),
+    includeAdmins: true,
     lines: [
       `${user.displayName} is here now for ${childName}.`,
       "",
@@ -169,7 +175,7 @@ export async function markArrivedAction(requestId: string): Promise<SubmissionSt
         result.request.pickUpTime ? ` · due ${result.request.pickUpTime}` : ""
       }`,
       result.request.authorizedPickupPerson
-        ? `Authorised to collect: ${result.request.authorizedPickupPerson}`
+        ? `Authorized to collect: ${result.request.authorizedPickupPerson}`
         : "",
       user.family ? `Household: ${user.family.name}` : "",
     ],

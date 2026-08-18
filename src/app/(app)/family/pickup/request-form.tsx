@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { EXTENDED_CARE_DAY_CENTS } from "@/config/fees";
+import { formatCents } from "@/lib/format";
 import { FieldError } from "@/components/forms/field-error";
 import { UnsavedChangesGuard } from "@/components/forms/unsaved-changes-guard";
 
@@ -154,8 +156,9 @@ export function PickupRequestForm({ students }: { students: Student[] }) {
       </div>
 
       <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">
-        Extended care is $5 per day. You&apos;ll see the exact total once staff
-        approves the request, and can pay from your dashboard.
+        Extended care is {formatCents(EXTENDED_CARE_DAY_CENTS)} per day.
+        You&apos;ll see the exact total once staff approves the request, and can
+        pay from your dashboard.
       </p>
 
       <FieldError message={state.errors?._form} />

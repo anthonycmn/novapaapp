@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { Check, Plus, Upload, UserPlus } from "lucide-react";
 import { addGuardianAction, updateGuardianAction } from "@/lib/actions/guardians";
 import type { FamilyFormState } from "@/lib/actions/family";
@@ -29,6 +29,9 @@ const initialState: FamilyFormState = { ok: false };
  */
 export function GuardiansEditor({ guardians }: { guardians: Guardian[] }) {
   const [adding, setAdding] = useState(false);
+  // Stable, so the new row's "collapse me when saved" effect does not re-run
+  // on every render of this list.
+  const stopAdding = useCallback(() => setAdding(false), []);
 
   return (
     <Card pad={false}>
@@ -52,7 +55,7 @@ export function GuardiansEditor({ guardians }: { guardians: Guardian[] }) {
 
       <div className="border-t p-4">
         {adding ? (
-          <NewGuardianRow onDone={() => setAdding(false)} />
+          <NewGuardianRow onDone={stopAdding} />
         ) : (
           <Button type="button" variant="outline" onClick={() => setAdding(true)}>
             <UserPlus aria-hidden />
@@ -196,9 +199,13 @@ function NewGuardianRow({ onDone }: { onDone: () => void }) {
 
   // Once the server confirms, collapse back to the button so the next "add
   // additional" starts from a clean row rather than the one just saved.
-  if (state.ok) {
-    onDone();
-  }
+  //
+  // In an effect, not during render: setting the parent's state while this
+  // component renders is an error React refuses to apply, so the row stayed
+  // open after a successful add and looked like nothing had been saved.
+  useEffect(() => {
+    if (state.ok) onDone();
+  }, [state.ok, onDone]);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">

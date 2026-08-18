@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
 import { reviewProfile } from "@/lib/profile-completeness";
+import { EmergencyContactsEditor } from "@/components/family/emergency-contacts-editor";
 import { GuardiansEditor } from "@/components/family/guardians-editor";
 import { ProfileAlerts } from "@/components/family/profile-alerts";
 import { Card } from "@/components/ui/card";
@@ -69,6 +70,10 @@ export default async function EditFamilyPage() {
 
       <div className="flex flex-col gap-4">
         <GuardiansEditor guardians={guardians} />
+
+        {/* The red alert for "an emergency contact" has always pointed here.
+            Until this existed there was nothing on the page to answer it. */}
+        <EmergencyContactsEditor contacts={family.emergencyContacts ?? []} />
 
         <Card pad={false}>
           <SectionHeader

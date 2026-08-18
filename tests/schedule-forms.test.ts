@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { AccessDeniedError } from "@/lib/api/provider";
 import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
 import { buildFamilyIcs } from "@/lib/ical";
+import { EXTENDED_CARE_DAY_CENTS } from "@/config/fees";
 
 /**
  * Phase 3 verification:
@@ -167,7 +168,7 @@ describe("drop-off / pick-up (#10)", () => {
   it("computes a fee and starts pending", async () => {
     const request = await submitRequest();
     expect(request.status).toBe("pending");
-    expect(request.feeCents).toBe(1500); // 3 days × $5
+    expect(request.feeCents).toBe(EXTENDED_CARE_DAY_CENTS * 3); // 3 days
   });
 
   it("approval puts it on the family calendar and notifies the family", async () => {

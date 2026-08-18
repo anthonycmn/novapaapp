@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Check, FileSignature, Receipt } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  Camera,
+  Check,
+  FileSignature,
+  Receipt,
+} from "lucide-react";
 import type { HealthForm, Student } from "@/lib/api/types";
 import { ageOn, FSA_AGE_LIMIT } from "@/lib/api/documents/fsa";
 import { formatDate } from "@/lib/format";
@@ -106,20 +113,32 @@ export function AgreementsPanel({
                     action={healthForm ? "Review or re-sign" : "Fill it in"}
                   />
 
-                  {/* Photo permission is an agreement too, and the one families
-                      most often forget they were asked. */}
-                  <PaperRow
-                    Icon={FileSignature}
-                    title="Photo permission"
-                    tone={student.consents.photoUse ? "good" : "bad"}
-                    state={student.consents.photoUse ? "Given" : "Not given"}
+                  {/*
+                   * Photo permission is a record here, not a switch.
+                   *
+                   * Tony, 18 Aug 2026: "Parents should not be able to change
+                   * their policy preferences… They should not be able to opt
+                   * out of anything." The published policy says the same thing
+                   * in more words: consent comes from the Photo and Media
+                   * Release signed at registration, and a withdrawal is a
+                   * written request to the office, not a toggle — because it
+                   * has to reach the people holding cameras before it means
+                   * anything.
+                   *
+                   * The row this replaced also linked to the wrong place: it
+                   * showed the photo-use flag and opened the face-matching
+                   * page, which is a different consent entirely.
+                   */}
+                  <PaperState
+                    Icon={Camera}
+                    title="Photo and media release"
+                    tone={student.consents.photoUse ? "good" : "neutral"}
+                    state={student.consents.photoUse ? "Signed at registration" : "Opt-out on file"}
                     detail={
                       student.consents.photoUse
-                        ? "We may use photographs of your child in our own materials."
-                        : "We will not photograph your child for our materials. Change this any time."
+                        ? `We may photograph and film ${name} at our programs and use those pictures in our own materials.`
+                        : `You have asked us not to photograph ${name}, and our marketing team has been told.`
                     }
-                    href={`/photos/consent/${student.id}`}
-                    action="Change"
                   />
                 </div>
               </li>
@@ -210,6 +229,48 @@ function FsaPanel({
         </p>
       )}
     </Card>
+  );
+}
+
+/**
+ * A row that states where something stands, with nowhere to click.
+ *
+ * The same shape as PaperRow so the list still reads as one list, minus the
+ * door: these are things a family agreed to, not settings they maintain.
+ */
+function PaperState({
+  Icon,
+  title,
+  tone,
+  state,
+  detail,
+}: {
+  Icon: typeof FileSignature;
+  title: string;
+  tone: "good" | "neutral";
+  state: string;
+  detail: string;
+}) {
+  return (
+    <div className="flex items-start gap-2.5 rounded-md border bg-muted/30 p-3">
+      <Icon aria-hidden size={15} className="mt-0.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-[13px] font-medium">{title}</span>
+          <span
+            className={`inline-flex items-center gap-1 text-[11.5px] font-semibold uppercase tracking-wide ${
+              tone === "good" ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            {tone === "good" && <Check aria-hidden size={11} />}
+            {state}
+          </span>
+        </span>
+        <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+          {detail}
+        </span>
+      </span>
+    </div>
   );
 }
 

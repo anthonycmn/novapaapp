@@ -527,6 +527,34 @@ export interface PickupRequest {
   createdAt: string;
 }
 
+/**
+ * A family telling us a child will miss part of a show.
+ *
+ * Tony, 18 Aug 2026: "Allow for parents to submit absences in their dashboard
+ * for their shows, and then the director and the show director each receive
+ * that information."
+ *
+ * Deliberately not a request: there is no status, because an absence is
+ * reported rather than granted. Attendance stays the register's job in the
+ * staff portal; this is what the household said, and when they said it.
+ */
+export interface AbsenceReport {
+  id: string;
+  familyId: string;
+  studentId: string;
+  /** The show. Null once a production is retired; the title still reads. */
+  productionId?: string;
+  offeringTitle: string;
+  /** Single date or an inclusive range. */
+  startsOn: string;
+  endsOn: string;
+  reason: string;
+  reportedByName?: string;
+  /** Mailboxes the notification actually reached, so staff can see the gaps. */
+  notified: string[];
+  createdAt: string;
+}
+
 /* ── Family calendar (Phase 3, #5) ──────────────────────────────────────── */
 
 export interface FamilyCalendarEvent extends CalendarEvent {

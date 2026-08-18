@@ -12,6 +12,7 @@ import {
   AgreementsPanel,
   type StudentPaperwork,
 } from "@/components/family/agreements-panel";
+import { PoliciesRecord } from "@/components/family/policies-record";
 import { DeleteDocumentButton, DocumentUploadForm } from "./document-forms";
 
 export const metadata = { title: "Documents" };
@@ -72,6 +73,11 @@ export default async function DocumentsPage() {
           opening this page mid-season is far likelier to be here because
           somebody told them a form was missing than to file a receipt. */}
       <AgreementsPanel paperwork={paperwork} periodEnd={season.endsOn} />
+
+      {/* The standing agreements, as a document rather than a settings page.
+          Tony, 18 Aug 2026: parents read what they signed here; they do not
+          opt out of it here. */}
+      <PoliciesRecord />
 
       <h2 className="mt-2 text-lg font-semibold">Your own files</h2>
       {documents.length === 0 ? (

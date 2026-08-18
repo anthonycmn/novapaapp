@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ARRIVAL_RECIPIENTS,
+  mergeRecipients,
   isOrgAddress,
   SUBMISSION_RECIPIENTS,
 } from "@/config/submission-recipients";
@@ -77,5 +78,39 @@ describe("who hears an arrival", () => {
     for (const recipient of ARRIVAL_RECIPIENTS) {
       expect(isOrgAddress(recipient.email), recipient.email).toBe(true);
     }
+  });
+});
+
+describe("who hears a pickup or a drop-off", () => {
+  it("adds the admins to the named list without mailing anyone twice", () => {
+    // Tony, 18 Aug 2026: "Make sure that pickup and drop off notifications go
+    // to admin and super admin." Katie Rivers is on both lists — one address,
+    // one email.
+    const admins = [
+      { email: "katie@novapa.org", name: "Katie Rivers" },
+      { email: "zoe@novapa.org", name: "Zoe Schauder" },
+    ];
+    const merged = mergeRecipients(ARRIVAL_RECIPIENTS, admins);
+    expect(merged.map((r) => r.email).sort()).toEqual([
+      "katie.h@novapa.org",
+      "katie@novapa.org",
+      "zoe@novapa.org",
+    ]);
+  });
+
+  it("treats a mailbox typed two ways as one person", () => {
+    const merged = mergeRecipients(
+      [{ email: "CJ@Novapa.org" }],
+      [{ email: "cj@novapa.org" }]
+    );
+    expect(merged).toHaveLength(1);
+  });
+
+  it("keeps the first mention, so the named list keeps its title", () => {
+    const merged = mergeRecipients(
+      [{ email: "katie@novapa.org", name: "Katie Rivers" }],
+      [{ email: "katie@novapa.org", name: "katie" }]
+    );
+    expect(merged[0].name).toBe("Katie Rivers");
   });
 });

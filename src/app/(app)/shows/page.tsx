@@ -152,7 +152,25 @@ export default async function ShowsPage() {
           </CardContent>
         </Card>
       ) : (
-        <section className="flex flex-col gap-2">{ours.map(tileFor)}</section>
+        <>
+          <section className="flex flex-col gap-2">{ours.map(tileFor)}</section>
+
+          {/* The absence route sits with the shows rather than only in the
+              sidebar: a parent realizes their child will miss a rehearsal
+              while looking at the rehearsal. */}
+          {user.familyId && (
+            <p className="text-[13px] text-muted-foreground">
+              Will one of them miss a rehearsal or a performance?{" "}
+              <Link
+                href="/family/absences"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Report an absence
+              </Link>{" "}
+              and we will tell the show&apos;s director.
+            </p>
+          )}
+        </>
       )}
     </div>
   );
