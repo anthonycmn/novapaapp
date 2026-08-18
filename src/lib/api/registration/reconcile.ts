@@ -214,12 +214,40 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
   /* ── 3. offerings → productions / classes ──────────────────────────── */
 
+  /*
+   * TWO WAYS TO MATCH, AND ONLY ONE OF THEM IS SOUND.
+   *
+   * By activity id: the registration listing and the app row were created
+   * together by the staff portal, which wrote both ids at once. Nothing a
+   * human types afterwards can break it.
+   *
+   * By name: the original, and a guess. It compares a listing's display name
+   * with a production title after stripping punctuation and case — so
+   * "Frozen JR." finds "Frozen Jr", which is the point. But it also means a
+   * renamed show stops matching, two shows with the same title in different
+   * seasons are indistinguishable, and an offering the portal has just
+   * published resolves to nothing until somebody makes the titles agree
+   * character for character.
+   *
+   * So the id wins where there is one, and the name is the fallback for the
+   * rows that predate it. A wrong id match is impossible; a wrong name match
+   * is merely unlikely, and the difference matters because the thing being
+   * matched is a child's place in a show.
+   */
+  const productionByActivityId = new Map<number, string>();
   const productionByName = new Map<string, string>();
   for (const production of input.productions) {
+    if (production.registrationActivityId != null) {
+      productionByActivityId.set(production.registrationActivityId, production.id);
+    }
     productionByName.set(normalize(production.title), production.id);
   }
+  const classByActivityId = new Map<number, string>();
   const classByName = new Map<string, string>();
   for (const offering of input.classes) {
+    if (offering.registrationActivityId != null) {
+      classByActivityId.set(offering.registrationActivityId, offering.id);
+    }
     classByName.set(normalize(offering.name), offering.id);
   }
 
@@ -245,8 +273,14 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     if (!studentId) continue; // reported above
 
     const offeringKey = normalize(external.offeringName);
-    const productionId = productionByName.get(offeringKey);
-    const classId = productionId ? undefined : classByName.get(offeringKey);
+    const activityId = external.offeringActivityId;
+    const productionId =
+      (activityId != null ? productionByActivityId.get(activityId) : undefined) ??
+      productionByName.get(offeringKey);
+    const classId = productionId
+      ? undefined
+      : (activityId != null ? classByActivityId.get(activityId) : undefined) ??
+        classByName.get(offeringKey);
 
     // Coaching belongs to the staff portal, not here. It has no production and
     // no class, so it resolves against the portal's published catalog by the

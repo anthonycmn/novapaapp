@@ -161,6 +161,107 @@ describe("reconciliation (pure)", () => {
     ],
   });
 
+  /*
+   * Matching by activity id (Aug 17 2026 — portal authoring).
+   *
+   * A show published from the staff portal carries the same activity id on
+   * both sides, because the portal wrote both rows. These check that the id
+   * is preferred, that it survives the thing that breaks name matching — a
+   * rename — and that a row without one still matches by name.
+   */
+  const showSnapshot = (offeringName: string, activityId?: number) => ({
+    source: "website" as const,
+    fetchedAt: "2026-08-17T12:00:00.000Z",
+    accounts: [
+      {
+        externalId: "a1",
+        source: "website" as const,
+        guardianName: "Sofia Martinez",
+        email: "sofia@example.com",
+      },
+    ],
+    participants: [
+      {
+        externalId: "p1",
+        accountExternalId: "a1",
+        firstName: "Ava",
+        lastName: "Martinez",
+        dateOfBirth: "2015-03-12",
+      },
+    ],
+    enrollments: [
+      {
+        externalId: "e-show",
+        source: "website" as const,
+        participantExternalId: "p1",
+        accountExternalId: "a1",
+        offeringName,
+        offeringCategory: "camp",
+        offeringActivityId: activityId,
+        status: "enrolled" as const,
+        balanceCents: 0,
+        amountPaidCents: 99500,
+        enrolledAt: "2026-08-17T00:00:00.000Z",
+      },
+    ],
+  });
+
+  it("matches an offering to a production by activity id", () => {
+    const production = seed.productions[0];
+    const plan = reconcile({
+      // The listing's name and the production's title do not agree at all.
+      // Before the id, this was an unknown_offering and the child appeared on
+      // no roster.
+      ...reconcileInput(showSnapshot("BB Fall Mainstage · Cast B", 5000001)),
+      // Ava is already in prod-frozen in the seed; start from nothing so this
+      // measures the match rather than the duplicate guard.
+      enrollments: [],
+      productions: [{ ...production, registrationActivityId: 5000001 }],
+    });
+    expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0].productionId).toBe(production.id);
+  });
+
+  it("keeps matching after the show is renamed on one side", () => {
+    const production = seed.productions[0];
+    const plan = reconcile({
+      ...reconcileInput(showSnapshot(production.title, 5000002)),
+      enrollments: [],
+      // Somebody retitled the production in the app. The name match is now
+      // dead; the id is not.
+      productions: [
+        { ...production, title: "Frozen Jr. — 2027 revival", registrationActivityId: 5000002 },
+      ],
+    });
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0].productionId).toBe(production.id);
+  });
+
+  it("still falls back to the name for rows that carry no activity id", () => {
+    const production = seed.productions[0];
+    const plan = reconcile({
+      ...reconcileInput(showSnapshot(production.title, undefined)),
+      enrollments: [],
+      productions: [production],
+    });
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0].productionId).toBe(production.id);
+  });
+
+  it("does not let a stale name outrank the id", () => {
+    // Two productions: one whose TITLE matches the listing, one whose ID does.
+    // The id is the one that was written by the system that made both rows.
+    const [first, second] = seed.productions;
+    const plan = reconcile({
+      ...reconcileInput(showSnapshot(first.title, 5000003)),
+      enrollments: [],
+      productions: [first, { ...second, registrationActivityId: 5000003 }],
+    });
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.creates[0].productionId).toBe(second.id);
+  });
+
   it("resolves a coaching purchase against the staff portal's catalog", () => {
     const plan = reconcile({
       ...reconcileInput(coachingSnapshot(970404)),
