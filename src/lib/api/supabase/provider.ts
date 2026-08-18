@@ -69,6 +69,11 @@ import type {
   ThreadWithMessages,
 } from "../messages/types";
 import { describeRecipient, topicFromRow } from "../messages/topics";
+import {
+  offeringTopics,
+  pickRecipient,
+  type OfferingContact,
+} from "../messages/offering-topics";
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
 import { getFaceMatchProvider } from "../photos/face-provider";
 import { reconcile } from "../registration/reconcile";
@@ -4649,6 +4654,85 @@ class SupabaseDataProvider {
     }
   }
 
+  /**
+   * The org-wide topics PLUS this family's own shows and classes.
+   *
+   * The contact tree answers questions about the organisation the same way for
+   * everybody. It has nothing to say about the question a parent asks most —
+   * something about the specific room their child is in — so those topics are
+   * computed per family and never stored. A stored copy would start
+   * disagreeing with who is actually assigned to the show the first time
+   * somebody was swapped.
+   */
+  async listMessageTopicsForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<MessageTopic[]> {
+    const [orgTopics, assignments] = await Promise.all([
+      this.listMessageTopics(),
+      this.getStaffForFamily(actorId, familyId).catch(() => []),
+    ]);
+    if (assignments.length === 0) return orgTopics;
+
+    /*
+     * Emails live in the STAFF PORTAL, not on the hub profile. The two rows
+     * are the same person with different keys, bridged by portal_staff_id
+     * (migration 0043) rather than by name — a name join breaks silently the
+     * first time somebody marries, in the direction of a message going
+     * nowhere.
+     */
+    const hubIds = assignments.map((assignment) => assignment.profile.id);
+    const { data: links } = await this.db
+      .from("staff_profiles")
+      .select("id, portal_staff_id")
+      .in("id", hubIds);
+    const portalIdByHubId = new Map(
+      (links ?? [])
+        .filter((row) => row.portal_staff_id)
+        .map((row) => [String(row.id), String(row.portal_staff_id)])
+    );
+    const portalIds = [...new Set(portalIdByHubId.values())];
+    if (portalIds.length === 0) return orgTopics;
+
+    const { data: portalStaff } = await getPortalReadClient()
+      .from("staff")
+      .select("id, email, job_title, is_active")
+      .in("id", portalIds);
+    const emailByPortalId = new Map(
+      (portalStaff ?? [])
+        .filter((row) => row.is_active)
+        .map((row) => [String(row.id), String(row.email ?? "").trim().toLowerCase()])
+    );
+
+    /* offering → the people on it, with what we need to choose between them */
+    const byOffering = new Map<string, OfferingContact & { role?: string; roleCount: number }>();
+    for (const assignment of assignments) {
+      const portalId = portalIdByHubId.get(assignment.profile.id);
+      const email = portalId ? emailByPortalId.get(portalId) : undefined;
+      for (const role of assignment.roles) {
+        const isClass = role.href.startsWith("/classes/");
+        const candidate = {
+          offering: role.offering,
+          category: isClass ? "Your classes" : "Your shows",
+          routeId: `offering:${role.href}`,
+          staffId: assignment.profile.id,
+          recipientName: assignment.profile.fullName,
+          recipientTitle: role.role ?? (assignment.profile.title || undefined),
+          recipientEmail: email,
+          studentNames: role.studentNames,
+          sortOrder: isClass ? 20 : 10,
+          role: role.role,
+          roleCount: assignment.roles.filter((other) => other.href === role.href).length,
+        };
+        const existing = byOffering.get(role.href);
+        const winner = pickRecipient([candidate, ...(existing ? [existing] : [])]);
+        if (winner) byOffering.set(role.href, winner);
+      }
+    }
+
+    return [...orgTopics, ...offeringTopics([...byOffering.values()])];
+  }
+
   async startMessageThread(
     actorId: string,
     input: StartThreadInput
@@ -4674,8 +4758,13 @@ class SupabaseDataProvider {
      * it means a thread cannot be addressed to somebody who is not on a
      * family-facing route, or to an address that is not theirs.
      */
+    // Resolved against THIS family's list, which includes their own shows and
+    // classes. Resolving against the org list alone would silently drop a
+    // "Sweeney Todd" topic back to the front office.
     const topic = input.topicId
-      ? (await this.listMessageTopics()).find((t) => t.routeId === input.topicId)
+      ? (await this.listMessageTopicsForFamily(actorId, actor.familyId)).find(
+          (t) => t.routeId === input.topicId
+        )
       : undefined;
     const recipientRole: MessageThread["recipientRole"] =
       topic?.recipientRole ?? input.recipientRole ?? "admin";

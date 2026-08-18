@@ -15,7 +15,9 @@ export default async function NewMessagePage() {
   const provider = getProvider();
   const [students, topics] = await Promise.all([
     provider.getStudentsForFamily(user.id, user.familyId),
-    provider.listMessageTopics(),
+    // Their own shows and classes as well as the org-wide themes: the question
+    // a parent asks most is about the specific room their child is in.
+    provider.listMessageTopicsForFamily(user.id, user.familyId),
   ]);
 
   return (

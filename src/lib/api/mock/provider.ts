@@ -1,6 +1,11 @@
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
+import {
+  offeringTopics,
+  pickRecipient,
+  type OfferingContact,
+} from "../messages/offering-topics";
 import { runFromEvents, type ProductionRun } from "../productions/run";
 import type {
   AppNotification,
@@ -2884,6 +2889,46 @@ export class MockDataProvider implements DataProvider {
     return MockDataProvider.TOPICS;
   }
 
+  /**
+   * Org topics plus this family's own offerings. The mock has no portal to
+   * read emails from, so it composes one from the person's name — enough to
+   * exercise the routing, and never used against a real inbox.
+   */
+  async listMessageTopicsForFamily(
+    actorId: string,
+    familyId: string
+  ): Promise<MessageTopic[]> {
+    const assignments = await this.getStaffForFamily(actorId, familyId);
+    const byOffering = new Map<string, OfferingContact & { role?: string; roleCount: number }>();
+    for (const assignment of assignments) {
+      for (const role of assignment.roles) {
+        const isClass = role.href.startsWith("/classes/");
+        const candidate = {
+          offering: role.offering,
+          category: isClass ? "Your classes" : "Your shows",
+          routeId: `offering:${role.href}`,
+          staffId: assignment.profile.id,
+          recipientName: assignment.profile.fullName,
+          recipientTitle: role.role ?? (assignment.profile.title || undefined),
+          recipientEmail: `${assignment.profile.fullName
+            .toLowerCase()
+            .replace(/[^a-z]+/g, ".")}@novapa.org`,
+          studentNames: role.studentNames,
+          sortOrder: isClass ? 20 : 10,
+          role: role.role,
+          roleCount: assignment.roles.filter((other) => other.href === role.href).length,
+        };
+        const existing = byOffering.get(role.href);
+        const winner = pickRecipient([candidate, ...(existing ? [existing] : [])]);
+        if (winner) byOffering.set(role.href, winner);
+      }
+    }
+    return [
+      ...(await this.listMessageTopics()),
+      ...offeringTopics([...byOffering.values()]),
+    ];
+  }
+
   async startMessageThread(
     actorId: string,
     input: StartThreadInput
@@ -2905,7 +2950,9 @@ export class MockDataProvider implements DataProvider {
 
     // Resolved against the real list, never trusted from the form.
     const topic = input.topicId
-      ? MockDataProvider.TOPICS.find((t) => t.routeId === input.topicId)
+      ? (await this.listMessageTopicsForFamily(actorId, actor.familyId)).find(
+          (t) => t.routeId === input.topicId
+        )
       : undefined;
     const recipientRole: MessageRecipientRole =
       topic?.recipientRole ?? input.recipientRole ?? "admin";

@@ -551,6 +551,12 @@ export interface DataProvider {
    * roles rather than showing a family nothing.
    */
   listMessageTopics(): Promise<MessageTopic[]>;
+  /**
+   * The same list plus this family's own shows and classes, each routed to
+   * whoever runs it. Computed per request — a stored copy would start
+   * disagreeing with who is actually assigned the first time somebody swapped.
+   */
+  listMessageTopicsForFamily(actorId: string, familyId: string): Promise<MessageTopic[]>;
   startMessageThread(actorId: string, input: StartThreadInput): Promise<MessageThread>;
   replyToThread(actorId: string, threadId: string, body: string): Promise<Message>;
   getMyThreads(actorId: string): Promise<MessageThread[]>;
