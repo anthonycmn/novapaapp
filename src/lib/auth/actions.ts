@@ -77,7 +77,10 @@ export async function signUpWithEmail(formData: FormData): Promise<void> {
   });
   if (error) {
     if (/already registered/i.test(error.message)) {
-      redirect(`/login?error=already-registered&email=${encodeURIComponent(email)}`);
+      // Not an error for them to solve: they have an account but have never
+      // set a password on it (the website made it during registration). Send
+      // them straight to the reset flow rather than a sign-in they will fail.
+      redirect(`/forgot-password?existing=1&email=${encodeURIComponent(email)}`);
     }
     redirect(`/signup?error=signup-failed&email=${encodeURIComponent(email)}`);
   }
@@ -87,6 +90,34 @@ export async function signUpWithEmail(formData: FormData): Promise<void> {
     redirect(`/login?error=already-registered&email=${encodeURIComponent(email)}`);
   }
   redirect(`/signup?sent=1&email=${encodeURIComponent(email)}`);
+}
+
+/**
+ * Password reset, step 1: mail a recovery link.
+ *
+ * Reports the same "check your email" either way, even for an address we have
+ * never seen — telling a stranger which emails have accounts is the same
+ * enumeration leak signUpWithEmail guards against above.
+ *
+ * Note this only reaches people who already HAVE an auth account. A family
+ * that has never signed up gets nothing, by design: their route is /signup.
+ */
+export async function requestPasswordReset(formData: FormData): Promise<void> {
+  if (!isSupabaseMode()) redirect("/login");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email) redirect("/forgot-password?error=missing-email");
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const anon = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+  const site = process.env.URL ?? "https://portal.novapa.org";
+  await anon.auth.resetPasswordForEmail(email, {
+    redirectTo: `${site}/reset-password`,
+  });
+  redirect(`/forgot-password?sent=1&email=${encodeURIComponent(email)}`);
 }
 
 export async function signInWithEmail(formData: FormData): Promise<void> {

@@ -14,8 +14,8 @@ Three products, one database, one login system.
 | Product | URL | Who uses it | Repo | Deploys how |
 |---|---|---|---|---|
 | **Website + registration** | novapa.org | The public; families register & pay here (live Stripe) | `anthonycmn/novapawebsite` | Push to `main` auto-deploys. Working checkout may sit on `claude/site-sweep`; commit there, cherry-pick to `main` via a worktree. |
-| **Staff portal** | novapa-staff-portal.netlify.app | The 7 staff | `anthonycmn/novapa-staff-portal` (Vite + React) | Push to `main` auto-deploys |
-| **Parent portal** | novapa-family-hub.netlify.app | Families (once invited) | `anthonycmn/novapaapp` (Next.js 15) | **Does NOT auto-deploy.** See §4. |
+| **Staff portal** | staffportal.northernvirginiaperformingarts.org | The 7 staff | `anthonycmn/novapa-staff-portal` (Vite + React) | Push to `main` auto-deploys |
+| **Parent portal** | portal.novapa.org | Families (once invited) | `anthonycmn/novapaapp` (Next.js 15) | **Does NOT auto-deploy.** See §4. |
 
 Plus the **interactive curriculum dashboards** on the website
 (novapa.org/deh, novapa.org/sweeney) — staff-facing show curricula with

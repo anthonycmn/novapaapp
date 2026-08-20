@@ -106,7 +106,7 @@ export const STAFF_SECTIONS: NavSection[] = [
  * 16 Aug 2026 (registration sync, open questions, my feedback). Rendered as
  * a single outbound link rather than fifteen dead rows.
  */
-export const STAFF_PORTAL_URL = "https://novapa-staff-portal.netlify.app";
+export const STAFF_PORTAL_URL = "https://staffportal.northernvirginiaperformingarts.org";
 
 /** Section lists grouped for the sidebar, in declaration order. */
 export function groupSections(sections: NavSection[]): Array<[string, NavSection[]]> {

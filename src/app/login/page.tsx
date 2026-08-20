@@ -21,10 +21,16 @@ const DEMO_ACCOUNTS = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; email?: string; welcome?: string; next?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    email?: string;
+    welcome?: string;
+    next?: string;
+    reset?: string;
+  }>;
 }) {
   const user = await getSessionUser();
-  const { error, email, welcome, next } = await searchParams;
+  const { error, email, welcome, next, reset } = await searchParams;
   const nextPath = next && /^\/[a-zA-Z0-9/_-]*$/.test(next) ? next : undefined;
   if (user) redirect(nextPath ?? "/dashboard");
   const supabaseMode = (process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") === "supabase";
@@ -45,9 +51,11 @@ export default async function LoginPage({
         <CardHeader>
           <CardTitle as="h2">Sign in</CardTitle>
           <CardDescription>
-            {welcome
-              ? "Email confirmed! Sign in below to see your family's shows."
-              : "Enter the email on your family account and we'll sign you in."}
+            {reset
+              ? "New password saved. Sign in with it below."
+              : welcome
+                ? "Email confirmed! Sign in below to see your family's shows."
+                : "Enter the email on your family account and we'll sign you in."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -89,7 +97,7 @@ export default async function LoginPage({
                 {error === "bad-credentials" && (
                   <p role="alert" className="text-sm text-destructive">
                     That email and password don&apos;t match. Try again, or
-                    contact the office if you&apos;re locked out.
+                    reset your password below.
                   </p>
                 )}
                 {error === "missing-password" && (
@@ -116,6 +124,12 @@ export default async function LoginPage({
                     or contact the office and we&apos;ll connect you.
                   </p>
                 )}
+                <a
+                  href="/forgot-password"
+                  className="self-start text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+                >
+                  Forgot your password?
+                </a>
               </div>
             )}
             <Button type="submit" className="w-full">
