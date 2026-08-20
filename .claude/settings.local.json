@@ -34,7 +34,8 @@
       "Bash(curl -s \"https://tlkuqwsqicxcjdmumkje.supabase.co/auth/v1/settings\" -H \"apikey: sb_publishable_8ar97CkK-C0YlWuOGtI_tA_mwTDVE6H\")",
       "Bash(git commit -m 'Family signup flow: claim your account with the email you registered with *)",
       "Bash(curl -s https://novapa-family-hub.netlify.app/signup)",
-      "PowerShell(Get-NetTCPConnection -LocalPort 3100 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { try { Stop-Process -Id $_ -Force -Confirm:$false } catch {} }; \"cleaned\")"
+      "PowerShell(Get-NetTCPConnection -LocalPort 3100 -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique | ForEach-Object { try { Stop-Process -Id $_ -Force -Confirm:$false } catch {} }; \"cleaned\")",
+      "mcp__ac76c4bc-ef0f-4a76-aca2-4e954ec4630f__send_message"
     ]
   }
 }

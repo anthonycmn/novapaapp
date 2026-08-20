@@ -14,8 +14,15 @@ import type { SessionUser } from "@/lib/api/types";
  * First used by /api/photos/ingest; every portal-called route shares this.
  */
 
+/**
+ * The staff portal's own domain (Tony, 20 Aug 2026). It moved off
+ * novapa-staff-portal.netlify.app and this fallback did not follow, which
+ * would have failed the CORS preflight on every bridge call the moment the
+ * env var was missing. Override with STAFF_PORTAL_ORIGIN if it moves again.
+ */
 export const PORTAL_ORIGIN =
-  process.env.STAFF_PORTAL_ORIGIN ?? "https://novapa-staff-portal.netlify.app";
+  process.env.STAFF_PORTAL_ORIGIN ??
+  "https://staffportal.northernvirginiaperformingarts.org";
 
 export function corsHeaders(): Record<string, string> {
   return {
