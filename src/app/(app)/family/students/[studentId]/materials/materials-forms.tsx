@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
-import { FileText, Music, Trash2, Upload } from "lucide-react";
+import { useActionState, useState } from "react";
+import { FileText, Music, Trash2 } from "lucide-react";
 import {
   clearAuditionAudioAction,
   saveAuditionAudioAction,
@@ -15,20 +15,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DirectUpload } from "@/components/forms/direct-upload";
 import { FieldError } from "@/components/forms/field-error";
 import { HeadshotCropper, type HeadshotResult } from "@/components/media/headshot-cropper";
 
 const initial: FamilyFormState = { ok: false };
 
-/** Reads any file to a data URL — the shape our upload actions accept. */
-function readAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Could not read that file"));
-    reader.readAsDataURL(file);
-  });
-}
+
 
 /* ── headshot ───────────────────────────────────────────────────────────── */
 
@@ -75,25 +68,10 @@ export function HeadshotSection({ student }: { student: Student }) {
 /* ── audition audio ─────────────────────────────────────────────────────── */
 
 export function AuditionAudioSection({ student }: { student: Student }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [dataUrl, setDataUrl] = useState("");
-  const [fileName, setFileName] = useState("");
-  const [readError, setReadError] = useState<string | null>(null);
+  const [uploaded, setUploaded] = useState<{ fileName: string; path: string } | null>(null);
 
   const bound = saveAuditionAudioAction.bind(null, student.id);
   const [state, formAction, pending] = useActionState(bound, initial);
-
-  async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setReadError(null);
-    try {
-      setDataUrl(await readAsDataUrl(file));
-      setFileName(file.name);
-    } catch {
-      setReadError("Could not read that file.");
-    }
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -116,22 +94,19 @@ export function AuditionAudioSection({ student }: { student: Student }) {
       )}
 
       <form action={formAction} className="flex flex-col gap-2">
-        <input type="hidden" name="audioDataUrl" value={dataUrl} />
-        <input
-          ref={fileRef}
-          id="audition-audio"
-          type="file"
+        {/* Straight to storage: a recording will not fit a form post. */}
+        <DirectUpload
+          name="audioUrl"
+          pathName="audioPath"
+          bucket="audition-audio"
+          studentId={student.id}
+          label={student.auditionAudioUrl ? "Replace recording" : "Upload a recording"}
           accept="audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/webm,audio/ogg"
-          onChange={onPick}
-          className="sr-only"
+          hint="An MP3 or a phone voice memo, up to 10 MB."
+          onUploaded={setUploaded}
         />
-        <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-          <Upload aria-hidden />
-          {student.auditionAudioUrl ? "Replace recording" : "Upload a recording"}
-        </Button>
-        {fileName && <p className="text-xs text-muted-foreground">{fileName}</p>}
-        <FieldError message={readError ?? state.errors?._form} />
-        {dataUrl && (
+        <FieldError message={state.errors?._form} />
+        {uploaded && (
           <Button type="submit" disabled={pending}>
             {pending ? "Uploading…" : "Save recording"}
           </Button>
@@ -149,22 +124,13 @@ export function AuditionAudioSection({ student }: { student: Student }) {
 /* ── resume PDF ─────────────────────────────────────────────────────────── */
 
 export function ResumePdfSection({ student }: { student: Student }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [dataUrl, setDataUrl] = useState("");
-  const [fileName, setFileName] = useState("");
+  const [uploaded, setUploaded] = useState<{ fileName: string; path: string } | null>(null);
   const bound = saveResumePdfAction.bind(null, student.id);
   const [state, formAction, pending] = useActionState(bound, initial);
 
-  async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setDataUrl(await readAsDataUrl(file));
-    setFileName(file.name);
-  }
-
   return (
     <form action={formAction} className="flex flex-col gap-2">
-      <input type="hidden" name="pdfDataUrl" value={dataUrl} />
+
       {student.resumePdfUrl && (
         <a
           href={student.resumePdfUrl}
@@ -176,21 +142,19 @@ export function ResumePdfSection({ student }: { student: Student }) {
           View uploaded resume PDF
         </a>
       )}
-      <input
-        ref={fileRef}
-        id="resume-pdf"
-        type="file"
+      {/* Straight to storage: a scanned resume is well over the body cap. */}
+      <DirectUpload
+        name="resumePdfUrl"
+        pathName="resumePdfPath"
+        bucket="resumes"
+        studentId={student.id}
+        label={student.resumePdfUrl ? "Replace PDF" : "Upload a PDF resume"}
         accept="application/pdf"
-        onChange={onPick}
-        className="sr-only"
+        hint="PDF, up to 10 MB."
+        onUploaded={setUploaded}
       />
-      <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-        <Upload aria-hidden />
-        {student.resumePdfUrl ? "Replace PDF" : "Upload a PDF resume"}
-      </Button>
-      {fileName && <p className="text-xs text-muted-foreground">{fileName}</p>}
       <FieldError message={state.errors?._form} />
-      {dataUrl && (
+      {uploaded && (
         <Button type="submit" disabled={pending}>
           {pending ? "Uploading…" : "Save PDF"}
         </Button>

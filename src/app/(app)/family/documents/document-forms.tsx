@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
-import { Trash2, Upload } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { deleteDocumentAction, uploadDocumentAction } from "@/lib/actions/materials";
 import type { FamilyFormState } from "@/lib/actions/family";
 import { DOCUMENT_CATEGORIES } from "@/lib/api/documents/types";
 import type { Student } from "@/lib/api/types";
+import { DirectUpload } from "@/components/forms/direct-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,36 +21,25 @@ export function DocumentUploadForm({
   familyId: string;
   students: Student[];
 }) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [dataUrl, setDataUrl] = useState("");
-  const [fileName, setFileName] = useState("");
+  const [uploaded, setUploaded] = useState<{ fileName: string; path: string } | null>(null);
+  // Bumped on a successful save so the picker is remounted empty: the document
+  // has moved into the vault below, and leaving it attached here reads as
+  // though it is about to be filed a second time.
+  const [pickerKey, setPickerKey] = useState(0);
   const [state, formAction, pending] = useActionState(
     async (prev: FamilyFormState, formData: FormData) => {
       const result = await uploadDocumentAction(familyId, prev, formData);
       if (result.ok) {
-        setDataUrl("");
-        setFileName("");
+        setUploaded(null);
+        setPickerKey((current) => current + 1);
       }
       return result;
     },
     initial
   );
 
-  async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setDataUrl(String(reader.result));
-      setFileName(file.name);
-    };
-    reader.readAsDataURL(file);
-  }
-
   return (
     <form action={formAction} className="flex flex-col gap-3">
-      <input type="hidden" name="fileDataUrl" value={dataUrl} />
-
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="doc-name">Document name</Label>
         <Input
@@ -57,8 +47,8 @@ export function DocumentUploadForm({
           name="name"
           placeholder="Signed liability waiver 2026"
           required
-          defaultValue={fileName.replace(/\.[^.]+$/, "")}
-          key={fileName}
+          defaultValue={uploaded?.fileName.replace(/\.[^.]+$/, "") ?? ""}
+          key={uploaded?.path ?? "empty"}
         />
         <FieldError message={state.errors?.name} />
       </div>
@@ -97,22 +87,29 @@ export function DocumentUploadForm({
         </div>
       </div>
 
-      <input
-        ref={fileRef}
-        id="doc-file"
-        type="file"
+      {/*
+        * Straight to storage, not through the form post.
+        *
+        * A scan of a signed waiver is routinely well over the 6 MB request-body
+        * cap a serverless function has, and base64 adds a third on top — which
+        * is why every document upload used to fail with nothing on screen. The
+        * signed URL takes the function out of the path, so the real limit is
+        * the bucket's 20 MB.
+        */}
+      <DirectUpload
+        key={pickerKey}
+        name="fileUrl"
+        pathName="filePath"
+        bucket="family-documents"
+        label="File"
         accept="application/pdf,image/jpeg,image/png,image/webp"
-        onChange={onPick}
-        className="sr-only"
+        hint="A PDF or a photo of the form, up to 20 MB."
+        onUploaded={setUploaded}
       />
-      <Button type="button" variant="outline" onClick={() => fileRef.current?.click()}>
-        <Upload aria-hidden />
-        {fileName || "Choose a PDF or photo"}
-      </Button>
 
       <FieldError message={state.errors?._form} />
 
-      <Button type="submit" disabled={pending || !dataUrl}>
+      <Button type="submit" disabled={pending || !uploaded}>
         {pending ? "Uploading…" : "Add to vault"}
       </Button>
       {state.ok && (

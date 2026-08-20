@@ -762,10 +762,11 @@ async function main() {
   /* ── document vault ── */
   const pdf = "data:application/pdf;base64,JVBERi0xLjQKJcOkw7zDtsOfCg==";
   const familyDoc = await p.uploadFamilyDocument(sofia.id, sofia.familyId, {
-    name: "Costume receipt", category: "financial", dataUrl: pdf,
+    name: "Costume receipt", category: "financial", source: { kind: "dataUrl", dataUrl: pdf },
   });
   const staffDoc = await p.uploadFamilyDocument(dana.id, sofia.familyId, {
-    name: "Countersigned waiver", category: "waiver", dataUrl: pdf, studentId: ava.id,
+    name: "Countersigned waiver", category: "waiver",
+    source: { kind: "dataUrl", dataUrl: pdf }, studentId: ava.id,
   });
   const vault = await p.getFamilyDocuments(sofia.id, sofia.familyId);
   check(

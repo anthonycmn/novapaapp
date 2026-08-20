@@ -33,6 +33,16 @@ const FAMILY_BUCKETS: StorageBucket[] = [
   "family-documents",
 ];
 
+/**
+ * Buckets scoped to a household rather than to one child.
+ *
+ * The vault holds a household's paperwork — an insurance card, a custody order
+ * — and a document may be about no child in particular, so there is no student
+ * to hang the path off. The family comes from the session, never from the
+ * request: it is the one piece of scope a caller must not be able to choose.
+ */
+const FAMILY_SCOPED: StorageBucket[] = ["family-documents"];
+
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) {
@@ -86,32 +96,48 @@ export async function POST(request: Request) {
   }
 
   /*
-   * Whose file is this? Every family bucket here is per-student, so the actor
-   * has to be able to reach that student. getStudent enforces the family rule
-   * and throws otherwise — which is exactly the check that stops one family
-   * writing into another's folder.
+   * Whose file is this? The answer is the folder it gets written to, so it is
+   * settled before anything is signed.
+   *
+   * For a household bucket the scope is the caller's own family, taken off the
+   * session. For the per-student buckets the actor has to be able to reach that
+   * student: getStudent enforces the family rule and throws otherwise, which is
+   * exactly the check that stops one family writing into another's folder.
    */
-  const studentId = String(body.studentId ?? "");
-  if (!studentId) {
-    return NextResponse.json({ error: "Missing student" }, { status: 400 });
-  }
-  try {
-    const student = await getProvider().getStudent(user.id, studentId);
-    if (!student) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
+  let scope: string;
+  if (FAMILY_SCOPED.includes(bucket)) {
+    if (!user.familyId) {
+      return NextResponse.json({ error: "No household on this account" }, { status: 403 });
     }
-  } catch {
-    return NextResponse.json({ error: "Not your student" }, { status: 403 });
+    scope = user.familyId;
+  } else {
+    const studentId = String(body.studentId ?? "");
+    if (!studentId) {
+      return NextResponse.json({ error: "Missing student" }, { status: 400 });
+    }
+    try {
+      const student = await getProvider().getStudent(user.id, studentId);
+      if (!student) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Not your student" }, { status: 403 });
+    }
+    scope = studentId;
   }
 
   /*
    * The path is composed here, never accepted from the client. It is scoped to
-   * the student and stamped with the time so a re-record does not have to
-   * reuse a name, and the original extension is kept only so a download lands
-   * with something a computer can open.
+   * the household or student and stamped with the time so a re-record does not
+   * have to reuse a name, and the original extension is kept only so a download
+   * lands with something a computer can open.
+   *
+   * That scope prefix is load-bearing twice: once here, and again when the form
+   * comes back and resolveUpload() checks the returned path still starts with
+   * it.
    */
   const extension = safeExtension(body.fileName, body.contentType);
-  const path = `${studentId}/${bucket}-${Date.now()}${extension}`;
+  const path = `${scope}/${bucket}-${Date.now()}${extension}`;
 
   try {
     const signed = await getStorageProvider().createSignedUpload(bucket, path);

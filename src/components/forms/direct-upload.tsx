@@ -26,19 +26,33 @@ export function DirectUpload({
   accept,
   hint,
   existingUrl,
+  pathName,
+  onUploaded,
 }: {
   /** Form field carrying the resulting URL. */
   name: string;
   bucket: string;
-  studentId: string;
+  /** Omitted for household buckets, where the signing route scopes by family. */
+  studentId?: string;
   label: string;
   accept: string;
   hint?: string;
   existingUrl?: string;
+  /**
+   * Form field carrying the STORAGE PATH, for records that resolve the address
+   * server-side instead of taking the client's word for it. Set this and the
+   * action can verify the file is one it issued a place for.
+   */
+  pathName?: string;
+  /** Told when a file lands, or cleared with null when it is taken back off. */
+  onUploaded?: (file: { fileName: string; path: string } | null) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState(existingUrl ?? "");
+  const [path, setPath] = useState("");
   const [fileName, setFileName] = useState("");
+  const [contentType, setContentType] = useState("");
+  const [sizeBytes, setSizeBytes] = useState(0);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState("");
 
@@ -47,6 +61,8 @@ export function DirectUpload({
     if (!file) return;
     setError("");
     setFileName(file.name);
+    setContentType(file.type);
+    setSizeBytes(file.size);
     setProgress(0);
 
     try {
@@ -83,11 +99,15 @@ export function DirectUpload({
       });
 
       setUrl(signed.publicUrl);
+      setPath(signed.path);
       setProgress(100);
+      onUploaded?.({ fileName: file.name, path: signed.path });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
       setProgress(null);
       setFileName("");
+      setPath("");
+      onUploaded?.(null);
     } finally {
       // Let the same file be chosen again after a failure.
       if (inputRef.current) inputRef.current.value = "";
@@ -102,6 +122,9 @@ export function DirectUpload({
       {/* The empty string is meaningful: it CLEARS the stored file, where a
           missing field would leave it alone. */}
       <input type="hidden" name={name} value={url} />
+      {pathName && <input type="hidden" name={pathName} value={path} />}
+      {pathName && <input type="hidden" name={`${pathName}ContentType`} value={contentType} />}
+      {pathName && <input type="hidden" name={`${pathName}SizeBytes`} value={sizeBytes} />}
       <input
         ref={inputRef}
         type="file"
@@ -127,8 +150,10 @@ export function DirectUpload({
             type="button"
             onClick={() => {
               setUrl("");
+              setPath("");
               setFileName("");
               setProgress(null);
+              onUploaded?.(null);
             }}
             className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={`Remove ${label}`}

@@ -61,19 +61,19 @@ describe("student materials (#4)", () => {
     await expect(
       provider.setHeadshot("user-ngozi", "stu-ava", { webDataUrl: PNG, printDataUrl: PNG })
     ).rejects.toThrow(AccessDeniedError);
-    await expect(provider.setAuditionAudio("user-ngozi", "stu-ava", MP3)).rejects.toThrow(
+    await expect(provider.setAuditionAudio("user-ngozi", "stu-ava", { kind: "dataUrl", dataUrl: MP3 })).rejects.toThrow(
       AccessDeniedError
     );
   });
 
   it("staff cannot upload student materials — families own them", async () => {
     await expect(
-      provider.setResumePdf("user-marcus", "stu-ava", PDF)
+      provider.setResumePdf("user-marcus", "stu-ava", { kind: "dataUrl", dataUrl: PDF })
     ).rejects.toThrow(AccessDeniedError);
   });
 
   it("stores and clears audition audio", async () => {
-    const withAudio = await provider.setAuditionAudio("user-sofia", "stu-ava", MP3);
+    const withAudio = await provider.setAuditionAudio("user-sofia", "stu-ava", { kind: "dataUrl", dataUrl: MP3 });
     expect(withAudio.auditionAudioUrl).toBeTruthy();
     const cleared = await provider.clearAuditionAudio("user-sofia", "stu-ava");
     expect(cleared.auditionAudioUrl).toBeUndefined();
@@ -162,7 +162,7 @@ describe("household document vault (#3)", () => {
     const document = await provider.uploadFamilyDocument("user-sofia", "fam-martinez", {
       name: "Signed waiver",
       category: "waiver",
-      dataUrl: PDF,
+      source: { kind: "dataUrl", dataUrl: PDF },
     });
     expect(document.uploadedByStaff).toBe(false);
 
@@ -181,7 +181,7 @@ describe("household document vault (#3)", () => {
       provider.uploadFamilyDocument("user-ngozi", "fam-martinez", {
         name: "x",
         category: "other",
-        dataUrl: PDF,
+        source: { kind: "dataUrl", dataUrl: PDF },
       })
     ).rejects.toThrow(AccessDeniedError);
   });
@@ -190,7 +190,7 @@ describe("household document vault (#3)", () => {
     const staffDoc = await provider.uploadFamilyDocument("user-dana", "fam-martinez", {
       name: "Countersigned waiver",
       category: "waiver",
-      dataUrl: PDF,
+      source: { kind: "dataUrl", dataUrl: PDF },
     });
     expect(staffDoc.uploadedByStaff).toBe(true);
     await expect(
@@ -205,7 +205,7 @@ describe("household document vault (#3)", () => {
       provider.uploadFamilyDocument("user-sofia", "fam-martinez", {
         name: "script",
         category: "other",
-        dataUrl: "data:text/html;base64,PHNjcmlwdD4=",
+        source: { kind: "dataUrl", dataUrl: "data:text/html;base64,PHNjcmlwdD4=" },
       })
     ).rejects.toThrow(UploadRejectedError);
   });

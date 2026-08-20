@@ -51,6 +51,15 @@ export interface StorageProvider {
    * path entirely: only the address travels back.
    */
   createSignedUpload(bucket: StorageBucket, path: string): Promise<SignedUpload>;
+  /**
+   * Where a file at this path lives, worked out rather than looked up.
+   *
+   * This is what lets a direct upload be claimed safely. The browser sends back
+   * only the storage PATH it was given; the server rebuilds the address itself.
+   * Take the URL from the client instead and a family can record any address
+   * they like against their own paperwork — including one that is not ours.
+   */
+  publicUrlFor(bucket: StorageBucket, path: string): string;
   remove(bucket: StorageBucket, path: string): Promise<void>;
 }
 
@@ -87,6 +96,10 @@ class MockStorageProvider implements StorageProvider {
     // Nothing to sign without a bucket. The route reports this honestly rather
     // than handing back a URL that would silently fail.
     throw new Error("Storage is not configured, so there is nowhere to upload to.");
+  }
+
+  publicUrlFor(bucket: StorageBucket, path: string): string {
+    return this.files.get(`${bucket}/${path}`)?.url ?? `mock://${bucket}/${path}`;
   }
 
   async remove(bucket: StorageBucket, path: string): Promise<void> {
@@ -181,6 +194,10 @@ class SupabaseStorageProvider implements StorageProvider {
     };
   }
 
+  publicUrlFor(bucket: StorageBucket, path: string): string {
+    return `${this.url}/storage/v1/object/${this.physical(bucket)}/${path}`;
+  }
+
   async remove(bucket: StorageBucket, path: string): Promise<void> {
     await fetch(
       `${this.url}/storage/v1/object/${this.physical(bucket)}/${encodeURIComponent(path)}`,
@@ -273,6 +290,105 @@ export const UPLOAD_LIMITS: Record<
 };
 
 export class UploadRejectedError extends Error {}
+
+/**
+ * How a file reached us.
+ *
+ * Small files still ride through a server action as a base64 data URL, because
+ * for a headshot that is simpler and there is nothing to gain. Anything that
+ * cannot fit the 6 MB request-body cap — a scanned PDF, a recording — goes
+ * straight from the browser to storage first, and what arrives here afterwards
+ * is only the path it was written to.
+ */
+export type UploadSource =
+  | { kind: "dataUrl"; dataUrl: string }
+  | {
+      kind: "stored";
+      /** The path handed out by /api/uploads/sign, and nothing else. */
+      storagePath: string;
+      contentType: string;
+      sizeBytes: number;
+    };
+
+/** What a record needs in order to point at a file, however it got there. */
+export interface ResolvedUpload {
+  url: string;
+  path: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+/**
+ * A path a client handed back has to sit inside the folder we scoped it to.
+ *
+ * The signing route composes every path itself and never accepts one, so a
+ * legitimate claim always begins with the caller's own family or student id.
+ * This is the check that keeps it that way on the return leg — without it a
+ * family could file another household's document into their own vault by
+ * quoting its path.
+ */
+export function assertClaimedPath(path: string, scopePrefix: string): void {
+  const bad =
+    !path ||
+    path.length > 400 ||
+    path.startsWith("/") ||
+    path.includes("..") ||
+    path.includes("\\") ||
+    [...path].some((character) => character.charCodeAt(0) < 0x20) ||
+    !path.startsWith(`${scopePrefix}/`);
+  if (bad) throw new UploadRejectedError("That upload does not belong to this record.");
+}
+
+/**
+ * Turn either kind of upload into the row we are about to write.
+ *
+ * A data URL is validated and pushed to storage here. A direct upload is
+ * already in the bucket, so what is checked instead is that the path is one we
+ * could have issued to this caller, and that the type and size it reports are
+ * ones the bucket would have accepted in the first place. Those two numbers
+ * come from the browser and are display metadata — the bytes themselves are
+ * whatever was written to a path we scoped — so they are bounded here rather
+ * than trusted.
+ */
+export async function resolveUpload(
+  bucket: StorageBucket,
+  source: UploadSource,
+  scopePrefix: string
+): Promise<ResolvedUpload> {
+  const limits = UPLOAD_LIMITS[bucket];
+
+  if (source.kind === "dataUrl") {
+    assertUploadAllowed(bucket, source.dataUrl);
+    const path = `${scopePrefix}/${crypto.randomUUID()}`;
+    const stored = await getStorageProvider().upload(bucket, path, source.dataUrl);
+    return {
+      url: stored.url,
+      path: stored.path,
+      contentType: stored.contentType,
+      sizeBytes: stored.sizeBytes,
+    };
+  }
+
+  assertClaimedPath(source.storagePath, scopePrefix);
+  if (!limits.contentTypes.includes(source.contentType)) {
+    throw new UploadRejectedError(
+      `A ${limits.label} must be one of: ${limits.contentTypes.join(", ")}.`
+    );
+  }
+  const sizeBytes = Number(source.sizeBytes);
+  if (!Number.isFinite(sizeBytes) || sizeBytes <= 0 || sizeBytes > limits.maxBytes) {
+    throw new UploadRejectedError(
+      `That ${limits.label} is outside the ${limits.maxBytes / 1024 / 1024} MB limit.`
+    );
+  }
+
+  return {
+    url: getStorageProvider().publicUrlFor(bucket, source.storagePath),
+    path: source.storagePath,
+    contentType: source.contentType,
+    sizeBytes,
+  };
+}
 
 /**
  * Validates a data URL against the bucket's limits. Called on the SERVER —

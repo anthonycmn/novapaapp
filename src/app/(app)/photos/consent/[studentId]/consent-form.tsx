@@ -9,6 +9,7 @@ import { MAX_REFERENCE_PHOTOS, MIN_REFERENCE_PHOTOS } from "@/lib/api/photos/typ
 import {
   ImageRejectedError,
   readImageFile,
+  REFERENCE_PHOTO_BUDGET,
   type PickedImage,
 } from "@/lib/platform/image-picker";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,9 @@ export function ConsentForm({
     const next: PickedImage[] = [];
     for (const file of files.slice(0, MAX_REFERENCE_PHOTOS - photos.length)) {
       try {
-        next.push(await readImageFile(file));
+        // All four photos ride in one request; REFERENCE_PHOTO_BUDGET is what
+        // keeps the four of them together under the 6 MB body cap.
+        next.push(await readImageFile(file, REFERENCE_PHOTO_BUDGET));
       } catch (error) {
         setPhotoError(
           error instanceof ImageRejectedError ? error.message : "Could not read that photo."

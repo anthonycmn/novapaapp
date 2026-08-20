@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import type { UploadSource } from "@/lib/api/storage";
 import type { ResumeCredit } from "@/lib/api/types";
 import { UploadRejectedError } from "@/lib/api/storage";
 import type { DocumentCategory } from "@/lib/api/documents/types";
@@ -55,11 +56,11 @@ export async function saveAuditionAudioAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
-  const dataUrl = String(formData.get("audioDataUrl") ?? "");
-  if (!dataUrl) return { ok: false, errors: { _form: "Choose a recording first" } };
+  const source = storedUpload(formData, "audioPath");
+  if (!source) return { ok: false, errors: { _form: "Choose a recording first" } };
 
   try {
-    await getProvider().setAuditionAudio(user.id, studentId, dataUrl);
+    await getProvider().setAuditionAudio(user.id, studentId, source);
   } catch (error) {
     return failure(error);
   }
@@ -82,11 +83,11 @@ export async function saveResumePdfAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
-  const dataUrl = String(formData.get("pdfDataUrl") ?? "");
-  if (!dataUrl) return { ok: false, errors: { _form: "Choose a PDF first" } };
+  const source = storedUpload(formData, "resumePdfPath");
+  if (!source) return { ok: false, errors: { _form: "Choose a PDF first" } };
 
   try {
-    await getProvider().setResumePdf(user.id, studentId, dataUrl);
+    await getProvider().setResumePdf(user.id, studentId, source);
   } catch (error) {
     return failure(error);
   }
@@ -139,6 +140,26 @@ export async function saveResumeCreditsAction(
   return { ok: true };
 }
 
+/**
+ * What a direct upload leaves in the form.
+ *
+ * Only the storage PATH comes back, never an address — the server rebuilds the
+ * URL from the path so a family cannot record an arbitrary one against their
+ * own paperwork. The type and size travel with it for the record's own
+ * metadata, and resolveUpload() bounds them against the bucket's limits rather
+ * than believing them.
+ */
+function storedUpload(formData: FormData, field: string): UploadSource | null {
+  const storagePath = String(formData.get(field) ?? "");
+  if (!storagePath) return null;
+  return {
+    kind: "stored",
+    storagePath,
+    contentType: String(formData.get(`${field}ContentType`) ?? ""),
+    sizeBytes: Number(formData.get(`${field}SizeBytes`) ?? 0),
+  };
+}
+
 /* ── household document vault (#3) ──────────────────────────────────────── */
 
 export async function uploadDocumentAction(
@@ -151,17 +172,24 @@ export async function uploadDocumentAction(
 
   const name = String(formData.get("name") ?? "").trim();
   const category = String(formData.get("category") ?? "other") as DocumentCategory;
-  const dataUrl = String(formData.get("fileDataUrl") ?? "");
   const studentId = String(formData.get("studentId") ?? "") || undefined;
+  const source = storedUpload(formData, "filePath");
 
   if (!name) return { ok: false, errors: { name: "Give the document a name" } };
-  if (!dataUrl) return { ok: false, errors: { _form: "Choose a file first" } };
+  if (!source) return { ok: false, errors: { _form: "Choose a file first" } };
 
+  /*
+   * familyId is checked by the provider's family rule, and the signing route
+   * scoped the storage path to the caller's own household, so the two have to
+   * agree or resolveUpload() refuses the claim. That does mean a staff member
+   * cannot file into a family's vault through THIS action — no staff surface
+   * uses it today, and one would need its own signing scope.
+   */
   try {
     await getProvider().uploadFamilyDocument(user.id, familyId, {
       name,
       category,
-      dataUrl,
+      source,
       studentId,
     });
   } catch (error) {

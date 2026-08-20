@@ -36,6 +36,7 @@ import type {
   Student,
   User,
 } from "./types";
+import type { UploadSource } from "./storage";
 import type { OpenOffering } from "./catalog/offerings";
 import type { ProductionRun } from "./productions/run";
 import type {
@@ -497,8 +498,8 @@ export interface DataProvider {
     studentId: string,
     files: { webDataUrl: string; printDataUrl: string }
   ): Promise<Student>;
-  setResumePdf(actorId: string, studentId: string, dataUrl: string): Promise<Student>;
-  setAuditionAudio(actorId: string, studentId: string, dataUrl: string): Promise<Student>;
+  setResumePdf(actorId: string, studentId: string, source: UploadSource): Promise<Student>;
+  setAuditionAudio(actorId: string, studentId: string, source: UploadSource): Promise<Student>;
   clearAuditionAudio(actorId: string, studentId: string): Promise<Student>;
   saveResumeCredits(
     actorId: string,
@@ -514,7 +515,7 @@ export interface DataProvider {
     input: {
       name: string;
       category: DocumentCategory;
-      dataUrl: string;
+      source: UploadSource;
       studentId?: string;
     }
   ): Promise<FamilyDocument>;

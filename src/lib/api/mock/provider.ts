@@ -87,6 +87,8 @@ import type {
 import { buildFsaStatement } from "../documents/fsa";
 import {
   assertUploadAllowed,
+  resolveUpload,
+  type UploadSource,
   getStorageProvider,
   type StorageBucket,
 } from "../storage";
@@ -2511,9 +2513,14 @@ export class MockDataProvider implements DataProvider {
     return deepClone(student);
   }
 
-  async setResumePdf(actorId: string, studentId: string, dataUrl: string): Promise<Student> {
+  async setResumePdf(
+    actorId: string,
+    studentId: string,
+    source: UploadSource
+  ): Promise<Student> {
     const student = this.studentForWrite(actorId, studentId);
-    student.resumePdfUrl = await this.store("resumes", `${studentId}/resume.pdf`, dataUrl);
+    const resolved = await resolveUpload("resumes", source, studentId);
+    student.resumePdfUrl = resolved.url;
     student.updatedAt = nowIso();
     return deepClone(student);
   }
@@ -2521,14 +2528,11 @@ export class MockDataProvider implements DataProvider {
   async setAuditionAudio(
     actorId: string,
     studentId: string,
-    dataUrl: string
+    source: UploadSource
   ): Promise<Student> {
     const student = this.studentForWrite(actorId, studentId);
-    student.auditionAudioUrl = await this.store(
-      "audition-audio",
-      `${studentId}/audition`,
-      dataUrl
-    );
+    const resolved = await resolveUpload("audition-audio", source, studentId);
+    student.auditionAudioUrl = resolved.url;
     student.updatedAt = nowIso();
     return deepClone(student);
   }
@@ -2536,7 +2540,11 @@ export class MockDataProvider implements DataProvider {
   async clearAuditionAudio(actorId: string, studentId: string): Promise<Student> {
     const student = this.studentForWrite(actorId, studentId);
     if (student.auditionAudioUrl) {
-      await getStorageProvider().remove("audition-audio", `${studentId}/audition`);
+      // The object itself is left where it is, matching the Supabase provider.
+      // Recordings no longer sit at a predictable path — a direct upload is
+      // stamped with its time so a re-record cannot collide — and the record
+      // does not keep one. Sweeping orphans is a job for a cleanup pass, not
+      // for a parent pressing "remove".
       student.auditionAudioUrl = undefined;
       student.updatedAt = nowIso();
     }
@@ -2572,7 +2580,7 @@ export class MockDataProvider implements DataProvider {
     input: {
       name: string;
       category: DocumentCategory;
-      dataUrl: string;
+      source: UploadSource;
       studentId?: string;
     }
   ): Promise<FamilyDocument> {
@@ -2581,13 +2589,7 @@ export class MockDataProvider implements DataProvider {
     // received on paper), so this is read-access plus a staff allowance.
     assertFamilyAccess(actor, familyId);
 
-    assertUploadAllowed("family-documents", input.dataUrl);
-    const path = `${familyId}/${nextId("doc")}`;
-    const stored = await getStorageProvider().upload(
-      "family-documents",
-      path,
-      input.dataUrl
-    );
+    const stored = await resolveUpload("family-documents", input.source, familyId);
 
     const document: FamilyDocument = {
       id: nextId("doc"),
@@ -2596,7 +2598,7 @@ export class MockDataProvider implements DataProvider {
       name: input.name,
       category: input.category,
       fileUrl: stored.url,
-      storagePath: path,
+      storagePath: stored.path,
       contentType: stored.contentType,
       sizeBytes: stored.sizeBytes,
       uploadedAt: nowIso(),

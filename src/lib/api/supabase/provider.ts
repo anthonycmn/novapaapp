@@ -109,7 +109,12 @@ import {
 } from "../reviews/types";
 import { aggregate, trend } from "../reviews/aggregate";
 import type { ReviewAggregate, TrendPoint } from "../reviews/types";
-import { assertUploadAllowed, getStorageProvider } from "../storage";
+import {
+  assertUploadAllowed,
+  getStorageProvider,
+  resolveUpload,
+  type UploadSource,
+} from "../storage";
 import { getPortalReadClient, getServiceClient, getWebsiteReadClient } from "./client";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
@@ -3105,14 +3110,22 @@ class SupabaseDataProvider {
     });
   }
 
-  async setResumePdf(actorId: string, studentId: string, dataUrl: string): Promise<Student> {
-    const url = await this.storeFile("resumes", `${studentId}/resume.pdf`, dataUrl);
-    return this.materialWrite(actorId, studentId, { resume_pdf_url: url });
+  async setResumePdf(
+    actorId: string,
+    studentId: string,
+    source: UploadSource
+  ): Promise<Student> {
+    const stored = await resolveUpload("resumes", source, studentId);
+    return this.materialWrite(actorId, studentId, { resume_pdf_url: stored.url });
   }
 
-  async setAuditionAudio(actorId: string, studentId: string, dataUrl: string): Promise<Student> {
-    const url = await this.storeFile("audition-audio", `${studentId}/audition`, dataUrl);
-    return this.materialWrite(actorId, studentId, { audition_audio_url: url });
+  async setAuditionAudio(
+    actorId: string,
+    studentId: string,
+    source: UploadSource
+  ): Promise<Student> {
+    const stored = await resolveUpload("audition-audio", source, studentId);
+    return this.materialWrite(actorId, studentId, { audition_audio_url: stored.url });
   }
 
   async clearAuditionAudio(actorId: string, studentId: string): Promise<Student> {
@@ -3751,7 +3764,7 @@ class SupabaseDataProvider {
     input: {
       name: string;
       category: DocumentCategory;
-      dataUrl: string;
+      source: UploadSource;
       studentId?: string;
     }
   ): Promise<FamilyDocument> {
@@ -3760,11 +3773,7 @@ class SupabaseDataProvider {
     // received on paper), so this is read-access plus a staff allowance.
     this.assertFamilyAccess(actor, familyId);
 
-    assertUploadAllowed("family-documents", input.dataUrl);
-    const path = `${familyId}/${crypto.randomUUID()}`;
-    const stored = await getStorageProvider().upload(
-      "family-documents", path, input.dataUrl
-    );
+    const stored = await resolveUpload("family-documents", input.source, familyId);
 
     const { data, error } = await this.db
       .from("family_documents")
@@ -3774,7 +3783,7 @@ class SupabaseDataProvider {
         name: input.name,
         category: input.category,
         file_url: stored.url,
-        storage_path: path,
+        storage_path: stored.path,
         content_type: stored.contentType,
         size_bytes: stored.sizeBytes,
         uploaded_by_name: actor.displayName,
