@@ -508,6 +508,7 @@ class SupabaseDataProvider {
       contactName: s(row.contact_name),
       classId: s(row.class_id),
       productionId: s(row.production_id),
+      roleIds: (row.role_ids ?? undefined) as string[] | undefined,
       sceneIds: (row.scene_ids ?? undefined) as string[] | undefined,
       calledNote: s(row.called_note),
       worksNote: s(row.works_note),
@@ -575,16 +576,26 @@ class SupabaseDataProvider {
           (row.class_id && myClassIds.has(row.class_id)) ||
           (row.production_id && myProdIds.has(row.production_id));
         if (!enrolled) continue;
+        /*
+         * Is this child actually called? role_ids is the call sheet and wins;
+         * scene tagging remains the fallback. Both fail OPEN — an uncast
+         * student, or an untagged call, keeps the whole run visible. A family
+         * shown one rehearsal too many is inconvenienced; a family that misses
+         * one has a child who does not turn up.
+         */
+        const roleIds = (row.role_ids ?? null) as string[] | null;
         const sceneIds = (row.scene_ids ?? null) as string[] | null;
-        if (sceneIds?.length && row.production_id) {
+        if ((roleIds?.length || sceneIds?.length) && row.production_id) {
           const held = heldRoleIds(student.id, String(row.production_id));
           // Pre-publication: keep visible rather than hide the schedule.
           if (held.size > 0) {
-            const called = (scenes ?? []).some(
-              (sc) =>
-                sceneIds.includes(String(sc.id)) &&
-                ((sc.role_ids ?? []) as string[]).some((rid) => held.has(rid))
-            );
+            const called = roleIds?.length
+              ? roleIds.some((rid) => held.has(rid))
+              : (scenes ?? []).some(
+                  (sc) =>
+                    sceneIds!.includes(String(sc.id)) &&
+                    ((sc.role_ids ?? []) as string[]).some((rid) => held.has(rid))
+                );
             if (!called) continue;
           }
         }
@@ -5243,13 +5254,17 @@ class SupabaseDataProvider {
             (event.production_id && e.production_id === event.production_id))
       );
       if (!enrolled) return false;
+      const roleIds = (event.role_ids ?? null) as string[] | null;
       const sceneIds = (event.scene_ids ?? null) as string[] | null;
-      if (!sceneIds?.length || !event.production_id) return true;
+      if (!event.production_id) return true;
+      if (!roleIds?.length && !sceneIds?.length) return true;
       const held = heldRoleIds(String(student.id), String(event.production_id));
       if (held.size === 0) return true; // pre-publication fallback
+      // The call sheet wins over scene tagging — see getFamilyCalendar.
+      if (roleIds?.length) return roleIds.some((rid) => held.has(rid));
       return (scenes ?? []).some(
         (sc) =>
-          sceneIds.includes(String(sc.id)) &&
+          sceneIds!.includes(String(sc.id)) &&
           ((sc.role_ids ?? []) as string[]).some((rid) => held.has(rid))
       );
     };

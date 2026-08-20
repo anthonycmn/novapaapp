@@ -23,6 +23,13 @@ export interface IcalFeed {
   url?: string;
   /** Stripped off the front of every event title, e.g. "Sweeney Todd - ". */
   titlePrefix?: RegExp;
+  /**
+   * Call-sheet shorthand the show calendar uses that does not match the role
+   * name on its own. The sync already resolves "Anthony" to Anthony Hope and
+   * "Pirelli" to Adolfo Pirelli by prefix and suffix; only names that share no
+   * word with the role need spelling out here.
+   */
+  roleAliases?: Record<string, string>;
 }
 
 export const ICAL_FEEDS: IcalFeed[] = [
@@ -31,6 +38,7 @@ export const ICAL_FEEDS: IcalFeed[] = [
     productionId: "2f57e4a1-c61c-415e-b755-1212709ef141",
     url: process.env.SWEENEY_ICS_URL,
     titlePrefix: /^Sweeney Todd\s*[-–—]\s*/i,
+    roleAliases: { Toby: "Tobias Ragg" },
   },
 ];
 

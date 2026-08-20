@@ -1090,7 +1090,8 @@ export class MockDataProvider implements DataProvider {
         (event.classId && classIds.has(event.classId)) ||
         (event.productionId && productionIds.has(event.productionId));
       if (!enrolled) return false;
-      if (!event.sceneIds?.length || !event.productionId) return true;
+      if (!event.productionId) return true;
+      if (!event.roleIds?.length && !event.sceneIds?.length) return true;
 
       const { principal, understudy } = this.publishedRoleIdsForStudent(
         event.productionId,
@@ -1100,6 +1101,11 @@ export class MockDataProvider implements DataProvider {
       // Until casting is published the student holds no roles yet; keep the
       // rehearsal visible rather than hiding their schedule.
       if (called.size === 0) return true;
+      // The call sheet wins: it names who is in the room, where a scene only
+      // names who is in the show.
+      if (event.roleIds?.length) {
+        return event.roleIds.some((roleId) => called.has(roleId));
+      }
       return store.showScenes.some(
         (scene) =>
           event.sceneIds!.includes(scene.id) &&

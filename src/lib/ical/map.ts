@@ -192,3 +192,42 @@ export function rowFor(event: IcalEvent, feed: IcalFeed) {
     external_ref: event.uid,
   };
 }
+
+/**
+ * Turn a call sheet — "Sweeney Todd · Mrs. Lovett · Toby · Ensemble" — into
+ * the role ids the family calendar filters on.
+ *
+ * called_note and role_ids MUST be derived together. The note is re-read from
+ * the feed every hour, so if Tony changes who is called and only the prose
+ * moved, families would be filtered against yesterday's cast.
+ *
+ * Matching is exact, then whole-word prefix ("Anthony" → Anthony Hope) and
+ * suffix ("Pirelli" → Adolfo Pirelli); anything sharing no word with its role
+ * needs an alias on the feed.
+ *
+ * Returns NULL — meaning "show this to everyone" — when the note is empty, or
+ * when ANY token fails to resolve. A note we only half understand is the one
+ * case where guessing costs a child their call, so we stop filtering instead.
+ */
+export function roleIdsFromCalledNote(
+  calledNote: unknown,
+  roles: ReadonlyArray<Record<string, unknown>>,
+  aliases: Record<string, string> = {}
+): string[] | null {
+  const note = String(calledNote ?? "").trim();
+  if (!note) return null;
+
+  const ids = new Set<string>();
+  for (const raw of note.split("·")) {
+    const token = raw.trim();
+    if (!token) continue;
+    const want = (aliases[token] ?? token).toLowerCase();
+    const hit = roles.find((role) => {
+      const name = String(role.name ?? "").toLowerCase();
+      return name === want || name.startsWith(`${want} `) || name.endsWith(` ${want}`);
+    });
+    if (!hit) return null;
+    ids.add(String(hit.id));
+  }
+  return ids.size > 0 ? [...ids] : null;
+}

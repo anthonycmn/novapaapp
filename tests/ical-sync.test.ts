@@ -11,6 +11,7 @@ import {
   worksNoteFor,
 } from "@/lib/ical/map";
 import { parseIcal } from "@/lib/ical/parse";
+import { roleIdsFromCalledNote } from "@/lib/ical/map";
 
 const et = (iso: string) => formatInTimeZone(new Date(iso), org.timeZone, "yyyy-MM-dd h:mm a");
 
@@ -213,5 +214,61 @@ describe("who is called to each rehearsal", () => {
 
   it("decodes entities and strips tags when flattening a description", () => {
     expect(descriptionLines("<b>A &amp; B</b><br>C&nbsp;D")).toEqual(["A & B", "C D"]);
+  });
+});
+
+describe("the call sheet drives who sees the rehearsal", () => {
+  /**
+   * called_note and role_ids are written in the same pass on purpose. The note
+   * is re-read from the feed every hour, so deriving the ids separately would
+   * let a cast change move the prose and leave the filter on yesterday's cast.
+   */
+  const ROLES = [
+    { id: "r-todd", name: "Sweeney Todd" },
+    { id: "r-lovett", name: "Mrs. Lovett" },
+    { id: "r-anthony", name: "Anthony Hope" },
+    { id: "r-toby", name: "Tobias Ragg" },
+    { id: "r-pirelli", name: "Adolfo Pirelli" },
+    { id: "r-fogg", name: "Jonas Fogg" },
+    { id: "r-ensemble", name: "Ensemble of London" },
+  ];
+  const ALIASES = { Toby: "Tobias Ragg" };
+  const resolve = (note: string) => roleIdsFromCalledNote(note, ROLES, ALIASES);
+
+  it("matches a role named in full", () => {
+    expect(resolve("Sweeney Todd · Mrs. Lovett")).toEqual(["r-todd", "r-lovett"]);
+  });
+
+  it("matches the shorthand the show calendar actually uses", () => {
+    // Prefix, suffix and alias — the three shapes on the Sweeney call sheet.
+    expect(resolve("Anthony")).toEqual(["r-anthony"]);
+    expect(resolve("Pirelli")).toEqual(["r-pirelli"]);
+    expect(resolve("Fogg")).toEqual(["r-fogg"]);
+    expect(resolve("Ensemble")).toEqual(["r-ensemble"]);
+    expect(resolve("Toby")).toEqual(["r-toby"]);
+  });
+
+  it("does not let a partial word match the wrong role", () => {
+    // "Ant" is not Anthony Hope; a substring match would have said it was.
+    expect(resolve("Ant")).toBeNull();
+  });
+
+  /**
+   * The one that protects a child's attendance. If ANY name fails to resolve
+   * we stop filtering entirely, because a half-read cast list hides exactly
+   * the people we could not identify.
+   */
+  it("opens the event to everyone when any name cannot be resolved", () => {
+    expect(resolve("Sweeney Todd · Crew · Mrs. Lovett")).toBeNull();
+  });
+
+  it("opens the event to everyone when there is no call sheet", () => {
+    expect(resolve("")).toBeNull();
+    expect(resolve("   ")).toBeNull();
+    expect(resolve("No student call")).toBeNull();
+  });
+
+  it("counts a role named twice only once", () => {
+    expect(resolve("Ensemble · Ensemble")).toEqual(["r-ensemble"]);
   });
 });

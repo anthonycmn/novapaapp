@@ -1,6 +1,6 @@
 import { ICAL_FEEDS, type IcalFeed } from "@/config/ical-feeds";
 import { parseIcal } from "@/lib/ical/parse";
-import { rowFor } from "@/lib/ical/map";
+import { rowFor, roleIdsFromCalledNote } from "@/lib/ical/map";
 import { getServiceClient } from "@/lib/api/supabase/client";
 
 /**
@@ -34,9 +34,19 @@ export interface IcalSyncResult {
 
 type Row = Record<string, unknown>;
 
+/** A parsed VEVENT plus the roles its call sheet resolved to. */
+type FeedRow = ReturnType<typeof rowFor> & { role_ids?: string[] | null };
+
 function sameInstant(a: unknown, b: string): boolean {
   return Date.parse(String(a)) === Date.parse(b);
 }
+
+function sameIdSet(a: unknown, b: string[] | null): boolean {
+  const left = ((a ?? []) as string[]).map(String).sort().join(",");
+  const right = (b ?? []).map(String).sort().join(",");
+  return left === right;
+}
+
 
 async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
   const base: IcalFeedResult = {
@@ -58,7 +68,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     throw new Error(`${feed.key}: calendar fetch failed with ${response.status}`);
   }
   const events = parseIcal(await response.text());
-  const rows = events.map((event) => rowFor(event, feed));
+  const rows: FeedRow[] = events.map((event) => ({ ...rowFor(event, feed) }));
   base.parsed = rows.length;
   base.withCallTime = rows.filter((row) => row.call_time).length;
 
@@ -70,9 +80,21 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
   }
 
   const hub = getServiceClient();
+
+  // Resolve the call sheet to roles in the same pass that writes the prose,
+  // so the two can never describe different casts.
+  const { data: roles, error: rolesError } = await hub
+    .from("show_roles")
+    .select("id, name")
+    .eq("production_id", feed.productionId);
+  if (rolesError) throw new Error(`${feed.key}: roles read failed: ${rolesError.message}`);
+  for (const row of rows) {
+    row.role_ids = roleIdsFromCalledNote(row.called_note, roles ?? [], feed.roleAliases);
+  }
+
   const { data: existing, error: readError } = await hub
     .from("calendar_events")
-    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time, called_note, works_note")
+    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time, called_note, works_note, role_ids")
     .eq("external_source", feed.key)
     .eq("production_id", feed.productionId);
   if (readError) throw new Error(`${feed.key}: events read failed: ${readError.message}`);
@@ -81,7 +103,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     (existing ?? []).map((row) => [String(row.external_ref), row as Row])
   );
 
-  const inserts: Row[] = [];
+  const inserts: FeedRow[] = [];
   for (const row of rows) {
     const current = byRef.get(row.external_ref);
     if (!current) {
@@ -100,6 +122,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
       String(current.type) !== row.type ||
       String(current.location ?? "") !== row.location ||
       String(current.called_note ?? "") !== String(row.called_note ?? "") ||
+      !sameIdSet(current.role_ids, row.role_ids ?? null) ||
       String(current.works_note ?? "") !== String(row.works_note ?? "") ||
       Date.parse(String(current.call_time ?? "")) !==
         Date.parse(String(row.call_time ?? ""));

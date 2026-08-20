@@ -332,9 +332,21 @@ export interface CalendarEvent {
   classId?: string;
   productionId?: string;
   /**
-   * Scenes/numbers this rehearsal covers. When set, the event appears ONLY
-   * on the calendars of students whose role is called for one of them —
-   * the per-child, role-driven schedule. Unset = whole production called.
+   * Roles called to this rehearsal, straight off the call sheet. When set,
+   * the event appears ONLY on the calendars of students holding one of them.
+   *
+   * This wins over sceneIds, because the two answer different questions. A
+   * character-block call works Act I Sc. 8 and 9 with three people in the
+   * room; those scenes belong to most of the company, so filtering by scene
+   * would invite everyone. The call sheet says who is actually in the room.
+   *
+   * Unset = the whole production is called.
+   */
+  roleIds?: string[];
+  /**
+   * Scenes/numbers this rehearsal covers. Used to filter only when roleIds
+   * is unset, and to answer "what is my child in" on the show page.
+   * Unset = whole production called.
    */
   sceneIds?: string[];
   /**
