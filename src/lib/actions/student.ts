@@ -5,36 +5,11 @@ import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { assertUploadAllowed } from "@/lib/api/storage";
 import { getSessionUser } from "@/lib/auth/session";
+import {
+  parseStudentProfile,
+  STUDENT_PROFILE_FIELDS,
+} from "@/lib/family/student-profile";
 import type { FamilyFormState } from "./family";
-
-const studentSchema = z.object({
-  /*
-   * Legal name and date of birth are editable now (Tony, 17 Aug 2026), and they
-   * carry a consequence the other fields do not: the registration reconcile
-   * matches Jason system participants to app students BY NAME. Rename a child
-   * here and the next sync stops matching them, which breaks the enrollment and
-   * balance link. The form says so; this is why it says so.
-   */
-  firstName: z.string().trim().min(1, "Legal first name is required").max(60),
-  lastName: z.string().trim().min(1, "Legal last name is required").max(60),
-  dateOfBirth: z
-    .string()
-    .regex(/^d{4}-d{2}-d{2}$/, "Enter a date of birth"),
-  preferredName: z.string().max(60).optional(),
-  pronouns: z.string().max(30).optional(),
-  grade: z.string().min(1, "Grade is required"),
-  school: z.string().max(120).optional(),
-  tshirtSize: z.enum(["YXS", "YS", "YM", "YL", "AS", "AM", "AL", "AXL"]).optional(),
-  allergies: z.string().max(500).optional(),
-  medicalFlags: z.string().max(500).optional(),
-  vocalRange: z.string().max(40).optional(),
-  danceExperience: z.string().max(500).optional(),
-  auditionSongUrl: z
-    .string()
-    .url("Enter a full URL (YouTube, Drive, or Dropbox)")
-    .optional()
-    .or(z.literal("")),
-});
 
 export async function updateStudentAction(
   studentId: string,
@@ -44,40 +19,22 @@ export async function updateStudentAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
+  /*
+   * null means the form never posted the field; "" means the parent emptied the
+   * box. parseStudentProfile() treats those differently, so the two have to stay
+   * distinguishable all the way from the request.
+   */
   const raw = Object.fromEntries(
-    [
-      "firstName",
-      "lastName",
-      "dateOfBirth",
-      "preferredName",
-      "pronouns",
-      "grade",
-      "school",
-      "tshirtSize",
-      "allergies",
-      "medicalFlags",
-      "vocalRange",
-      "danceExperience",
-      "auditionSongUrl",
-    ].map((key) => {
+    STUDENT_PROFILE_FIELDS.map((key) => {
       const value = formData.get(key);
-      return [key, value === null || value === "" ? undefined : String(value)];
+      return [key, value === null ? undefined : String(value)];
     })
   );
-  // Preserve "" for auditionSongUrl clearing
-  if (formData.get("auditionSongUrl") === "") raw.auditionSongUrl = "";
 
-  const parsed = studentSchema.safeParse(raw);
-  if (!parsed.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      errors[String(issue.path[0] ?? "_form")] = issue.message;
-    }
-    return { ok: false, errors };
-  }
+  const parsed = parseStudentProfile(raw);
+  if (!parsed.ok) return { ok: false, errors: parsed.errors };
 
-  const patch: Record<string, unknown> = { ...parsed.data };
-  if (patch.auditionSongUrl === "") patch.auditionSongUrl = undefined;
+  const patch: Record<string, unknown> = { ...parsed.values };
 
   // A photo of their child, if they chose one this time. An empty field means
   // "I didn't touch it", never "delete the photo".
@@ -102,7 +59,6 @@ export async function updateStudentAction(
   revalidatePath("/family/edit");
   return { ok: true };
 }
-
 const hopesSchema = z.object({
   seasonId: z.string().min(1),
   author: z.enum(["parent", "student"]),
