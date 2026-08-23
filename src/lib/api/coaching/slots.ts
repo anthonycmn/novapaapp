@@ -90,7 +90,7 @@ export function generateSlots(
   rules: SlotRules,
   now: Date
 ): string[] {
-  const session = Math.max(1, Math.trunc(rules.sessionMinutes || 60));
+  const session = Math.max(1, Math.trunc(rules.sessionMinutes || 50));
   const step = Math.max(1, Math.trunc(rules.stepMinutes ?? session));
   const earliest = now.getTime() + Math.max(0, rules.noticeHours) * 60 * MINUTE;
   const latest = now.getTime() + Math.max(0, rules.horizonDays) * 24 * 60 * MINUTE;

@@ -116,7 +116,7 @@ export function assembleCoaches(
               (d): d is string => typeof d === "string"
             )
           : [],
-        sessionMinutes: int(row.session_minutes, 60),
+        sessionMinutes: int(row.session_minutes, 50),
         // Notice may legitimately be zero, so it cannot use the positive-only
         // reader: a coach happy to be booked an hour from now is allowed.
         noticeHours:

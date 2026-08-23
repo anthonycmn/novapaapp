@@ -14,6 +14,11 @@ import {
  * slot offered inside the notice period, a slot offered on top of somebody
  * else's lesson, and — the one that only breaks twice a year — a 4pm window
  * that quietly becomes 3pm when the clocks change.
+ *
+ * Durations here are fifty and thirty minutes because those are the only two
+ * a coaching session comes in (portal 0161). The fifty-minute hour is why the
+ * arithmetic is worth testing at all: it does not divide the clock neatly, so
+ * every boundary in here is a real edge rather than a round number.
  */
 
 const easternTime = (iso: string) =>
@@ -24,44 +29,45 @@ const mondays: AvailabilityWindow[] = [
   { weekday: 1, startsAt: "15:00:00", endsAt: "20:00:00" },
 ];
 
-const rules = { sessionMinutes: 60, noticeHours: 24, horizonDays: 42 };
+const rules = { sessionMinutes: 50, noticeHours: 24, horizonDays: 42 };
 
 /** A Wednesday, comfortably inside daylight time. */
 const wed = new Date("2026-08-05T12:00:00Z");
 
+const onFirstMonday = (slots: string[]) =>
+  slots.filter((s) => easternTime(s).startsWith("2026-08-10")).map(easternTime);
+
 describe("generateSlots", () => {
-  it("offers one slot per session length inside the window", () => {
-    const slots = generateSlots(mondays, [], rules, wed);
-    const firstMonday = slots.filter((s) => easternTime(s).startsWith("2026-08-10"));
-    // 15:00, 16:00, 17:00, 18:00, 19:00 — the 19:00 ends exactly at close.
-    expect(firstMonday.map(easternTime)).toEqual([
+  it("packs fifty-minute sessions across the window", () => {
+    // Five hours divides into exactly six fifty-minute sessions, and the last
+    // one ends as the window closes.
+    expect(onFirstMonday(generateSlots(mondays, [], rules, wed))).toEqual([
       "2026-08-10 15:00",
-      "2026-08-10 16:00",
-      "2026-08-10 17:00",
-      "2026-08-10 18:00",
-      "2026-08-10 19:00",
+      "2026-08-10 15:50",
+      "2026-08-10 16:40",
+      "2026-08-10 17:30",
+      "2026-08-10 18:20",
+      "2026-08-10 19:10",
     ]);
   });
 
   it("never offers a slot that would run past the window's close", () => {
-    const slots = generateSlots(mondays, [], { ...rules, sessionMinutes: 90 }, wed);
-    const times = slots.filter((s) => easternTime(s).startsWith("2026-08-10")).map(easternTime);
-    // Slots step by one session length, so 15:00, 16:30, 18:00. The next would
-    // start at 19:30 and run to 21:00, an hour past the close, so it is absent.
-    expect(times).toEqual(["2026-08-10 15:00", "2026-08-10 16:30", "2026-08-10 18:00"]);
+    const times = onFirstMonday(
+      generateSlots(mondays, [], { ...rules, sessionMinutes: 30 }, wed)
+    );
+    // 19:30 + 30 lands exactly on the close; nothing starts after it.
+    expect(times[times.length - 1]).toBe("2026-08-10 19:30");
+    expect(times).not.toContain("2026-08-10 20:00");
   });
 
   it("can offer starts closer together than one session", () => {
-    // A half-hour step lets 18:30 be offered, because 18:30 + 90 lands exactly
-    // on the close. This is the knob that decides how tightly a day packs.
-    const slots = generateSlots(
-      mondays,
-      [],
-      { ...rules, sessionMinutes: 90, stepMinutes: 30 },
-      wed
+    // A half-hour step overlaps the offers, which packs a day more tightly.
+    // 19:00 + 50 still fits; 19:30 + 50 would not, so it is absent.
+    const times = onFirstMonday(
+      generateSlots(mondays, [], { ...rules, stepMinutes: 30 }, wed)
     );
-    const times = slots.filter((s) => easternTime(s).startsWith("2026-08-10")).map(easternTime);
-    expect(times[times.length - 1]).toBe("2026-08-10 18:30");
+    expect(times).toContain("2026-08-10 19:00");
+    expect(times).not.toContain("2026-08-10 19:30");
   });
 
   it("respects the notice period", () => {
@@ -69,13 +75,12 @@ describe("generateSlots", () => {
     // that afternoon is already too soon.
     const mondayMorning = new Date("2026-08-10T13:00:00Z");
     const slots = generateSlots(mondays, [], rules, mondayMorning);
-    expect(slots.filter((s) => easternTime(s).startsWith("2026-08-10"))).toEqual([]);
+    expect(onFirstMonday(slots)).toEqual([]);
     expect(easternTime(slots[0])).toBe("2026-08-17 15:00");
   });
 
   it("stops at the horizon", () => {
     const slots = generateSlots(mondays, [], { ...rules, horizonDays: 10 }, wed);
-    // Only the Monday within ten days survives; the one after does not.
     const days = new Set(slots.map((s) => easternTime(s).slice(0, 10)));
     expect([...days]).toEqual(["2026-08-10"]);
   });
@@ -85,23 +90,21 @@ describe("generateSlots", () => {
       // 16:00–17:00 Eastern on the first Monday.
       { startsAt: "2026-08-10T20:00:00Z", durationMin: 60 },
     ];
-    const times = generateSlots(mondays, busy, rules, wed)
-      .filter((s) => easternTime(s).startsWith("2026-08-10"))
-      .map(easternTime);
-    expect(times).not.toContain("2026-08-10 16:00");
+    const times = onFirstMonday(generateSlots(mondays, busy, rules, wed));
+    // 15:50 runs to 16:40 and 16:40 runs to 17:30 — both collide with it.
+    expect(times).not.toContain("2026-08-10 15:50");
+    expect(times).not.toContain("2026-08-10 16:40");
     expect(times).toContain("2026-08-10 15:00");
-    expect(times).toContain("2026-08-10 17:00");
+    expect(times).toContain("2026-08-10 17:30");
   });
 
   it("treats touching intervals as free, not as a clash", () => {
-    // A lesson ending exactly at 16:00 must not block the 16:00 slot.
     const busy: BusyInterval[] = [
-      { startsAt: "2026-08-10T19:00:00Z", durationMin: 60 }, // 15:00–16:00
+      // 15:00–15:50 exactly, so the 15:50 slot begins as it ends.
+      { startsAt: "2026-08-10T19:00:00Z", durationMin: 50 },
     ];
-    const times = generateSlots(mondays, busy, rules, wed)
-      .filter((s) => easternTime(s).startsWith("2026-08-10"))
-      .map(easternTime);
-    expect(times).toContain("2026-08-10 16:00");
+    const times = onFirstMonday(generateSlots(mondays, busy, rules, wed));
+    expect(times).toContain("2026-08-10 15:50");
     expect(times).not.toContain("2026-08-10 15:00");
   });
 
