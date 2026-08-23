@@ -207,6 +207,7 @@ function mapStaff(row: Row): StaffProfile {
   return {
     id: String(row.id),
     userId: s(row.user_id),
+    portalStaffId: s(row.portal_staff_id),
     fullName: String(row.full_name),
     title: String(row.title ?? ""),
     bio: String(row.bio ?? ""),

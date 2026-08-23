@@ -258,6 +258,13 @@ export interface ShowHistoryEntry {
 export interface StaffProfile {
   id: string;
   userId?: string;
+  /**
+   * `staff_portal.staff.id` for the same person, where the bridge has been
+   * matched up. This is the join the coaching pages use to put a portal coach
+   * next to the bio a family already reads here, instead of the portal
+   * keeping a second copy of it (portal migration 0151).
+   */
+  portalStaffId?: string;
   fullName: string;
   title: string; // "Teaching Artist", "Artistic Director"
   bio: string;

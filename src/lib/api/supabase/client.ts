@@ -88,6 +88,45 @@ export function getPortalReadClient(): SupabaseClient {
   return portalReadClient;
 }
 
+let portalRpcClient: SupabaseClient | null = null;
+
+/**
+ * The ONE way the family hub changes anything the staff portal owns.
+ *
+ * `getPortalReadClient` promises, in writing, only ever to SELECT, and that
+ * promise is worth keeping — so coaching bookings do not quietly break it.
+ * They come through here instead, and this client may call exactly three
+ * functions, all of them added by portal migration 0153:
+ *
+ *   staff_portal.family_book_coaching     — book one session
+ *   staff_portal.family_cancel_coaching   — cancel a family's own session
+ *   staff_portal.family_coaching_summary  — that family's balance and diary
+ *
+ * NEVER add a table write here. Each of those functions re-checks that the
+ * student belongs to the family it was handed, so an authorisation bug in
+ * this app cannot book or read another family's child; a bare insert would
+ * throw that protection away. If something new needs writing, it gets its own
+ * function in the portal, with its own checks, and gets listed above.
+ *
+ * They are granted to `service_role` alone, so a parent's browser cannot
+ * reach them with a family id that is not theirs.
+ */
+export function getPortalRpcClient(): SupabaseClient {
+  if (portalRpcClient) return portalRpcClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase is not configured: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required."
+    );
+  }
+  portalRpcClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: "staff_portal" },
+  }) as unknown as SupabaseClient;
+  return portalRpcClient;
+}
+
 /** True when enough configuration exists to talk to Supabase at all. */
 export function isSupabaseConfigured(): boolean {
   return Boolean(
