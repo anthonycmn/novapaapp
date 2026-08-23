@@ -567,6 +567,12 @@ export interface AbsenceReport {
   /** Single date or an inclusive range. */
   startsOn: string;
   endsOn: string;
+  /**
+   * The part of the call they will miss, "HH:MM" local. Both undefined means
+   * the whole call — which is what every report filed before 23 Aug 2026 is.
+   */
+  startsAtTime?: string;
+  endsAtTime?: string;
   reason: string;
   reportedByName?: string;
   /** Mailboxes the notification actually reached, so staff can see the gaps. */

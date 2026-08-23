@@ -4208,6 +4208,8 @@ class SupabaseDataProvider {
       offeringTitle: String(row.offering_title ?? ""),
       startsOn: String(row.starts_on),
       endsOn: String(row.ends_on),
+      startsAtTime: row.starts_at_time ? String(row.starts_at_time).slice(0, 5) : undefined,
+      endsAtTime: row.ends_at_time ? String(row.ends_at_time).slice(0, 5) : undefined,
       reason: String(row.reason ?? ""),
       reportedByName: s(row.reported_by_name),
       notified: (row.notified ?? []) as string[],
@@ -4251,6 +4253,8 @@ class SupabaseDataProvider {
         offering_title: input.offeringTitle,
         starts_on: input.startsOn,
         ends_on: input.endsOn,
+        starts_at_time: input.startsAtTime || null,
+        ends_at_time: input.endsAtTime || null,
         reason: input.reason ?? "",
         reported_by_name: input.reportedByName ?? null,
       })

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
-import { formatDate, formatEventTime } from "@/lib/format";
+import { formatEventTime } from "@/lib/format";
+import { describeAbsenceWindow } from "@/lib/absence-window";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { CalendarOff } from "lucide-react";
@@ -74,7 +75,7 @@ export default async function AbsencesPage() {
           <CardTitle className="text-base">What will they miss?</CardTitle>
           <CardDescription>
             {options.length > 0
-              ? "Tech week is the one part we cannot move — tell us as early as you can."
+              ? "Only mark the times your child will not be present — leave them blank to report the whole call."
               : "Nobody in this household is registered for a show at the moment."}
           </CardDescription>
         </CardHeader>
@@ -115,9 +116,7 @@ export default async function AbsencesPage() {
                         {name} · {report.offeringTitle}
                       </p>
                       <p className="text-muted-foreground">
-                        {formatDate(`${report.startsOn}T12:00:00Z`)}
-                        {report.endsOn !== report.startsOn &&
-                          ` – ${formatDate(`${report.endsOn}T12:00:00Z`)}`}
+                        {describeAbsenceWindow(report)}
                       </p>
                       {report.reason && <p className="mt-1">{report.reason}</p>}
                       <p className="mt-1 text-[12px] text-muted-foreground">

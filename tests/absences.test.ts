@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { AccessDeniedError } from "@/lib/api/provider";
 import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
+import { describeAbsenceWindow, formatClock } from "@/lib/absence-window";
 
 /**
  * A family reporting that a child will miss part of a show.
@@ -84,5 +85,88 @@ describe("absence reports", () => {
       "fam-martinez"
     );
     expect(stored.notified).toEqual(["cj@novapa.org", "colton@novapa.org"]);
+  });
+});
+
+/**
+ * Tony, 23 Aug 2026: "Date Missed and then start time and end time — for
+ * example, maybe they are arriving late… only mark the times you will not be
+ * present."
+ *
+ * Which makes the times a description of the ABSENCE, and makes the absence of
+ * times mean the whole call rather than an incomplete report. Both readings
+ * have to survive, because six reports were already filed without them.
+ */
+describe("the part of the call that is missed", () => {
+  beforeEach(() => {
+    resetMockStore();
+  });
+
+  it("reads a no-times report as the whole call", () => {
+    expect(
+      describeAbsenceWindow({ startsOn: "2026-09-15", endsOn: "2026-09-15" })
+    ).toBe("Sep 15, 2026 — the whole call");
+  });
+
+  it("reads a late arrival as the hour they are away", () => {
+    expect(
+      describeAbsenceWindow({
+        startsOn: "2026-09-15",
+        endsOn: "2026-09-15",
+        startsAtTime: "19:00",
+        endsAtTime: "20:00",
+      })
+    ).toBe("Sep 15, 2026, 7:00 PM – 8:00 PM");
+  });
+
+  it("keeps one open end open", () => {
+    const from = describeAbsenceWindow({
+      startsOn: "2026-09-15",
+      endsOn: "2026-09-15",
+      startsAtTime: "20:30",
+    });
+    const until = describeAbsenceWindow({
+      startsOn: "2026-09-15",
+      endsOn: "2026-09-15",
+      endsAtTime: "18:45",
+    });
+    expect(from).toBe("Sep 15, 2026, from 8:30 PM");
+    expect(until).toBe("Sep 15, 2026, until 6:45 PM");
+  });
+
+  it("still reads the older two-day reports as a range", () => {
+    expect(
+      describeAbsenceWindow({ startsOn: "2026-09-15", endsOn: "2026-09-16" })
+    ).toBe("Sep 15, 2026 – Sep 16, 2026 — the whole call");
+  });
+
+  it("reads a stored time as wall clock, not as an instant", () => {
+    // "19:00" carries no date and no zone. Pushed through a UTC instant it
+    // would land in the afternoon, and a stage manager would expect the child
+    // five hours before they actually leave.
+    expect(formatClock("19:00")).toBe("7:00 PM");
+    expect(formatClock("00:15")).toBe("12:15 AM");
+    expect(formatClock("12:00")).toBe("12:00 PM");
+    expect(formatClock("nonsense")).toBe("nonsense");
+  });
+
+  it("stores the times on the report", async () => {
+    const provider = new MockDataProvider();
+    const report = await provider.createAbsenceReport("user-sofia", {
+      studentId: "stu-ava",
+      productionId: "prod-frozen",
+      offeringTitle: "Frozen Jr.",
+      startsOn: "2026-09-15",
+      endsOn: "2026-09-15",
+      startsAtTime: "19:00",
+      endsAtTime: "20:00",
+      reason: "Orthodontist, she will be late",
+    });
+    const [stored] = await provider.getAbsenceReportsForFamily(
+      "user-sofia",
+      "fam-martinez"
+    );
+    expect(stored.id).toBe(report.id);
+    expect(describeAbsenceWindow(stored)).toBe("Sep 15, 2026, 7:00 PM – 8:00 PM");
   });
 });

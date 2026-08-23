@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
-import { formatDate } from "@/lib/format";
+import { describeAbsenceWindow } from "@/lib/absence-window";
 import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { SubmissionState } from "./spirit-button";
 
@@ -31,22 +31,46 @@ import type { SubmissionState } from "./spirit-button";
  * a parent telling us their child is ill.
  */
 
+/*
+ * One date, and optionally the part of that call they will miss.
+ *
+ * The times are optional and blank means the whole call. Requiring them would
+ * make a parent look up a call time they may not have to hand just to tell us
+ * their child is ill, and "the whole call" is still the commonest answer.
+ *
+ * Comparing the two as strings is safe: both are zero-padded 24-hour HH:MM.
+ */
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const optionalTime = z
+  .string()
+  .trim()
+  .transform((value) => (value === "" ? undefined : value))
+  .optional()
+  .refine((value) => value === undefined || TIME.test(value), {
+    message: "Use a time like 7:00 PM, or leave it blank",
+  });
+
 const absenceSchema = z
   .object({
     studentId: z.string().min(1, "Choose a student"),
     productionId: z.string().min(1, "Choose which show"),
-    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the first day"),
-    endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the last day"),
+    missedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date missed"),
+    startsAtTime: optionalTime,
+    endsAtTime: optionalTime,
     reason: z
       .string()
       .trim()
       .min(1, "Tell the director why, even briefly")
       .max(500),
   })
-  .refine((data) => data.endsOn >= data.startsOn, {
-    message: "The last day must be on or after the first",
-    path: ["endsOn"],
-  });
+  .refine(
+    (data) =>
+      !data.startsAtTime || !data.endsAtTime || data.endsAtTime > data.startsAtTime,
+    {
+      message: "The end time must be after the start",
+      path: ["endsAtTime"],
+    }
+  );
 
 export async function reportAbsenceAction(
   _prev: SubmissionState,
@@ -58,8 +82,9 @@ export async function reportAbsenceAction(
   const parsed = absenceSchema.safeParse({
     studentId: formData.get("studentId"),
     productionId: formData.get("productionId"),
-    startsOn: formData.get("startsOn"),
-    endsOn: formData.get("endsOn"),
+    missedOn: formData.get("missedOn"),
+    startsAtTime: formData.get("startsAtTime") ?? "",
+    endsAtTime: formData.get("endsAtTime") ?? "",
     reason: formData.get("reason"),
   });
   if (!parsed.success) {
@@ -104,8 +129,10 @@ export async function reportAbsenceAction(
     studentId: parsed.data.studentId,
     productionId: parsed.data.productionId,
     offeringTitle: showTitle,
-    startsOn: parsed.data.startsOn,
-    endsOn: parsed.data.endsOn,
+    startsOn: parsed.data.missedOn,
+    endsOn: parsed.data.missedOn,
+    startsAtTime: parsed.data.startsAtTime,
+    endsAtTime: parsed.data.endsAtTime,
     reason: parsed.data.reason,
     reportedByName: user.displayName,
   });
@@ -118,12 +145,12 @@ export async function reportAbsenceAction(
     (topic) => topic.routeId === `offering:/productions/${parsed.data.productionId}`
   );
 
-  const dates =
-    parsed.data.endsOn === parsed.data.startsOn
-      ? formatDate(`${parsed.data.startsOn}T12:00:00Z`)
-      : `${formatDate(`${parsed.data.startsOn}T12:00:00Z`)} – ${formatDate(
-          `${parsed.data.endsOn}T12:00:00Z`
-        )}`;
+  const dates = describeAbsenceWindow({
+    startsOn: parsed.data.missedOn,
+    endsOn: parsed.data.missedOn,
+    startsAtTime: parsed.data.startsAtTime,
+    endsAtTime: parsed.data.endsAtTime,
+  });
 
   const outcome = await notifySubmission({
     subject: `Absence — ${childName}, ${showTitle}`,
@@ -139,7 +166,9 @@ export async function reportAbsenceAction(
         ]
       : [],
     lines: [
-      `${childName} will miss ${showTitle}.`,
+      parsed.data.startsAtTime || parsed.data.endsAtTime
+        ? `${childName} will miss part of a ${showTitle} call.`
+        : `${childName} will miss ${showTitle}.`,
       "",
       `When:   ${dates}`,
       `Reason: ${parsed.data.reason}`,
