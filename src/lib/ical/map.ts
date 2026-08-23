@@ -177,6 +177,21 @@ export function callTimeFor(summary: string, startIso: string): string | null {
   return callAt.toISOString();
 }
 
+/**
+ * The address families should actually drive to.
+ *
+ * The feed owns WHEN a call is; it has been wrong about WHERE. Correcting the
+ * stored row does not survive, because the sync rewrites location every hour —
+ * so the correction lives on the feed config and is applied on the way in.
+ * First matching rule wins; with no rules the feed's own text passes through.
+ */
+export function locationFor(location: string, feed: IcalFeed): string {
+  for (const rule of feed.locationRewrites ?? []) {
+    if (rule.when.test(location)) return rule.use;
+  }
+  return location;
+}
+
 export function rowFor(event: IcalEvent, feed: IcalFeed) {
   return {
     type: eventTypeFor(event.summary),
@@ -184,7 +199,7 @@ export function rowFor(event: IcalEvent, feed: IcalFeed) {
     starts_at: event.start,
     ends_at: event.end,
     call_time: callTimeFor(event.summary, event.start),
-    location: event.location ?? "",
+    location: locationFor(event.location ?? "", feed),
     called_note: calledNoteFor(event.description ?? "") ?? null,
     works_note: worksNoteFor(event.description ?? "") ?? null,
     production_id: feed.productionId,

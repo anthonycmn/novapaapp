@@ -11,6 +11,7 @@ import {
   worksNoteFor,
 } from "@/lib/ical/map";
 import { parseIcal } from "@/lib/ical/parse";
+import { locationFor } from "@/lib/ical/map";
 import { roleIdsFromCalledNote } from "@/lib/ical/map";
 
 const et = (iso: string) => formatInTimeZone(new Date(iso), org.timeZone, "yyyy-MM-dd h:mm a");
@@ -270,5 +271,38 @@ describe("the call sheet drives who sees the rehearsal", () => {
 
   it("counts a role named twice only once", () => {
     expect(resolve("Ensemble · Ensemble")).toEqual(["r-ensemble"]);
+  });
+});
+
+describe("the address families drive to", () => {
+  /**
+   * The feed owns WHEN a call is and has been wrong about WHERE. Correcting
+   * the stored row did not survive — the sync rewrites location every hour and
+   * reverted a fixed address twice — so the correction lives on the feed.
+   */
+  const feed = {
+    key: "test_ics",
+    productionId: "prod-1",
+    locationRewrites: [
+      { when: /^Rehearsal Space/i, use: "18945 Conference Center Drive, Leesburg VA 20175 — park in the south lot" },
+    ],
+  };
+
+  it("corrects the rehearsal address the feed supplies", () => {
+    expect(
+      locationFor("Rehearsal Space, South Building Plaza C, 18945 Conference Center Drive, Leesburg VA 20176", feed)
+    ).toBe("18945 Conference Center Drive, Leesburg VA 20175 — park in the south lot");
+  });
+
+  /** The show moves to the auditorium on 4 Oct and the feed has that right. */
+  it("leaves a venue the rule does not name alone", () => {
+    const auditorium = "Loudoun Auditorium, National Conference Center, 18945 Conference Center Drive, Plaza C, Leesburg VA 20175";
+    expect(locationFor(auditorium, feed)).toBe(auditorium);
+  });
+
+  it("passes the feed through untouched when there are no rules", () => {
+    const bare = { key: "k", productionId: "p" };
+    expect(locationFor("Somewhere Else", bare)).toBe("Somewhere Else");
+    expect(locationFor("", bare)).toBe("");
   });
 });

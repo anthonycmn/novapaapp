@@ -30,6 +30,19 @@ export interface IcalFeed {
    * word with the role need spelling out here.
    */
   roleAliases?: Record<string, string>;
+  /**
+   * Corrections to the address the feed supplies, first match wins.
+   *
+   * The feed is the source of truth for WHEN; it has been unreliable about
+   * WHERE. Editing the row instead does not hold — the sync rewrites location
+   * every hour, which silently reverted a corrected address twice. Fixing it
+   * here means the correction survives, and one edit covers every call at
+   * that venue rather than thirty-odd calendar entries.
+   *
+   * Matched against the feed's own location text, so a production that moves
+   * venue mid-run keeps its later address untouched.
+   */
+  locationRewrites?: Array<{ when: RegExp; use: string }>;
 }
 
 export const ICAL_FEEDS: IcalFeed[] = [
@@ -39,6 +52,20 @@ export const ICAL_FEEDS: IcalFeed[] = [
     url: process.env.SWEENEY_ICS_URL,
     titlePrefix: /^Sweeney Todd\s*[-–—]\s*/i,
     roleAliases: { Toby: "Tobias Ragg" },
+    /*
+     * Tony, 23 Aug 2026, definitively: rehearsals are 18945 Conference Center
+     * Drive, Leesburg VA 20175 — park in the south lot. The feed had the wrong
+     * zip (20176) and carried "Plaza C", which belongs to the auditorium.
+     *
+     * Anchored on "Rehearsal Space" so the performance venue, which the feed
+     * gets right from the costume parade on 4 Oct, is left alone.
+     */
+    locationRewrites: [
+      {
+        when: /^Rehearsal Space/i,
+        use: "Rehearsal Space, South Building, National Conference Center, 18945 Conference Center Drive, Leesburg VA 20175 — park in the south lot",
+      },
+    ],
   },
 ];
 
