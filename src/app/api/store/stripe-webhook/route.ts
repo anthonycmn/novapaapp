@@ -1,6 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/api";
+import {
+  completeCoachingPurchase,
+  isCoachingReference,
+} from "@/lib/api/coaching/shop";
 
 /**
  * Stripe checkout webhook (#11). Marks an order paid once Stripe confirms.
@@ -9,6 +13,14 @@ import { getProvider } from "@/lib/api";
  * carries a timestamp and one or more v1 HMAC-SHA256 signatures over
  * "{timestamp}.{raw body}", keyed with the endpoint secret. We compare in
  * constant time and reject stale timestamps to blunt replay attempts.
+ *
+ * ONE ENDPOINT, TWO KINDS OF PURCHASE. Coaching packages are sold here too,
+ * and they arrive through this same endpoint rather than a second one, told
+ * apart by their reference prefix: store orders are "NPA-", coaching is
+ * "COACH-". A second endpoint would mean a second signing secret to create,
+ * store and rotate, and a second chance to leave one half-configured — the
+ * exact state `livePaymentsBlockedBecause` exists to guard against. Both
+ * paths are idempotent, because Stripe retries.
  */
 
 const TOLERANCE_SECONDS = 300;
@@ -61,6 +73,22 @@ export async function POST(request: NextRequest) {
   const reference = session.client_reference_id ?? session.metadata?.order_reference;
   if (!reference) {
     return NextResponse.json({ error: "No order reference on session" }, { status: 400 });
+  }
+
+  if (isCoachingReference(reference)) {
+    // Credits the family's session balance. Safe to run again: a retry
+    // returns the package the first delivery already created.
+    const result = await completeCoachingPurchase(reference, session.id);
+    if (!result.ok) {
+      // 200 regardless — a reference we will never resolve should not have
+      // Stripe retrying it for days.
+      return NextResponse.json({ received: true, warning: result.reason });
+    }
+    return NextResponse.json({
+      received: true,
+      coaching: reference,
+      alreadyPaid: result.alreadyPaid ?? false,
+    });
   }
 
   const order = await getProvider().markOrderPaid(reference, session.id);

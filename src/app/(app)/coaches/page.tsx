@@ -3,10 +3,13 @@ import { GraduationCap } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getCoaches } from "@/lib/api/coaching/coaches";
 import { getCoachingSummary } from "@/lib/api/coaching/booking";
+import { getCoachingShop } from "@/lib/api/coaching/shop";
+import { getPaymentProvider } from "@/lib/api/payments";
 import { getSessionUser } from "@/lib/auth/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { CoachCard } from "@/components/coaching/coach-card";
 import { YourCoaching } from "@/components/coaching/your-coaching";
+import { BuySessions } from "@/components/coaching/buy-sessions";
 
 export const metadata = { title: "Coaching" };
 
@@ -27,15 +30,24 @@ export const metadata = { title: "Coaching" };
  * the portal, and their bio published through the usual approval queue. That
  * is enforced in `getCoaches`, so this page renders whatever it is given.
  */
-export default async function CoachesPage() {
+export default async function CoachesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bought?: string; error?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
+  const { bought, error } = await searchParams;
   const provider = getProvider();
   const profiles = await provider.getStaffProfiles();
-  const [coaches, summary] = await Promise.all([
+  const [coaches, summary, offers, students] = await Promise.all([
     getCoaches(profiles),
     user.familyId ? getCoachingSummary(user.familyId) : Promise.resolve(null),
+    getCoachingShop(),
+    user.familyId
+      ? provider.getStudentsForFamily(user.id, user.familyId)
+      : Promise.resolve([]),
   ]);
 
   const takingStudents = coaches.filter((coach) => coach.acceptingNew).length;
@@ -50,7 +62,34 @@ export default async function CoachesPage() {
         </p>
       </div>
 
+      {/*
+        Stripe sends the family back here after paying, but the balance is
+        credited by the WEBHOOK, which can land a second after the redirect.
+        So this confirms the payment without promising the sessions are
+        already showing — "on its way" is true either way, where "you now have
+        three sessions" is briefly a lie.
+      */}
+      {bought && (
+        <p className="rounded-lg border bg-card p-4 text-sm">
+          <span className="font-medium">Thank you — your payment went through.</span>{" "}
+          Your sessions are on their way and will appear below within a moment.
+          Your reference is {bought}.
+        </p>
+      )}
+
       {summary && <YourCoaching summary={summary} />}
+
+      {user.familyId && (
+        <BuySessions
+          offers={offers}
+          students={students.map((student) => ({
+            id: student.id,
+            name: student.preferredName || student.firstName,
+          }))}
+          error={error}
+          paymentsConfigured={getPaymentProvider().isConfigured()}
+        />
+      )}
 
       {coaches.length === 0 ? (
         <Card>

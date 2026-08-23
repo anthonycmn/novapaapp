@@ -95,12 +95,14 @@ let portalRpcClient: SupabaseClient | null = null;
  *
  * `getPortalReadClient` promises, in writing, only ever to SELECT, and that
  * promise is worth keeping — so coaching bookings do not quietly break it.
- * They come through here instead, and this client may call exactly three
- * functions, all of them added by portal migration 0153:
+ * They come through here instead, and this client may call exactly these
+ * functions and no others:
  *
- *   staff_portal.family_book_coaching     — book one session
- *   staff_portal.family_cancel_coaching   — cancel a family's own session
- *   staff_portal.family_coaching_summary  — that family's balance and diary
+ *   staff_portal.family_book_coaching             — book one session (0153)
+ *   staff_portal.family_cancel_coaching           — cancel their own (0153)
+ *   staff_portal.family_coaching_summary          — balance and diary (0153)
+ *   staff_portal.family_start_coaching_purchase   — reserve a purchase (0154)
+ *   staff_portal.family_complete_coaching_purchase — credit it once paid (0154)
  *
  * NEVER add a table write here. Each of those functions re-checks that the
  * student belongs to the family it was handed, so an authorisation bug in
