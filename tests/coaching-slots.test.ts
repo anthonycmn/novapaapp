@@ -153,3 +153,42 @@ describe("slotsByDay", () => {
     expect(days.map((d) => d.date)).toEqual([...days.map((d) => d.date)].sort());
   });
 });
+
+/**
+ * Colton's real window, because it is the first question a coach asked.
+ *
+ * "If he sets his hours to 9am–6pm, is 6pm the last time they can schedule, or
+ * 5pm?" Neither: the window is when the coach is AVAILABLE, so a session has
+ * to finish inside it rather than start on its edge. With fifty-minute
+ * sessions the last one starts at 4:30 and ends at 5:20, and the forty minutes
+ * after that are too short to sell.
+ *
+ * The database enforces the same rule independently — family_book_coaching
+ * refuses a booking whose end falls outside the window — so this is pinned on
+ * both sides of the bridge.
+ */
+describe("a nine-to-six window", () => {
+  const nineToSix: AvailabilityWindow[] = [
+    { weekday: 1, startsAt: "09:00:00", endsAt: "18:00:00" },
+  ];
+
+  it("stops offering when a session would run past six", () => {
+    const times = onFirstMonday(generateSlots(nineToSix, [], rules, wed));
+    expect(times[0]).toBe("2026-08-10 09:00");
+    // 16:30 + 50 = 17:20, inside. 17:20 + 50 = 18:10, outside — so 16:30 is
+    // the last start and 18:00 is a finishing time, not a starting one.
+    expect(times[times.length - 1]).toBe("2026-08-10 16:30");
+    expect(times).not.toContain("2026-08-10 17:20");
+    expect(times).not.toContain("2026-08-10 18:00");
+    expect(times).toHaveLength(10);
+  });
+
+  it("reaches 17:30 with half-hour sessions instead", () => {
+    // The same window sells one more slot at the short length, and the last
+    // one still lands exactly on six.
+    const times = onFirstMonday(
+      generateSlots(nineToSix, [], { ...rules, sessionMinutes: 30 }, wed)
+    );
+    expect(times[times.length - 1]).toBe("2026-08-10 17:30");
+  });
+});
