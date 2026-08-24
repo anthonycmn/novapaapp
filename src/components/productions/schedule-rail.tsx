@@ -85,6 +85,24 @@ export function ScheduleRail({
   // question they arrived with. Everyone else opens on the whole run.
   const [filter, setFilter] = useState<Filter>(mine.size > 0 ? "mine" : "all");
   const [showPast, setShowPast] = useState(false);
+  /**
+   * Open the rail out to its full height — Tony, 22 Aug 2026: "I want the
+   * calendar on the Sweeney Todd portal to be scrollable so that the whole
+   * calendar can show if they want it."
+   *
+   * Collapsed, this list is a fixed 42rem box with its own scrollbar. That is
+   * right for a rail sitting beside the show: it stays put while the page
+   * moves, and it does not push the rest of the page down a screen and a half.
+   * It is wrong for the parent who wants to see the run — a nested scroll area
+   * on a phone is a box you have to catch with your thumb, and you can never
+   * see more of the calendar than the box.
+   *
+   * So the cap comes off on request, and the STICKY GOES WITH IT. A sticky
+   * element taller than the window cannot be scrolled to the bottom of — it
+   * pins at the top and its last rows sit permanently below the fold. Opening
+   * one without releasing the other would trade a scrollbar for a trap.
+   */
+  const [expanded, setExpanded] = useState(false);
 
   const now = new Date().toISOString();
 
@@ -125,7 +143,7 @@ export function ScheduleRail({
   ].filter((tab) => tab.key !== "mine" || mine.size > 0);
 
   return (
-    <Card pad={false} className="lg:sticky lg:top-4">
+    <Card pad={false} className={expanded ? undefined : "lg:sticky lg:top-4"}>
       <div className="border-b px-4 pb-2.5 pt-3">
         <h2 className="text-[15px] font-semibold">Schedule</h2>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -160,7 +178,7 @@ export function ScheduleRail({
           </p>
         </div>
       ) : (
-        <ol className="max-h-[42rem] overflow-y-auto">
+        <ol className={expanded ? undefined : "max-h-[42rem] overflow-y-auto"}>
           {groups.map((group) => (
             <li key={group.month}>
               <p className="sticky top-0 z-10 border-b bg-muted/95 px-4 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground backdrop-blur">
@@ -331,6 +349,23 @@ export function ScheduleRail({
             </li>
           ))}
         </ol>
+      )}
+
+      {/* Only offered when there is something behind the fold. On a short list
+          the box never fills, so a "show the whole thing" button would point at
+          nothing — and rows is the count AFTER the filter, so switching to
+          "My calls" takes the button away by itself. */}
+      {rows.length > 12 && (
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          className="w-full border-t px-4 py-2.5 text-[12.5px] font-medium text-primary underline-offset-4 hover:bg-muted hover:underline"
+        >
+          {expanded
+            ? "Collapse the schedule"
+            : `Show the whole schedule · ${rows.length} dates`}
+        </button>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t px-4 py-2.5 text-[12px] text-muted-foreground">
