@@ -435,13 +435,31 @@ class SupabaseDataProvider {
   }
 
   async getProduction(productionId: string): Promise<Production | null> {
-    const { data, error } = await this.db
-      .from("productions")
-      .select("*")
-      .eq("id", productionId)
-      .maybeSingle();
+    /*
+     * Two reads, because the rehearsal folders are not the hub's to keep.
+     *
+     * v_production_media (hub 0051) joins straight through to
+     * staff_portal.productions, so the click tracks a Director pasted onto
+     * the show ten minutes ago are the ones this page draws. A missing media
+     * row is normal — most shows have no folders, and every show had none
+     * until this week — so it is a null, never an error.
+     */
+    const [{ data, error }, { data: media }] = await Promise.all([
+      this.db.from("productions").select("*").eq("id", productionId).maybeSingle(),
+      this.db
+        .from("v_production_media")
+        .select("*")
+        .eq("production_id", productionId)
+        .maybeSingle(),
+    ]);
     if (error) throw new Error(`productions lookup failed: ${error.message}`);
-    return data ? mapProduction(data) : null;
+    if (!data) return null;
+    return {
+      ...mapProduction(data),
+      clickTracksUrl: s(media?.click_tracks_url),
+      choreographyUrl: s(media?.choreography_url),
+      stagingUrl: s(media?.staging_url),
+    };
   }
 
   async getNotifications(actorId: string): Promise<AppNotification[]> {

@@ -111,6 +111,12 @@ Running log of decisions made autonomously during the build. Newest at the botto
   DATA_BACKEND=mock keeps the live site on demo data until the
   SupabaseDataProvider adapter + real sign-in land. The flip to real
   data is a one-variable change.
+  > **SUPERSEDED 2026-08-23.** DATA_BACKEND was never read by any code —
+  > the switch that actually mattered was NEXT_PUBLIC_DATA_MODE. The
+  > variable sat in Netlify for twelve days announcing that the live site
+  > was on demo data when it was not, and has been deleted. The project
+  > named in this section (novapa-deh) is also no longer the one in use:
+  > see the 2026-08-15 repoint entry below.
 
 ## Supabase adapter COMPLETE (2026-08-11)
 - Every DataProvider method (151) is ported to the shared novapa-deh
@@ -121,6 +127,11 @@ Running log of decisions made autonomously during the build. Newest at the botto
   (with revocation-count proof), registration sync, and FSA.
 - The mock backend remains the live default until real sign-in lands
   and the cutover is rehearsed; NEXT_PUBLIC_DATA_MODE=supabase flips it.
+  > **SUPERSEDED 2026-08-23.** It was flipped. NEXT_PUBLIC_DATA_MODE is
+  > `supabase` in .env.local and in all four Netlify contexts, against
+  > live novapa, and the production build post-dates the change — which
+  > is the part worth checking, since Next.js bakes NEXT_PUBLIC_* in at
+  > build time and correct env with a stale deploy proves nothing.
 
 ## The cutover plot twist + repoint to live novapa (2026-08-15, Tony: "GO")
 - 2026-08-11, the same day the family hub integrated with novapa-deh,
@@ -250,3 +261,31 @@ Running log of decisions made autonomously during the build. Newest at the botto
   casting_published_trigger; the RPCs never write it.
 - The app's own casting pages are untouched and keep working; the two
   tools are two doors into one room.
+
+## 2026-08-23 — Script numbers, and the mock-mode ghost (Tony)
+- New in family_hub (staff-portal migration 0159): `student_scripts`
+  (production_id + student_id, script_number, status enum no_script /
+  on_loan / returned) and `production_portal_link`, the portal↔hub
+  production map that previously existed only as HUB_TITLES in the staff
+  portal's TypeScript. RLS cannot read TypeScript, so the map had to
+  become a table. No FK across the bridge, per the portal's 0087 rule.
+- Staff enter numbers from the portal's show page; a parent sees their
+  own child's row and nobody else's. Same arrangement as show_scenes:
+  the row the director types IS the row the app reads.
+- Write rule is `family_hub.can_manage_scripts(production_id)`, which
+  reaches into staff_portal.production_assignments. Neither hub-side
+  option worked: `is_staffish()` is true for any staff profile on every
+  show, and `production_staff` has 0 rows for Sweeney against the
+  portal's 14 assignments. The two halves also disagree about who is
+  staff — Colton is Technical Director, assigned to Sweeney, and has no
+  family_hub.profiles row at all. admin/super_admin may write any show
+  (Tony's call, 23 Aug, after the stricter version was tested).
+- **DATA_BACKEND deleted from Netlify.** No code ever read it. It had
+  been sitting there since 8-11 asserting the live site was on demo
+  data, and it was still being believed — including by this file, above.
+  The live flag is NEXT_PUBLIC_DATA_MODE and it has read `supabase`
+  since the 8-15 repoint.
+- Verified rather than assumed, because env alone is not the answer for
+  a Next.js app: .env.local, all four Netlify contexts, AND a production
+  deploy newer than the env change all point at live novapa
+  (tlkuqwsqicxcjdmumkje), schema family_hub.

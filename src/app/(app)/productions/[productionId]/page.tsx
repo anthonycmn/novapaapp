@@ -16,6 +16,7 @@ import {
   RehearsalTracksHelp,
   RehearsalTracksTile,
 } from "@/components/productions/rehearsal-tracks";
+import { ShowMediaTiles } from "@/components/productions/media-tiles";
 import { ScenesAndSongs } from "@/components/productions/scenes-and-songs";
 import { ScheduleRail } from "@/components/productions/schedule-rail";
 import { NextCall, PerformanceStrip } from "@/components/productions/next-call";
@@ -210,16 +211,25 @@ export default async function ProductionPage({
         }
       />
 
-      {/* Four tiles across the top, the same shape as the staff portal's show
-          page — but carrying what a FAMILY needs, not what an admin does.
-          Deliberately nothing about anyone else's child: no roster counts, no
-          unresolved names, nothing medical. A parent's own child's role is
-          theirs to see; every other family's is not. */}
-      <div
-        className={`mb-4 grid gap-3 sm:grid-cols-2 ${
-          isSweeney ? "xl:grid-cols-5" : "xl:grid-cols-4"
-        }`}
-      >
+      {/* The stat row, the same shape as the staff portal's show page — but
+          carrying what a FAMILY needs, not what an admin does. Deliberately
+          nothing about anyone else's child: no roster counts, no unresolved
+          names, nothing medical. A parent's own child's role is theirs to
+          see; every other family's is not.
+
+          FOUR ACROSS, NOT FIVE. CJ, 26 Aug: "so four tiles per row. Move
+          Audition to first row." It was five wide for Sweeney, which pushed
+          Rehearsal Tracks off the right edge of a laptop and dropped Audition
+          onto a line of its own — the one tile with something for a parent to
+          DO was the one below the fold.
+
+          The order is now the order a family reads in: when it opens, what
+          they are next called to, who their child is playing, and what the
+          audition still needs from them. Then a second row of material to
+          work from at home — the tracks, and the folders beside them. Performances goes last because
+          the count is already in the subtitle and the ticket button is in the
+          header; it is the least clicked thing here. */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label={daysToOpening !== null && daysToOpening < 0 ? "The run" : "Opening night"}
           value={
@@ -255,16 +265,11 @@ export default async function ProductionPage({
           }
           href="/casting"
         />
-        <StatTile
-          label="Performances"
-          value={performanceCount}
-          hint={performanceCount > 0 ? "Tickets on BookTix" : "Dates to be confirmed"}
-        />
-        {isSweeney && <RehearsalTracksTile />}
         {/* The auditions tab, and only for a child actually in this show.
             It sits with the other tiles rather than in the sidebar because a
             parent arrives here from a "casting is open" post, not from a
-            navigation menu. */}
+            navigation menu — and it sits in the FIRST row because it is the
+            only tile on this page asking a family for something. */}
         {auditioning.length > 0 && (
           <StatTile
             label={auditioning.length > 1 ? "Auditions" : "Audition"}
@@ -288,6 +293,17 @@ export default async function ProductionPage({
             }
           />
         )}
+
+        {/* Second row: what a performer works from between calls. The tracks
+            first, then the folders beside them — same group, same glance. */}
+        {isSweeney && <RehearsalTracksTile />}
+        <ShowMediaTiles production={production} />
+
+        <StatTile
+          label="Performances"
+          value={performanceCount}
+          hint={performanceCount > 0 ? "Tickets on BookTix" : "Dates to be confirmed"}
+        />
       </div>
 
       {/* The one question this page exists to answer, at the size it

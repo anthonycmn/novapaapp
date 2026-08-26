@@ -180,6 +180,17 @@ export interface Production {
   /** Curriculum & materials link, synced from the staff portal's plan. */
   curriculumUrl?: string;
   /**
+   * The three rehearsal folders, read through to the staff portal's own
+   * columns by family_hub.v_production_media (hub 0051). Nothing is mirrored:
+   * a Director pasting a Drive link onto their show in the staff portal is
+   * what a family sees on the next load. Undefined means nobody has filled
+   * that one in, and the tile is simply not drawn — a parent has no way to
+   * fix an empty folder, so telling them it is empty is only noise.
+   */
+  clickTracksUrl?: string;
+  choreographyUrl?: string;
+  stagingUrl?: string;
+  /**
    * The registration listing this production is sold as
    * (`public.activities.id`). See ClassOffering.registrationActivityId.
    */

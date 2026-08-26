@@ -142,12 +142,29 @@ export function PerformanceStrip({ events }: { events: CalendarEvent[] }) {
                 past ? "opacity-50" : ""
               }`}
             >
-              <span className="font-medium">{formatEventTime(show.startsAt)}</span>
-              {show.callTime && show.callTime !== show.startsAt && (
-                <span className="ml-2 text-muted-foreground">
-                  call {formatEventTime(show.callTime).split("·")[1]?.trim()}
+              {/*
+                  Both times, labelled — CJ, 26 Aug: "for the RUN in the parent
+                  portal add both call time and performance time."
+
+                  These were the same number until the 26th, because starts_at
+                  held the CALL and the curtain lived only inside the title.
+                  Now that they are two facts, a strip a family sends to
+                  grandparents should carry the one they arrive for and the one
+                  the curtain goes up on — and say which is which, because
+                  "7:00" with no label is the thing that put somebody in a
+                  car park at the wrong time.
+              */}
+              <span className="font-medium">{formatEventTime(show.startsAt).split("·")[0]?.trim()}</span>
+              <span className="mt-0.5 flex flex-col text-[12px] leading-tight">
+                {show.callTime && show.callTime !== show.startsAt && (
+                  <span className="text-gold">
+                    Call {formatEventTime(show.callTime).split("·")[1]?.trim()}
+                  </span>
+                )}
+                <span className="text-muted-foreground">
+                  Curtain {formatEventTime(show.startsAt).split("·")[1]?.trim()}
                 </span>
-              )}
+              </span>
             </div>
           );
         })}

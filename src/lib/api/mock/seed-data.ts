@@ -80,6 +80,11 @@ export const productions: Production[] = [
     opensOn: "2026-10-23",
     closesOn: "2026-11-01",
     ticketsUrl: "https://novapa.booktix.com",
+    // The two folders that actually exist. Staging is left undefined on
+    // purpose: no such folder has been made, and mock mode should show the
+    // gap rather than paper over it with a link that would 404 in real life.
+    clickTracksUrl: "https://drive.google.com/drive/folders/1SlBqgmdoytb17sqWkPP8XyBiRXvJzcmG?usp=sharing",
+    choreographyUrl: "https://drive.google.com/drive/folders/1Q3_LGEBnZASNZeMoY1rDyAvb-hlctWXy",
   },
 ];
 
