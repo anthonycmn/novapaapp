@@ -157,25 +157,9 @@ export default async function AdminPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Pre-casting review</CardTitle>
-          <CardDescription>
-            Read family hopes and audition materials before casting.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2 pt-0">
-          {productions.map((production) => (
-            <Link
-              key={production.id}
-              href={`/admin/casting-review/${production.id}`}
-              className="font-medium text-primary underline-offset-4 hover:underline"
-            >
-              {production.title}
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
+      {/* Pre-casting review card removed 26 Aug 2026: casting is run from the
+          staff portal now, and this app keeps only the family half — the
+          notification when a child is submitted, and the feedback request. */}
     </div>
   );
 }
