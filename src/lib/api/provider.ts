@@ -36,6 +36,7 @@ import type {
   Student,
   User,
   CallResponseRecord,
+  LoanedScript,
   VolunteerSheet,
 } from "./types";
 import type { UploadSource } from "./storage";
@@ -318,6 +319,10 @@ export interface DataProvider {
   ): Promise<void>;
   /** Staff: every report, most recent first. */
   getAbsenceReportsForStaff(actorId: string): Promise<AbsenceReport[]>;
+
+  /* loaned scripts (staff portal 0159) */
+  /** Numbered scripts signed out to this family's students. */
+  getMyScripts(actorId: string): Promise<LoanedScript[]>;
 
   /* answering a call — attending / conflict (hub 0049) */
   /** Every answer this family has given, for drawing on the calendar. */

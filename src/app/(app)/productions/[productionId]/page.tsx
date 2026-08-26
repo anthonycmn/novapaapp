@@ -1,11 +1,13 @@
 import { notFound, redirect } from "next/navigation";
-import { Ticket } from "lucide-react";
+import { BookMarked, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import type { CalendarEvent } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { requestOrigin } from "@/lib/request-origin";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ComingSoonCards, WhoToEmail } from "@/components/productions/who-to-email";
@@ -122,6 +124,18 @@ export default async function ProductionPage({
   const students = user.familyId
     ? await provider.getStudentsForFamily(user.id, user.familyId)
     : [];
+
+  /*
+   * Numbered scripts signed out to this family for THIS show — bug #9 in the
+   * 25 Aug feedback: "there does not appear to be any information on the
+   * portal regarding loaned manuscripts."
+   *
+   * Staff have recorded them since 23 Aug; twenty-three are out on Sweeney
+   * alone. Nothing needed building but the family's half of it.
+   */
+  const myScripts = (await provider.getMyScripts(user.id)).filter(
+    (script) => script.productionId === production.id
+  );
   /*
    * Which of this family's children are registered for THIS show, and whether
    * their audition is in. Drives the auditions tile below — a family with
@@ -279,6 +293,34 @@ export default async function ProductionPage({
       {/* The one question this page exists to answer, at the size it
           deserves — then the run, for the dates families send to relatives. */}
       <NextCall event={nextCall} productionId={production.id} />
+
+      {myScripts.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BookMarked aria-hidden className="size-4" /> Scripts on loan
+            </CardTitle>
+            <CardDescription>
+              Numbered and signed out to you. Please return the same copy — the number is
+              how we know whose it is.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            {myScripts.map((script) => (
+              <div
+                key={script.studentId + script.scriptNumber}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2"
+              >
+                <span className="font-medium">{script.studentName}</span>
+                <span className="font-mono text-sm">#{script.scriptNumber}</span>
+                <Badge variant={script.status === "returned" ? "secondary" : "gold"}>
+                  {script.status === "returned" ? "returned" : "on loan"}
+                </Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <PerformanceStrip events={events} />
 

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Check, X } from "lucide-react";
 import { respondToCallAction } from "@/lib/actions/calls";
+import { ConflictDialog } from "@/components/dashboard/conflict-dialog";
 import { cn } from "@/lib/utils";
 
 export interface CallAnswer {
@@ -40,6 +41,8 @@ export function CallResponse({
   studentName,
   answer,
   showName,
+  eventTitle,
+  eventWhen,
 }: {
   eventId: string;
   studentId: string;
@@ -47,10 +50,12 @@ export function CallResponse({
   answer: CallAnswer | null;
   /** Sibling calendars need the name; a single-child family does not. */
   showName: boolean;
+  /** Shown in the dialog, so a parent can see what they are answering. */
+  eventTitle: string;
+  eventWhen: string;
 }) {
   const [current, setCurrent] = useState<CallAnswer | null>(answer);
   const [asking, setAsking] = useState(false);
-  const [reason, setReason] = useState(answer?.reason ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -96,10 +101,7 @@ export function CallResponse({
       <button
         type="button"
         disabled={pending}
-        onClick={() => {
-          setAsking(true);
-          setReason(current?.reason ?? "");
-        }}
+        onClick={() => setAsking(true)}
         className={cn(
           "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11.5px] transition-colors",
           current?.status === "conflict"
@@ -114,39 +116,18 @@ export function CallResponse({
         <span className="text-[11.5px] italic text-muted-foreground">“{current.reason}”</span>
       )}
 
-      {asking && (
-        <span className="flex w-full items-center gap-1.5">
-          <input
-            autoFocus
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Why? e.g. away that weekend"
-            aria-label={`Why ${studentName} cannot attend`}
-            className="min-w-0 flex-1 rounded-md border bg-background px-2 py-1 text-[12px]"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && reason.trim()) send("conflict", reason.trim());
-              if (e.key === "Escape") setAsking(false);
-            }}
-          />
-          <button
-            type="button"
-            disabled={!reason.trim()}
-            onClick={() => send("conflict", reason.trim())}
-            className="rounded-md border px-2 py-1 text-[11.5px] font-medium disabled:opacity-50"
-          >
-            Send
-          </button>
-          <button
-            type="button"
-            onClick={() => setAsking(false)}
-            className="rounded-md px-1 text-[11.5px] text-muted-foreground"
-          >
-            Cancel
-          </button>
-        </span>
-      )}
-
       {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+
+      {asking && (
+        <ConflictDialog
+          studentName={studentName}
+          eventTitle={eventTitle}
+          eventWhen={eventWhen}
+          initialReason={current?.reason ?? null}
+          onCancel={() => setAsking(false)}
+          onSubmit={(why) => send("conflict", why)}
+        />
+      )}
     </span>
   );
 }

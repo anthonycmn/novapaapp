@@ -41,6 +41,7 @@ import type {
   User,
   Production,
   CallResponseRecord,
+  LoanedScript,
   VolunteerSheet,
 } from "../types";
 import {
@@ -5804,6 +5805,57 @@ class SupabaseDataProvider {
     });
     if (error) throw new Error(`could not save that answer: ${error.message}`);
     return (data ?? { ok: false }) as { ok: boolean; message?: string };
+  }
+
+  /* ---- loaned scripts (staff portal 0159) ------------------------------- */
+
+  async getMyScripts(actorId: string): Promise<LoanedScript[]> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return [];
+
+    const { data: students } = await this.db
+      .from("students")
+      .select("id, first_name, preferred_name")
+      .eq("family_id", actor.familyId);
+    const mine = students ?? [];
+    if (!mine.length) return [];
+
+    const { data, error } = await this.db
+      .from("student_scripts")
+      .select("production_id, student_id, script_number, status, updated_at")
+      .in(
+        "student_id",
+        mine.map((s) => s.id as string)
+      );
+    if (error) throw new Error(`script lookup failed: ${error.message}`);
+    const rows = data ?? [];
+    if (!rows.length) return [];
+
+    const { data: productions } = await this.db
+      .from("productions")
+      .select("id, title")
+      .in("id", [...new Set(rows.map((r) => r.production_id as string))]);
+    const titleById = new Map(
+      (productions ?? []).map((p) => [p.id as string, p.title as string])
+    );
+    const nameById = new Map(
+      mine.map((s) => [
+        s.id as string,
+        (s.preferred_name as string | null) ?? (s.first_name as string),
+      ])
+    );
+
+    return rows
+      .filter((r) => r.status !== "no_script")
+      .map((r) => ({
+        productionId: r.production_id as string,
+        productionTitle: titleById.get(r.production_id as string) ?? "A show",
+        studentId: r.student_id as string,
+        studentName: nameById.get(r.student_id as string) ?? "Your child",
+        scriptNumber: r.script_number as string,
+        status: r.status as "on_loan" | "returned",
+        updatedAt: r.updated_at as string,
+      }));
   }
 }
 

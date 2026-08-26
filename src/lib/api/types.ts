@@ -760,3 +760,20 @@ export interface CallResponseRecord {
   reason: string | null;
   respondedAt: string;
 }
+
+
+/* ---- loaned scripts (staff portal 0159) ---------------------------------
+ * A numbered rehearsal script signed out to a student. Staff record the
+ * number on the show page; this is the family's half — bug #9 in the 25 Aug
+ * feedback, "there does not appear to be any information on the portal
+ * regarding loaned manuscripts".
+ */
+export interface LoanedScript {
+  productionId: string;
+  productionTitle: string;
+  studentId: string;
+  studentName: string;
+  scriptNumber: string;
+  status: "on_loan" | "returned";
+  updatedAt: string;
+}

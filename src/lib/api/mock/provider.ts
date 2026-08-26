@@ -46,6 +46,7 @@ import type {
   Student,
   User,
   CallResponseRecord,
+  LoanedScript,
   VolunteerSheet,
 } from "../types";
 import { BUTTON_PRICES_CENTS } from "../types";
@@ -4576,5 +4577,10 @@ export class MockDataProvider implements DataProvider {
 
   async respondToCall(): Promise<{ ok: boolean; message?: string }> {
     return { ok: false, message: "Answering a call needs the live backend." };
+  }
+
+  /** Scripts are numbered by staff against live shows; nothing to mock. */
+  async getMyScripts(): Promise<LoanedScript[]> {
+    return [];
   }
 }
