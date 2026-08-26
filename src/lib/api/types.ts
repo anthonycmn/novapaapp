@@ -239,6 +239,19 @@ export interface Enrollment {
   createdAt: string;
 }
 
+/**
+ * One performance a double-cast part is played at.
+ *
+ * Only ever present when a role is SHARED. A part with one person in it plays
+ * the whole run and carries none of these — see hub 0052, where no rows means
+ * every performance on purpose.
+ */
+export interface CastPerformance {
+  id: string;
+  title: string;
+  startsAt: string;
+}
+
 export interface CastingAssignment {
   id: string;
   productionId: string;

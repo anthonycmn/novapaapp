@@ -1,4 +1,5 @@
 import type {
+  CastPerformance,
   AbsenceReport,
   AppNotification,
   ButtonDesign,
@@ -729,6 +730,12 @@ export interface DataProvider {
       roleName: string;
       productionTitle: string;
       studentName: string;
+      /**
+       * The nights this child plays this part, when the part is shared with
+       * somebody else. Absent or empty means the whole run — which is the
+       * ordinary case and the reason the page says nothing at all then.
+       */
+      performances?: CastPerformance[];
     }>
   >;
   respondToCasting(

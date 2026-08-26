@@ -4,6 +4,7 @@ import { PartyPopper } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { DISCIPLINES, RUBRIC_CRITERIA } from "@/lib/api/auditions/types";
 import { getSessionUser } from "@/lib/auth/session";
+import { formatDate } from "@/lib/format";
 import { requestFeedbackAction } from "@/lib/actions/auditions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,13 @@ export default async function CastingPage() {
         />
       ) : (
         await Promise.all(
-          confirmations.map(async ({ confirmation, roleName, productionTitle, studentName }) => {
+          confirmations.map(async ({
+            confirmation,
+            roleName,
+            productionTitle,
+            studentName,
+            performances,
+          }) => {
             const feedbackReleased = Boolean(confirmation.feedbackRequestedAt);
             const feedback = feedbackReleased
               ? await provider.requestAuditionFeedback(user.id, confirmation.id)
@@ -82,6 +89,34 @@ export default async function CastingPage() {
                     responded={confirmation.nameCorrect !== undefined}
                     currentPlaybillName={confirmation.playbillName}
                   />
+
+                  {/* A shared part, and the nights that are theirs.
+                      Only drawn when the role is actually double cast — a part
+                      played the whole run carries no rows at all (hub 0052),
+                      so this stays silent rather than telling every family
+                      seven dates they already have on the calendar. */}
+                  {performances && performances.length > 0 && (
+                    <div className="rounded-lg border border-gold/50 bg-gold/5 p-3">
+                      <h3 className="text-sm font-semibold">
+                        {studentName.split(" ")[0]} plays {roleName} at these performances
+                      </h3>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
+                        This role is shared, so the run is split. These are the ones to invite
+                        people to.
+                      </p>
+                      <ul className="mt-2 flex flex-wrap gap-1.5">
+                        {performances.map((p) => (
+                          <li
+                            key={p.id}
+                            title={p.title}
+                            className="rounded-md border bg-background px-2 py-1 text-[13px] font-medium"
+                          >
+                            {formatDate(p.startsAt)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {scenes.length > 0 && (
                     <div className="border-t pt-4">

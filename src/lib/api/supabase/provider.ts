@@ -9,6 +9,7 @@ import type {
   AppNotification,
   ButtonDesign,
   ButtonOrder,
+  CastPerformance,
   ButtonTemplate,
   CalendarEvent,
   CartItem,
@@ -853,21 +854,50 @@ class SupabaseDataProvider {
 
     const assignmentIds = confirmations.map((c) => c.assignment_id);
     const studentIds = confirmations.map((c) => c.student_id);
-    const [{ data: assignments }, { data: students }, { data: productions }] =
+    const [{ data: assignments }, { data: students }, { data: productions }, { data: splits }] =
       await Promise.all([
         this.db.from("casting_assignments").select("*").in("id", assignmentIds),
         this.db.from("students").select("*").in("id", studentIds),
         this.db.from("productions").select("id, title"),
+        // Which nights, for a shared part. Usually empty: hub 0052 writes
+        // nothing at all unless a role is double cast and somebody split the
+        // run, so this is one small read that almost always comes back bare.
+        this.db
+          .from("casting_assignment_performances")
+          .select("assignment_id, event_id")
+          .in("assignment_id", assignmentIds),
       ]);
+
+    const splitEventIds = [...new Set((splits ?? []).map((r) => String(r.event_id)))];
+    const { data: splitEvents } = splitEventIds.length
+      ? await this.db
+          .from("calendar_events")
+          .select("id, title, starts_at")
+          .in("id", splitEventIds)
+          .order("starts_at")
+      : { data: [] as Row[] };
+    const eventById = new Map(
+      (splitEvents ?? []).map((e) => [
+        String(e.id),
+        { id: String(e.id), title: String(e.title ?? ""), startsAt: String(e.starts_at) },
+      ])
+    );
 
     return confirmations.map((row) => {
       const assignment = (assignments ?? []).find((a) => a.id === row.assignment_id);
+      // Kept in calendar order, so "Fri, Sun" never reads back as "Sun, Fri".
+      const performances = (splits ?? [])
+        .filter((r) => String(r.assignment_id) === String(row.assignment_id))
+        .map((r) => eventById.get(String(r.event_id)))
+        .filter((e): e is CastPerformance => Boolean(e))
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
       const production = (productions ?? []).find(
         (p) => p.id === assignment?.production_id
       );
       const student = (students ?? []).find((st) => st.id === row.student_id);
       return {
         confirmation: this.mapConfirmation(row),
+        performances,
         roleName: String(assignment?.character_name ?? ""),
         productionTitle: String(production?.title ?? ""),
         studentName: student
