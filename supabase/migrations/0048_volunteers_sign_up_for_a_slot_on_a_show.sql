@@ -133,19 +133,38 @@ create or replace function family_hub.claim_volunteer_slot(
   p_slot_id uuid,
   p_volunteer_name text,
   p_phone text default null,
-  p_note  text default null
+  p_note  text default null,
+  p_family_id uuid default null
 ) returns jsonb
 language plpgsql
 security definer
 set search_path to 'family_hub', 'extensions'
 as $fn$
 declare
-  fam    uuid := family_hub.auth_family_id();
+  own    uuid := family_hub.auth_family_id();
+  claim  text := coalesce(current_setting('request.jwt.claims', true)::jsonb->>'role', '');
+  fam    uuid;
   s      volunteer_slots;
   ev     volunteer_events;
   taken  int;
   name   text := btrim(coalesce(p_volunteer_name, ''));
 begin
+  /*
+   * WHO IS CLAIMING. A signed-in family is always itself, and p_family_id is
+   * ignored for them — that is what stops a parent claiming as somebody else.
+   * The service role may name the family, because the parent portal is 100%
+   * service-key server-side (auth.uid() is null there) and has already checked
+   * that the signed-in parent belongs to that family, the same way every other
+   * write in that app works. Anybody else is refused.
+   *
+   * The first cut read auth_family_id() alone. That is right for a
+   * token-bearing caller and useless for the only caller that exists, which
+   * would have refused every claim a parent ever made.
+   */
+  fam := case
+           when own is not null then own
+           when claim = 'service_role' then p_family_id
+         end;
   if fam is null then
     raise exception 'Only a signed-in family can take a volunteer slot.'
       using errcode = '42501';
@@ -184,8 +203,9 @@ begin
     'places_left', s.capacity - (taken + 1));
 end $fn$;
 
-revoke all on function family_hub.claim_volunteer_slot(uuid, text, text, text) from public, anon;
-grant execute on function family_hub.claim_volunteer_slot(uuid, text, text, text) to authenticated;
+revoke all on function family_hub.claim_volunteer_slot(uuid, text, text, text, uuid) from public, anon;
+grant execute on function family_hub.claim_volunteer_slot(uuid, text, text, text, uuid)
+  to authenticated, service_role;
 
 -- What both portals read, so neither does arithmetic the other might do
 -- differently.

@@ -45,6 +45,7 @@ import type {
   StaffProfile,
   Student,
   User,
+  VolunteerSheet,
 } from "../types";
 import { BUTTON_PRICES_CENTS } from "../types";
 import type {
@@ -4543,5 +4544,23 @@ export class MockDataProvider implements DataProvider {
       cart.push({ ...deepClone(item), id: nextId("cart") });
     }
     return deepClone(cart);
+  }
+
+  /* ---- volunteer sign-ups (hub 0048) ------------------------------------
+   * Not mocked. The sheets live in the family app schema and are built in the
+   * staff portal; there is no demo fixture that would tell anybody anything
+   * true, and a silent empty list would read as "no sheets" rather than "not
+   * on the mock backend".
+   */
+  async getVolunteerSheets(): Promise<VolunteerSheet[]> {
+    return [];
+  }
+
+  async claimVolunteerSlot(): Promise<{ ok: boolean; message?: string }> {
+    return { ok: false, message: "Volunteer sign-ups need the live backend." };
+  }
+
+  async releaseVolunteerSlot(): Promise<void> {
+    throw new Error("Volunteer sign-ups need the live backend.");
   }
 }

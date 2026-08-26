@@ -35,6 +35,7 @@ import type {
   StaffProfile,
   Student,
   User,
+  VolunteerSheet,
 } from "./types";
 import type { UploadSource } from "./storage";
 import type { OpenOffering } from "./catalog/offerings";
@@ -316,6 +317,17 @@ export interface DataProvider {
   ): Promise<void>;
   /** Staff: every report, most recent first. */
   getAbsenceReportsForStaff(actorId: string): Promise<AbsenceReport[]>;
+
+  /* volunteer sign-ups (hub 0048) */
+  /** Published sheets for the shows this family is actually on. */
+  getVolunteerSheets(actorId: string): Promise<VolunteerSheet[]>;
+  /** Take a place. Capacity is checked under a row lock, so this can refuse. */
+  claimVolunteerSlot(
+    actorId: string,
+    input: { slotId: string; volunteerName: string; phone?: string; note?: string }
+  ): Promise<{ ok: boolean; message?: string }>;
+  /** Give back a place — only ever your own. */
+  releaseVolunteerSlot(actorId: string, signupId: string): Promise<void>;
 
   /* early pickup / late drop-off (#10) */
   getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]>;

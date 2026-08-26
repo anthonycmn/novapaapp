@@ -717,3 +717,32 @@ export interface SessionUser extends User {
   /** Convenience: resolved family for parent users. */
   family?: Family;
 }
+
+
+/* ---- volunteer sign-ups (hub 0048) --------------------------------------
+ * A sheet is an event on a show — strike night, load-in, a concessions shift
+ * — with slots under it. A slot is a time, a job, and how many people are
+ * wanted. Built in the staff portal; taken here.
+ */
+export interface VolunteerSlot {
+  id: string;
+  title: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  notes: string | null;
+  capacity: number;
+  taken: number;
+  placesLeft: number;
+  /** First names on the sheet, so a parent can see whether it is covered. */
+  volunteers: string[];
+  /** Set when this family already has this slot — the id to give it back by. */
+  mySignupId: string | null;
+}
+
+export interface VolunteerSheet {
+  id: string;
+  title: string;
+  onDate: string | null;
+  location: string | null;
+  slots: VolunteerSlot[];
+}

@@ -1,4 +1,5 @@
 import {
+  HandHeart,
   Bell,
   BookOpen,
   CalendarDays,
@@ -68,6 +69,9 @@ export const FAMILY_SECTIONS: NavSection[] = [
   { href: "/family/documents", Icon: FileSignature, label: "Document vault", description: "Waivers, forms, and receipts", group: "Your family" },
   { href: "/family/pickup", Icon: TrafficCone, label: "Pickup & drop-off", description: "Request an early pickup or a late drop-off", group: "Your family" },
   { href: "/family/absences", Icon: CalendarOff, label: "Report an absence", description: "A rehearsal or performance your child will miss", group: "Your family" },
+  // Sheets are built per show in the staff portal and appear here the moment
+  // they are published — hub 0048, 26 Aug 2026.
+  { href: "/volunteers", Icon: HandHeart, label: "Volunteer", description: "Sign up to help with your show", group: "Your family" },
   { href: "/messages", Icon: MessagesSquare, label: "Message the office", description: "Admin or Health & Safety, privately", group: "Your family" },
   { href: "/store/buttons", Icon: ShoppingBag, label: "Spirit buttons", description: "Pick a show, add a photo, see the button", group: "Store" },
   { href: "/store/star-pages", Icon: ShoppingBag, label: "Star pages", description: "Playbill tributes to your performer", group: "Store" },
