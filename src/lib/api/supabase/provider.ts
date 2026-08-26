@@ -40,6 +40,7 @@ import type {
   Student,
   User,
   Production,
+  CallResponseRecord,
   VolunteerSheet,
 } from "../types";
 import {
@@ -5758,6 +5759,51 @@ class SupabaseDataProvider {
       .eq("id", signupId)
       .eq("family_id", actor.familyId);
     if (error) throw new Error(`could not give up that slot: ${error.message}`);
+  }
+
+  /* ---- answering a call: attending / conflict (0049) --------------------- */
+
+  async getMyCallResponses(actorId: string): Promise<CallResponseRecord[]> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return [];
+    const { data, error } = await this.db
+      .from("event_responses")
+      .select("event_id, student_id, status, reason, updated_at")
+      .eq("family_id", actor.familyId);
+    if (error) throw new Error(`call responses lookup failed: ${error.message}`);
+    return (data ?? []).map((row) => ({
+      eventId: row.event_id as string,
+      studentId: row.student_id as string,
+      status: row.status as "attending" | "conflict",
+      reason: (row.reason as string | null) ?? null,
+      respondedAt: row.updated_at as string,
+    }));
+  }
+
+  async respondToCall(
+    actorId: string,
+    input: {
+      eventId: string;
+      studentId: string;
+      status: "attending" | "conflict";
+      reason?: string;
+    }
+  ): Promise<{ ok: boolean; message?: string }> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return { ok: false, message: "Only a family can answer a call." };
+
+    // One transaction in the database: the answer, and the absence report a
+    // conflict files so staff hear about it where they already look.
+    const { data, error } = await this.db.rpc("respond_to_call", {
+      p_event_id: input.eventId,
+      p_student_id: input.studentId,
+      p_status: input.status,
+      p_reason: input.reason ?? null,
+      p_family_id: actor.familyId,
+      p_by_name: actor.displayName ?? null,
+    });
+    if (error) throw new Error(`could not save that answer: ${error.message}`);
+    return (data ?? { ok: false }) as { ok: boolean; message?: string };
   }
 }
 

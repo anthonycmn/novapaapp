@@ -72,6 +72,7 @@ export default async function DashboardPage() {
     staff,
     offerings,
     familyEvents,
+    callResponses,
   ] = await Promise.all([
     provider.getProductions(),
     provider.getProductionRuns(),
@@ -85,6 +86,10 @@ export default async function DashboardPage() {
       : isStaff
         ? (provider.getAllEvents(user.id) as Promise<FamilyCalendarEvent[]>)
         : Promise.resolve<FamilyCalendarEvent[]>([]),
+    // What this family has already said about each call — 0049. Drawn on the
+    // card itself, because the place you confirm you told somebody should be
+    // the place you told them.
+    provider.getMyCallResponses(user.id),
   ]);
 
   const active = enrollments.filter((e) => e.status !== "withdrawn");
@@ -219,6 +224,8 @@ export default async function DashboardPage() {
           <Card pad={false}>
             <WeekCalendar
               events={familyEvents}
+              responses={callResponses}
+              canRespond={Boolean(user.familyId)}
               students={students.map((student) => ({
                 id: student.id,
                 name: student.preferredName ?? student.firstName,

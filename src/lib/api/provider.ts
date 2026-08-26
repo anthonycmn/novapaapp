@@ -35,6 +35,7 @@ import type {
   StaffProfile,
   Student,
   User,
+  CallResponseRecord,
   VolunteerSheet,
 } from "./types";
 import type { UploadSource } from "./storage";
@@ -317,6 +318,20 @@ export interface DataProvider {
   ): Promise<void>;
   /** Staff: every report, most recent first. */
   getAbsenceReportsForStaff(actorId: string): Promise<AbsenceReport[]>;
+
+  /* answering a call — attending / conflict (hub 0049) */
+  /** Every answer this family has given, for drawing on the calendar. */
+  getMyCallResponses(actorId: string): Promise<CallResponseRecord[]>;
+  /** Answer one call for one child. A conflict must carry a reason. */
+  respondToCall(
+    actorId: string,
+    input: {
+      eventId: string;
+      studentId: string;
+      status: "attending" | "conflict";
+      reason?: string;
+    }
+  ): Promise<{ ok: boolean; message?: string }>;
 
   /* volunteer sign-ups (hub 0048) */
   /** Published sheets for the shows this family is actually on. */

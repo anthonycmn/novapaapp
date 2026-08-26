@@ -746,3 +746,17 @@ export interface VolunteerSheet {
   location: string | null;
   slots: VolunteerSlot[];
 }
+
+
+/* ---- answering a call (hub 0049) ----------------------------------------
+ * A family's answer to one call for one child. A conflict also files an
+ * absence report, so the answer reaches the morning digest and the staff
+ * Conflicts page rather than sitting in a second inbox nobody watches.
+ */
+export interface CallResponseRecord {
+  eventId: string;
+  studentId: string;
+  status: "attending" | "conflict";
+  reason: string | null;
+  respondedAt: string;
+}

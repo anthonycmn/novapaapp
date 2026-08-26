@@ -45,6 +45,7 @@ import type {
   StaffProfile,
   Student,
   User,
+  CallResponseRecord,
   VolunteerSheet,
 } from "../types";
 import { BUTTON_PRICES_CENTS } from "../types";
@@ -4562,5 +4563,18 @@ export class MockDataProvider implements DataProvider {
 
   async releaseVolunteerSlot(): Promise<void> {
     throw new Error("Volunteer sign-ups need the live backend.");
+  }
+
+  /* ---- answering a call (hub 0049) --------------------------------------
+   * Not mocked: the answer and the absence it files are one database
+   * transaction, and half of that in memory would be a worse lie than
+   * saying so.
+   */
+  async getMyCallResponses(): Promise<CallResponseRecord[]> {
+    return [];
+  }
+
+  async respondToCall(): Promise<{ ok: boolean; message?: string }> {
+    return { ok: false, message: "Answering a call needs the live backend." };
   }
 }

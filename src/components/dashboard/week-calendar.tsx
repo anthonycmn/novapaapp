@@ -13,7 +13,8 @@ import {
   weeksFromNow,
   addDays,
 } from "@/lib/calendar/week";
-import type { FamilyCalendarEvent } from "@/lib/api/types";
+import type { CallResponseRecord, FamilyCalendarEvent } from "@/lib/api/types";
+import { CallResponse } from "@/components/dashboard/call-response";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -44,9 +45,15 @@ const CHILD_COLORS = [
 export function WeekCalendar({
   events,
   students,
+  responses = [],
+  canRespond = false,
 }: {
   events: FamilyCalendarEvent[];
   students: Array<{ id: string; name: string }>;
+  /** This family's answers so far, keyed by event and child. */
+  responses?: CallResponseRecord[];
+  /** Staff see the same calendar and have nothing to answer. */
+  canRespond?: boolean;
 }) {
   const today = todayKey();
   const [anchor, setAnchor] = useState(() => weekStart(today));
@@ -201,6 +208,8 @@ export function WeekCalendar({
                         colorByStudent={colorByStudent}
                         nameByStudent={nameByStudent}
                         showChildren={students.length > 1 && childFilter === null}
+                        responses={responses}
+                        canRespond={canRespond}
                       />
                     ))}
                   </div>
@@ -218,12 +227,16 @@ function EventRow({
   event,
   colorByStudent,
   nameByStudent,
+  responses,
+  canRespond,
   showChildren,
 }: {
   event: FamilyCalendarEvent;
   colorByStudent: Record<string, string>;
   nameByStudent: Record<string, string>;
   showChildren: boolean;
+  responses: CallResponseRecord[];
+  canRespond: boolean;
 }) {
   const body = (
     <>
@@ -285,14 +298,42 @@ function EventRow({
 
   // A show call links to the show, where the full run and the rehearsal
   // tracks live. Anything else has nowhere better to go than here.
-  return event.productionId ? (
-    <Link
-      href={`/productions/${event.productionId}`}
-      className="-mx-2 block rounded-md px-2 py-1 transition-colors hover:bg-muted"
-    >
-      {body}
-    </Link>
-  ) : (
-    <div className="px-0 py-1">{body}</div>
+  const answerFor = (studentId: string) => {
+    const found = responses.find(
+      (r) => r.eventId === event.id && r.studentId === studentId
+    );
+    return found ? { status: found.status, reason: found.reason } : null;
+  };
+
+  /*
+   * The card links to the show; the answer buttons must not be inside that
+   * link, or pressing "Conflict" navigates instead of answering. So the link
+   * wraps the text and the controls sit under it.
+   */
+  return (
+    <div>
+      {event.productionId ? (
+        <Link
+          href={`/productions/${event.productionId}`}
+          className="-mx-2 block rounded-md px-2 py-1 transition-colors hover:bg-muted"
+        >
+          {body}
+        </Link>
+      ) : (
+        <div className="px-0 py-1">{body}</div>
+      )}
+
+      {canRespond &&
+        event.studentIds.map((studentId) => (
+          <CallResponse
+            key={studentId}
+            eventId={event.id}
+            studentId={studentId}
+            studentName={nameByStudent[studentId] ?? "Your child"}
+            answer={answerFor(studentId)}
+            showName={showChildren}
+          />
+        ))}
+    </div>
   );
 }
