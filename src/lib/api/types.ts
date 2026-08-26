@@ -756,7 +756,7 @@ export interface VolunteerSheet {
 export interface CallResponseRecord {
   eventId: string;
   studentId: string;
-  status: "attending" | "conflict";
+  status: "attending" | "not_attending" | "injury" | "partial";
   reason: string | null;
   respondedAt: string;
 }

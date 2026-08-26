@@ -5775,7 +5775,7 @@ class SupabaseDataProvider {
     return (data ?? []).map((row) => ({
       eventId: row.event_id as string,
       studentId: row.student_id as string,
-      status: row.status as "attending" | "conflict",
+      status: row.status as "attending" | "not_attending" | "injury" | "partial",
       reason: (row.reason as string | null) ?? null,
       respondedAt: row.updated_at as string,
     }));
@@ -5786,7 +5786,7 @@ class SupabaseDataProvider {
     input: {
       eventId: string;
       studentId: string;
-      status: "attending" | "conflict";
+      status: "attending" | "not_attending" | "injury" | "partial" | "clear";
       reason?: string;
     }
   ): Promise<{ ok: boolean; message?: string }> {

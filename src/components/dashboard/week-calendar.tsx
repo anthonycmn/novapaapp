@@ -331,7 +331,6 @@ function EventRow({
             studentId={studentId}
             studentName={nameByStudent[studentId] ?? "Your child"}
             answer={answerFor(studentId)}
-            showName={showChildren}
             eventTitle={event.title}
             eventWhen={`${formatTime(event.startsAt)}`}
           />

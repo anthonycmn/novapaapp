@@ -327,13 +327,13 @@ export interface DataProvider {
   /* answering a call — attending / conflict (hub 0049) */
   /** Every answer this family has given, for drawing on the calendar. */
   getMyCallResponses(actorId: string): Promise<CallResponseRecord[]>;
-  /** Answer one call for one child. A conflict must carry a reason. */
+  /** Answer one call for one child, or "clear" to take the answer back. */
   respondToCall(
     actorId: string,
     input: {
       eventId: string;
       studentId: string;
-      status: "attending" | "conflict";
+      status: "attending" | "not_attending" | "injury" | "partial" | "clear";
       reason?: string;
     }
   ): Promise<{ ok: boolean; message?: string }>;
