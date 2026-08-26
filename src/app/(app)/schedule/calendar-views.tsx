@@ -168,7 +168,8 @@ function EventCard({
             <p className="text-sm text-muted-foreground">
               {formatEventTime(event.startsAt)} – {formatTime(event.endsAt)} · {event.location}
             </p>
-            {event.callTime && (
+            {/* Only when it differs — see showableCallTime in lib/format. */}
+            {event.callTime && event.callTime !== event.startsAt && (
               <p className="text-sm">
                 <span className="font-medium">Call time:</span> {formatTime(event.callTime)}
               </p>

@@ -64,7 +64,8 @@ export function NextCall({
             <CalendarDays aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
             {formatEventTime(event.startsAt)}
           </p>
-          {event.callTime && (
+          {/* Only when it differs — see showableCallTime in lib/format. */}
+          {event.callTime && event.callTime !== event.startsAt && (
             <p className="flex items-start gap-2 text-[13.5px] font-medium text-primary">
               <Clock aria-hidden size={15} className="mt-0.5 shrink-0" />
               Be there by {formatEventTime(event.callTime)}
@@ -142,7 +143,7 @@ export function PerformanceStrip({ events }: { events: CalendarEvent[] }) {
               }`}
             >
               <span className="font-medium">{formatEventTime(show.startsAt)}</span>
-              {show.callTime && (
+              {show.callTime && show.callTime !== show.startsAt && (
                 <span className="ml-2 text-muted-foreground">
                   call {formatEventTime(show.callTime).split("·")[1]?.trim()}
                 </span>

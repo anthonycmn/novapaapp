@@ -241,7 +241,8 @@ export function ScheduleRail({
                           <span className="opacity-80">{durationOf(event)}</span>
                         </p>
 
-                        {event.callTime && (
+                        {/* Only when it differs — see showableCallTime. */}
+                        {event.callTime && event.callTime !== event.startsAt && (
                           <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] font-medium text-gold">
                             <Clock aria-hidden size={12} className="shrink-0" />
                             Be there by {formatTime(event.callTime)}
