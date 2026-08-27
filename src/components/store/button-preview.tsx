@@ -30,7 +30,7 @@ export function ButtonPreview({
   printInches?: boolean;
 }) {
   const accent = template?.accentColor ?? "#8e1f2f";
-  // Each show picks its own accent, so the label colour has to be derived
+  // Each show picks its own accent, so the label color has to be derived
   // from it — fixed white fails WCAG AA on mid-tone accents.
   const onAccent = readableTextOn(accent);
   const dimension = printInches ? `${size}in` : "14rem";
@@ -102,7 +102,7 @@ export function ButtonPreview({
       </div>
 
       {/* Show + season along the top. This sits over the photo well, whose
-          colour we don't control (any uploaded image, or the empty-state
+          color we don't control (any uploaded image, or the empty-state
           background), so it carries its own accent pill — contrast is
           guaranteed rather than incidental. */}
       {(showTitle || template) && (

@@ -717,7 +717,7 @@ export class MockDataProvider implements DataProvider {
   }
 
   /**
-   * A demo catalogue. In production this is the org's own `public.activities`;
+   * A demo catalog. In production this is the org's own `public.activities`;
    * here it is one of each kind, put through the same mapping so the sold-out
    * and unbookable rules are exercised rather than assumed.
    */
@@ -3244,7 +3244,7 @@ export class MockDataProvider implements DataProvider {
        * Storage URLs. Undefined means "the form did not touch this" and the
        * existing value stands; empty string clears it. Uploads reach storage
        * directly from the browser, so by the time this runs the file is
-       * already there and only its address is travelling.
+       * already there and only its address is traveling.
        */
       auditionVideoUrl?: string;
       danceVideoUrl?: string;

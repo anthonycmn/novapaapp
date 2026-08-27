@@ -38,7 +38,7 @@ export function staffForFamily(input: StaffForFamilyInput): StaffAssignment[] {
   const productionById = new Map(input.productions.map((p) => [p.id, p]));
   const classById = new Map(input.classes.map((c) => [c.id, c]));
 
-  // A withdrawn enrolment is not a room your child is in.
+  // A withdrawn enrollment is not a room your child is in.
   const active = input.enrollments.filter(
     (enrollment) => enrollment.status !== "withdrawn"
   );

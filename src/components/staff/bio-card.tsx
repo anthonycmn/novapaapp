@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * message to the family."
  *
  * So the closed card is the headshot and the name — the two things that let a
- * parent recognise somebody at pickup — and the title, bio and message unfold
+ * parent recognize somebody at pickup — and the title, bio and message unfold
  * underneath when you press it. Unfolding in place rather than navigating
  * matters here: a parent reading about four people compares them, and a page
  * per person turns a comparison into four round trips.

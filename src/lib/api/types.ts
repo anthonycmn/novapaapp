@@ -227,10 +227,10 @@ export interface Enrollment {
    */
   amountPaidCents?: number;
   /**
-   * When the care actually happened, captured from the catalogue the first
+   * When the care actually happened, captured from the catalog the first
    * time the sync saw this enrollment and never rewritten afterwards.
    *
-   * The catalogue rolls over each season — summer 2026's camps already list
+   * The catalog rolls over each season — summer 2026's camps already list
    * July 2027 dates — so this is the only record of the dates that were true
    * for the fees a family paid.
    */

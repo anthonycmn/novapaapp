@@ -30,7 +30,7 @@ import type { LucideIcon } from "lucide-react";
  *
  * Icons are lucide, matching the staff portal (Tony, 2026-08-16). The emoji
  * these used to carry were the other half of why the two products looked
- * like different companies: emoji render in the OS's own colours and no
+ * like different companies: emoji render in the OS's own colors and no
  * amount of palette work brings them into line.
  */
 

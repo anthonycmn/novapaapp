@@ -143,7 +143,7 @@ export function PerformanceStrip({ events }: { events: CalendarEvent[] }) {
               }`}
             >
               {/*
-                  Both times, labelled — CJ, 26 Aug: "for the RUN in the parent
+                  Both times, labeled — CJ, 26 Aug: "for the RUN in the parent
                   portal add both call time and performance time."
 
                   These were the same number until the 26th, because starts_at

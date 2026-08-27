@@ -1,11 +1,11 @@
 import { registration } from "@/config/registration";
 
 /**
- * What a family can sign up for right now, read from the org's own catalogue
+ * What a family can sign up for right now, read from the org's own catalog
  * (`public.activities` — the same table the public site's Register buttons
  * read).
  *
- * There is no second list here and there must never be one. The catalogue is
+ * There is no second list here and there must never be one. The catalog is
  * maintained by hand in the registration system; anything this app kept
  * alongside it would be a copy that goes stale silently, and the failure mode
  * of a stale copy is a family paying for a camp that filled last week.
@@ -18,16 +18,16 @@ export interface OpenOffering {
   activityId: number;
   kind: OfferingKind;
   name: string;
-  /** "5 – 9 yrs", as the catalogue writes it. */
+  /** "5 – 9 yrs", as the catalog writes it. */
   ageRange?: string;
   priceCents?: number;
-  /** Places left, when the catalogue tracks them. */
+  /** Places left, when the catalog tracks them. */
   openSpots?: number;
   /** Where a family goes to book it. */
   registerUrl: string;
 }
 
-/** How the four catalogue categories read to a parent. */
+/** How the four catalog categories read to a parent. */
 export const KIND_LABEL: Record<OfferingKind, string> = {
   class: "Classes",
   camp: "Camps & musicals",
@@ -36,11 +36,11 @@ export const KIND_LABEL: Record<OfferingKind, string> = {
 };
 
 /**
- * The catalogue's category, in this app's words.
+ * The catalog's category, in this app's words.
  *
  * "camp" carries both a one-day camp and a two-week Broadway Bound musical,
  * because that is how they are sold. They are not split here: a split would be
- * this app second-guessing the catalogue, and the names already say which is
+ * this app second-guessing the catalog, and the names already say which is
  * which.
  */
 export function kindOf(category: unknown): OfferingKind | null {
@@ -54,23 +54,23 @@ export function kindOf(category: unknown): OfferingKind | null {
     case "performance":
       return "show";
     default:
-      // An unrecognised category is not guessed at. It simply is not offered,
+      // An unrecognized category is not guessed at. It simply is not offered,
       // and the count of what was left out is reported rather than hidden.
       return null;
   }
 }
 
 /**
- * One catalogue row as something a family can act on.
+ * One catalog row as something a family can act on.
  *
- * Returns null for anything unbookable. The three flags are the catalogue's
+ * Returns null for anything unbookable. The three flags are the catalog's
  * own: `active` (still on sale), `bookable` (can be bought at all), `hidden`
  * (deliberately off the public site). A row failing any of them is one the
  * office has decided nobody should be buying, and this app does not get a
  * second opinion.
  *
  * Note what is NOT used: `pdp_url`. It is a relative path into the org's old
- * Sawyer account, which knows nothing about the balances or enrolments in this
+ * Sawyer account, which knows nothing about the balances or enrollments in this
  * app — see the note in config/registration.ts. The deep link is built from the
  * id instead, which is what the public site's own Register buttons use.
  */
@@ -87,7 +87,7 @@ export function offeringFromRow(row: Record<string, unknown>): OpenOffering | nu
   if (!name) return null;
 
   const openSpots = num(row.open_spots);
-  // Sold out is not "open". The catalogue leaves the row active because there
+  // Sold out is not "open". The catalog leaves the row active because there
   // is a waitlist, but a family reading "register" should not find a full week.
   if (openSpots !== undefined && openSpots <= 0) return null;
 
@@ -106,7 +106,7 @@ export function offeringFromRow(row: Record<string, unknown>): OpenOffering | nu
  * Group for display, cheapest-looking first within a kind so the list opens
  * with something approachable rather than a $995 musical.
  *
- * `limitPerKind` exists because the catalogue runs to 124 open rows and a
+ * `limitPerKind` exists because the catalog runs to 124 open rows and a
  * dashboard is not a shop. What is cut is COUNTED, so the card can say "and 71
  * more" and link to the full list instead of quietly pretending the rest do
  * not exist.

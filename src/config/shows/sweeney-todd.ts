@@ -17,7 +17,7 @@
  * second copy to fall out of step.
  *
  * The rehearsal-track access below stays. It is not show breakdown — it is one
- * MTI licence code and the four ways to redeem it, it changes once a
+ * MTI license code and the four ways to redeem it, it changes once a
  * production, and it has no row anywhere to live in.
  */
 

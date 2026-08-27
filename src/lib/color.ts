@@ -1,8 +1,8 @@
 /**
- * Contrast helpers for colours that aren't known at build time.
+ * Contrast helpers for colors that aren't known at build time.
  *
  * Design tokens are checked statically by tests/contrast.test.ts, but each
- * production picks its own spirit-button accent colour at runtime. Fixed
+ * production picks its own spirit-button accent color at runtime. Fixed
  * white text on an arbitrary accent fails WCAG AA for anything mid-tone —
  * the Frozen Jr. blue (#4f8fd6) gives 3.37:1 against white — so the
  * foreground has to be chosen from the background.
@@ -51,7 +51,7 @@ export function readableTextOn(background: string): string {
 }
 
 /**
- * Darken a colour by `amount` (0–1) in sRGB. Used to deepen a light accent
+ * Darken a color by `amount` (0–1) in sRGB. Used to deepen a light accent
  * so white text can stay white where the design calls for it.
  */
 export function darken(hex: string, amount: number): string {

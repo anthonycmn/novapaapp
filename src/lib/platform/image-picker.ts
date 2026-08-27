@@ -35,7 +35,7 @@ export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
 /**
  * The long edge we keep. Headshots are cropped out of this and printed at
  * 2400px wide (see headshot-cropper), so it has to stay comfortably above that
- * for a crop of part of the frame to still hold up in the programme.
+ * for a crop of part of the frame to still hold up in the program.
  */
 export const MAX_EDGE = 3200;
 

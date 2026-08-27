@@ -153,7 +153,7 @@ export function describeButton(studentName: string, role: string, size: string):
  *
  * So the answer is to fail closed and take no money at all. The alternative
  * failure, falling back to the mock, would hand out spirit buttons for free;
- * of the two, refusing to sell is the one you can apologise for.
+ * of the two, refusing to sell is the one you can apologize for.
  */
 export function livePaymentsBlockedBecause(): string | null {
   if (!process.env.STRIPE_SECRET_KEY) return null; // mock mode; nothing to protect

@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
  * Plain-English explanation shown BEFORE a parent can opt in (#6).
  * Written for a parent on a phone, not a lawyer. Every claim here is
  * enforced somewhere in code and covered by a test — if you change the
- * behaviour, change this copy.
+ * behavior, change this copy.
  */
 export function ConsentExplanation({ studentName }: { studentName: string }) {
   return (

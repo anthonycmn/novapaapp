@@ -8,7 +8,7 @@
  *
  * That last property is the reason for the design, not a consequence of it. A
  * chatbot that answers a parent's question about their child's medication with
- * a plausible guess is worse than no chatbot. Spot either recognises the
+ * a plausible guess is worse than no chatbot. Spot either recognizes the
  * question and hands over a real page, or says it does not know and points at
  * the message form, which reaches a named person.
  *

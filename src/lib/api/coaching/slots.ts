@@ -156,7 +156,7 @@ export function generateSlots(
   return slots.sort();
 }
 
-/** "Mon 4:00 PM", in the only timezone this organisation books in. */
+/** "Mon 4:00 PM", in the only timezone this organization books in. */
 export function formatSlot(iso: string): string {
   return formatInTimeZone(new Date(iso), COACHING_TIME_ZONE, "EEE d MMM, h:mm a");
 }

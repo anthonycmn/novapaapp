@@ -93,9 +93,9 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
       /*
        * When the care actually happened, best source first.
        *
-       * 1. The session dates captured from the catalogue at sync time. These
+       * 1. The session dates captured from the catalog at sync time. These
        *    are the real week of camp and the only ones that survive the
-       *    catalogue rolling over to next season.
+       *    catalog rolling over to next season.
        * 2. The production's own run, for a show.
        * 3. The tax-year range — imprecise but true. An administrator reads it
        *    as "sometime in this plan year", which beats a confident wrong week.
@@ -113,7 +113,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
        *
        * The old fallback was max(0, -balance), which is ZERO for anything paid
        * in full — so a real statement would have listed a family's camps at
-       * $0.00 each. An override is still honoured for tests and for a figure
+       * $0.00 each. An override is still honored for tests and for a figure
        * corrected by hand, but the snapshot is the source now.
        */
       const paid =

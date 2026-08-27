@@ -28,7 +28,7 @@ const ASPECT: Record<string, string> = {
  *
  * The message is rendered with whitespace preserved and never reformatted,
  * because it is submitted as written (Tony, 17 Aug 2026) — if a parent puts
- * their line breaks somewhere deliberate, the preview has to honour them or
+ * their line breaks somewhere deliberate, the preview has to honor them or
  * the preview is lying.
  */
 export function StarPageForm({

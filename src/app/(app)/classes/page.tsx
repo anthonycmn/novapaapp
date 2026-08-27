@@ -40,9 +40,9 @@ export default async function ClassesPage() {
    * ONLY the classes this family is registered for — same rule as Shows, and
    * for the same reason (Tony, 17 Aug 2026: "the same is true for classes").
    * A parent opening this page wants their Tuesday, not a prospectus; what is
-   * open to sign up for lives on the dashboard, read from the real catalogue.
+   * open to sign up for lives on the dashboard, read from the real catalog.
    *
-   * Staff have no family and no enrolments, so for them it is the whole list.
+   * Staff have no family and no enrollments, so for them it is the whole list.
    */
   const ours = classes
     .filter((offering) => (user.familyId ? mine.has(offering.id) : true))

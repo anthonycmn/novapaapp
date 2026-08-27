@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
  * is the next one" — are the reason they opened this section at all, and a
  * balance behind another click is a balance nobody checks.
  *
- * Cancelling asks first. It returns the session to the balance, so it is
+ * Canceling asks first. It returns the session to the balance, so it is
  * recoverable, but a mis-tap that silently unbooks a Thursday is still a bad
  * afternoon.
  */

@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 /**
  * The butterfly, in whichever cut reads on the current background.
  *
- * Two files rather than one recoloured file, same as the staff portal: the mark
+ * Two files rather than one recolored file, same as the staff portal: the mark
  * is navy-and-gold, and no CSS filter turns navy-and-gold into white without
  * also flattening the gold. On dark, the all-white cut is the one the brand
  * actually ships for the purpose.

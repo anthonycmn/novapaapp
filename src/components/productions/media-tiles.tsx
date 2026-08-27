@@ -16,7 +16,7 @@ import type { Production } from "@/lib/api/types";
  *
  * NOT DRAWN WHEN EMPTY — which is the one place this differs from the staff
  * portal's version of the same three links. There, a folder nobody has filled
- * in is a greyed-out placeholder, because the person looking at it is the
+ * in is a grayed-out placeholder, because the person looking at it is the
  * person who can fix it. Here nobody can fix it, so an empty tile would only
  * be a parent emailing a director to ask about a button that does nothing.
  *

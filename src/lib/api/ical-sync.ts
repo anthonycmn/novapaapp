@@ -73,7 +73,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
   base.withCallTime = rows.filter((row) => row.call_time).length;
 
   // A feed that suddenly parses to nothing is far more likely to be a fetch
-  // or format problem than a cancelled season. Deleting the whole calendar on
+  // or format problem than a canceled season. Deleting the whole calendar on
   // that basis is not a risk worth taking unattended.
   if (rows.length === 0) {
     return { ...base, skipped: "feed parsed to zero events; refusing to clear the calendar" };

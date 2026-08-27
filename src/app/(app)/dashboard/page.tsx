@@ -35,7 +35,7 @@ export const metadata = { title: "Dashboard" };
  * The dashboard — the one page a parent should be able to open and know where
  * they stand.
  *
- * It replaced a home page that summarised the portal and a "This week" group
+ * It replaced a home page that summarized the portal and a "This week" group
  * in the sidebar that split the same week across three destinations (Tony,
  * 17 Aug 2026: "I would like for this week to turn into a dashboard and
  * replace home… everything under this week to be on the dashboard"). Those
@@ -100,7 +100,7 @@ export default async function DashboardPage() {
   const unread = notifications.filter((n) => !n.readAt);
   /*
    * A broadcast is what gets sent when something changes for everybody at
-   * once — a closure, a venue move, a cancelled night. Unread ones come out of
+   * once — a closure, a venue move, a canceled night. Unread ones come out of
    * the list and go to the top of the page; once read they take their place in
    * the ordinary run of notifications like anything else.
    */

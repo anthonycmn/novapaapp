@@ -23,7 +23,7 @@ import { getWebsiteReadClient, getPortalReadClient } from "../supabase/client";
  * coaching data.
  *
  * Returns an empty set if the view is unreachable, which degrades to exactly
- * the old behaviour — coaching reported as unmatched rather than guessed at.
+ * the old behavior — coaching reported as unmatched rather than guessed at.
  */
 export async function fetchCoachingActivityIds(): Promise<Set<number>> {
   try {
@@ -242,7 +242,7 @@ export interface ActivityInfo {
   name: string;
   category?: string;
   ageRange?: string;
-  /** When this session runs, parsed from the catalogue's display strings. */
+  /** When this session runs, parsed from the catalog's display strings. */
   session?: SessionDates;
 }
 

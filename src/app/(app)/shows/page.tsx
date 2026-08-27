@@ -67,7 +67,7 @@ export default async function ShowsPage() {
    * several are tech placeholders and next season's — so the list answered a
    * question nobody asked while burying the one show a parent came for.
    * Discovery belongs to "Sign up for something" on the dashboard, which reads
-   * the real catalogue and links straight to booking.
+   * the real catalog and links straight to booking.
    *
    * Sorted by when each show ACTUALLY opens, which is a calendar fact rather
    * than a column: opensOn is null on all twenty-four, so sorting by it left
@@ -76,7 +76,7 @@ export default async function ShowsPage() {
   const openingOf = (production: (typeof productions)[number]) =>
     openingNight(production, runs[production.id]) ?? "9999";
 
-  // Staff have no family, and no enrolments — for them the whole season is
+  // Staff have no family, and no enrollments — for them the whole season is
   // the point of the page.
   const ours = productions
     .filter((production) => (user.familyId ? mine.has(production.id) : true))

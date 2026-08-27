@@ -38,7 +38,7 @@ export const EMBEDDING_DIMENSIONS = 512;
  * Deterministic stand-in. Derives a stable pseudo-embedding from any
  * "identity" token found in the URL, so the same person yields similar
  * vectors and different people yield dissimilar ones. This makes matching
- * behaviour reproducible in tests without shipping a model.
+ * behavior reproducible in tests without shipping a model.
  *
  * Convention used by seed data and tests:
  *   .../face/<identity>/<variant>.jpg

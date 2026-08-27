@@ -33,7 +33,7 @@ export function coverageRoleFor(input: {
   return "admin";
 }
 
-/** The contact tree's three levels; anything unrecognised is the calm one. */
+/** The contact tree's three levels; anything unrecognized is the calm one. */
 export function priorityOf(value: unknown): MessageTopic["priority"] {
   const text = String(value ?? "").trim().toLowerCase();
   if (text === "immediate") return "Immediate";

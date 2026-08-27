@@ -72,7 +72,7 @@ create unique index if not exists classes_registration_activity_uq
   on family_hub.classes (registration_activity_id)
   where registration_activity_id is not null;
 
--- A listing is a production or a class, never both: an enrolment that resolved
+-- A listing is a production or a class, never both: an enrollment that resolved
 -- to two different things would be worse than one that resolved to none.
 -- Enforced as a check the bridge runs rather than a constraint, because the two
 -- tables cannot see each other in a unique index.
@@ -161,7 +161,7 @@ declare
   v_program   uuid;
 begin
   -- Published from the staff portal by a Chief, or by a family-app admin.
-  -- Nobody else, because this creates the thing a family's enrolment attaches
+  -- Nobody else, because this creates the thing a family's enrollment attaches
   -- to and names it.
   if not (coalesce(staff_portal.is_chief(), false) or coalesce(family_hub.is_admin(), false)) then
     raise exception 'Only a Super Admin may adopt a registration listing'

@@ -25,7 +25,7 @@ import type { ShowRole, ShowScene } from "../auditions/types";
 import type { LessonSlot } from "../lessons/types";
 
 /**
- * Realistic demo data: three families, five students, four staff,
+ * Realiztic demo data: three families, five students, four staff,
  * the current season's programs and productions. Mirrors what
  * scripts/seed.ts inserts into Supabase.
  */
@@ -541,7 +541,7 @@ export const products: Product[] = [
     type: "star_page",
     name: "Star page — Frozen Jr. playbill",
     description:
-      "A congratulatory page in the show programme. Add a photo and a message from the family.",
+      "A congratulatory page in the show program. Add a photo and a message from the family.",
     basePriceCents: 3500,
     productionId: "prod-frozen",
     optionLabel: "Page size",

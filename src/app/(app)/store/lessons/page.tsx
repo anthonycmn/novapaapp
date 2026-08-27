@@ -14,7 +14,7 @@ export const metadata = { title: "Private lessons" };
 /**
  * Weekly recurring private lessons — same teacher, same time every week
  * (org policy). Booked lessons land on the family calendar with 24h
- * reminders; cancelling frees the slot for another family.
+ * reminders; canceling frees the slot for another family.
  */
 export default async function LessonsPage() {
   const user = await getSessionUser();

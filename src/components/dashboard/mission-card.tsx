@@ -7,7 +7,7 @@ import { quoteOfTheDay } from "@/lib/quotes";
  * mission for families.
  *
  * Fixed navy and gold rather than themed, exactly as the staff portal does
- * it: the deep navy is a *text* colour in dark mode and would flip pale,
+ * it: the deep navy is a *text* color in dark mode and would flip pale,
  * turning the plaque inside out. It looks the same whichever theme you are
  * in, which is the point of a plaque.
  */

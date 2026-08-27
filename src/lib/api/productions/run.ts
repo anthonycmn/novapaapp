@@ -44,7 +44,7 @@ export function daysUntil(openingAt: string | null, now: number = Date.now()): n
   return Math.ceil((new Date(openingAt).getTime() - now) / 86_400_000);
 }
 
-/** Summarise a set of calendar events into one show's run. */
+/** Summarize a set of calendar events into one show's run. */
 export function runFromEvents(events: Array<Pick<CalendarEvent, "type" | "startsAt">>): ProductionRun {
   const performances = events
     .filter((event) => event.type === "performance")

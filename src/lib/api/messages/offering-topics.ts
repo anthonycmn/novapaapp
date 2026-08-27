@@ -7,7 +7,7 @@ import { coverageRoleFor } from "./topics";
  * Tony, 17 Aug 2026: "if I click my class title, it goes to the teacher of my
  * class, or my show title goes to the teacher of my show."
  *
- * The contact tree answers questions about the ORGANISATION — refunds,
+ * The contact tree answers questions about the ORGANIZATION — refunds,
  * allergies, tickets — and it answers them the same way for everybody. It has
  * nothing to say about the question a parent asks most: something about the
  * specific room their child is in. "Is Ava's costume meant to come home this

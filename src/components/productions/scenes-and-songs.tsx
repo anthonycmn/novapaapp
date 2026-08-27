@@ -8,7 +8,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 /**
  * "What scenes and songs is my child in?"
  *
- * The workbook is organised by scene, but that is not the question a parent
+ * The workbook is organized by scene, but that is not the question a parent
  * arrives with — they arrive with a character. So the character picker is the
  * control, and both tables filter to it at once.
  *

@@ -2,7 +2,7 @@
  * Private lessons: weekly recurring slots with the same teacher (org
  * policy — lessons are semester-style standing appointments, not one-off
  * bookings). A slot is a teacher + weekday + time; a booking attaches one
- * student to that slot until cancelled.
+ * student to that slot until canceled.
  *
  * Payment is "billed by the studio" until Stripe keys arrive
  * (NEEDS-FROM-TONY #3) — the booking flow is identical either way.

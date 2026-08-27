@@ -77,7 +77,7 @@ create table face_embeddings (
     check (num_nonnulls(student_id, photo_id) = 1)
 );
 
--- Approximate nearest-neighbour index for cosine distance.
+-- Approximate nearest-neighbor index for cosine distance.
 create index face_embeddings_cosine_idx
   on face_embeddings using hnsw (embedding vector_cosine_ops);
 

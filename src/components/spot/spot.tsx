@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * improvise a refund policy or a medication instruction, because it has no
  * capacity to write a sentence nobody wrote first.
  *
- * When it does not recognise a question it says so and offers the message
+ * When it does not recognize a question it says so and offers the message
  * form, which reaches a named person. "I don't know, here is who does" is a
  * better answer than a plausible guess, and it is the one a parent can act on.
  */

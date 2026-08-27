@@ -8,7 +8,7 @@ import { SPOT_ANSWERS, type SpotAnswer } from "./knowledge";
  * model here and no request leaves the browser, which is what makes Spot free
  * to run — and, more usefully, what makes it incapable of inventing an answer.
  *
- * The single most important behaviour in this file is the floor. Below it,
+ * The single most important behavior in this file is the floor. Below it,
  * Spot says it does not know and hands over to the message form. A confident
  * wrong answer about a child's medication is the failure this design exists to
  * prevent, so the bar for answering at all is set high enough that "no idea"

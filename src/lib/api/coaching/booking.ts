@@ -194,7 +194,7 @@ export async function cancelCoachingSession(
       p_reason: reason ?? null,
     });
     if (error) return describe(error);
-    // `false` means it was already cancelled, already past, or never theirs —
+    // `false` means it was already canceled, already past, or never theirs —
     // 0153 answers all three the same way so a family probing ids learns
     // nothing from the difference.
     return data === true

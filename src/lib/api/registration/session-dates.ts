@@ -1,5 +1,5 @@
 /**
- * When a session actually runs, read out of the website catalogue.
+ * When a session actually runs, read out of the website catalog.
  *
  * The dates arrive as display strings on `activities.class_times`, e.g.
  *
@@ -24,7 +24,7 @@ const MONTHS: Record<string, number> = {
   jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12,
 };
 
-/** "Jul 19, 2027" → "2027-07-19". Null when it is not a date we recognise. */
+/** "Jul 19, 2027" → "2027-07-19". Null when it is not a date we recognize. */
 export function parseCatalogDate(text: string): string | null {
   const match = text
     .trim()

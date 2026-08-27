@@ -8,7 +8,7 @@
  *
  * DEEP-LINK DESTINATIONS: families buy at `/register/` on the main site. That
  * flow runs on this same database and a live Stripe key, and it is where all
- * 235 enrolments and every dollar of outstanding balance in this app actually
+ * 235 enrollments and every dollar of outstanding balance in this app actually
  * came from.
  *
  * This used to point at Sawyer and RegPack, which is where the *previous*
@@ -18,7 +18,7 @@
  * 15 Aug 2026; every URL below was checked for a 200 before it shipped.
  *
  * Deep links use `?activity=<id>` — the same `public.activities.id` this app
- * already stores on an enrolment, which is why no separate mapping is needed.
+ * already stores on an enrollment, which is why no separate mapping is needed.
  */
 
 const SITE = "https://www.northernvirginiaperformingarts.org";
@@ -35,7 +35,7 @@ export const registration = {
 
   /**
    * Deep link to one offering, by the website activity id carried on an
-   * enrolment. This is what the public site's own "Register" buttons use.
+   * enrollment. This is what the public site's own "Register" buttons use.
    */
   activityUrl: (activityId: number | string) =>
     `${SITE}/register/?activity=${activityId}`,
@@ -46,7 +46,7 @@ export const registration = {
   campsUrl: `${SITE}/camp-info`,
 
   /**
-   * The previous commercial platforms. Kept only so a historical enrolment
+   * The previous commercial platforms. Kept only so a historical enrollment
    * whose `external_source` names one of them can still be explained to
    * whoever asks. NOT link targets any more — nothing in the app should send
    * a family here.

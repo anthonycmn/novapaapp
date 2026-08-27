@@ -13,10 +13,10 @@ import { cn } from "@/lib/utils";
 /**
  * The staff portal's sidebar, for families.
  *
- * The active row is a gold outline and nothing else — same text colour, same
+ * The active row is a gold outline and nothing else — same text color, same
  * weight, same background as every other row. A filled highlight made the
  * current row look like a different *kind* of thing rather than the current
- * one. The border is always present and only changes colour, so nothing
+ * one. The border is always present and only changes color, so nothing
  * shifts by a pixel when a row becomes active. (Both rules lifted straight
  * from the staff portal's Layout.tsx, deliberately.)
  */

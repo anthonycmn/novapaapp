@@ -90,7 +90,7 @@ export async function cancelCoachingAction(
  *      secret not — charges a family and never hears back, so the balance
  *      never appears and nothing in the app says why. That window is real and
  *      invisible; you pass through it during setup. Refusing to sell is the
- *      failure you can apologise for.
+ *      failure you can apologize for.
  *   2. RESERVE BEFORE REDIRECTING, so the payment reference always has a home
  *      to come back to.
  *

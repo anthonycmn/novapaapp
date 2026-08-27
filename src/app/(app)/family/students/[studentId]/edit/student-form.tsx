@@ -84,7 +84,7 @@ export function StudentForm({ student }: { student: Student }) {
             {student.headshotUrl || photo ? "Change photo" : "Add a photo"}
           </Button>
           <p className="mt-1 text-[11.5px] text-muted-foreground">
-            Optional. Helps staff recognise your child at check-in.
+            Optional. Helps staff recognize your child at check-in.
           </p>
           {photoError && <FieldError message={photoError} />}
           <FieldError message={state.errors?.headshotDataUrl} />
@@ -140,7 +140,7 @@ export function StudentForm({ student }: { student: Student }) {
         child to their classes by this name, so a nickname in these two boxes can
         detach them from their enrollment. Put what they like to be called in
         <em> preferred name</em> below — that is the name we use out loud, on the
-        roster and in the programme.
+        roster and in the program.
       </p>
 
       <div className="grid grid-cols-2 gap-3">

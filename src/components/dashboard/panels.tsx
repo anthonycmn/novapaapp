@@ -29,10 +29,10 @@ import { SectionHeader } from "@/components/ui/section-header";
  * Alerts, above everything.
  *
  * A broadcast is what the org sends when something has changed for everybody
- * at once — a venue moved, a night cancelled, a closure. It is the only kind
+ * at once — a venue moved, a night canceled, a closure. It is the only kind
  * of notification that must not wait to be scrolled to, so unread ones are
  * lifted out of the notification list and put at the top of the page in a
- * colour nothing else on the page uses.
+ * color nothing else on the page uses.
  *
  * Deliberately NOT dismissible here. Reading it is what clears it, on the
  * notifications page, and a parent tapping an X on a closure notice at a
@@ -197,10 +197,10 @@ export function NotificationsPanel({
 /* ── Register & tickets ─────────────────────────────────────────────────── */
 
 /**
- * What is open right now, straight from the org's catalogue.
+ * What is open right now, straight from the org's catalog.
  *
  * Every row here is something that can actually be bought this minute: the
- * catalogue's own active/bookable/not-hidden flags decide, and anything with
+ * catalog's own active/bookable/not-hidden flags decide, and anything with
  * no places left is filtered out before it reaches this component. A
  * "Register" button that lands on a full week is worse than no button.
  *
@@ -295,7 +295,7 @@ export function RegisterPanel({ offerings }: { offerings: OpenOffering[] }) {
         )}
 
         {/* Private lessons are booked in the portal rather than the
-            catalogue, so the link goes where the booking actually is. */}
+            catalog, so the link goes where the booking actually is. */}
         <Link
           href="/store/lessons"
           className="rounded-md border px-3 py-2 text-center text-[13px] font-medium transition-colors hover:bg-muted"

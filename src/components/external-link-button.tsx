@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 /**
  * Outbound link to a service we don't host (#12, #13).
  * Opens a new tab in the PWA; a native wrapper swaps this for an in-app
- * browser via lib/platform/external-link. Always labelled so screen-reader
+ * browser via lib/platform/external-link. Always labeled so screen-reader
  * users know they're leaving the app.
  */
 export function ExternalLinkButton({

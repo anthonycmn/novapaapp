@@ -146,7 +146,7 @@ export function AgreementsPanel({
  * the FSA statement."
  *
  * Both tests are applied here rather than taken on trust. A statement for a
- * fourteen year old, or one padded with class fees, is not a favour to a family
+ * fourteen year old, or one padded with class fees, is not a favor to a family
  * — it is a reimbursement claim that gets refused after they have filed it.
  */
 function FsaPanel({

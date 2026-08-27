@@ -15,7 +15,7 @@ create schema if not exists family_hub;
 set search_path = family_hub, extensions;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- 0011 — Coaching is a third kind of enrolment.
+-- 0011 — Coaching is a third kind of enrollment.
 -- ─────────────────────────────────────────────────────────────────────────
 -- CJ: "coaching is a part of the staff portal so do not exclude coaching —
 -- map it there."

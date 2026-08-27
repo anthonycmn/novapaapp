@@ -29,7 +29,7 @@ export interface CallAnswer {
  * answers "did I tell them?", and there is no receipts page to go and find.
  * Straight from the screenshot, where every row carries the same chip.
  *
- * Optimistic: the chip changes at once and puts itself back if the write
+ * Optimiztic: the chip changes at once and puts itself back if the write
  * fails. A parent doing this is standing in a kitchen at seven in the
  * morning, and a spinner is a form they finish later and then forget.
  */

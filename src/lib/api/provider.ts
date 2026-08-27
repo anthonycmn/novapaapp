@@ -191,8 +191,8 @@ export interface DataProvider {
   getStaffForFamily(actorId: string, familyId: string): Promise<StaffAssignment[]>;
 
   /**
-   * What is open for registration right now, from the org's own catalogue.
-   * Empty when the catalogue is unreachable — the dashboard then says nothing
+   * What is open for registration right now, from the org's own catalog.
+   * Empty when the catalog is unreachable — the dashboard then says nothing
    * rather than showing a family a stale list of things to buy.
    */
   listOpenOfferings(): Promise<OpenOffering[]>;
@@ -644,7 +644,7 @@ export interface DataProvider {
        * Storage URLs. Undefined means "the form did not touch this" and the
        * existing value stands; empty string clears it. Uploads reach storage
        * directly from the browser, so by the time this runs the file is
-       * already there and only its address is travelling.
+       * already there and only its address is traveling.
        */
       auditionVideoUrl?: string;
       danceVideoUrl?: string;

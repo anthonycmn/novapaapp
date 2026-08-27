@@ -43,7 +43,7 @@ export interface ExternalEnrollment {
   /** The website's `activities.id`, the key both systems agree on. */
   offeringActivityId?: number;
   /**
-   * When the session runs, from the catalogue. Captured because activities is
+   * When the session runs, from the catalog. Captured because activities is
    * a live listing: once a season ends it rolls over to next year and the dates
    * that were true for fees already paid are gone.
    */

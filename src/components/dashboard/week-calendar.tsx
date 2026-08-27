@@ -19,7 +19,7 @@ import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-/** Per-child colour, stable by the order children appear on the profile. */
+/** Per-child color, stable by the order children appear on the profile. */
 const CHILD_COLORS = [
   "bg-chart-1",
   "bg-chart-3",
@@ -35,7 +35,7 @@ const CHILD_COLORS = [
  * Sweeney Todd call, a Tuesday musical theatre class and a private lesson land
  * here because the child is enrolled in each, and a scene-tagged rehearsal
  * lands only on the calendar of a child whose role is called for it. Two
- * children in different shows produce one week with both, colour-coded, which
+ * children in different shows produce one week with both, color-coded, which
  * is the thing a parent is actually trying to work out on a Sunday night.
  *
  * Empty days are drawn rather than skipped. "Nothing on Wednesday" is the

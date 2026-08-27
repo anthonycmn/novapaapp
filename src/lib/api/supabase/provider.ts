@@ -408,11 +408,11 @@ class SupabaseDataProvider {
 
   /**
    * What is open for registration right now, straight from the org's own
-   * catalogue in the `public` schema — the same table the public site's
+   * catalog in the `public` schema — the same table the public site's
    * Register buttons read.
    *
    * A failure returns an empty list rather than throwing. This is one card on
-   * a dashboard; the catalogue being briefly unreachable should not take down
+   * a dashboard; the catalog being briefly unreachable should not take down
    * a parent's schedule, their notifications and their child's next call with
    * it.
    */
@@ -1233,7 +1233,7 @@ class SupabaseDataProvider {
        * Storage URLs. Undefined means "the form did not touch this" and the
        * existing value stands; empty string clears it. Uploads reach storage
        * directly from the browser, so by the time this runs the file is
-       * already there and only its address is travelling.
+       * already there and only its address is traveling.
        */
       auditionVideoUrl?: string;
       danceVideoUrl?: string;
@@ -1904,7 +1904,7 @@ class SupabaseDataProvider {
         this.db.from("registration_account_links").select("*"),
         // Coaching is the staff portal's; this is the only thing that lets a
         // coaching purchase resolve. Failing soft to an empty set degrades to
-        // the old behaviour rather than taking the whole sync down.
+        // the old behavior rather than taking the whole sync down.
         fetchCoachingActivityIds(),
       ]);
 
@@ -4833,7 +4833,7 @@ class SupabaseDataProvider {
   /**
    * The org-wide topics PLUS this family's own shows and classes.
    *
-   * The contact tree answers questions about the organisation the same way for
+   * The contact tree answers questions about the organization the same way for
    * everybody. It has nothing to say about the question a parent asks most —
    * something about the specific room their child is in — so those topics are
    * computed per family and never stored. A stored copy would start
