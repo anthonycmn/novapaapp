@@ -39,7 +39,7 @@ export const org = {
   /** All timestamps are stored UTC and displayed in this zone. */
   timeZone: "America/New_York",
 
-  supportEmail: "info@northernvirginiaperformingarts.org",
+  supportEmail: "info@novapa.org",
 
   /**
    * Details printed on Dependent Care FSA statements. A family's FSA
