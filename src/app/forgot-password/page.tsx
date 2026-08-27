@@ -50,7 +50,27 @@ export default async function ForgotPasswordPage({
               it hasn&apos;t landed in a few minutes.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-4">
+            {/*
+              We cannot say whether that address has an account — Supabase
+              answers every request identically so nobody can discover which
+              emails are registered, and we are not going to weaken that.
+              What we CAN do is name the reason it is nearly always missing:
+              most households gave us two addresses and only one carries the
+              login, so the parent is watching the wrong inbox (27 Aug 2026).
+            */}
+            <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
+              <strong className="font-semibold">Nothing after five minutes?</strong>{" "}
+              Your account is probably under a different email — plenty of
+              families have two on file. Write to{" "}
+              <a
+                href={`mailto:${org.supportEmail}`}
+                className="font-semibold underline underline-offset-2"
+              >
+                {org.supportEmail}
+              </a>{" "}
+              and we will tell you which one to use.
+            </p>
             <Link
               href="/login"
               className={cn(buttonVariants({ variant: "outline" }), "w-full")}
