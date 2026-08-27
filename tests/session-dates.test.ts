@@ -170,6 +170,10 @@ describe("capturing session dates once", () => {
     productions: seed.productions,
     classes: seed.classes,
     links: [],
+    // These fixtures model rows the sync itself created, so they already carry
+    // the line item they came from. Without this they would look hand-added,
+    // and every case here would gain an extra update stamping "item-1" on.
+    enrollmentExternalIds: new Map([["enr-existing", "item-1"]]),
   };
 
   const existing = (patch: Partial<(typeof seed.enrollments)[number]> = {}) => [

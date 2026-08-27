@@ -557,3 +557,76 @@ describe("show codes that carry no activity id", () => {
     }
   });
 });
+
+/**
+ * A row somebody typed straight into the database.
+ *
+ * Harper Liola, 27 Aug 2026: she was registered and paid for three shows, and
+ * every one of her enrollments reached the portal by hand rather than through
+ * the sync. Matching is by student and target, so those rows are adopted
+ * rather than duplicated — but they carried no line item, which left the one
+ * row a human touched as the only one that could not be traced back to what
+ * the family paid.
+ */
+describe("a hand-added enrollment is adopted and stamped", () => {
+  async function planFor(existing: Parameters<typeof reconcile>[0]["enrollments"],
+                         stamped?: ReadonlyMap<string, string>) {
+    const snapshot = await new MockRegistrationProvider().fetchSnapshot();
+    return reconcile({ ...reconcileInput(snapshot), enrollments: existing,
+                       enrollmentExternalIds: stamped });
+  }
+
+  it("does not duplicate the row, and writes the line item onto it", async () => {
+    const snapshot = await new MockRegistrationProvider().fetchSnapshot();
+    const seeded = reconcile({ ...reconcileInput(snapshot), enrollments: [] });
+    const first = seeded.creates[0];
+    expect(first?.externalId).toBeTruthy();
+
+    // The same enrollment, but as a row added by hand: right student, right
+    // show, no line item.
+    const byHand = [{
+      id: "enr-by-hand",
+      studentId: first.studentId,
+      productionId: first.productionId,
+      classId: first.classId,
+      coachingActivityId: first.coachingActivityId,
+      status: "enrolled" as const,
+      balanceCents: 0,
+      source: "manual" as const,
+      createdAt: new Date().toISOString(),
+    }];
+
+    const plan = await planFor(byHand);
+    const mine = plan.updates.filter((u) => u.enrollmentId === "enr-by-hand");
+    expect(plan.creates.some((c) => c.studentId === first.studentId
+      && c.productionId === first.productionId)).toBe(false);
+    expect(mine).toHaveLength(1);
+    expect(mine[0].externalId).toBe(first.externalId);
+  });
+
+  it("never rewrites a line item a row already carries", async () => {
+    const snapshot = await new MockRegistrationProvider().fetchSnapshot();
+    const seeded = reconcile({ ...reconcileInput(snapshot), enrollments: [] });
+    const first = seeded.creates[0];
+
+    const already = [{
+      id: "enr-already",
+      studentId: first.studentId,
+      productionId: first.productionId,
+      classId: first.classId,
+      coachingActivityId: first.coachingActivityId,
+      status: "enrolled" as const,
+      balanceCents: first.balanceCents,
+      source: "registration_portal" as const,
+      amountPaidCents: first.amountPaidCents,
+      offeringCategory: first.offeringCategory,
+      sessionStartsOn: first.sessionStartsOn,
+      sessionEndsOn: first.sessionEndsOn,
+      createdAt: new Date().toISOString(),
+    }];
+
+    const plan = await planFor(already, new Map([["enr-already", "some-other-line-item"]]));
+    const mine = plan.updates.filter((u) => u.enrollmentId === "enr-already");
+    expect(mine.every((u) => u.externalId === undefined)).toBe(true);
+  });
+});

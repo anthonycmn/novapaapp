@@ -45,6 +45,17 @@ export interface ReconcileInput {
    * as it did before: reported as an unknown offering rather than guessed at.
    */
   coachingActivityIds?: ReadonlySet<number>;
+  /**
+   * Enrollment id → the registration line item it was created from, for rows
+   * that already carry one.
+   *
+   * A row added by hand has no line item, and the app model deliberately does
+   * not carry one either — it is sync bookkeeping, not something a family
+   * sees. Passing it in separately lets an adopted row be stamped without
+   * widening Enrollment. Absent, nothing is stamped and behaviour is
+   * unchanged.
+   */
+  enrollmentExternalIds?: ReadonlyMap<string, string>;
 }
 
 export interface PlannedEnrollment {
@@ -93,6 +104,15 @@ export interface PlannedUpdate {
   /** When the care runs. Captured once; see the update rule below. */
   sessionStartsOn?: string;
   sessionEndsOn?: string;
+  /**
+   * The registration line item, written onto a row that had none.
+   *
+   * Rows added by hand carry no line item. They are matched by student and
+   * target so they are adopted rather than duplicated, but without this they
+   * stay unkeyed for ever — indistinguishable from a row we invented, and
+   * impossible to trace back to what the family actually paid for.
+   */
+  externalId?: string;
 }
 
 export interface ReconcilePlan {
@@ -368,12 +388,25 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     const captureSession =
       external.sessionStartsOn !== undefined &&
       existing.sessionStartsOn === undefined;
+    /*
+     * Adopt a hand-added row properly.
+     *
+     * Matching is by student and target, so a row someone typed straight into
+     * the database is updated rather than duplicated. But it keeps no line
+     * item, which leaves the one row a human touched as the only one that
+     * cannot be traced back to what the family paid. Stamped once, on the
+     * first sync that recognises it, and never rewritten afterwards — the
+     * line item a row was created from does not change.
+     */
+    const stampExternalId =
+      !input.enrollmentExternalIds?.get(existing.id) && Boolean(external.externalId);
     if (
       balanceChanged ||
       statusChanged ||
       paidChanged ||
       categoryChanged ||
-      captureSession
+      captureSession ||
+      stampExternalId
     ) {
       plan.updates.push({
         enrollmentId: existing.id,
@@ -383,6 +416,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         offeringCategory: categoryChanged ? external.offeringCategory : undefined,
         sessionStartsOn: captureSession ? external.sessionStartsOn : undefined,
         sessionEndsOn: captureSession ? external.sessionEndsOn : undefined,
+        externalId: stampExternalId ? external.externalId : undefined,
       });
       plan.counts.enrollmentsUpdated += 1;
       if (balanceChanged) plan.counts.balancesUpdated += 1;

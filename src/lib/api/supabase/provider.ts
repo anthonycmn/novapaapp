@@ -1919,6 +1919,11 @@ class SupabaseDataProvider {
       classes,
       links: (linksRows ?? []).map((l) => this.mapAccountLink(l)),
       coachingActivityIds,
+      enrollmentExternalIds: new Map(
+        (enrollmentsRows ?? [])
+          .filter((e) => e.external_id)
+          .map((e) => [String(e.id), String(e.external_id)])
+      ),
     });
 
     for (const link of plan.autoLinks) {
@@ -1961,6 +1966,14 @@ class SupabaseDataProvider {
       if (update.sessionStartsOn !== undefined) {
         patch.session_starts_on = update.sessionStartsOn;
         patch.session_ends_on = update.sessionEndsOn ?? null;
+      }
+      // Adopting a hand-added row: it came from this registration line item,
+      // so say so. source moves with it, otherwise the row still reads
+      // "manual" while carrying the id of a real purchase.
+      if (update.externalId !== undefined) {
+        patch.external_id = update.externalId;
+        patch.external_source = snapshot.source;
+        patch.source = "registration_portal";
       }
       if (Object.keys(patch).length) {
         await this.db.from("enrollments").update(patch).eq("id", update.enrollmentId);

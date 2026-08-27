@@ -1534,6 +1534,7 @@ export class MockDataProvider implements DataProvider {
       productions: store.productions,
       classes: store.classes,
       links: store.accountLinks,
+      enrollmentExternalIds: store.enrollmentExternalIds,
     });
 
     // Persist auto-discovered account links.
@@ -1580,6 +1581,12 @@ export class MockDataProvider implements DataProvider {
       if (update.sessionStartsOn !== undefined) {
         enrollment.sessionStartsOn = update.sessionStartsOn;
         enrollment.sessionEndsOn = update.sessionEndsOn;
+      }
+      // A hand-added row adopted by the sync: record the line item it came
+      // from, and stop calling it manual.
+      if (update.externalId !== undefined) {
+        store.enrollmentExternalIds.set(enrollment.id, update.externalId);
+        enrollment.source = "registration_portal";
       }
     }
 
