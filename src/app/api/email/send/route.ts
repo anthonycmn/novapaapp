@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
     productionIds?: unknown;
     classIds?: unknown;
     mode?: string;
+    /** ISO instant to deliver at instead of now — the staff portal's Schedule field. */
+    scheduledFor?: unknown;
   };
   try {
     input = await request.json();
@@ -113,6 +115,54 @@ export async function POST(request: NextRequest) {
     ...(classIds.length ? { classIds } : {}),
   };
 
+  /*
+   * SCHEDULE IT, OR SEND IT — CJ, 28 Aug 2026, asking the staff portal for
+   * "schedule send etc".
+   *
+   * Nothing new is being built here. sendEmail() has always taken scheduledFor
+   * and written scheduled_for with sent_at left null, and the email-queue job
+   * has claimed those rows every fifteen minutes since 45c767b. The hub's own
+   * composer could schedule; this route — the staff portal's door into the
+   * same pipeline — was the only caller that could not, so the portal's
+   * composer had a Send button and nothing else.
+   *
+   * A SCHEDULED SEND IS THE SAME SEND. The row it writes is identical to an
+   * immediate one apart from the two timestamps, and the queue merges,
+   * instruments and delivers it exactly as the loop below would have. So a
+   * family cannot tell, which is the point.
+   *
+   * A TEST IS NEVER SCHEDULED. "Send myself a test" exists to tell you now
+   * whether the thing you just wrote is right; a test that arrives on Friday
+   * answers a question nobody asked. scheduledFor is ignored in test mode
+   * rather than refused, because the portal disables the two together anyway
+   * and a 400 here would be a dead end rather than a correction.
+   */
+  let scheduledFor: string | undefined;
+  if (mode !== "test" && input.scheduledFor != null && input.scheduledFor !== "") {
+    if (typeof input.scheduledFor !== "string") {
+      return NextResponse.json(
+        { error: "scheduledFor must be an ISO date-time string" },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+    const at = new Date(input.scheduledFor);
+    if (Number.isNaN(at.getTime())) {
+      return NextResponse.json(
+        { error: "scheduledFor is not a valid date-time" },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+    // A minute of slack, because the composer's clock and this one are not the
+    // same clock and "9:00" pressed at 9:00 should schedule, not be refused.
+    if (at.getTime() < Date.now() - 60_000) {
+      return NextResponse.json(
+        { error: "That time has already passed." },
+        { status: 400, headers: corsHeaders() }
+      );
+    }
+    scheduledFor = at.toISOString();
+  }
+
   const provider = getProvider();
 
   const send = await provider.sendEmail(user.id, {
@@ -121,7 +171,19 @@ export async function POST(request: NextRequest) {
     category: input.category as EmailCategory,
     audience,
     testToSelf: mode === "test",
+    scheduledFor,
   });
+
+  // Queued, not sent. The row is written; email-queue delivers it when its
+  // time comes. Returning the recipient count here would be a guess — the
+  // audience is resolved at delivery, on purpose, so a family who enrolls on
+  // Thursday is included in a Friday send.
+  if (scheduledFor) {
+    return NextResponse.json(
+      { sendId: send.id, recipients: 0, delivered: 0, mode: "scheduled", scheduledFor },
+      { headers: corsHeaders() }
+    );
+  }
 
   const delivery = getEmailDeliveryProvider();
   const recipients =
