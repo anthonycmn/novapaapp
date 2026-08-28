@@ -740,9 +740,13 @@ export class MockDataProvider implements DataProvider {
     const isEveryone =
       !audience.productionIds?.length &&
       !audience.classIds?.length &&
-      !audience.programIds?.length;
+      !audience.programIds?.length &&
+      !audience.familyIds?.length;
     if (isEveryone) return true;
     if (isStaffish(user)) return true; // staff see everything
+    // A named family is addressed directly, without the enrollment test.
+    if (audience.familyIds?.length && user.familyId &&
+      audience.familyIds.includes(user.familyId)) return true;
 
     const familyStudentIds = new Set(
       store.students.filter((s) => s.familyId === user.familyId).map((s) => s.id)
@@ -1074,6 +1078,38 @@ export class MockDataProvider implements DataProvider {
     };
     store.emailSends.push(send);
     return deepClone(send);
+  }
+
+  /**
+   * Claim scheduled sends whose time has come.
+   *
+   * Stamping `sentAt` here, as part of claiming, is the same exactly-once
+   * property the Supabase adapter gets from a conditional UPDATE: a send this
+   * call returns can never be returned again, so an overlapping worker run
+   * delivers nothing twice. A rehearsal call sent twice reads as a schedule
+   * change to a parent skimming on a phone.
+   *
+   * Unauthorized by design — the queue runs as the system, and the job route
+   * checks the staff session or the cron secret before reaching this.
+   */
+  async claimDueSends(now: string): Promise<EmailSend[]> {
+    const claimed = store.emailSends.filter(
+      (send) => send.scheduledFor && !send.sentAt && send.scheduledFor <= now
+    );
+    for (const send of claimed) send.sentAt = now;
+    return deepClone(claimed);
+  }
+
+  /** Record what a queue run delivered, leaving `total` as scheduled. */
+  async recordSendStats(sendId: string, delivered: number): Promise<void> {
+    const send = store.emailSends.find((s) => s.id === sendId);
+    if (send) send.stats = { ...send.stats, delivered };
+  }
+
+  /** Note a failed queue run on the send itself, where staff will see it. */
+  async markSendFailed(sendId: string, reason: string): Promise<void> {
+    const send = store.emailSends.find((s) => s.id === sendId);
+    if (send) send.stats = { ...send.stats, error: reason.slice(0, 500) };
   }
 
   /* ── family calendar (#5) ─────────────────────────────────────────── */

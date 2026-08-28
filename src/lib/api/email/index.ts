@@ -9,9 +9,21 @@ import { org } from "@/config/org";
 export interface OutgoingEmail {
   to: string;
   subject: string;
-  /** Plain text body; the Resend adapter wraps it in the org template. */
+  /** Plain text body; always sent, and the only body when `html` is absent. */
   text: string;
+  /**
+   * Optional HTML body (src/lib/email/template.ts renders these).
+   *
+   * Added 27 Aug 2026. Until then this adapter posted `text` alone, so the
+   * portal could not send a formatted email at all — a fact hidden by
+   * `email_sends` being empty, since no family had yet been mailed. Resend
+   * takes both and lets the client pick, so the text stays the fallback for
+   * plain-text readers rather than being replaced.
+   */
+  html?: string;
   category: string;
+  /** Where a reply should land. Falls back to the org support mailbox. */
+  replyTo?: string;
 }
 
 export interface EmailDeliveryProvider {
@@ -43,6 +55,8 @@ class ResendEmailProvider implements EmailDeliveryProvider {
         to: email.to,
         subject: email.subject,
         text: email.text,
+        ...(email.html ? { html: email.html } : {}),
+        reply_to: email.replyTo ?? org.supportEmail,
         tags: [{ name: "category", value: email.category }],
       }),
     });

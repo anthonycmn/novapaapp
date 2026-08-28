@@ -2955,13 +2955,20 @@ class SupabaseDataProvider {
     const isEveryone =
       !audience.productionIds?.length &&
       !audience.classIds?.length &&
-      !audience.programIds?.length;
+      !audience.programIds?.length &&
+      !audience.familyIds?.length;
     const classPrograms = new Map((classes ?? []).map((c) => [c.id, c.program_id]));
     const productionPrograms = new Map((productions ?? []).map((pr) => [pr.id, pr.program_id]));
 
     return (parents ?? [])
       .filter((parent) => {
         if (isEveryone) return true;
+        // A named family is addressed directly — it does not have to clear the
+        // enrollment test below, which is what makes a per-family send work
+        // even where enrollment is still reconciling from the website.
+        if (audience.familyIds?.length &&
+          parent.family_id &&
+          audience.familyIds.includes(String(parent.family_id))) return true;
         const familyStudentIds = new Set(
           (students ?? []).filter((st) => st.family_id === parent.family_id).map((st) => st.id)
         );
@@ -3059,6 +3066,52 @@ class SupabaseDataProvider {
       .select().single();
     if (error) throw new Error(`email send failed: ${error.message}`);
     return this.mapEmailSend(data);
+  }
+
+  /**
+   * Claim scheduled sends that are due, stamping `sent_at` in the same
+   * statement that selects them.
+   *
+   * The `is("sent_at", null)` filter is the whole safety property: two
+   * overlapping cron runs both issue this update, Postgres serializes them,
+   * and the second matches no rows. Only rows this call actually claimed come
+   * back, so a send is delivered once even if the worker is running twice.
+   */
+  async claimDueSends(now: string): Promise<EmailSend[]> {
+    const { data, error } = await this.db
+      .from("email_sends")
+      .update({ sent_at: now })
+      .lte("scheduled_for", now)
+      .is("sent_at", null)
+      .not("scheduled_for", "is", null)
+      .select();
+    if (error) throw new Error(`claim due sends failed: ${error.message}`);
+    return (data ?? []).map((row) => this.mapEmailSend(row));
+  }
+
+  /**
+   * Record what a queue run actually delivered. `total` is left as written at
+   * schedule time so a shortfall stays visible rather than being tidied away.
+   */
+  async recordSendStats(sendId: string, delivered: number): Promise<void> {
+    const { data } = await this.db
+      .from("email_sends").select("stats").eq("id", sendId).single();
+    const stats = (data?.stats ?? {}) as Record<string, number>;
+    await this.db
+      .from("email_sends")
+      .update({ stats: { ...stats, delivered } })
+      .eq("id", sendId);
+  }
+
+  /** Note a failed queue run on the send itself, where staff will see it. */
+  async markSendFailed(sendId: string, reason: string): Promise<void> {
+    const { data } = await this.db
+      .from("email_sends").select("stats").eq("id", sendId).single();
+    const stats = (data?.stats ?? {}) as Record<string, unknown>;
+    await this.db
+      .from("email_sends")
+      .update({ stats: { ...stats, error: reason.slice(0, 500) } })
+      .eq("id", sendId);
   }
 
   async recordEmailOpen(sendId: string, recipientId: string): Promise<void> {
@@ -4588,8 +4641,16 @@ class SupabaseDataProvider {
         const isEveryone =
           !audience.productionIds?.length &&
           !audience.classIds?.length &&
-          !audience.programIds?.length;
+          !audience.programIds?.length &&
+          !audience.familyIds?.length;
         if (isEveryone) return true;
+        // A named family is addressed directly, without the enrollment test,
+        // exactly as resolveAudience and the mock already do. Without this the
+        // audience reads as empty and the post goes to every family — a leak
+        // that would appear only against Supabase, since the mock gets it right.
+        if (audience.familyIds?.length &&
+          actor.familyId &&
+          audience.familyIds.includes(String(actor.familyId))) return true;
         return (enrollments ?? []).some((enrollment) => {
           if (
             enrollment.production_id &&

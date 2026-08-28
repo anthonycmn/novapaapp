@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { outgoingBody } from "@/lib/email/queue";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
@@ -77,14 +78,15 @@ export async function sendEmailAction(
       // Merge fields first, then instrument — otherwise a merge field that
       // resolves to a URL wouldn't get a tracking wrapper.
       const resolvedBody = resolveMergeFields(send.body, context);
+      const instrumented = instrumentEmailBody(
+        resolvedBody,
+        { sendId: send.id, recipientId: recipient.id },
+        origin
+      );
       await delivery.send({
         to: recipient.email,
         subject: resolveMergeFields(send.subject, context),
-        text: instrumentEmailBody(
-          resolvedBody,
-          { sendId: send.id, recipientId: recipient.id },
-          origin
-        ),
+        ...outgoingBody(send.body, instrumented),
         category: send.category,
       });
     }

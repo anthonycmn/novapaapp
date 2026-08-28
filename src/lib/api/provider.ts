@@ -265,6 +265,26 @@ export interface DataProvider {
   /** Users a given audience resolves to (for previews and counts). */
   resolveAudience(actorId: string, audience: FeedAudience): Promise<User[]>;
 
+  /* scheduled-email delivery — the worker lives in src/lib/email/queue.ts */
+
+  /**
+   * Claim scheduled sends whose time has come, stamping `sentAt` as part of
+   * claiming them so two overlapping worker runs cannot both take one row.
+   * Only rows this call actually claimed come back.
+   *
+   * No `actorId`, unlike everything else here: the queue runs as the system
+   * on a cron, and the job route has already authorized the caller.
+   */
+  claimDueSends(now: string): Promise<EmailSend[]>;
+  /**
+   * Record what a queue run delivered. `total` is deliberately left as it was
+   * written at schedule time, so a shortfall stays visible in the admin list
+   * rather than being tidied away.
+   */
+  recordSendStats(sendId: string, delivered: number): Promise<void>;
+  /** Note a failed queue run on the send itself, where staff will see it. */
+  markSendFailed(sendId: string, reason: string): Promise<void>;
+
   /* family calendar (#5) */
   getFamilyCalendar(actorId: string, familyId: string): Promise<FamilyCalendarEvent[]>;
   /** All events, staff view (rosters, daily ops). */

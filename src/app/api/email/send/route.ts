@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { outgoingBody } from "@/lib/email/queue";
 import { getProvider } from "@/lib/api";
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
@@ -143,14 +144,15 @@ export async function POST(request: NextRequest) {
       show_title: production?.title,
     };
     const resolvedBody = resolveMergeFields(send.body, context);
+    const instrumented = instrumentEmailBody(
+      resolvedBody,
+      { sendId: send.id, recipientId: recipient.id },
+      origin
+    );
     const result = await delivery.send({
       to: recipient.email,
       subject: resolveMergeFields(send.subject, context),
-      text: instrumentEmailBody(
-        resolvedBody,
-        { sendId: send.id, recipientId: recipient.id },
-        origin
-      ),
+      ...outgoingBody(send.body, instrumented),
       category: send.category,
     });
     if (result.ok) delivered += 1;

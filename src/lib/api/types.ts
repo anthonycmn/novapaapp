@@ -409,6 +409,15 @@ export interface FeedAudience {
   productionIds?: string[];
   classIds?: string[];
   programIds?: string[];
+  /**
+   * Named families, independent of enrollment.
+   *
+   * Added 27 Aug 2026 for the weekly company email, where each family is sent
+   * a different body — one call sheet per child. Every other audience key
+   * selects a *group* that shares one message, so there was no way to address
+   * an individualized send; production-wide was the narrowest a mail could go.
+   */
+  familyIds?: string[];
 }
 
 export interface FeedPost {
@@ -499,7 +508,13 @@ export interface EmailSend {
   audience: FeedAudience & { handPickedUserIds?: string[] };
   scheduledFor?: string;
   sentAt?: string;
-  stats: { delivered: number; opened: number; total: number };
+  /**
+   * `error` is set by the delivery queue when a run throws. It is part of
+   * stats rather than a column because that is where the admin list already
+   * looks, so a failed send explains itself instead of just showing a
+   * delivered count short of total.
+   */
+  stats: { delivered: number; opened: number; total: number; error?: string };
   createdByName: string;
 }
 
