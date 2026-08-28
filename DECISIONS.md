@@ -289,3 +289,44 @@ Running log of decisions made autonomously during the build. Newest at the botto
   a Next.js app: .env.local, all four Netlify contexts, AND a production
   deploy newer than the env change all point at live novapa
   (tlkuqwsqicxcjdmumkje), schema family_hub.
+
+## 2026-08-28 — Scheduled email actually gets delivered
+- The composer has offered a "Schedule (optional)" field since email
+  shipped. `sendEmailAction` wrote `email_sends.scheduled_for` and then
+  skipped delivery; nothing anywhere read the column back. A scheduled
+  email was a row that would never be sent, rendered in the admin list
+  as "Scheduled 30 Aug, 9:00 AM". Silent and total, and invisible only
+  because `email_sends` was empty — no family had ever been mailed.
+- `src/lib/email/queue.ts` is the missing half, run every 15 minutes by
+  `netlify/functions/email-queue.mjs`. Not hourly: these carry rehearsal
+  call times, and a 9:00 AM send landing at 9:59 is a different message
+  to a parent deciding whether to leave the house.
+- **Exactly once, and the safe direction when it can't be.** Both
+  adapters stamp `sent_at` as part of *claiming* a row, conditional on
+  it still being null, and deliver only what they claimed — so two
+  overlapping cron runs cannot both send. A crash mid-batch therefore
+  drops a send rather than repeating it. That asymmetry is deliberate: a
+  rehearsal call sent twice reads as a schedule change, while a dropped
+  one is visible in the admin list as a send with no delivered count.
+- **The queue methods existed on the Supabase adapter only** —
+  `claimDueSends`, `recordSendStats`, `markSendFailed` were never on
+  `DataProvider` and never on the mock, which is the *default* data
+  mode. The job route papered over it with `as unknown as
+  QueueProvider`, so the cron would have thrown "not a function" every
+  fifteen minutes anywhere that hadn't switched over. Interface and mock
+  now carry them and the cast is gone, which means the compiler checks
+  the two adapters agree instead of a comment asking them to.
+- **`familyIds` audiences leaked in the feed.** Added so a send can
+  address named families (the weekly company email individualizes per
+  child), it was taught to `resolveAudience` and the mock but not to
+  `getFeedForUser` on Supabase — where the audience then read as empty,
+  i.e. *everyone*. It failed open, and only in production, since the
+  mock got it right and the whole suite runs on the mock.
+- **One decision about HTML, in one place.** Three paths deliver mail —
+  the composer's immediate send, `POST /api/email/send`, and the queue.
+  Only the queue set `html`; the other two shipped an HTML body as raw
+  markup in a text field. `outgoingBody()` now makes that call for all
+  three.
+- **CRON_SECRET was undocumented** despite four job routes requiring it.
+  Unset, every one answers 401 — silently, forever, since nothing
+  surfaces a cron being turned away. Now in `.env.example`.
