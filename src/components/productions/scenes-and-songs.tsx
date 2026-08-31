@@ -119,8 +119,8 @@ export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
       <div className="px-4 pt-3 text-[12px] leading-relaxed text-muted-foreground">
         Rehearsals run in <strong className="text-foreground">character blocks</strong>, not
         scene order — when your child is called, everything they own is worked in
-        that call. Dates below say when material is <em>worked</em>; the schedule
-        is the source of truth for who is called when.
+        that call. For what a given call works, see the page range on that
+        entry in the schedule.
         {character && (
           <>
             {" "}
@@ -132,9 +132,9 @@ export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
         )}
       </div>
 
-      {/* The compact answer first: which scenes, which numbers. Nine columns
-          of dates is reference material, and it goes behind a disclosure —
-          a parent asking "what is my child in" should not have to read a
+      {/* The compact answer first: which scenes, which numbers. The full
+          breakdown is reference material and goes behind a disclosure — a
+          parent asking "what is my child in" should not have to read a
           spreadsheet to find out. */}
       <ul className="divide-y">
         {scenes.map((scene) => (
@@ -156,13 +156,13 @@ export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
       <details className="group border-t">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2 text-[12.5px] text-muted-foreground hover:text-foreground">
           <span className="transition-transform group-open:rotate-90">›</span>
-          Full table, with who is in each scene and the dates it is worked
+          Full table, with who is in each scene
         </summary>
         <div className="overflow-x-auto p-4 pt-0">
         <table className="w-full min-w-[46rem] text-[12.5px]">
           <thead>
             <tr className="border-b">
-              {["Act", "Scene", "Setting", "Numbers", "Who's in it", "Music", "Blocking", "Staging"].map(
+              {["Act", "Scene", "Setting", "Numbers", "Who's in it"].map(
                 (heading) => (
                   <th
                     key={heading}
@@ -184,17 +184,13 @@ export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
                 <td className="px-2 py-1.5 text-muted-foreground">{scene.setting}</td>
                 <td className="px-2 py-1.5">{scene.numbers}</td>
                 <td className="px-2 py-1.5 text-muted-foreground">{scene.characters}</td>
-                {/* Dates are the workbook's own strings — "8/31, 9/10" — and
-                    say when material is worked, not when anybody is called. */}
-                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">
-                  {scene.musicDates}
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">
-                  {scene.blockingDates}
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">
-                  {scene.stagingDates}
-                </td>
+                {/* The worked-on dates used to sit here, copied from the
+                    workbook. They went stale the moment the schedule moved —
+                    9/5 and 10/15 were still listed after those calls were
+                    gone. What a call works now lives on the call itself, as
+                    the page range the calendar states, which cannot drift
+                    because it IS the calendar. Tony, 31 Aug 2026: "page range
+                    on each calendar entry is enough." */}
               </tr>
             ))}
           </tbody>

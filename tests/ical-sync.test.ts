@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { formatInTimeZone } from "date-fns-tz";
 import { org } from "@/config/org";
 import {
+  blockSheetFrom,
   calledFrom,
   calledNoteFor,
   callTimeFor,
@@ -371,5 +372,125 @@ describe("descriptions whose line breaks are block tags, not <br>", () => {
     expect(
       descriptionLines("<b>CALLED (2): Toby · Fogg</b><br>Scene: Act I Sc. 1")
     ).toEqual(["CALLED (2): Toby · Fogg", "Scene: Act I Sc. 1"]);
+  });
+});
+
+/**
+ * The second format this calendar is written in. Verbatim lines, read off the
+ * Sweeney calendar on 31 Aug 2026 — the template covers the first fortnight,
+ * and from 10 Sep onward Tony writes his own shorthand. That shorthand carries
+ * MORE than the template does (a time, a page run, the staff member, the room),
+ * so the parser gives way rather than the director.
+ */
+describe("the free-form call sheet", () => {
+  const ROLES = [
+    { id: "r1", name: "Sweeney Todd" },
+    { id: "r2", name: "Mrs. Lovett" },
+    { id: "r3", name: "Anthony Hope" },
+    { id: "r4", name: "Johanna" },
+    { id: "r5", name: "Tobias Ragg" },
+    { id: "r6", name: "Judge Turpin" },
+    { id: "r7", name: "Beadle Bamford" },
+    { id: "r8", name: "Adolfo Pirelli" },
+    { id: "r9", name: "Beggar Woman" },
+    { id: "r10", name: "Jonas Fogg" },
+    { id: "r11", name: "Bird Seller" },
+    { id: "r12", name: "Ensemble of London" },
+    { id: "r13", name: "Young Lucy" },
+  ];
+  const ALIASES = { Toby: "Tobias Ragg", "Passer-by": "Ensemble of London" };
+  const STAFF = ["Colton", "Ryyana", "Ava"];
+  const SONGS = ["22. God, That's Good!", "2. No Place Like London"];
+  const read = (line: string) => blockSheetFrom(line, ROLES, ALIASES, STAFF, SONGS);
+
+  it("reads a ROOM-labelled line and drops the staff on both ends", () => {
+    const sheet = read(
+      "ROOM A — 7pm - 8pm with Colton: Pages 23 - 25 - Anthony, Judge, Johanna, Beadle - Colton"
+    );
+    expect(sheet.called).toEqual([
+      "Anthony Hope",
+      "Judge Turpin",
+      "Johanna",
+      "Beadle Bamford",
+    ]);
+    expect(sheet.pages).toEqual(["23-25"]);
+    expect(sheet.unknown).toEqual([]);
+  });
+
+  it("separates a number, the cast and the room on one line", () => {
+    const sheet = read(
+      "9am - 10:30am - Pages 81 - 93: God That's Good - Lovett, Tobias, Todd, Ensemble with Ryyana - The Underground"
+    );
+    expect(sheet.called).toEqual([
+      "Mrs. Lovett",
+      "Tobias Ragg",
+      "Sweeney Todd",
+      "Ensemble of London",
+    ]);
+    expect(sheet.pages).toEqual(["81-93"]);
+    expect(sheet.prose).toEqual(["God That's Good"]);
+    expect(sheet.unknown).toEqual([]);
+  });
+
+  /** Tony, 31 Aug 2026: Passer-by is played by the Ensemble. */
+  it("resolves Passer-by to the Ensemble rather than dropping it", () => {
+    const sheet = read(
+      "9am - 10:30am - Pages 94 - 100: Anthony, Todd, Beggar Woman, Johanna, Passer-by with Colton - Studio B"
+    );
+    expect(sheet.called).toEqual([
+      "Anthony Hope",
+      "Sweeney Todd",
+      "Beggar Woman",
+      "Johanna",
+      "Ensemble of London",
+    ]);
+    expect(sheet.unknown).toEqual([]);
+  });
+
+  it("reads a singular Page range", () => {
+    const sheet = read("10:30am - 12:30pm - Page 101 - 116: Mrs. Lovett, Todd, Tobias with Colton");
+    expect(sheet.called).toEqual(["Mrs. Lovett", "Sweeney Todd", "Tobias Ragg"]);
+    expect(sheet.pages).toEqual(["101-116"]);
+  });
+
+  it("keeps a described call with no pages", () => {
+    const sheet = read("10:30am - 11:30pm - Fogg's Assylum Character Work - Ensemble with Ryyana");
+    expect(sheet.called).toEqual(["Ensemble of London"]);
+    expect(sheet.pages).toEqual([]);
+    expect(sheet.prose).toEqual(["Fogg's Assylum Character Work"]);
+  });
+
+  /**
+   * The under-call this guards. "Johanna Vocals" resolves to nothing as a
+   * phrase, and dropping it would leave Johanna off her own call.
+   */
+  it("finds a name with the work attached to it", () => {
+    const sheet = read("10:30am - 11:30am - Anthony & Johanna Vocals with Ava");
+    expect(sheet.called).toEqual(["Anthony Hope", "Johanna"]);
+    expect(sheet.prose).toEqual(["Vocals"]);
+  });
+
+  it("never mistakes a page span for a separator between names", () => {
+    expect(read("Pages 23 - 25 - Anthony, Judge").pages).toEqual(["23-25"]);
+    expect(read("Pages 23 - 25 - Anthony, Judge").called).toEqual([
+      "Anthony Hope",
+      "Judge Turpin",
+    ]);
+  });
+
+  it("reports a name it cannot place instead of swallowing it", () => {
+    const sheet = read("7pm - 9pm - Pages 5 - 9 - Anthony, Mxyzptlk");
+    expect(sheet.called).toEqual(["Anthony Hope"]);
+    expect(sheet.unknown).toEqual(["Mxyzptlk"]);
+  });
+
+  /** The whole point: this note then feeds the existing role_ids matcher. */
+  it("produces a note the strict matcher can read back", () => {
+    const sheet = read("ROOM B - 7pm - 9pm with Ryyana: Pages 25 - 40 - Todd, Lovett, Ensemble, Tobias, Pirelli, Beadle");
+    const note = sheet.called.join(" · ");
+    expect(note).toBe(
+      "Sweeney Todd · Mrs. Lovett · Ensemble of London · Tobias Ragg · Adolfo Pirelli · Beadle Bamford"
+    );
+    expect(roleIdsFromCalledNote(note, ROLES, ALIASES)).toHaveLength(6);
   });
 });

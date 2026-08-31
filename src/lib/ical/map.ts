@@ -249,6 +249,30 @@ export function rowFor(event: IcalEvent, feed: IcalFeed) {
  * when ANY token fails to resolve. A note we only half understand is the one
  * case where guessing costs a child their call, so we stop filtering instead.
  */
+/**
+ * One token against the role list: exact, then whole-word prefix, then suffix.
+ * Shared so the strict call sheet and the free-form one can never disagree
+ * about what "Todd" or "Judge" means.
+ */
+export function roleFor(
+  token: string,
+  roles: ReadonlyArray<Record<string, unknown>>,
+  aliases: Record<string, string> = {}
+): Record<string, unknown> | null {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+  const aliasKey = Object.keys(aliases).find(
+    (key) => key.toLowerCase() === trimmed.toLowerCase()
+  );
+  const want = (aliasKey ? aliases[aliasKey] : trimmed).toLowerCase();
+  return (
+    roles.find((role) => {
+      const name = String(role.name ?? "").toLowerCase();
+      return name === want || name.startsWith(`${want} `) || name.endsWith(` ${want}`);
+    }) ?? null
+  );
+}
+
 export function roleIdsFromCalledNote(
   calledNote: unknown,
   roles: ReadonlyArray<Record<string, unknown>>,
@@ -261,13 +285,141 @@ export function roleIdsFromCalledNote(
   for (const raw of note.split("·")) {
     const token = raw.trim();
     if (!token) continue;
-    const want = (aliases[token] ?? token).toLowerCase();
-    const hit = roles.find((role) => {
-      const name = String(role.name ?? "").toLowerCase();
-      return name === want || name.startsWith(`${want} `) || name.endsWith(` ${want}`);
-    });
+    const hit = roleFor(token, roles, aliases);
     if (!hit) return null;
     ids.add(String(hit.id));
   }
   return ids.size > 0 ? [...ids] : null;
+}
+
+/* ── the free-form call sheet ───────────────────────────────────────────── */
+
+/**
+ * The OTHER format this calendar is written in.
+ *
+ * Two styles live side by side. The first fortnight uses a structured template
+ * with Scene:/Music:/CALLED: labels. From 10 Sep onward Tony writes his own
+ * shorthand, one room block per line:
+ *
+ *   ROOM A — 7pm - 8pm with Colton: Pages 23 - 25 - Anthony, Judge, Johanna
+ *   9am - 10:30am - Pages 81 - 93: God That's Good - Lovett, Todd with Ryyana - The Underground
+ *
+ * That line carries more than the template does — a time, a page run, the staff
+ * member and the room — so it is the template that should give way, not Tony.
+ *
+ * Characters, staff, rooms, numbers and prose all sit on one line with no
+ * labels, so position cannot tell them apart. Classification is by LOOKUP: a
+ * token that resolves to a role is a call, one that resolves to a number is
+ * music, a configured staff name or a room is neither, and anything left is
+ * the description of the work. Unknown tokens are reported, never guessed at.
+ */
+export interface BlockSheet {
+  /** Canonical role names, in the order the sheet says them. */
+  called: string[];
+  /** Page runs as written, e.g. "23-25". */
+  pages: string[];
+  /** What the block is working, in the calendar's own words. */
+  prose: string[];
+  /** Tokens that matched nothing — surfaced so they cannot hide. */
+  unknown: string[];
+}
+
+/** A time of day, which is never a page number: 7pm, 10:30am. */
+const CLOCK = /\b\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/gi;
+/** "Pages 23 - 25", "Page 101 - 116", "Pages 7". */
+const PAGE_RUN = /\bpages?\s*(\d+)(?:\s*[-–—]\s*(\d+))?/gi;
+/** A room, not a thing being worked. */
+const ROOM = /^(?:the\s+underground|studio\s+[a-z0-9]+|r(?:oo)?m\.?\s*[a-z0-9]+)$/i;
+/** The leading "ROOM A —" label, if the line carries one. */
+const ROOM_LABEL = /^r(?:oo)?m\.?\s*[a-z0-9]+\s*[-–—:]\s*/i;
+
+export function blockSheetFrom(
+  description: string,
+  roles: ReadonlyArray<Record<string, unknown>>,
+  aliases: Record<string, string> = {},
+  staffNames: readonly string[] = [],
+  songTitles: readonly string[] = []
+): BlockSheet {
+  const called: string[] = [];
+  const pages: string[] = [];
+  const prose: string[] = [];
+  const unknown: string[] = [];
+  const staff = new Set(staffNames.map((name) => name.toLowerCase()));
+  const songs = new Set(songTitles.map((title) => songKey(title)));
+
+  for (const raw of descriptionLines(description)) {
+    let line = raw.replace(ROOM_LABEL, "");
+
+    // Page runs come out before anything splits on a dash, so "23 - 25" is
+    // never mistaken for a separator between two names.
+    for (const match of line.matchAll(PAGE_RUN)) {
+      pages.push(match[2] ? `${match[1]}-${match[2]}` : match[1]);
+    }
+    line = line.replace(PAGE_RUN, " ").replace(CLOCK, " ");
+
+    // "with Ryyana" names who is running the room, not who is called. Stop at
+    // the first separator: "with Colton: Pages 23 - 25 - Anthony, Judge" must
+    // give up Colton and nothing else.
+    line = line.replace(/\bwith\s+([^,;:·\-–—]+)/gi, (segment, who: string) => {
+      const bare = who.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+      return bare && staff.has(bare.toLowerCase()) ? " " : segment;
+    });
+
+    for (const piece of line.split(/[,;:&·]|\s[-–—]\s/)) {
+      const token = piece.replace(/\s+/g, " ").trim().replace(/[.]+$/, "");
+      if (!token || ROOM.test(token)) continue;
+      if (staff.has(token.toLowerCase())) continue;
+
+      const role = roleFor(token, roles, aliases);
+      if (role) {
+        const name = String(role.name ?? "");
+        if (name && !called.includes(name)) called.push(name);
+        continue;
+      }
+      if (songs.has(songKey(token))) {
+        if (!prose.includes(token)) prose.push(token);
+        continue;
+      }
+
+      if (/\s/.test(token)) {
+        /*
+         * "Anthony & Johanna Vocals" attaches the work to the last name, so
+         * the phrase resolves to nothing while a person inside it is plainly
+         * called. Look word by word before giving up.
+         *
+         * This can over-call — a stray "Judge" in a sentence would add Judge
+         * Turpin — and that is the direction to err in. An extra call on a
+         * family's page is a question; a missing one is a child who never
+         * came.
+         */
+        const words = token.split(/\s+/);
+        const hits = words.filter((word) => roleFor(word, roles, aliases));
+        if (hits.length > 0) {
+          for (const word of hits) {
+            const name = String(roleFor(word, roles, aliases)?.name ?? "");
+            if (name && !called.includes(name)) called.push(name);
+          }
+          const rest = words.filter((word) => !hits.includes(word)).join(" ").trim();
+          if (rest) prose.push(rest);
+          continue;
+        }
+        prose.push(token);
+        continue;
+      }
+      // A bare word that resolved to nothing is more likely a name we failed
+      // to place than a description, so it gets reported rather than shown.
+      unknown.push(token);
+    }
+  }
+  return { called, pages, prose, unknown };
+}
+
+/** Loose key for comparing a song title written two different ways. */
+function songKey(value: string): string {
+  return value
+    .replace(/^\s*\d+\.\s*/, "")
+    .toLowerCase()
+    .replace(/[‘’]/g, "'")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }

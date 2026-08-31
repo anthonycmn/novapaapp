@@ -1,11 +1,6 @@
 import { ICAL_FEEDS, type IcalFeed } from "@/config/ical-feeds";
 import { parseIcal } from "@/lib/ical/parse";
-import { rowFor, roleIdsFromCalledNote } from "@/lib/ical/map";
-import {
-  buildCurriculum,
-  type CurriculumScene,
-  type WorkedEvent,
-} from "@/lib/ical/curriculum";
+import { rowFor, roleIdsFromCalledNote, blockSheetFrom } from "@/lib/ical/map";
 import { getServiceClient } from "@/lib/api/supabase/client";
 
 /**
@@ -31,28 +26,6 @@ export interface IcalFeedResult {
   removed: number;
   withCallTime: number;
   skipped?: string;
-  /** What the same pass rebuilt in family_hub.show_scenes. */
-  curriculum?: CurriculumReport;
-}
-
-/**
- * The curriculum rebuild, reported rather than logged.
- *
- * The counts that matter here are the misses. A call with no Scene:/Music: line
- * is not an error — it is a call whose curriculum nobody has written yet — and
- * the only way that ever gets fixed is by somebody seeing the number.
- */
-export interface CurriculumReport {
-  scenes: number;
-  /** Scenes whose date columns actually moved this run. */
-  changed: number;
-  /** Calls carrying no Scene:/Music: line at all. */
-  silent: Array<{ date: string; title: string }>;
-  /** Calls whose kind of work could not be read from the title. */
-  unclassified: Array<{ date: string; title: string }>;
-  /** Scene:/Music: text matching no row in the curriculum. */
-  unmatched: Array<{ date: string; line: string; value: string }>;
-  skipped?: string;
 }
 
 export interface IcalSyncResult {
@@ -72,87 +45,6 @@ function sameIdSet(a: unknown, b: string[] | null): boolean {
   const left = ((a ?? []) as string[]).map(String).sort().join(",");
   const right = (b ?? []).map(String).sort().join(",");
   return left === right;
-}
-
-
-/**
- * Rebuild family_hub.show_scenes date columns from the calls just synced.
- *
- * Runs in the same pass as the events for the reason the call sheet does: two
- * writers on one show's schedule means the curriculum and the calendar can
- * disagree, and the family-facing scene list is read straight off this table.
- *
- * Writes ONLY the four date columns. A production with no curriculum rows is
- * skipped rather than seeded — the scene list is the workbook's, and inventing
- * one from calendar shorthand would be worse than having none.
- */
-async function rebuildCurriculum(
-  feed: IcalFeed,
-  worked: WorkedEvent[],
-  hub: ReturnType<typeof getServiceClient>
-): Promise<CurriculumReport> {
-  const { data: scenes, error } = await hub
-    .from("show_scenes")
-    .select(
-      "id, kind, act, label, name, from_page, to_page, music_dates, blocking_dates, staging_dates, run_dates"
-    )
-    .eq("production_id", feed.productionId)
-    .order("sort_order");
-  if (error) throw new Error(`${feed.key}: scenes read failed: ${error.message}`);
-
-  const rows = (scenes ?? []) as Row[];
-  const empty: CurriculumReport = {
-    scenes: 0,
-    changed: 0,
-    silent: [],
-    unclassified: [],
-    unmatched: [],
-  };
-  if (rows.length === 0) {
-    return { ...empty, skipped: "no curriculum rows for this production" };
-  }
-
-  const build = buildCurriculum(
-    worked,
-    rows.map((row) => ({
-      id: String(row.id),
-      kind: row.kind === "song" ? "song" : "scene",
-      act: row.act as string | null,
-      label: row.label as string | null,
-      name: String(row.name ?? ""),
-      fromPage: row.from_page as number | null,
-      toPage: row.to_page as number | null,
-    })) satisfies CurriculumScene[]
-  );
-
-  let changed = 0;
-  for (const row of rows) {
-    const next = build.bySceneId.get(String(row.id));
-    if (!next) continue;
-    const moved =
-      String(row.music_dates ?? "") !== String(next.music_dates ?? "") ||
-      String(row.blocking_dates ?? "") !== String(next.blocking_dates ?? "") ||
-      String(row.staging_dates ?? "") !== String(next.staging_dates ?? "") ||
-      String(row.run_dates ?? "") !== String(next.run_dates ?? "");
-    if (!moved) continue;
-
-    const { error: updateError } = await hub
-      .from("show_scenes")
-      .update(next)
-      .eq("id", row.id as string);
-    if (updateError) {
-      throw new Error(`${feed.key}: curriculum update failed: ${updateError.message}`);
-    }
-    changed++;
-  }
-
-  return {
-    scenes: rows.length,
-    changed,
-    silent: build.silent,
-    unclassified: build.unclassified,
-    unmatched: build.unmatched,
-  };
 }
 
 async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
@@ -176,15 +68,6 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
   }
   const events = parseIcal(await response.text());
   const rows: FeedRow[] = events.map((event) => ({ ...rowFor(event, feed) }));
-
-  // The curriculum needs the raw description, which rowFor deliberately does
-  // not keep; zip it back on here while both are still in hand.
-  const worked: WorkedEvent[] = rows.map((row, i) => ({
-    startsAt: row.starts_at,
-    title: row.title,
-    type: row.type,
-    description: events[i].description ?? "",
-  }));
   base.parsed = rows.length;
   base.withCallTime = rows.filter((row) => row.call_time).length;
 
@@ -204,7 +87,38 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     .select("id, name")
     .eq("production_id", feed.productionId);
   if (rolesError) throw new Error(`${feed.key}: roles read failed: ${rolesError.message}`);
-  for (const row of rows) {
+  // The curriculum's own song titles, so the free-form reader can tell a
+  // number from a character without a second list to keep in step.
+  const { data: songRows } = await hub
+    .from("show_scenes")
+    .select("name")
+    .eq("production_id", feed.productionId)
+    .eq("kind", "song");
+  const songTitles = (songRows ?? []).map((row) => String(row.name ?? ""));
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    // Format A first — a labelled call sheet says exactly what it means. Only
+    // when there is none do we read the free-form block lines.
+    if (!row.called_note || !row.works_note) {
+      const sheet = blockSheetFrom(
+        events[i].description ?? "",
+        roles ?? [],
+        feed.roleAliases,
+        feed.staffNames,
+        songTitles
+      );
+      if (!row.called_note && sheet.called.length > 0) {
+        row.called_note = sheet.called.join(" · ");
+      }
+      if (!row.works_note) {
+        const note = [
+          ...sheet.pages.map((run) => `Pages ${run}`),
+          ...sheet.prose,
+        ].join(" · ");
+        if (note) row.works_note = note;
+      }
+    }
     row.role_ids = roleIdsFromCalledNote(row.called_note, roles ?? [], feed.roleAliases);
   }
 
@@ -279,7 +193,6 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     base.removed++;
   }
 
-  base.curriculum = await rebuildCurriculum(feed, worked, hub);
   return base;
 }
 

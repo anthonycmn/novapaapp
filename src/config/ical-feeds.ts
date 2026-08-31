@@ -31,6 +31,15 @@ export interface IcalFeed {
    */
   roleAliases?: Record<string, string>;
   /**
+   * Names that appear on a call line but are NOT characters — the staff member
+   * running the room, written as "… with Ryyana".
+   *
+   * Listed rather than inferred. The free-form call sheet puts staff, rooms,
+   * numbers and characters on one line, and the only safe way to tell a
+   * director from a role is to say so.
+   */
+  staffNames?: string[];
+  /**
    * Corrections to the address the feed supplies, first match wins.
    *
    * The feed is the source of truth for WHEN; it has been unreliable about
@@ -51,7 +60,19 @@ export const ICAL_FEEDS: IcalFeed[] = [
     productionId: "2f57e4a1-c61c-415e-b755-1212709ef141",
     url: process.env.SWEENEY_ICS_URL,
     titlePrefix: /^Sweeney Todd\s*[-–—]\s*/i,
-    roleAliases: { Toby: "Tobias Ragg" },
+    /*
+     * "Toby" shares no word with Tobias Ragg. "Passer-by" is not a role at all:
+     * Tony, 31 Aug 2026, confirmed it is played by the Ensemble, so it resolves
+     * there rather than being dropped — an ensemble member reading the 26 Sep
+     * call must still see it.
+     */
+    roleAliases: {
+      Toby: "Tobias Ragg",
+      "Passer-by": "Ensemble of London",
+      "Passer by": "Ensemble of London",
+      Passerby: "Ensemble of London",
+    },
+    staffNames: ["Colton", "Ryyana", "Ava"],
     /*
      * Tony, 23 Aug 2026, definitively: rehearsals are 18945 Conference Center
      * Drive, Leesburg VA 20175 — park in the south lot. The feed had the wrong
