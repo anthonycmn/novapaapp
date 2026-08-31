@@ -10,18 +10,43 @@ import type { IcalEvent } from "@/lib/ical/parse";
  * means these rules — the ones with the sharp edges — are unit-testable.
  */
 /**
+ * Tags that end a line. Google Calendar's rich-text editor writes one <div>
+ * (or a list item) per line and emits no <br> at all, so stripping these
+ * without putting the break back collapses a whole description onto one line —
+ * and then nothing anchors to ^CALLED or ^Scene:, because there is only ever
+ * one line and it starts with the room name.
+ *
+ * That is not hypothetical: it is why a run of Sweeney calls came back with
+ * called_note AND works_note both null while their titles, times and locations
+ * parsed perfectly. Content the calendar plainly had, that we could not read.
+ */
+const BLOCK_TAGS =
+  /<\/?(div|p|li|ul|ol|table|thead|tbody|tfoot|tr|td|th|h[1-6]|blockquote|section|article|pre|dl|dt|dd)[^>]*>/gi;
+
+/** Tags that mark up words inside a line and must NOT break it. */
+const INLINE_TAGS = /<\/?(b|i|strong|em|u|s|span|a|font|small|sub|sup|code|mark)[^>]*>/gi;
+
+/**
  * The show calendar writes its event descriptions as small HTML documents.
  * Flatten one to plain lines, so the rest of this file can read it.
+ *
+ * Order matters: breaks first, then inline markup, then any tag left over.
  */
 export function descriptionLines(html: string): string[] {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<hr\s*\/?>/gi, "\n---\n")
-    .replace(/<\/?(b|i|strong|em|u|span|div|p)[^>]*>/gi, "")
+    .replace(BLOCK_TAGS, "\n")
+    .replace(INLINE_TAGS, "")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    // Curly quotes and dashes arrive numerically and land in song titles, which
+    // are matched on their text — &#39; in "Pirelli&#39;s" must not survive.
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
     .replace(/<[^>]+>/g, "")
     .split("\n")
     .map((line) => line.trim())

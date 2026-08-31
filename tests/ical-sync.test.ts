@@ -306,3 +306,70 @@ describe("the address families drive to", () => {
     expect(locationFor("", bare)).toBe("");
   });
 });
+
+/**
+ * The regression that cost a month of the Sweeney curriculum: Google Calendar's
+ * rich-text editor writes one <div> per line and emits no <br> at all. Stripping
+ * those without putting the break back collapsed the whole description onto one
+ * line, so nothing anchored to ^CALLED or ^Scene: — while the title, times and
+ * location parsed perfectly, which is what made it look like missing content
+ * rather than a parser fault.
+ */
+describe("descriptions whose line breaks are block tags, not <br>", () => {
+  const divs =
+    "<div>Rm A</div>" +
+    "<div><b>CALLED (5): Sweeney Todd · Mrs. Lovett · Toby</b></div>" +
+    "<div>Scene: Act I Sc. 1, 2</div>" +
+    "<div>Music: No Place Like London</div>";
+
+  const list =
+    "<p>Rm A</p><ul>" +
+    "<li>CALLED (5): Sweeney Todd · Mrs. Lovett · Toby</li>" +
+    "<li>Scene: Act I Sc. 1, 2</li>" +
+    "<li>Music: No Place Like London</li></ul>";
+
+  it("breaks a <div>-per-line description into lines", () => {
+    expect(descriptionLines(divs)).toEqual([
+      "Rm A",
+      "CALLED (5): Sweeney Todd · Mrs. Lovett · Toby",
+      "Scene: Act I Sc. 1, 2",
+      "Music: No Place Like London",
+    ]);
+  });
+
+  it("breaks a bulleted description into lines", () => {
+    expect(descriptionLines(list)).toEqual([
+      "Rm A",
+      "CALLED (5): Sweeney Todd · Mrs. Lovett · Toby",
+      "Scene: Act I Sc. 1, 2",
+      "Music: No Place Like London",
+    ]);
+  });
+
+  it("reads the call sheet and the work out of both", () => {
+    for (const description of [divs, list]) {
+      expect(calledNoteFor(description)).toBe("Sweeney Todd · Mrs. Lovett · Toby");
+      expect(worksNoteFor(description)).toBe("Act I Sc. 1, 2 · No Place Like London");
+    }
+  });
+
+  /** Inline markup must not break a line it merely emphasizes. */
+  it("keeps a line whole across bold and links", () => {
+    expect(
+      descriptionLines("<div><b>CALLED</b> <i>(5)</i>: <a href='#'>Toby</a> · Fogg</div>")
+    ).toEqual(["CALLED (5): Toby · Fogg"]);
+  });
+
+  /** Song titles are matched on their text, so an escaped apostrophe is fatal. */
+  it("decodes numeric entities inside a song title", () => {
+    expect(descriptionLines("<div>Music: Pirelli&#39;s Miracle Elixir</div>")).toEqual([
+      "Music: Pirelli's Miracle Elixir",
+    ]);
+  });
+
+  it("still reads a <br> description exactly as before", () => {
+    expect(
+      descriptionLines("<b>CALLED (2): Toby · Fogg</b><br>Scene: Act I Sc. 1")
+    ).toEqual(["CALLED (2): Toby · Fogg", "Scene: Act I Sc. 1"]);
+  });
+});
