@@ -1,6 +1,12 @@
 import { ICAL_FEEDS, type IcalFeed } from "@/config/ical-feeds";
 import { parseIcal } from "@/lib/ical/parse";
-import { rowFor, roleIdsFromCalledNote, blockSheetFrom } from "@/lib/ical/map";
+import {
+  rowFor,
+  roleIdsFromCalledNote,
+  blockSheetFrom,
+  isCompanyCallTitle,
+  everyRoleName,
+} from "@/lib/ical/map";
 import { getServiceClient } from "@/lib/api/supabase/client";
 
 /**
@@ -110,6 +116,14 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
       );
       if (!row.called_note && sheet.called.length > 0) {
         row.called_note = sheet.called.join(" · ");
+      }
+      // Last resort: a title that says FULL COMPANY in so many words. Several
+      // calls carry it there and nowhere else — "COSTUME PARADE - FULL
+      // COMPANY" has an empty description. Only the unambiguous phrase counts;
+      // titles never yield individual characters, or the call titled "SWEENEY
+      // TODD" would summon one boy to a rehearsal meant for the whole company.
+      if (!row.called_note && isCompanyCallTitle(row.title)) {
+        row.called_note = everyRoleName(roles ?? []).join(" · ");
       }
       if (!row.works_note) {
         const note = [

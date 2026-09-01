@@ -333,6 +333,36 @@ const ROOM = /^(?:the\s+underground|studio\s+[a-z0-9]+|r(?:oo)?m\.?\s*[a-z0-9]+)
 /** The leading "ROOM A —" label, if the line carries one. */
 const ROOM_LABEL = /^r(?:oo)?m\.?\s*[a-z0-9]+\s*[-–—:]\s*/i;
 
+/**
+ * "Full Company" is not a character, so it resolved to nobody and left a third
+ * of the run unfiltered — a whole-company call showing to everyone by accident
+ * rather than on purpose.
+ *
+ * Matched as a WHOLE token, never a substring, so the 3 Sep call titled
+ * "MARKETPLACE company number" is not mistaken for a company call.
+ */
+const COMPANY_TOKEN =
+  /^(?:the\s+)?(?:(?:full|entire|whole|all)\s+)?(?:company|cast)(?:\s+call)?$/i;
+
+/**
+ * The same idea in an event TITLE, where only the unambiguous phrase counts.
+ *
+ * Titles get a much narrower rule than descriptions, and deliberately never
+ * yield individual characters: the 12 Sep call is titled "SWEENEY TODD", which
+ * is the name of the show, and reading it as a role would call one boy to a
+ * rehearsal meant for everybody.
+ */
+const COMPANY_TITLE = /\b(?:full|entire|whole)\s+(?:company|cast)\b/i;
+
+export function isCompanyCallTitle(title: string): boolean {
+  return COMPANY_TITLE.test(title);
+}
+
+/** Everyone, in the show's own billing order. */
+export function everyRoleName(roles: ReadonlyArray<Record<string, unknown>>): string[] {
+  return roles.map((role) => String(role.name ?? "")).filter(Boolean);
+}
+
 export function blockSheetFrom(
   description: string,
   roles: ReadonlyArray<Record<string, unknown>>,
@@ -369,6 +399,13 @@ export function blockSheetFrom(
       const token = piece.replace(/\s+/g, " ").trim().replace(/[.]+$/, "");
       if (!token || ROOM.test(token)) continue;
       if (staff.has(token.toLowerCase())) continue;
+
+      if (COMPANY_TOKEN.test(token)) {
+        for (const name of everyRoleName(roles)) {
+          if (!called.includes(name)) called.push(name);
+        }
+        continue;
+      }
 
       const role = roleFor(token, roles, aliases);
       if (role) {

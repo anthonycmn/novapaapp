@@ -3,6 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { org } from "@/config/org";
 import {
   blockSheetFrom,
+  isCompanyCallTitle,
   calledFrom,
   calledNoteFor,
   callTimeFor,
@@ -492,5 +493,68 @@ describe("the free-form call sheet", () => {
       "Sweeney Todd · Mrs. Lovett · Ensemble of London · Tobias Ragg · Adolfo Pirelli · Beadle Bamford"
     );
     expect(roleIdsFromCalledNote(note, ROLES, ALIASES)).toHaveLength(6);
+  });
+});
+
+/**
+ * "Full Company" is not a character. It resolved to nobody, so a third of the
+ * run was showing to every family by accident rather than on purpose — the
+ * single biggest cause of unfiltered calls once the free-form reader landed.
+ */
+describe("whole-company calls", () => {
+  const ROLES = [
+    { id: "r1", name: "Sweeney Todd" },
+    { id: "r2", name: "Mrs. Lovett" },
+    { id: "r3", name: "Anthony Hope" },
+    { id: "r4", name: "Ensemble of London" },
+  ];
+  const read = (line: string) => blockSheetFrom(line, ROLES, {}, ["Colton", "CJ"], []);
+
+  it("reads the company terms the calendar actually uses", () => {
+    for (const line of [
+      "RUN ACT 1 · Full Company · Entire Cast",
+      "ENTIRE COMPANY",
+      "Full Company Call",
+      "ACT 1 POLISHING · Full Company",
+    ]) {
+      expect(read(line).called).toEqual([
+        "Sweeney Todd",
+        "Mrs. Lovett",
+        "Anthony Hope",
+        "Ensemble of London",
+      ]);
+    }
+  });
+
+  it("does not fire on a title that merely contains the word company", () => {
+    expect(isCompanyCallTitle("MARKETPLACE company number (Rm A) / Rm B")).toBe(false);
+    expect(read("MARKETPLACE company number").called).toEqual([]);
+  });
+
+  it("reads FULL COMPANY out of a title when the description is empty", () => {
+    expect(isCompanyCallTitle("COSTUME PARADE - FULL COMPANY")).toBe(true);
+    expect(isCompanyCallTitle("ACT I FIXES - ENTIRE COMPANY")).toBe(true);
+    expect(isCompanyCallTitle("Run Act II - Full Company")).toBe(true);
+  });
+
+  /**
+   * The trap the title rule exists to avoid. 12 Sep is titled "SWEENEY TODD" —
+   * the show, not the barber. Yielding characters from titles would call one
+   * boy to a rehearsal meant for everybody.
+   */
+  it("never yields an individual character from a title", () => {
+    expect(isCompanyCallTitle("SWEENEY TODD")).toBe(false);
+    expect(isCompanyCallTitle("Anthony, Johanna, Tobias, Lovett Character Work")).toBe(false);
+  });
+
+  it("still lets a named call sheet win over the company shorthand", () => {
+    expect(read("Pages 5 - 9 - Anthony, Lovett").called).toEqual([
+      "Anthony Hope",
+      "Mrs. Lovett",
+    ]);
+  });
+
+  it("lists everyone once when the company is named twice", () => {
+    expect(read("Full Company · Entire Cast · Company").called).toHaveLength(4);
   });
 });
