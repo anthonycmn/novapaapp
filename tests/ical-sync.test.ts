@@ -558,3 +558,25 @@ describe("whole-company calls", () => {
     expect(read("Full Company · Entire Cast · Company").called).toHaveLength(4);
   });
 });
+
+/** The 3 Oct call, verbatim: "@" separates the group from the room. */
+describe("a group working in a named room", () => {
+  const ROLES = [
+    { id: "r1", name: "Sweeney Todd" },
+    { id: "r2", name: "Mrs. Lovett" },
+    { id: "r3", name: "Ensemble of London" },
+  ];
+
+  it("reads a company call written as Full Company @ The Underground", () => {
+    const sheet = blockSheetFrom(
+      "WEEK 6 · Saturday 3 October 2026 · Polish Music · Full Company @ The Underground · " +
+        "Costume Fittings/Make-Up and Hair Pull Out · Run Show Full Cast @ The Underground",
+      ROLES,
+      {},
+      ["Colton"],
+      []
+    );
+    expect(sheet.called).toEqual(["Sweeney Todd", "Mrs. Lovett", "Ensemble of London"]);
+    expect(sheet.unknown).toEqual([]);
+  });
+});

@@ -395,7 +395,10 @@ export function blockSheetFrom(
       return bare && staff.has(bare.toLowerCase()) ? " " : segment;
     });
 
-    for (const piece of line.split(/[,;:&·]|\s[-–—]\s/)) {
+    // "@" separates a group from where it is working — "Full Company @ The
+    // Underground" is a company call in a room, not a character named after
+    // both. It never appears inside a name, so it is safe to split on.
+    for (const piece of line.split(/[,;:&·@]|\s[-–—]\s/)) {
       const token = piece.replace(/\s+/g, " ").trim().replace(/[.]+$/, "");
       if (!token || ROOM.test(token)) continue;
       if (staff.has(token.toLowerCase())) continue;
