@@ -37,8 +37,26 @@ const profileSchema = z.object({
     .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
       message: "That doesn't look like a web link — it should start with https://",
     }),
-  auditionVideoUrl: z.string().max(1000),
-  danceVideoUrl: z.string().max(1000),
+  /*
+   * The two videos are links now rather than uploads (2 Sep 2026), so they get
+   * the same treatment as songUrl: http(s) or nothing. The directing team
+   * clicks these, and a field they click is not a field to be relaxed about.
+   *
+   * Storage URLs from the upload era pass unchanged — they are https too — so
+   * nobody loses a self-tape they already sent.
+   */
+  auditionVideoUrl: z
+    .string()
+    .max(1000)
+    .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
+      message: "That doesn't look like a web link — it should start with https://",
+    }),
+  danceVideoUrl: z
+    .string()
+    .max(1000)
+    .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
+      message: "That doesn't look like a web link — it should start with https://",
+    }),
   resumeUrl: z.string().max(1000),
   notes: z.string().max(2000),
   acknowledged: z.literal(true, {
@@ -66,8 +84,10 @@ export async function submitAuditionProfileAction(
     wantsDance: formData.get("wantsDance") === "on",
     songTitle: String(formData.get("songTitle") ?? "").trim(),
     songUrl: String(formData.get("songUrl") ?? "").trim(),
-    auditionVideoUrl: String(formData.get("auditionVideoUrl") ?? ""),
-    danceVideoUrl: String(formData.get("danceVideoUrl") ?? ""),
+    // Trimmed: a link pasted off a phone arrives with a space on the end more
+    // often than not, and " https://…" would fail the check for no reason.
+    auditionVideoUrl: String(formData.get("auditionVideoUrl") ?? "").trim(),
+    danceVideoUrl: String(formData.get("danceVideoUrl") ?? "").trim(),
     resumeUrl: String(formData.get("resumeUrl") ?? ""),
     notes: String(formData.get("notes") ?? ""),
     acknowledged: formData.get("acknowledged") === "on",

@@ -59,14 +59,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Not found" }, { status: 404, headers: corsHeaders() });
   }
 
+  /*
+   * A stored value is one of two things now.
+   *
+   * The two videos became links a family pastes (2 Sep 2026) — YouTube, Drive,
+   * Dropbox — and there is nothing in those to sign: for them this route's job
+   * is to check the caller may see this student's audition and then send them
+   * on. Resumes, and every self-tape uploaded before the change, are still
+   * objects in a private bucket and still get a ten-minute signed URL.
+   *
+   * Only http(s) leaves here on either branch. A "javascript:" or a "file:"
+   * in a redirect the directing team clicks is exactly what this guards.
+   */
+  if (!/^https?:\/\//i.test(stored)) {
+    return NextResponse.json(
+      { error: "That is not a link we can open" },
+      { status: 400, headers: corsHeaders() }
+    );
+  }
+
   // The stored value is a full object URL; the part after /object/<bucket>/ is
   // what the sign endpoint wants.
   const match = /\/storage\/v1\/object\/([^/]+)\/(.+)$/.exec(stored);
   if (!match) {
-    return NextResponse.json(
-      { error: "That file is not in our storage" },
-      { status: 400, headers: corsHeaders() }
-    );
+    // A family's own link — hand it over as it was given to us.
+    return NextResponse.redirect(stored, { headers: corsHeaders() });
   }
   const [, bucket, path] = match;
 

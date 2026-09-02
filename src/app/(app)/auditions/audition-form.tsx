@@ -29,8 +29,11 @@ const initial: FamilyFormState = { ok: false };
  * audition should be reading what was prepared for Sweeney.
  *
  * So it is one form per child per show, and everything on it is about THIS
- * show. The three uploads go straight from the browser to storage; a self-tape
- * off a phone cannot travel any other way on this host.
+ * show.
+ *
+ * The two videos are links a family pastes; only the resume is uploaded, and
+ * it goes straight from the browser to storage because a file cannot travel
+ * any other way on this host.
  */
 export function AuditionForm({
   studentId,
@@ -147,7 +150,7 @@ export function AuditionForm({
         </div>
       </div>
 
-      {/* ── uploads ─────────────────────────────────────────────────────── */}
+      {/* ── recordings (links) and the resume (still a file) ─────────────── */}
       <div className="flex flex-col gap-4 rounded-lg border p-4">
         <div>
           <p className="text-sm font-medium">Recordings and resume</p>
@@ -157,25 +160,62 @@ export function AuditionForm({
           </p>
         </div>
 
-        <DirectUpload
-          name="auditionVideoUrl"
-          bucket="audition-video"
-          studentId={studentId}
-          label="Audition video"
-          accept="video/*"
-          existingUrl={existing?.auditionVideoUrl}
-          hint="A self-tape, if they're auditioning by upload rather than in the room. Up to 500 MB."
-        />
+        {/*
+          Links, not uploads — Tony, 2 Sep 2026: "instead of uploading videos
+          for singing and dance, provide a space for a URL."
 
-        <DirectUpload
-          name="danceVideoUrl"
-          bucket="audition-video"
-          studentId={studentId}
-          label="Dance video"
-          accept="video/*"
-          existingUrl={existing?.danceVideoUrl}
-          hint="A separate clip if they'd like their dancing seen. Up to 500 MB."
-        />
+          A self-tape off a phone is a several-hundred-megabyte file going up a
+          home connection, and a family whose upload dies at 80% has no
+          audition. The video is already in their phone's cloud — YouTube
+          unlisted, Drive, Dropbox, iCloud — and pasting that link takes ten
+          seconds and cannot fail halfway. It also leaves the family deciding
+          who can watch their child sing, which is the right place for that.
+
+          Anything already uploaded still works: those are https links too, so
+          they appear in these boxes and the file route still signs them.
+        */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="auditionVideoUrl" className="text-[13px] font-medium">
+            Link to their singing video
+          </label>
+          <Input
+            id="auditionVideoUrl"
+            name="auditionVideoUrl"
+            type="url"
+            defaultValue={existing?.auditionVideoUrl ?? ""}
+            maxLength={1000}
+            placeholder="https://…"
+          />
+          <FieldError message={state.errors?.auditionVideoUrl} />
+          <p className="text-xs text-muted-foreground">
+            A self-tape, if they&apos;re auditioning by video rather than in the
+            room. YouTube (unlisted is fine), Drive, Dropbox or iCloud —
+            whatever you already use. Please check the link opens for somebody
+            who is not signed in as you.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="danceVideoUrl" className="text-[13px] font-medium">
+            Link to their dance video
+          </label>
+          <Input
+            id="danceVideoUrl"
+            name="danceVideoUrl"
+            type="url"
+            defaultValue={existing?.danceVideoUrl ?? ""}
+            maxLength={1000}
+            placeholder="https://…"
+          />
+          <FieldError message={state.errors?.danceVideoUrl} />
+          <p className="text-xs text-muted-foreground">
+            A separate clip if they&apos;d like their dancing seen.
+          </p>
+        </div>
+
+        {/* The resume stays a file: it is a small PDF that always finishes, and
+            a resume behind a Drive link is one more thing for the panel to be
+            locked out of at eleven at night. */}
 
         <DirectUpload
           name="resumeUrl"

@@ -68,15 +68,18 @@ export default async function AuditionPage({
         </p>
       </div>
 
-      {/* Say plainly who reads it. A parent uploading video of their child
-          singing in a kitchen is owed that before they press the button. */}
+      {/* Say plainly who reads it. A parent handing over video of their child
+          singing in a kitchen is owed that before they press the button — and
+          now that the videos are the family's own links, it has to say who can
+          open one, because that part is their decision rather than ours. */}
       <Card className="gold-band">
         <CardContent className="flex items-start gap-2 p-4 text-[13px]">
           <Eye aria-hidden className="mt-0.5 size-4 shrink-0" />
           <p>
             This goes to the directing team for {production.title} — nobody
-            else. Videos and resumes are stored privately and are not public
-            links.
+            else. The resume is stored privately here. The video links are
+            yours: one is only as private as you have set it, so unlisted or
+            link-only is worth a moment&apos;s thought.
           </p>
         </CardContent>
       </Card>

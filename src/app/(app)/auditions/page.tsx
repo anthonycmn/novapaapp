@@ -79,7 +79,7 @@ export default async function AuditionsPage() {
             const displayName = student.preferredName ?? student.firstName;
             /*
              * "Submitted" is not the same as "finished". A family often saves
-             * the words on Tuesday and uploads the tape on Sunday, so the
+             * the words on Tuesday and records the tape on Sunday, so the
              * badge distinguishes the two rather than calling the first one
              * done and letting a missing video go unnoticed.
              */
@@ -96,7 +96,7 @@ export default async function AuditionsPage() {
                   existing
                     ? hasFiles
                       ? "Submitted, with recordings"
-                      : "Submitted — you can still add a video or resume"
+                      : "Submitted — you can still add a video link or resume"
                     : "Not started"
                 }
                 meta={existing?.songTitle ? `Song: ${existing.songTitle}` : undefined}
