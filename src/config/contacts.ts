@@ -62,19 +62,28 @@ export const STAFF_CONTACTS: StaffContact[] = [
     forWhat: "Trouble signing in to this portal, or anything that looks broken.",
   },
   {
+    name: "Jennifer Travis",
+    title: "Family Engagement Coordinator",
+    email: "jen@novapa.org",
+    /*
+     * Jen has the seat Zoe Schauder held here (Tony, 2 Sep 2026: "eliminate
+     * Zoe on the parent side of the portal and replace her with Jen"). The
+     * schedule topics sat on CJ for a few hours in between, and this list and
+     * staff_portal.contact_routes have to agree — two lists disagreeing is how
+     * a family emails somebody who is not expecting them — so
+     * "Schedule or calendar question" and "How the day runs" now route to this
+     * address in both places, alongside the registration, refund, building,
+     * volunteering, accessibility and "something else" topics already hers.
+     */
+    forWhat:
+      "Schedule and calendar questions, conflicts, registration, refunds, volunteering, and anything you are not sure who to ask.",
+  },
+  {
     name: "Tony Cimino-Johnson",
     title: "Chief Executive Officer",
     email: "cj@novapa.org",
-    /*
-     * Schedule and conflict questions moved here when Zoe Schauder came off
-     * this list (Tony, 2 Sep 2026: "Eliminate Zoe on the parent's side").
-     * They are not orphaned prose: staff_portal.contact_routes already routes
-     * "Schedule or calendar question" and "How the day runs" to this address,
-     * and the two lists disagreeing is how a family emails somebody who is not
-     * expecting them.
-     */
     forWhat:
-      "Schedule and calendar questions, conflicts, anything unresolved, or a concern you would like taken further.",
+      "Anything unresolved, or a concern you would like taken further.",
   },
 ];
 
