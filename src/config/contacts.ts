@@ -50,13 +50,6 @@ export const STAFF_CONTACTS: StaffContact[] = [
       "Allergies, medications, injuries, and anything about your child's wellbeing in the building.",
   },
   {
-    name: "Zoe Schauder",
-    title: "Executive Assistant",
-    email: "zoe@novapa.org",
-    forWhat:
-      "Absences, conflicts, schedule questions, and anything you're not sure who to ask.",
-  },
-  {
     name: "Todd Cimino-Johnson",
     title: "Chief Financial Officer",
     email: "todd@novapa.org",
@@ -72,8 +65,16 @@ export const STAFF_CONTACTS: StaffContact[] = [
     name: "Tony Cimino-Johnson",
     title: "Chief Executive Officer",
     email: "cj@novapa.org",
+    /*
+     * Schedule and conflict questions moved here when Zoe Schauder came off
+     * this list (Tony, 2 Sep 2026: "Eliminate Zoe on the parent's side").
+     * They are not orphaned prose: staff_portal.contact_routes already routes
+     * "Schedule or calendar question" and "How the day runs" to this address,
+     * and the two lists disagreeing is how a family emails somebody who is not
+     * expecting them.
+     */
     forWhat:
-      "Anything unresolved, or a concern you would like taken further.",
+      "Schedule and calendar questions, conflicts, anything unresolved, or a concern you would like taken further.",
   },
 ];
 

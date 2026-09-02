@@ -194,7 +194,7 @@ export function renderDehBody(
 
     section(`
       ${h2("If something on this list does not work")}
-      ${p(`Tell us early rather than on the day. Conflicts, absences and schedule questions go to <a href="mailto:zoe@novapa.org" style="color:${C.NAVY}">zoe@novapa.org</a>, and anything about your student's wellbeing in the building goes to <a href="mailto:katie@novapa.org" style="color:${C.NAVY}">katie@novapa.org</a>.`)}
+      ${p(`Tell us early rather than on the day. Conflicts, absences and schedule questions go to <a href="mailto:cj@novapa.org" style="color:${C.NAVY}">cj@novapa.org</a>, and anything about your student's wellbeing in the building goes to <a href="mailto:katie@novapa.org" style="color:${C.NAVY}">katie@novapa.org</a>.`)}
       ${p(`For anything else at all, <a href="mailto:${esc(org.supportEmail)}" style="color:${C.NAVY}">${esc(org.supportEmail)}</a> reaches us any time.`)}
     `),
 
