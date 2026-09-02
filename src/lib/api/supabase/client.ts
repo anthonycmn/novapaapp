@@ -103,6 +103,15 @@ let portalRpcClient: SupabaseClient | null = null;
  *   staff_portal.family_coaching_summary          — balance and diary (0153)
  *   staff_portal.family_start_coaching_purchase   — reserve a purchase (0154)
  *   staff_portal.family_complete_coaching_purchase — credit it once paid (0154)
+ *   staff_portal.coaching_session_notice          — what to say about one
+ *                                                   booking, read fresh (0211)
+ *   staff_portal.coaching_purchase_notice         — the same, for a receipt (0211)
+ *   staff_portal.log_coaching_notice              — file what was sent in the
+ *                                                   family's mail history (0211)
+ *
+ * The last three exist for messages sent AFTER the fact. They read names and
+ * counts back out at the moment of writing and record what went out; none of
+ * them can move a booking or a balance.
  *
  * NEVER add a table write here. Each of those functions re-checks that the
  * student belongs to the family it was handed, so an authorisation bug in

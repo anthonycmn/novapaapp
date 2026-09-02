@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/api";
+import { notifyCoachingPurchased } from "@/lib/api/coaching/notify";
 import {
   completeCoachingPurchase,
   isCoachingReference,
@@ -84,6 +85,20 @@ export async function POST(request: NextRequest) {
       // Stripe retrying it for days.
       return NextResponse.json({ received: true, warning: result.reason });
     }
+    /*
+     * The receipt, and the office's copy.
+     *
+     * Only on the FIRST delivery. Stripe retries, and a family who is emailed
+     * "thank you, your sessions are ready" three times reasonably wonders
+     * whether they were charged three times. `alreadyPaid` is how 0154 tells
+     * a retry from the real thing, so it is what gates the send.
+     *
+     * Awaited, so it actually happens before this function is frozen, and
+     * incapable of failing the webhook: a receipt that did not send is not a
+     * reason for Stripe to redeliver a payment that succeeded.
+     */
+    if (!result.alreadyPaid) await notifyCoachingPurchased(reference);
+
     return NextResponse.json({
       received: true,
       coaching: reference,

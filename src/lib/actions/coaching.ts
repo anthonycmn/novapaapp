@@ -8,6 +8,10 @@ import {
   cancelCoachingSession,
 } from "@/lib/api/coaching/booking";
 import {
+  notifyCoachingBooked,
+  notifyCoachingCancelled,
+} from "@/lib/api/coaching/notify";
+import {
   completeCoachingPurchase,
   startCoachingPurchase,
 } from "@/lib/api/coaching/shop";
@@ -61,6 +65,20 @@ export async function bookCoachingAction(
     return { ok: false, error: result.error, needsSessions: result.needsSessions };
   }
 
+  /*
+   * Told, after the fact and never instead of it.
+   *
+   * Awaited rather than left running, because this is a serverless function
+   * and a promise still in flight when the response is returned is a promise
+   * that may be killed halfway. It costs the parent a moment on submit and
+   * buys the coach an email that actually goes.
+   *
+   * `notifyCoachingBooked` cannot throw and cannot fail this action. The
+   * booking is made; a mail provider having a bad minute is not the family's
+   * problem and must not be shown to them as one.
+   */
+  await notifyCoachingBooked(result.sessionId);
+
   revalidatePath("/coaches");
   revalidatePath("/schedule");
   return { ok: true };
@@ -74,6 +92,11 @@ export async function cancelCoachingAction(
 
   const result = await cancelCoachingSession(user.familyId, sessionId);
   if (!result.ok) return { ok: false, error: result.error };
+
+  // After the cancellation, not before: the message says how many sessions are
+  // back on the package, and that number is only right once the row is
+  // actually cancelled.
+  await notifyCoachingCancelled(sessionId);
 
   revalidatePath("/coaches");
   revalidatePath("/schedule");
