@@ -123,12 +123,33 @@ export function renderEmailShell({ content, footerNote }: EmailShellOptions): st
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr><td class="rule" style="border-top:1px solid ${BORDER};padding-top:18px">
         ${footerNote ? `<p class="muted" style="margin:0 0 12px;font:400 13px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED}">${footerNote}</p>` : ""}
-        <p class="muted" style="margin:0 0 6px;font:400 12px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED}">
-          <strong style="color:${GOLD_TEXT}">${esc(org.mission)}</strong>
+        <!-- The mission, with the mark beside it rather than above it.
+             28px because a signature logo is an ornament next to a line of
+             type, not a second masthead — the navy bar at the top is already
+             doing that job. valign="middle" and an explicit width/height keep
+             Outlook from inventing its own. -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px">
+          <tr>
+            <td valign="middle" style="padding-right:8px;line-height:0">
+              <img src="${esc(org.logoUrl)}" width="28" height="28" alt=""
+                   style="display:block;width:28px;height:28px;border:0;outline:none;text-decoration:none">
+            </td>
+            <td valign="middle" style="font:400 12px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+              <strong style="color:${GOLD_TEXT}">${esc(org.mission)}</strong>
+            </td>
+          </tr>
+        </table>
+        <p class="muted" style="margin:0 0 8px;font:400 12px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED}">
+          ${esc(org.name)} &middot; ${esc(org.address.line1)}, ${esc(org.address.line2)}, ${esc(org.address.city)} ${esc(org.address.state)} ${esc(org.address.zip)}<br>
+          <a href="${esc(org.phoneHref)}" style="color:${NAVY}">${esc(org.phone)}</a>
+          &middot; <a href="mailto:${esc(org.supportEmail)}" style="color:${NAVY}">${esc(org.supportEmail)}</a><br>
+          <a href="${esc(org.portalUrl)}" style="color:${NAVY}">Parent portal</a>
+          &middot; <a href="${esc(org.ticketsUrl)}" style="color:${NAVY}">Tickets</a>
         </p>
-        <p class="muted" style="margin:0;font:400 12px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED}">
-          ${esc(org.name)} &middot; ${esc(org.tax.addressLine1)}, ${esc(org.tax.addressLine2)}, ${esc(org.tax.city)} ${esc(org.tax.state)} ${esc(org.tax.zip)}<br>
-          Questions any time: <a href="mailto:${esc(org.supportEmail)}" style="color:${NAVY}">${esc(org.supportEmail)}</a>
+        <!-- Not optional, and not a parameter: rendered by the shell so that
+             no caller can send an email without it. -->
+        <p class="muted" style="margin:12px 0 0;padding-top:10px;border-top:1px solid ${BORDER};font:400 10px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED}">
+          ${esc(org.confidentialityNotice)}
         </p>
       </td></tr>
     </table>

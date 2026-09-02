@@ -33,6 +33,52 @@ export const org = {
   /** BookTix ticketing storefront. */
   ticketsUrl: "https://novapa.booktix.com",
 
+  /**
+   * Where a family reads all of this. The same default the coaching notifier
+   * uses, so a link in an email and a link in a notification go to one place.
+   */
+  portalUrl: "https://portal.novapa.org",
+
+  /** The logo, absolute, because an email cannot resolve a site-relative path. */
+  logoUrl: "https://portal.novapa.org/brand/novapa-logo.png",
+
+  /**
+   * The address on outbound mail.
+   *
+   * Tony, 2 Sep 2026, gave this as "18945 Conference Center Drive, Plaza C
+   * Landsdowne VA 20176". Deliberately NOT the same field as `tax.city`, which
+   * says Leesburg and is left alone: that one is matched by an FSA
+   * administrator against the EIN, and 20176 is a Leesburg ZIP with Lansdowne
+   * as the neighbourhood inside it. Same building, two correct names, two
+   * different readers -- so the correspondence address says what Tony says and
+   * the tax record keeps saying what the IRS has.
+   */
+  address: {
+    line1: "18945 Conference Center Drive",
+    line2: "Plaza C",
+    city: "Lansdowne",
+    state: "VA",
+    zip: "20176",
+  },
+
+  /** One number, everywhere. Tony, 2 Sep 2026: "make the phone number ... for all". */
+  phone: "(571) 571-2120",
+  phoneHref: "tel:+15715712120",
+
+  /**
+   * Goes on every outbound email, and it is not a per-message choice.
+   * Tony, 2 Sep 2026: "add this as the confidentiality clause - do not make it
+   * optional". So it is rendered by the shell rather than passed in, which is
+   * the only way a caller cannot forget it.
+   */
+  confidentialityNotice:
+    "CONFIDENTIALITY NOTICE: This email, including any attachments, may contain " +
+    "confidential or privileged information intended solely for the use of the " +
+    "individual or entity to whom it is addressed. If you are not the intended " +
+    "recipient, please notify the sender immediately by reply email, permanently " +
+    "delete this message and any attachments, and do not review, copy, distribute, " +
+    "or disclose its contents. Unauthorized use or disclosure is prohibited.",
+
   /** SmugMug organization gallery root (Phase 6). */
   smugmugUrl: "https://novapa.smugmug.com",
 
