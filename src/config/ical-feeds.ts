@@ -40,6 +40,17 @@ export interface IcalFeed {
    */
   staffNames?: string[];
   /**
+   * The STAFF PORTAL's title for this same show, so the family calendar can be
+   * enriched from the curriculum staff actually maintain.
+   *
+   * The portal splits one calendar event into a row per room and staff correct
+   * it by hand; those corrections are the best account of who is called and
+   * what is worked, and without this they never reached a family. Set it and
+   * the portal wins on those two fields; leave it off and the feed's own prose
+   * stands, exactly as before.
+   */
+  portalTitle?: string;
+  /**
    * Corrections to the address the feed supplies, first match wins.
    *
    * The feed is the source of truth for WHEN; it has been unreliable about
@@ -73,6 +84,8 @@ export const ICAL_FEEDS: IcalFeed[] = [
       Passerby: "Ensemble of London",
     },
     staffNames: ["Colton", "Ryyana", "Ava"],
+    /** staff_portal.productions.title for the same show. */
+    portalTitle: "Sweeney Todd: School Edition",
     /*
      * Tony, 23 Aug 2026, definitively: rehearsals are 18945 Conference Center
      * Drive, Leesburg VA 20175 — park in the south lot. The feed had the wrong

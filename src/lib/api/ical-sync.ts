@@ -7,7 +7,12 @@ import {
   isCompanyCallTitle,
   everyRoleName,
 } from "@/lib/ical/map";
-import { getServiceClient } from "@/lib/api/supabase/client";
+import {
+  callsForEvent,
+  overlayFor,
+  type PortalCall,
+} from "@/lib/ical/portal-calls";
+import { getPortalReadClient, getServiceClient } from "@/lib/api/supabase/client";
 
 /**
  * Pull each configured iCal feed into family_hub.calendar_events.
@@ -102,6 +107,41 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     .eq("kind", "song");
   const songTitles = (songRows ?? []).map((row) => String(row.name ?? ""));
 
+  /*
+   * The staff portal's curriculum for this same show, if it keeps one.
+   *
+   * Read once for the whole feed rather than per event, and read READ-ONLY —
+   * getPortalReadClient promises in writing never to do anything else. A show
+   * with no portalTitle, or a portal that cannot be reached, simply leaves
+   * this empty and the feed's own prose stands.
+   */
+  let portalCalls: PortalCall[] = [];
+  if (feed.portalTitle) {
+    try {
+      const portal = getPortalReadClient();
+      const { data: production } = await portal
+        .from("productions")
+        .select("id")
+        .eq("title", feed.portalTitle)
+        .maybeSingle();
+      if (production?.id) {
+        const { data } = await portal
+          .from("curriculum_calls")
+          .select(
+            "call_date, starts_at, ends_at, call_type, room, staff_leading, act_scene, material, called, calendar_status"
+          )
+          .eq("production_id", production.id)
+          .order("call_date");
+        portalCalls = (data ?? []) as PortalCall[];
+      }
+    } catch (error) {
+      // The curriculum is an improvement on the feed, not a dependency of it.
+      // A family calendar that stops updating because the portal is having a
+      // bad afternoon would be a worse outcome than one without room detail.
+      console.error(`${feed.key}: portal curriculum unavailable`, error);
+    }
+  }
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     // Format A first — a labelled call sheet says exactly what it means. Only
@@ -122,9 +162,6 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
       // COMPANY" has an empty description. Only the unambiguous phrase counts;
       // titles never yield individual characters, or the call titled "SWEENEY
       // TODD" would summon one boy to a rehearsal meant for the whole company.
-      if (!row.called_note && isCompanyCallTitle(row.title)) {
-        row.called_note = everyRoleName(roles ?? []).join(" · ");
-      }
       if (!row.works_note) {
         const note = [
           ...sheet.pages.map((run) => `Pages ${run}`),
@@ -132,7 +169,31 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
         ].join(" · ");
         if (note) row.works_note = note;
       }
+      // Last resort: a title that says FULL COMPANY in so many words. Several
+      // calls carry it there and nowhere else — "COSTUME PARADE - FULL
+      // COMPANY" has an empty description. Only the unambiguous phrase counts;
+      // titles never yield individual characters, or the call titled "SWEENEY
+      // TODD" would summon one boy to a rehearsal meant for the whole company.
+      if (!row.called_note && isCompanyCallTitle(row.title)) {
+        row.called_note = everyRoleName(roles ?? []).join(" · ");
+      }
     }
+
+    /*
+     * The portal has the last word on who is called and what is worked.
+     *
+     * It splits this event into the rooms it is actually run as, and staff
+     * correct it by hand — so when a cast changes on the staff side, this is
+     * the line that carries it to families. It overrides rather than merges:
+     * two accounts of who is called, stitched together, would be a third
+     * account that neither side agreed to.
+     */
+    if (portalCalls.length > 0) {
+      const overlay = overlayFor(callsForEvent(portalCalls, row.starts_at, row.ends_at));
+      if (overlay.calledNote) row.called_note = overlay.calledNote;
+      if (overlay.worksNote) row.works_note = overlay.worksNote;
+    }
+
     row.role_ids = roleIdsFromCalledNote(row.called_note, roles ?? [], feed.roleAliases);
   }
 
