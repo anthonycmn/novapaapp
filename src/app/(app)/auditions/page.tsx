@@ -96,7 +96,7 @@ export default async function AuditionsPage() {
                   existing
                     ? hasFiles
                       ? "Submitted, with recordings"
-                      : "Submitted — you can still add a video link or resume"
+                      : "Submitted — you can still add a video or resume link"
                     : "Not started"
                 }
                 meta={existing?.songTitle ? `Song: ${existing.songTitle}` : undefined}

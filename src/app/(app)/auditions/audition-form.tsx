@@ -13,7 +13,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { DirectUpload } from "@/components/forms/direct-upload";
 import { FieldError } from "@/components/forms/field-error";
 import { UnsavedChangesGuard } from "@/components/forms/unsaved-changes-guard";
 
@@ -213,19 +212,28 @@ export function AuditionForm({
           </p>
         </div>
 
-        {/* The resume stays a file: it is a small PDF that always finishes, and
-            a resume behind a Drive link is one more thing for the panel to be
-            locked out of at eleven at night. */}
-
-        <DirectUpload
-          name="resumeUrl"
-          bucket="resumes"
-          studentId={studentId}
-          label="Resume"
-          accept="application/pdf"
-          existingUrl={existing?.resumeUrl}
-          hint="PDF, up to 10 MB."
-        />
+        {/* The resume followed the videos (Tony, same day). One rule for the
+            whole block is easier to explain than "two of these are links and
+            the third is a file", and a resume is a Drive or Dropbox PDF in most
+            households anyway. */}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="resumeUrl" className="text-[13px] font-medium">
+            Link to their resume
+          </label>
+          <Input
+            id="resumeUrl"
+            name="resumeUrl"
+            type="url"
+            defaultValue={existing?.resumeUrl ?? ""}
+            maxLength={1000}
+            placeholder="https://…"
+          />
+          <FieldError message={state.errors?.resumeUrl} />
+          <p className="text-xs text-muted-foreground">
+            A PDF in Drive, Dropbox or iCloud. Same again: check it opens for
+            somebody who is not signed in as you.
+          </p>
+        </div>
       </div>
 
       {/* ── the words ───────────────────────────────────────────────────── */}

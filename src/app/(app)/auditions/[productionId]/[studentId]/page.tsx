@@ -77,9 +77,9 @@ export default async function AuditionPage({
           <Eye aria-hidden className="mt-0.5 size-4 shrink-0" />
           <p>
             This goes to the directing team for {production.title} — nobody
-            else. The resume is stored privately here. The video links are
-            yours: one is only as private as you have set it, so unlisted or
-            link-only is worth a moment&apos;s thought.
+            else. The videos and the resume are links you own: one is only as
+            private as you have set it, so unlisted or link-only is worth a
+            moment&apos;s thought.
           </p>
         </CardContent>
       </Card>

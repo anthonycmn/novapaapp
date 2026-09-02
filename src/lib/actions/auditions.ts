@@ -38,12 +38,13 @@ const profileSchema = z.object({
       message: "That doesn't look like a web link — it should start with https://",
     }),
   /*
-   * The two videos are links now rather than uploads (2 Sep 2026), so they get
-   * the same treatment as songUrl: http(s) or nothing. The directing team
-   * clicks these, and a field they click is not a field to be relaxed about.
+   * The videos and the resume are links now rather than uploads (2 Sep 2026),
+   * so all three get the same treatment as songUrl: http(s) or nothing. The
+   * directing team clicks these, and a field they click is not a field to be
+   * relaxed about.
    *
    * Storage URLs from the upload era pass unchanged — they are https too — so
-   * nobody loses a self-tape they already sent.
+   * nobody loses a self-tape or a resume they already sent.
    */
   auditionVideoUrl: z
     .string()
@@ -57,7 +58,12 @@ const profileSchema = z.object({
     .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
       message: "That doesn't look like a web link — it should start with https://",
     }),
-  resumeUrl: z.string().max(1000),
+  resumeUrl: z
+    .string()
+    .max(1000)
+    .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
+      message: "That doesn't look like a web link — it should start with https://",
+    }),
   notes: z.string().max(2000),
   acknowledged: z.literal(true, {
     errorMap: () => ({
@@ -88,7 +94,7 @@ export async function submitAuditionProfileAction(
     // often than not, and " https://…" would fail the check for no reason.
     auditionVideoUrl: String(formData.get("auditionVideoUrl") ?? "").trim(),
     danceVideoUrl: String(formData.get("danceVideoUrl") ?? "").trim(),
-    resumeUrl: String(formData.get("resumeUrl") ?? ""),
+    resumeUrl: String(formData.get("resumeUrl") ?? "").trim(),
     notes: String(formData.get("notes") ?? ""),
     acknowledged: formData.get("acknowledged") === "on",
   });

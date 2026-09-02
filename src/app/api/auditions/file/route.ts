@@ -62,11 +62,12 @@ export async function GET(request: NextRequest) {
   /*
    * A stored value is one of two things now.
    *
-   * The two videos became links a family pastes (2 Sep 2026) — YouTube, Drive,
+   * All three became links a family pastes (2 Sep 2026) — YouTube, Drive,
    * Dropbox — and there is nothing in those to sign: for them this route's job
    * is to check the caller may see this student's audition and then send them
-   * on. Resumes, and every self-tape uploaded before the change, are still
-   * objects in a private bucket and still get a ten-minute signed URL.
+   * on. Everything uploaded before the change is still an object in a private
+   * bucket and still gets a ten-minute signed URL, which is why both branches
+   * stay.
    *
    * Only http(s) leaves here on either branch. A "javascript:" or a "file:"
    * in a redirect the directing team clicks is exactly what this guards.
