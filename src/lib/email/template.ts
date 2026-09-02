@@ -140,8 +140,8 @@ export function renderEmailShell({ content, footerNote }: EmailShellOptions): st
           </tr>
         </table>
         <p class="muted" style="margin:0 0 8px;font:400 12px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED}">
-          ${esc(org.name)} &middot; ${esc(org.address.line1)}, ${esc(org.address.line2)}, ${esc(org.address.city)} ${esc(org.address.state)} ${esc(org.address.zip)}<br>
-          <a href="${esc(org.phoneHref)}" style="color:${NAVY}">${esc(org.phone)}</a>
+          ${esc(org.name)} &middot; ${esc(org.tax.addressLine1)}, ${esc(org.tax.addressLine2)}, ${esc(org.tax.city)} ${esc(org.tax.state)} ${esc(org.tax.zip)}<br>
+          <a href="${esc(org.phoneHref)}" style="color:${NAVY}">${esc(org.tax.phone)}</a>
           &middot; <a href="mailto:${esc(org.supportEmail)}" style="color:${NAVY}">${esc(org.supportEmail)}</a><br>
           <a href="${esc(org.portalUrl)}" style="color:${NAVY}">Parent portal</a>
           &middot; <a href="${esc(org.ticketsUrl)}" style="color:${NAVY}">Tickets</a>

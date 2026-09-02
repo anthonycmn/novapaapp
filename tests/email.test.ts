@@ -56,7 +56,7 @@ describe("email signature", () => {
     expect(html).toContain("(571) 571-2120");
     expect(html).toContain("tel:+15715712120");
     expect(html).toContain("18945 Conference Center Drive");
-    expect(html).toContain("Lansdowne VA 20176");
+    expect(html).toContain("Leesburg VA 20176");
     expect(html).toContain(org.portalUrl);
     expect(html).toContain(org.ticketsUrl);
   });

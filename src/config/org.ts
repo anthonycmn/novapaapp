@@ -43,27 +43,13 @@ export const org = {
   logoUrl: "https://portal.novapa.org/brand/novapa-logo.png",
 
   /**
-   * The address on outbound mail.
-   *
-   * Tony, 2 Sep 2026, gave this as "18945 Conference Center Drive, Plaza C
-   * Landsdowne VA 20176". Deliberately NOT the same field as `tax.city`, which
-   * says Leesburg and is left alone: that one is matched by an FSA
-   * administrator against the EIN, and 20176 is a Leesburg ZIP with Lansdowne
-   * as the neighbourhood inside it. Same building, two correct names, two
-   * different readers -- so the correspondence address says what Tony says and
-   * the tax record keeps saying what the IRS has.
+   * The phone, as a tel: link. The number itself lives in `tax.phone` and is
+   * not repeated here -- one number, one place. Tony, 2 Sep 2026: "make the
+   * phone number ... for all".
    */
-  address: {
-    line1: "18945 Conference Center Drive",
-    line2: "Plaza C",
-    city: "Lansdowne",
-    state: "VA",
-    zip: "20176",
+  get phoneHref(): string {
+    return `tel:+1${org.tax.phone.replace(/\D/g, "")}`;
   },
-
-  /** One number, everywhere. Tony, 2 Sep 2026: "make the phone number ... for all". */
-  phone: "(571) 571-2120",
-  phoneHref: "tel:+15715712120",
 
   /**
    * Goes on every outbound email, and it is not a per-message choice.
