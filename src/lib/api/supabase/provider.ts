@@ -4499,6 +4499,19 @@ class SupabaseDataProvider {
     return (data ?? []).map((row) => this.mapAbsence(row));
   }
 
+  async withdrawAbsenceReport(
+    actorId: string,
+    reportId: string
+  ): Promise<{ ok: boolean; message?: string }> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return { ok: false, message: "Only a family can withdraw a conflict." };
+    // The function owns the ownership check, because it is the thing that can
+    // see auth_family_id(). Hub 0060.
+    const { data, error } = await this.db.rpc("withdraw_absence_report", { p_id: reportId });
+    if (error) throw new Error(`could not withdraw that: ${error.message}`);
+    return (data ?? { ok: false }) as { ok: boolean; message?: string };
+  }
+
   async createAbsenceReport(
     actorId: string,
     input: Omit<AbsenceReport, "id" | "familyId" | "createdAt" | "notified">

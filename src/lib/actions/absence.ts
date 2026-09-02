@@ -196,3 +196,43 @@ export async function reportAbsenceAction(
     ),
   };
 }
+
+/**
+ * Taking one back.
+ *
+ * Tony, 2 Sep 2026: "allow parents to adjust their own child's conflicts."
+ *
+ * A parent could file a conflict and never withdraw it, and one of them said
+ * so in the only box the portal gave them — the reason field of a second
+ * absence: "I need to cancel the conflict I submitted for the 14th but I could
+ * not see how to do that." The director was left holding two conflicts, one of
+ * them false.
+ *
+ * Returns a verdict rather than a SubmissionState because this is a button on
+ * a row, not a form: the caller needs one boolean and one sentence.
+ *
+ * No email goes out. The absence notified the director when it was filed, and
+ * a withdrawal that quietly un-notifies them is the wrong shape — but the
+ * absence is gone from the digest, the staff panel and the register the moment
+ * this returns, which is the half that decides who is expected in the room.
+ */
+export async function withdrawAbsenceAction(
+  reportId: string
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    const user = await getSessionUser();
+    if (!user?.familyId) return { ok: false, message: "Sign in first." };
+
+    const result = await getProvider().withdrawAbsenceReport(user.id, reportId);
+    if (!result.ok) return result;
+
+    revalidatePath("/family/absences");
+    revalidatePath("/admin/absences");
+    // The calendar chip is drawn from the answer this may have cleared.
+    revalidatePath("/dashboard");
+    revalidatePath("/schedule");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
+  }
+}

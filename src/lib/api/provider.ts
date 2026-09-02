@@ -366,6 +366,19 @@ export interface DataProvider {
   ): Promise<void>;
   /** Staff: every report, most recent first. */
   getAbsenceReportsForStaff(actorId: string): Promise<AbsenceReport[]>;
+  /**
+   * Take one back.
+   *
+   * A parent could file a conflict and never withdraw it, so the only way to
+   * correct one was to file a second absence explaining that the first was
+   * wrong -- which is what one family actually did. Deletes, exactly as
+   * respond_to_call's "clear" does, so a withdrawn conflict leaves the staff
+   * panel, the digest and the register together rather than one at a time.
+   */
+  withdrawAbsenceReport(
+    actorId: string,
+    reportId: string
+  ): Promise<{ ok: boolean; message?: string }>;
 
   /* loaned scripts (staff portal 0159) */
   /** Numbered scripts signed out to this family's students. */

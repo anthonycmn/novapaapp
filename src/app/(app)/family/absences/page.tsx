@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { EmptyState } from "@/components/ui/states";
 import { CalendarOff } from "lucide-react";
 import { AbsenceForm, type AbsenceOption } from "./absence-form";
+import { WithdrawButton } from "./withdraw-button";
 
 export const metadata = { title: "Absences" };
 
@@ -127,6 +128,7 @@ export default async function AbsencesPage() {
                             } notified`
                           : " · we could not reach anyone by email; please call the office"}
                       </p>
+                      <WithdrawButton reportId={report.id} who={name} />
                     </CardContent>
                   </Card>
                 </li>

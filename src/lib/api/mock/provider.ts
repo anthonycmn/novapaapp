@@ -1517,6 +1517,23 @@ export class MockDataProvider implements DataProvider {
     );
   }
 
+  async withdrawAbsenceReport(
+    actorId: string,
+    reportId: string
+  ): Promise<{ ok: boolean; message?: string }> {
+    const actor = getActor(actorId);
+    if (!actor.familyId) return { ok: false, message: "Only a family can withdraw a conflict." };
+    const report = store.absenceReports.find((r) => r.id === reportId);
+    // Already gone is a success — two taps must not error.
+    if (!report) return { ok: true };
+    if (report.familyId !== actor.familyId) throw new AccessDeniedError("That is not your report.");
+    store.absenceReports = store.absenceReports.filter((r) => r.id !== reportId);
+    // The answer that filed it would go too, live. Call responses are not
+    // mocked at all (see respondToCall below), so there is nothing here to
+    // clear and pretending otherwise would be the worse lie.
+    return { ok: true };
+  }
+
   /* ── early pickup / late drop-off (#10) ───────────────────────────── */
 
   async getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]> {
