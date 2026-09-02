@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getProvider } from "@/lib/api";
-import type { NotificationType } from "@/lib/api/types";
+import type { NotificationAudience, NotificationType } from "@/lib/api/types";
 import { getSessionUser } from "@/lib/auth/session";
 
 export async function markReadAction(notificationId: string): Promise<void> {
@@ -12,10 +12,13 @@ export async function markReadAction(notificationId: string): Promise<void> {
   revalidatePath("/notifications");
 }
 
-export async function markAllReadAction(): Promise<void> {
+/** Clears the tab being read — family news, or the office pile, never both. */
+export async function markAllReadAction(
+  audience: NotificationAudience = "family"
+): Promise<void> {
   const user = await getSessionUser();
   if (!user) return;
-  await getProvider().markAllNotificationsRead(user.id);
+  await getProvider().markAllNotificationsRead(user.id, audience);
   revalidatePath("/notifications");
 }
 

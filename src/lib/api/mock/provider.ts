@@ -8,9 +8,11 @@ import {
   type OfferingContact,
 } from "../messages/offering-topics";
 import { runFromEvents, type ProductionRun } from "../productions/run";
+import { parseLayout, type DashboardLayout } from "@/lib/dashboard-layout";
 import type {
   AbsenceReport,
   AppNotification,
+  NotificationAudienceFilter,
   ButtonDesign,
   ButtonOrder,
   ButtonTemplate,
@@ -157,6 +159,8 @@ interface Store {
   postQuestions: PostQuestion[];
   notifications: AppNotification[];
   notificationPrefs: Map<string, NotificationPrefs>;
+  /** userId → how they arranged their dashboard (0060). */
+  dashboardLayouts: Map<string, DashboardLayout>;
   emailTemplates: EmailTemplate[];
   emailSends: EmailSend[];
   events: CalendarEvent[];
@@ -233,6 +237,7 @@ function buildStore(): Store {
     postQuestions: deepClone(seed.postQuestions),
     notifications: [],
     notificationPrefs: new Map(),
+    dashboardLayouts: new Map(),
     emailTemplates: deepClone(seed.emailTemplates),
     emailSends: [],
     events: deepClone(seed.events),
@@ -352,6 +357,14 @@ function isStaffish(actor: User): boolean {
 
 function isAdmin(actor: User): boolean {
   return actor.role === "admin" || actor.role === "super_admin";
+}
+
+/** Family news, or office work — a row with no audience is family (0056). */
+function inAudience(
+  notification: AppNotification,
+  filter: NotificationAudienceFilter
+): boolean {
+  return filter === "all" || (notification.audience ?? "family") === filter;
 }
 
 function assertFamilyAccess(actor: User, familyId: string) {
@@ -924,18 +937,26 @@ export class MockDataProvider implements DataProvider {
     return prefs.enabled[type] !== false;
   }
 
-  async getNotifications(actorId: string): Promise<AppNotification[]> {
+  async getNotifications(
+    actorId: string,
+    audience: NotificationAudienceFilter = "family"
+  ): Promise<AppNotification[]> {
     getActor(actorId);
     return deepClone(
       store.notifications
-        .filter((n) => n.userId === actorId)
+        .filter((n) => n.userId === actorId && inAudience(n, audience))
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     );
   }
 
-  async getUnreadNotificationCount(actorId: string): Promise<number> {
+  async getUnreadNotificationCount(
+    actorId: string,
+    audience: NotificationAudienceFilter = "family"
+  ): Promise<number> {
     getActor(actorId);
-    return store.notifications.filter((n) => n.userId === actorId && !n.readAt).length;
+    return store.notifications.filter(
+      (n) => n.userId === actorId && !n.readAt && inAudience(n, audience)
+    ).length;
   }
 
   async markNotificationRead(actorId: string, notificationId: string): Promise<void> {
@@ -946,10 +967,31 @@ export class MockDataProvider implements DataProvider {
     if (notification && !notification.readAt) notification.readAt = nowIso();
   }
 
-  async markAllNotificationsRead(actorId: string): Promise<void> {
+  /* ── the dashboard as an arrangement (0060) ─────────────────────────── */
+
+  async getDashboardLayout(actorId: string): Promise<DashboardLayout> {
+    getActor(actorId);
+    return parseLayout(store.dashboardLayouts.get(actorId));
+  }
+
+  async saveDashboardLayout(actorId: string, layout: DashboardLayout): Promise<void> {
+    getActor(actorId);
+    // Parsed on the way in, same as the Supabase adapter: whatever arrives,
+    // what is kept is a layout.
+    store.dashboardLayouts.set(actorId, parseLayout(layout));
+  }
+
+  async markAllNotificationsRead(
+    actorId: string,
+    audience: NotificationAudienceFilter = "family"
+  ): Promise<void> {
     getActor(actorId);
     for (const notification of store.notifications) {
-      if (notification.userId === actorId && !notification.readAt) {
+      if (
+        notification.userId === actorId &&
+        !notification.readAt &&
+        inAudience(notification, audience)
+      ) {
         notification.readAt = nowIso();
       }
     }
@@ -1077,7 +1119,41 @@ export class MockDataProvider implements DataProvider {
       createdByName: actor.displayName,
     };
     store.emailSends.push(send);
+
+    /*
+     * A copy in the portal for the email that just went out (CJ, 2 Sep 2026:
+     * "notifications… whenever we… send an email"). Not for a test to
+     * yourself, and not for a scheduled one — the queue announces that when it
+     * actually sends, so the app never says "we emailed you" before the email
+     * exists. Same rule in the Supabase adapter.
+     */
+    if (!input.testToSelf && !input.scheduledFor) {
+      this.notifyEmailRecipients(recipients, input.subject, input.body);
+    }
     return deepClone(send);
+  }
+
+  /** "We emailed you this" — written when the mail is actually out. */
+  notifyEmailRecipients(
+    recipients: Array<{ id: string }>,
+    subject: string,
+    body: string
+  ): number {
+    let sent = 0;
+    for (const recipient of recipients) {
+      if (!this.prefAllows(recipient.id, "broadcast")) continue;
+      store.notifications.push({
+        id: nextId("ntf"),
+        userId: recipient.id,
+        type: "broadcast",
+        title: subject,
+        body: body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160),
+        url: "/notifications",
+        createdAt: nowIso(),
+      });
+      sent += 1;
+    }
+    return sent;
   }
 
   /**
@@ -2777,6 +2853,7 @@ export class MockDataProvider implements DataProvider {
         id: nextId("ntf"),
         userId: admin.id,
         type: "broadcast",
+        audience: "staff",
         title: "Staff profile update to review",
         body: `${profile.fullName} submitted changes to their profile.`,
         url: "/admin/staff-profiles",
@@ -3107,6 +3184,7 @@ export class MockDataProvider implements DataProvider {
         id: nextId("ntf"),
         userId: staff.id,
         type: "direct_message",
+        audience: "staff",
         title:
           recipientRole === "health_safety"
             ? "New health & safety message"
@@ -3169,6 +3247,7 @@ export class MockDataProvider implements DataProvider {
           id: nextId("ntf"),
           userId: staff.id,
           type: "direct_message",
+          audience: "staff",
           title: "New reply from a family",
           body: thread.subject,
           url: `/admin/messages/${thread.id}`,
@@ -3892,6 +3971,7 @@ export class MockDataProvider implements DataProvider {
           id: nextId("ntf"),
           userId: staff.id,
           type: "broadcast",
+          audience: "staff",
           title: "Playbill name correction",
           body: `${student?.firstName ?? "A student"} → "${corrected}"`,
           url: "/admin/casting-responses",

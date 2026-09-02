@@ -18,7 +18,8 @@ export async function GET(
 
   const { id } = await params;
   const provider = getProvider();
-  const notifications = await provider.getNotifications(user.id);
+  // Either pile: an office row is followed the same way a family one is.
+  const notifications = await provider.getNotifications(user.id, "all");
   const notification = notifications.find((candidate) => candidate.id === id);
 
   if (notification) {

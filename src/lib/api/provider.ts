@@ -1,7 +1,9 @@
+import type { DashboardLayout } from "@/lib/dashboard-layout";
 import type {
   CastPerformance,
   AbsenceReport,
   AppNotification,
+  NotificationAudienceFilter,
   ButtonDesign,
   ButtonOrder,
   ButtonTemplate,
@@ -232,10 +234,34 @@ export interface DataProvider {
   getOpenQuestions(actorId: string): Promise<PostQuestion[]>;
 
   /* notifications (#2) */
-  getNotifications(actorId: string): Promise<AppNotification[]>;
-  getUnreadNotificationCount(actorId: string): Promise<number>;
+  /**
+   * One account's notifications, newest first — the FAMILY ones unless asked
+   * otherwise (0056). An account that is both a parent and an administrator
+   * has two piles, and the family notification center is only ever the first.
+   */
+  getNotifications(
+    actorId: string,
+    audience?: NotificationAudienceFilter
+  ): Promise<AppNotification[]>;
+  getUnreadNotificationCount(
+    actorId: string,
+    audience?: NotificationAudienceFilter
+  ): Promise<number>;
   markNotificationRead(actorId: string, notificationId: string): Promise<void>;
-  markAllNotificationsRead(actorId: string): Promise<void>;
+  /** Marks the audience being looked at, not the other one. */
+  markAllNotificationsRead(
+    actorId: string,
+    audience?: NotificationAudienceFilter
+  ): Promise<void>;
+  /* dashboard arrangement (0060) */
+  /**
+   * How this person has arranged their own dashboard. Empty is the shipped
+   * layout — nobody has to have one, and one that names a panel the app no
+   * longer has is simply ignored on the way in.
+   */
+  getDashboardLayout(actorId: string): Promise<DashboardLayout>;
+  saveDashboardLayout(actorId: string, layout: DashboardLayout): Promise<void>;
+
   getNotificationPrefs(actorId: string): Promise<NotificationPrefs>;
   updateNotificationPrefs(
     actorId: string,

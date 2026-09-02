@@ -35,6 +35,15 @@ export interface QueueProvider {
   resolveAudience(actorId: string, audience: FeedAudience): Promise<User[]>;
   markSendFailed(sendId: string, reason: string): Promise<void>;
   recordSendStats(sendId: string, delivered: number): Promise<void>;
+  /**
+   * Announce the send in the portal too (CJ, 2 Sep 2026). Optional so a test
+   * double stays a two-line object; when it is missing the email still goes.
+   */
+  notifyEmailRecipients?(
+    recipients: Array<{ id: string }>,
+    subject: string,
+    body: string
+  ): Promise<number>;
 }
 
 export interface QueueResult {
@@ -136,6 +145,11 @@ export async function runEmailQueue(
       }
 
       await provider.recordSendStats(send.id, delivered);
+      // The portal copy is written once the mail is actually out, so a
+      // scheduled send never announces itself before it exists.
+      if (delivered > 0) {
+        await provider.notifyEmailRecipients?.(recipients, send.subject, send.body);
+      }
       result.delivered += delivered;
     } catch (error) {
       result.failed += 1;

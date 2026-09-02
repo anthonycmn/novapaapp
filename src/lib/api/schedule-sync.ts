@@ -112,6 +112,145 @@ export interface ScheduleSyncResult {
   removed: number;
   adopted: number;
   staffAssignmentsSynced: number;
+  /** Families told that something of theirs moved or came off the calendar. */
+  familiesNotified: number;
+}
+
+/** One thing that happened to one family's calendar in this run. */
+interface CalendarChange {
+  kind: "moved" | "canceled";
+  productionId: string | null;
+  classId: string | null;
+  title: string;
+  /** The new time for a move, the lost one for a cancellation. */
+  startsAt: string;
+}
+
+/** "Thu, Sep 4, 5:00 PM" in the timezone every family in the org is in. */
+function whenText(startsAt: string): string {
+  return new Date(startsAt).toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  });
+}
+
+/**
+ * Tell the families whose children are actually in it that the calendar moved.
+ *
+ * CJ, 2 Sep 2026: "I would like for notifications to pop up whenever we make an
+ * adjustment to the calendar." Until now the bridge changed the time on the row
+ * and stamped an "Updated" badge, and whether a parent ever saw it depended on
+ * them opening the calendar page before the rehearsal they no longer had the
+ * right time for.
+ *
+ * ONE notification per family per run, not one per event. A schedule is
+ * re-planned in blocks — a tech week shifts, a camp week is cut — and eleven
+ * separate "a rehearsal moved" notices for the same evening's work is how a
+ * family learns to ignore the bell. So the run collects everything it did,
+ * groups it by family, and sends a single line: what moved, what came off, and
+ * the first few by name.
+ *
+ * Only FUTURE changes are announced. The reconciler never touches past events,
+ * and a correction to something that already happened is not news.
+ */
+async function announceScheduleChanges(
+  hub: ReturnType<typeof getServiceClient>,
+  changes: CalendarChange[]
+): Promise<number> {
+  const upcoming = changes.filter((c) => c.startsAt > new Date().toISOString());
+  if (!upcoming.length) return 0;
+
+  const [{ data: enrollments }, { data: students }, { data: parents }, { data: prefs }] =
+    await Promise.all([
+      hub
+        .from("enrollments")
+        .select("student_id, class_id, production_id, status")
+        .eq("status", "enrolled"),
+      hub.from("students").select("id, family_id"),
+      hub.from("profiles").select("id, family_id").eq("role", "parent"),
+      hub.from("notification_prefs").select("user_id, enabled"),
+    ]);
+
+  const familyOfStudent = new Map(
+    ((students ?? []) as Row[]).map((st) => [String(st.id), String(st.family_id)])
+  );
+
+  /* family -> the changes touching a show or class one of their children is in */
+  const byFamily = new Map<string, CalendarChange[]>();
+  for (const enrollment of (enrollments ?? []) as Row[]) {
+    const familyId = familyOfStudent.get(String(enrollment.student_id));
+    if (!familyId) continue;
+    for (const change of upcoming) {
+      const mine =
+        (change.productionId && String(enrollment.production_id) === change.productionId) ||
+        (change.classId && String(enrollment.class_id) === change.classId);
+      if (!mine) continue;
+      const list = byFamily.get(familyId) ?? [];
+      // Two children in the same show must not double the list.
+      if (!list.includes(change)) list.push(change);
+      byFamily.set(familyId, list);
+    }
+  }
+  if (!byFamily.size) return 0;
+
+  const optedOut = new Set(
+    ((prefs ?? []) as Row[])
+      .filter((p) => ((p.enabled ?? {}) as Record<string, boolean>).schedule_change === false)
+      .map((p) => String(p.user_id))
+  );
+
+  const rows: Row[] = [];
+  let families = 0;
+  for (const [familyId, list] of byFamily) {
+    const recipients = ((parents ?? []) as Row[]).filter(
+      (p) => String(p.family_id) === familyId && !optedOut.has(String(p.id))
+    );
+    if (!recipients.length) continue;
+
+    const moved = list.filter((c) => c.kind === "moved").length;
+    const canceled = list.filter((c) => c.kind === "canceled").length;
+    const movedText = moved === 1 ? "1 time changed" : moved + " times changed";
+    const canceledText = canceled === 1 ? "1 canceled" : canceled + " canceled";
+    const headline =
+      moved && canceled
+        ? movedText + ", " + canceledText
+        : moved
+          ? movedText
+          : canceledText;
+
+    const named = list
+      .slice(0, 3)
+      .map(
+        (c) =>
+          c.title +
+          " — " +
+          whenText(c.startsAt) +
+          (c.kind === "canceled" ? " (canceled)" : "")
+      )
+      .join("; ");
+    const rest = list.length > 3 ? " …and " + (list.length - 3) + " more." : "";
+
+    for (const parent of recipients) {
+      rows.push({
+        user_id: parent.id,
+        type: "schedule_change",
+        title: "Your calendar changed",
+        body: headline + ". " + named + "." + rest + " Open the calendar for the full week.",
+        url: "/calendar",
+      });
+    }
+    families += 1;
+  }
+
+  for (let i = 0; i < rows.length; i += 400) {
+    const { error } = await hub.from("notifications").insert(rows.slice(i, i + 400));
+    if (error) throw new Error(`schedule notice: ${error.message}`);
+  }
+  return families;
 }
 
 /**
@@ -343,6 +482,8 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
 
   let created = 0, updated = 0, adopted = 0, removed = 0;
   const inserts: Row[] = [];
+  /* What families are told about at the end of the run — announceScheduleChanges. */
+  const changes: CalendarChange[] = [];
 
   for (const want of desired.values()) {
     const current = byRef.get(want.ref);
@@ -395,6 +536,16 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
         .eq("id", current.id);
       if (error) throw new Error(`update: ${error.message}`);
       updated++;
+      // A retitled or retyped event is bookkeeping; a MOVED one is news.
+      if (timeMoved) {
+        changes.push({
+          kind: "moved",
+          productionId: want.productionId ?? null,
+          classId: want.classId ?? null,
+          title: want.title,
+          startsAt: want.startsAt,
+        });
+      }
     }
   }
 
@@ -423,9 +574,17 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     const { error } = await hub.from("calendar_events").delete().eq("id", e.id);
     if (error) throw new Error(`remove: ${error.message}`);
     removed++;
+    changes.push({
+      kind: "canceled",
+      productionId: e.production_id ? String(e.production_id) : null,
+      classId: e.class_id ? String(e.class_id) : null,
+      title: String(e.title),
+      startsAt: String(e.starts_at),
+    });
   }
 
   const staffAssignmentsSynced = await syncProductionStaff(hubProdsByPortalId);
+  const familiesNotified = await announceScheduleChanges(hub, changes);
 
   return {
     desired: desired.size,
@@ -434,5 +593,6 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     removed,
     adopted,
     staffAssignmentsSynced,
+    familiesNotified,
   };
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Bell, Settings } from "lucide-react";
 import { getProvider } from "@/lib/api";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { markAllReadAction, markReadAction } from "@/lib/actions/notifications";
 import { formatEventTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,38 @@ import { cn } from "@/lib/utils";
 
 export const metadata = { title: "Notifications" };
 
-/** In-app notification center (#2). Every push also lands here. */
-export default async function NotificationsPage() {
+/**
+ * In-app notification center (#2). Every push also lands here.
+ *
+ * Two piles, not one — 0056. CJ, 2 Sep 2026: "why am I seeing everyone's
+ * notifications — I only want to see my notification, NOT everyone's." He is
+ * a parent and the super admin on one account, and this page was handing him
+ * both jobs at once: his own child's casting notice in among four other
+ * families' playbill corrections, which are his to key in but are not news
+ * about his child.
+ *
+ * So this page is the FAMILY pile. An account with a staff role gets a second
+ * tab for the office pile — the same rows, still addressed to them, just not
+ * mixed into the page a parent reads. An ordinary parent has never had an
+ * office row and sees no tabs at all.
+ */
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  const notifications = await getProvider().getNotifications(user.id);
+  const provider = getProvider();
+  const isStaff = hasRoleAtLeast(user, "staff");
+  const { view } = await searchParams;
+  const audience = isStaff && view === "office" ? "staff" : "family";
+
+  const [notifications, officeUnread] = await Promise.all([
+    provider.getNotifications(user.id, audience),
+    isStaff ? provider.getUnreadNotificationCount(user.id, "staff") : Promise.resolve(0),
+  ]);
   const unread = notifications.filter((n) => !n.readAt);
 
   return (
@@ -25,7 +51,7 @@ export default async function NotificationsPage() {
         <h1 className="text-2xl font-semibold">Notifications</h1>
         <div className="flex items-center gap-2">
           {unread.length > 0 && (
-            <form action={markAllReadAction}>
+            <form action={markAllReadAction.bind(null, audience)}>
               <Button variant="ghost" size="sm" type="submit">
                 Mark all read
               </Button>
@@ -41,14 +67,49 @@ export default async function NotificationsPage() {
         </div>
       </div>
 
+      {isStaff && (
+        <div className="flex gap-1 border-b">
+          {(
+            [
+              { key: "family", href: "/notifications", label: "Mine" },
+              {
+                key: "staff",
+                href: "/notifications?view=office",
+                label: "Office",
+                count: officeUnread,
+              },
+            ] as const
+          ).map((tab) => (
+            <Link
+              key={tab.key}
+              href={tab.href}
+              className={cn(
+                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium",
+                audience === tab.key
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              {"count" in tab && tab.count > 0 && (
+                <span className="rounded-full bg-primary px-1.5 text-xs text-primary-foreground">
+                  {tab.count}
+                </span>
+              )}
+            </Link>
+          ))}
+        </div>
+      )}
+
       {notifications.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
             <Bell aria-hidden className="size-8 text-muted-foreground" />
             <p className="font-medium">Nothing yet</p>
             <p className="text-sm text-muted-foreground">
-              Schedule changes, casting news, and photos of your child will
-              show up here.
+              {audience === "staff"
+                ? "Messages from families, playbill corrections and profile changes to review land here."
+                : "Schedule changes, casting news, and photos of your child will show up here."}
             </p>
           </CardContent>
         </Card>

@@ -462,10 +462,26 @@ export type NotificationType =
   | "casting_released"
   | "broadcast";
 
+/**
+ * Who a notification is for (0056).
+ *
+ * `family` is news about your own child — casting, photos, a reply from the
+ * office, a balance. `staff` is office work that happens to be addressed to a
+ * person: an inbox message to answer, a profile change to review, another
+ * family's playbill correction to key in. One account can be both a parent and
+ * an administrator, and the family notification center shows only the first.
+ */
+export type NotificationAudience = "family" | "staff";
+
+/** What a caller is asking for — one audience, or everything on the account. */
+export type NotificationAudienceFilter = NotificationAudience | "all";
+
 export interface AppNotification {
   id: string;
   userId: string;
   type: NotificationType;
+  /** Missing means `family` — the default in the column and in the app. */
+  audience?: NotificationAudience;
   title: string;
   body: string;
   url?: string;

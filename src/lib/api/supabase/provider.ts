@@ -1,5 +1,10 @@
 import "server-only";
 import { EXTENDED_CARE_DAY_CENTS } from "@/config/fees";
+import {
+  EMPTY_LAYOUT,
+  parseLayout,
+  type DashboardLayout,
+} from "@/lib/dashboard-layout";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { BUTTON_PRICES_CENTS } from "../types";
@@ -7,6 +12,7 @@ import { priceFor, type Customization, type Product } from "../store/catalog";
 import type {
   AbsenceReport,
   AppNotification,
+  NotificationAudienceFilter,
   ButtonDesign,
   ButtonOrder,
   CastPerformance,
@@ -225,11 +231,17 @@ function mapStaff(row: Row): StaffProfile {
   };
 }
 
+/** The audiences a filter asks for — "all" is both piles at once. */
+function audiences(filter: NotificationAudienceFilter): string[] {
+  return filter === "all" ? ["family", "staff"] : [filter];
+}
+
 function mapNotification(row: Row): AppNotification {
   return {
     id: String(row.id),
     userId: String(row.user_id),
     type: row.type as AppNotification["type"],
+    audience: row.audience === "staff" ? "staff" : "family",
     title: String(row.title),
     body: String(row.body ?? ""),
     url: s(row.url),
@@ -463,12 +475,51 @@ class SupabaseDataProvider {
     };
   }
 
-  async getNotifications(actorId: string): Promise<AppNotification[]> {
+  /* ── the dashboard as an arrangement (0060) ────────────────────────── */
+
+  async getDashboardLayout(actorId: string): Promise<DashboardLayout> {
+    await this.actor(actorId);
+    const { data, error } = await this.db
+      .from("dashboard_layouts")
+      .select("layout")
+      .eq("user_id", actorId)
+      .maybeSingle();
+    /*
+     * A dashboard that cannot read its layout still has to draw. Somebody who
+     * has never arranged anything has no row, and the table not existing yet
+     * (0060 unrun) is the same situation from the page's point of view: show
+     * the layout the app ships with rather than an error where the dashboard
+     * should be.
+     */
+    if (error) return EMPTY_LAYOUT;
+    return parseLayout(data?.layout);
+  }
+
+  async saveDashboardLayout(actorId: string, layout: DashboardLayout): Promise<void> {
+    await this.actor(actorId);
+    const { error } = await this.db.from("dashboard_layouts").upsert(
+      {
+        user_id: actorId,
+        // Parsed on the way in as well as on the way out: this is the one
+        // place a hand-made request could put anything at all in the column.
+        layout: parseLayout(layout),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
+    if (error) throw new Error(`dashboard layout save failed: ${error.message}`);
+  }
+
+  async getNotifications(
+    actorId: string,
+    audience: NotificationAudienceFilter = "family"
+  ): Promise<AppNotification[]> {
     await this.actor(actorId);
     const { data, error } = await this.db
       .from("notifications")
       .select("*")
       .eq("user_id", actorId)
+      .in("audience", audiences(audience))
       .order("created_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(`notifications lookup failed: ${error.message}`);
@@ -485,21 +536,29 @@ class SupabaseDataProvider {
     if (error) throw new Error(`notification update failed: ${error.message}`);
   }
 
-  async getUnreadNotificationCount(actorId: string): Promise<number> {
+  async getUnreadNotificationCount(
+    actorId: string,
+    audience: NotificationAudienceFilter = "family"
+  ): Promise<number> {
     await this.actor(actorId);
     const { count } = await this.db
       .from("notifications")
       .select("*", { count: "exact", head: true })
       .eq("user_id", actorId)
+      .in("audience", audiences(audience))
       .is("read_at", null);
     return count ?? 0;
   }
 
-  async markAllNotificationsRead(actorId: string): Promise<void> {
+  async markAllNotificationsRead(
+    actorId: string,
+    audience: NotificationAudienceFilter = "family"
+  ): Promise<void> {
     const { error } = await this.db
       .from("notifications")
       .update({ read_at: new Date().toISOString() })
       .eq("user_id", actorId)
+      .in("audience", audiences(audience))
       .is("read_at", null);
     if (error) throw new Error(`mark all read failed: ${error.message}`);
   }
@@ -946,6 +1005,8 @@ class SupabaseDataProvider {
       const notifications = (admins ?? []).map((admin) => ({
         user_id: admin.id,
         type: "broadcast",
+        // Office work, not family news: this is another family's child (0056).
+        audience: "staff",
         title: "Playbill name correction",
         body: `${student?.first_name ?? "A student"} → "${patch.playbill_name}"`,
         url: "/admin/casting-responses",
@@ -2940,6 +3001,64 @@ class SupabaseDataProvider {
     return { recipients: allowed.length };
   }
 
+  /**
+   * Tell a set of families something, honouring their per-type opt-outs.
+   *
+   * CJ, 2 Sep 2026: "I would like for notifications to pop up whenever we make
+   * an adjustment to the calendar, send a message, send an email… whenever I
+   * put something out as the super admin, admin, or director. Those
+   * notifications should go across the board."
+   *
+   * Three things put something out — a feed post, an email, and the hourly
+   * schedule bridge — and until now only the last of them said anything in the
+   * portal, and only the night before. Each of those three now calls this.
+   *
+   * Opt-outs are still respected: a family that turned "Feed posts" off in
+   * notification settings asked not to be told, and "more notifications" is not
+   * a licence to override the switch we gave them. Everything written here is
+   * family audience by default (0056) — office copies are a separate call.
+   */
+  private async notifyFamilies(
+    users: Array<{ id: string }>,
+    notice: {
+      type: AppNotification["type"];
+      title: string;
+      body: string;
+      url?: string;
+    }
+  ): Promise<number> {
+    if (!users.length) return 0;
+    const { data: prefs } = await this.db.from("notification_prefs").select("*");
+    const allowed = users.filter((user) => {
+      const pref = (prefs ?? []).find((pr) => pr.user_id === user.id);
+      const enabled = (pref?.enabled ?? {}) as Record<string, boolean>;
+      return enabled[notice.type] !== false;
+    });
+    if (!allowed.length) return 0;
+    const { error } = await this.db.from("notifications").insert(
+      allowed.map((user) => ({
+        user_id: user.id,
+        type: notice.type,
+        title: notice.title,
+        body: notice.body,
+        url: notice.url ?? null,
+      }))
+    );
+    if (error) throw new Error(`notify failed: ${error.message}`);
+    return allowed.length;
+  }
+
+  /** A one-line preview of a body that may be HTML, for a notification. */
+  private static preview(body: string, limit = 160): string {
+    const text = body
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/s+/g, " ")
+      .trim();
+    return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
+  }
+
   /* ── email, calendar tokens, student materials (ported) ────────────── */
 
   /** Parents whose family matches a post/email audience. */
@@ -3065,7 +3184,38 @@ class SupabaseDataProvider {
       })
       .select().single();
     if (error) throw new Error(`email send failed: ${error.message}`);
+
+    /*
+     * A copy in the portal, for the email that just went out. Not for a test
+     * to yourself, and not for a scheduled one — that one is announced by the
+     * queue when it actually sends, so the portal never says "we emailed you"
+     * before the email exists.
+     */
+    if (!input.testToSelf && !input.scheduledFor) {
+      await this.notifyEmailRecipients(recipients, input.subject, input.body);
+    }
     return this.mapEmailSend(data);
+  }
+
+  /**
+   * "We emailed you this" — written when the send actually happens, by the
+   * immediate path above and by the queue for a scheduled one.
+   *
+   * Broadcast, so an unread one also rides the dashboard's alert band: an
+   * email families are told about in the app is one they cannot miss because
+   * their filters put it somewhere they never look.
+   */
+  async notifyEmailRecipients(
+    recipients: Array<{ id: string }>,
+    subject: string,
+    body: string
+  ): Promise<number> {
+    return this.notifyFamilies(recipients, {
+      type: "broadcast",
+      title: subject,
+      body: SupabaseDataProvider.preview(body),
+      url: "/notifications",
+    });
   }
 
   /**
@@ -3501,7 +3651,7 @@ class SupabaseDataProvider {
     if (admins?.length) {
       await this.db.from("notifications").insert(
         admins.map((admin) => ({
-          user_id: admin.id, type: "broadcast",
+          user_id: admin.id, type: "broadcast", audience: "staff",
           title: "Staff profile update to review",
           body: `${profileRow.full_name} submitted changes to their profile.`,
           url: "/admin/staff-profiles",
@@ -4709,7 +4859,23 @@ class SupabaseDataProvider {
       })
       .select().single();
     if (error) throw new Error(`post create failed: ${error.message}`);
-    return this.mapPost(data);
+
+    /*
+     * The feed was write-only until now: staff posted, and a family found out
+     * the next time they happened to open the app. A post is the main way the
+     * office puts something out, so it is the main thing that should arrive.
+     */
+    const post = this.mapPost(data);
+    await this.notifyFamilies(
+      (await this.audienceParents(input.audience)).filter((user) => user.id !== actor.id),
+      {
+        type: "feed_post",
+        title: input.title?.trim() || `New from ${actor.displayName.split(" ")[0]}`,
+        body: SupabaseDataProvider.preview(input.body),
+        url: "/feed",
+      }
+    );
+    return post;
   }
 
   async reactToPost(actorId: string, postId: string, kind: ReactionKind): Promise<FeedPost> {
@@ -4869,7 +5035,8 @@ class SupabaseDataProvider {
     if (recipients.length) {
       await this.db.from("notifications").insert(
         recipients.map((u) => ({
-          user_id: u.id, type: "direct_message", title, body, url,
+          user_id: u.id, type: "direct_message", audience: "staff",
+          title, body, url,
         }))
       );
     }
@@ -5652,6 +5819,7 @@ class SupabaseDataProvider {
       notifications.push({
         user_id: teacher.user_id,
         type: "schedule_change",
+        audience: "staff",
         title: "New weekly lesson student",
         body: `${studentName} ${student.last_name} booked your ${label.toLowerCase()} slot, starting ${booking.startDate}.`,
         url: "/admin/lessons",
@@ -5686,6 +5854,7 @@ class SupabaseDataProvider {
       await this.db.from("notifications").insert({
         user_id: teacher.user_id,
         type: "schedule_change",
+        audience: "staff",
         title: "Weekly lesson cancelled",
         body: `${student?.preferred_name ?? student?.first_name ?? "A student"}'s weekly slot (${slot ? `${String(slot.start_time).slice(0, 5)} lessons` : "lesson"}) is open again.`,
         url: "/admin/lessons",

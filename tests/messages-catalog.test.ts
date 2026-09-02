@@ -144,12 +144,27 @@ describe("messages route to a role, not a person", () => {
 
   it("notifies everyone covering the role, so nothing waits on one inbox", async () => {
     await healthThread();
-    const jo = await provider.getNotifications("user-jo");
-    const dana = await provider.getNotifications("user-dana");
-    const marcus = await provider.getNotifications("user-marcus");
+    const jo = await provider.getNotifications("user-jo", "staff");
+    const dana = await provider.getNotifications("user-dana", "staff");
+    const marcus = await provider.getNotifications("user-marcus", "staff");
     expect(jo.some((n) => n.type === "direct_message")).toBe(true);
     expect(dana.some((n) => n.type === "direct_message")).toBe(true);
     expect(marcus.some((n) => n.type === "direct_message")).toBe(false);
+  });
+
+  it("keeps another family's message out of the reader's own notifications", async () => {
+    /*
+     * 0056. A message from somebody else's family is office work, and an
+     * administrator who is also a parent must not find it on the page she
+     * opens to see news about her own child. It is still hers to answer —
+     * it is in the office pile, and it still counts as unread there.
+     */
+    await healthThread();
+    const mine = await provider.getNotifications("user-dana");
+    expect(mine.some((n) => n.type === "direct_message")).toBe(false);
+    expect(
+      await provider.getUnreadNotificationCount("user-dana", "staff")
+    ).toBeGreaterThan(0);
   });
 
   it("cannot address a thread about another family's child", async () => {
