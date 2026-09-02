@@ -8,10 +8,18 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+/**
+ * The portal's list, mirrored (staff portal `src/lib/coachingDiary.ts`). Two
+ * copies because the two apps share no code, and the `?? d` fallback below is
+ * what keeps the mirror survivable: a discipline added there and not here
+ * renders as its own raw value — readable, because those values are written to
+ * be read aloud — rather than dropping off a coach's card.
+ */
 const DISCIPLINE_LABEL: Record<string, string> = {
   voice: "Voice",
   acting: "Acting",
   dance: "Dance",
+  "musical theatre": "Musical theatre",
   audition: "Audition prep",
 };
 
