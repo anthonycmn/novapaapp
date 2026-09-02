@@ -723,7 +723,7 @@ export const feedPosts: FeedPost[] = [
     // else — the two-feeds rule the show page depends on.
     id: "post-sweeney-tracks",
     authorStaffId: "staff-marcus",
-    authorName: "Colton Sorenson",
+    authorName: "Colton Sorensen",
     title: "Rehearsal tracks are live — start with the Ballad",
     body: "The MTI code is on the show page. Download the tracks to a phone before Monday rather than streaming in the room; the wifi in the South Building will not carry twenty devices.\n\nEverybody learns the Prologue first. Leads, your character block dates are on the show page too.",
     imageUrls: [],

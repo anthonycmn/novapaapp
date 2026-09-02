@@ -14,7 +14,7 @@
  *
  * Titles are the ones on each person's staff profile. Colton and Ryyana have
  * no published profile yet, so theirs come from the Sweeney master workbook,
- * which is explicit: Colton Sorenson is both Director and Vocal Director, and
+ * which is explicit: Colton Sorensen is both Director and Vocal Director, and
  * Ryyana's room is "dance, movement, staging, transitions and violence only".
  * Colton's address was confirmed by Tony on 16 Aug 2026.
  */
@@ -29,7 +29,7 @@ export interface StaffContact {
 
 export const STAFF_CONTACTS: StaffContact[] = [
   {
-    name: "Colton Sorenson",
+    name: "Colton Sorensen",
     title: "Director & Vocal Director",
     email: "colton@novapa.org",
     forWhat:
