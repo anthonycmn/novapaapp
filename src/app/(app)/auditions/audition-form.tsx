@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import { submitAuditionProfileAction } from "@/lib/actions/auditions";
 import type { FamilyFormState } from "@/lib/actions/family";
 import {
@@ -10,6 +10,7 @@ import {
   ROLE_TIERS,
   type AuditionProfile,
 } from "@/lib/api/auditions/types";
+import { VIDEO_PREFERENCE, sharingReminder } from "@/lib/link-sharing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +18,47 @@ import { FieldError } from "@/components/forms/field-error";
 import { UnsavedChangesGuard } from "@/components/forms/unsaved-changes-guard";
 
 const initial: FamilyFormState = { ok: false };
+
+/**
+ * The reminder under a pasted link, for that link's own service.
+ *
+ * Tony, 2 Sep 2026: "if using a google link or dropbox link can a pop up
+ * notification remind them how to set the viewing properly."
+ *
+ * Inline rather than an actual pop-up, and that is the point: it appears
+ * underneath the box the moment the link goes in, stays there while they fix
+ * it, and is still on screen when they come back from the other tab. A modal
+ * would be dismissed in the half-second before anybody read it, and dismissing
+ * it is the failure — a Drive file nobody shared looks completely fine from
+ * this side of the screen.
+ *
+ * Nothing is blocked. A family who knows their link is right presses submit and
+ * this is a paragraph they scrolled past.
+ */
+function SharingNote({ url }: { url: string }) {
+  const reminder = sharingReminder(url);
+  if (!reminder) return null;
+  return (
+    <div
+      role="status"
+      className={
+        reminder.tone === "warn"
+          ? "gold-band flex items-start gap-2 rounded-lg border p-3"
+          : "flex items-start gap-2 rounded-lg border bg-muted p-3"
+      }
+    >
+      <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold">{reminder.title}</p>
+        <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-[12.5px]">
+          {reminder.steps.map((step) => (
+            <li key={step}>{step}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
 
 /**
  * Everything one performer is bringing to one show.
@@ -30,9 +72,9 @@ const initial: FamilyFormState = { ok: false };
  * So it is one form per child per show, and everything on it is about THIS
  * show.
  *
- * The two videos are links a family pastes; only the resume is uploaded, and
- * it goes straight from the browser to storage because a file cannot travel
- * any other way on this host.
+ * The videos and the resume are links a family pastes. Each of those fields
+ * watches what was pasted and says how to share it properly for that specific
+ * service — see SharingNote below and lib/link-sharing.
  */
 export function AuditionForm({
   studentId,
@@ -46,6 +88,15 @@ export function AuditionForm({
   existing: AuditionProfile | null;
 }) {
   const [dirty, setDirty] = useState(false);
+  /*
+   * The three links are controlled, only so the reminder under each one can
+   * react to what was pasted. Everything else on this form stays uncontrolled
+   * and submits by name, which is why this is three useStates and not a
+   * form-state object.
+   */
+  const [videoUrl, setVideoUrl] = useState(existing?.auditionVideoUrl ?? "");
+  const [danceUrl, setDanceUrl] = useState(existing?.danceVideoUrl ?? "");
+  const [resumeUrl, setResumeUrl] = useState(existing?.resumeUrl ?? "");
   const [state, formAction, pending] = useActionState(
     async (prev: FamilyFormState, formData: FormData) => {
       const result = await submitAuditionProfileAction(prev, formData);
@@ -149,7 +200,7 @@ export function AuditionForm({
         </div>
       </div>
 
-      {/* ── recordings (links) and the resume (still a file) ─────────────── */}
+      {/* ── recordings and resume, all three as links ────────────────────── */}
       <div className="flex flex-col gap-4 rounded-lg border p-4">
         <div>
           <p className="text-sm font-medium">Recordings and resume</p>
@@ -157,6 +208,9 @@ export function AuditionForm({
             Only if you&apos;re auditioning by video, or you&apos;d like the
             team to have these. Nothing here is required.
           </p>
+          {/* Said once, before anybody pastes anything — a preference is only
+              useful if it arrives before the decision. */}
+          <p className="mt-2 text-xs text-muted-foreground">{VIDEO_PREFERENCE}</p>
         </div>
 
         {/*
@@ -181,17 +235,18 @@ export function AuditionForm({
             id="auditionVideoUrl"
             name="auditionVideoUrl"
             type="url"
-            defaultValue={existing?.auditionVideoUrl ?? ""}
+            value={videoUrl}
+            onChange={(event) => setVideoUrl(event.target.value)}
             maxLength={1000}
             placeholder="https://…"
           />
           <FieldError message={state.errors?.auditionVideoUrl} />
           <p className="text-xs text-muted-foreground">
             A self-tape, if they&apos;re auditioning by video rather than in the
-            room. YouTube (unlisted is fine), Drive, Dropbox or iCloud —
-            whatever you already use. Please check the link opens for somebody
-            who is not signed in as you.
+            room. Please check the link opens for somebody who is not signed in
+            as you.
           </p>
+          <SharingNote url={videoUrl} />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -202,7 +257,8 @@ export function AuditionForm({
             id="danceVideoUrl"
             name="danceVideoUrl"
             type="url"
-            defaultValue={existing?.danceVideoUrl ?? ""}
+            value={danceUrl}
+            onChange={(event) => setDanceUrl(event.target.value)}
             maxLength={1000}
             placeholder="https://…"
           />
@@ -210,6 +266,7 @@ export function AuditionForm({
           <p className="text-xs text-muted-foreground">
             A separate clip if they&apos;d like their dancing seen.
           </p>
+          <SharingNote url={danceUrl} />
         </div>
 
         {/* The resume followed the videos (Tony, same day). One rule for the
@@ -224,7 +281,8 @@ export function AuditionForm({
             id="resumeUrl"
             name="resumeUrl"
             type="url"
-            defaultValue={existing?.resumeUrl ?? ""}
+            value={resumeUrl}
+            onChange={(event) => setResumeUrl(event.target.value)}
             maxLength={1000}
             placeholder="https://…"
           />
@@ -233,6 +291,7 @@ export function AuditionForm({
             A PDF in Drive, Dropbox or iCloud. Same again: check it opens for
             somebody who is not signed in as you.
           </p>
+          <SharingNote url={resumeUrl} />
         </div>
       </div>
 
