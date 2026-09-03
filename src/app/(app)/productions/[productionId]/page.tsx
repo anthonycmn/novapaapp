@@ -57,7 +57,7 @@ export default async function ProductionPage({
    * concluded the calendar was broken. Now the run is always there, with
    * their own calls marked and selected by default.
    */
-  const [staff, events, familyEvents, scenes, calendarToken, origin] =
+  const [staff, events, familyEvents, scenes, roles, calendarToken, origin] =
     await Promise.all([
       provider.getStaffProfiles(),
       provider.getProductionCalendar(user.id, productionId),
@@ -65,6 +65,9 @@ export default async function ProductionPage({
         ? provider.getFamilyCalendar(user.id, user.familyId)
         : Promise.resolve<CalendarEvent[]>([]),
       provider.getShowScenes(productionId),
+      // The show's own cast, so the scene list's picker offers this
+      // production's roles rather than a list typed into the component.
+      provider.getShowRoles(productionId),
       // The subscribable feed is per-family, so staff without a family get
       // no button rather than a broken one.
       user.familyId
@@ -362,7 +365,7 @@ export default async function ProductionPage({
               handed and renders nothing when a show has no breakdown loaded,
               so any production that gets one gets the list — Sweeney was only
               special because its breakdown lived in a file. */}
-          <ScenesAndSongs rows={scenes} />
+          <ScenesAndSongs rows={scenes} roles={roles} />
 
           <WhoToEmail director={director} />
 

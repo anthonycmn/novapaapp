@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ShowScene } from "@/lib/api/auditions/types";
+import type { ShowRole, ShowScene } from "@/lib/api/auditions/types";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 
@@ -32,7 +32,15 @@ import { SectionHeader } from "@/components/ui/section-header";
 
 const COMPANY_TERMS = ["full company", "company", "ensemble"];
 
-/** Every character a family might pick, in the workbook's own billing order. */
+/**
+ * The fallback picker, for a show whose breakdown has no roles to offer.
+ *
+ * It used to be the only picker, and it is Sweeney's cast in the workbook's
+ * billing order — which is why Frozen opened to a list of Fleet Street
+ * barbers. A production that has its roles loaded now drives its own picker
+ * off them (see `roles` below); this list survives for anything that does
+ * not.
+ */
 const CHARACTERS = [
   "Sweeney Todd",
   "Mrs. Lovett",
@@ -60,8 +68,43 @@ function matches(haystack: string, character: string): boolean {
   return false;
 }
 
-export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
+/**
+ * One entry in the picker: a role of this show when the production has its
+ * roles loaded, otherwise a bare name from the fallback list above.
+ */
+type Choice = { value: string; label: string; roleId?: string };
+
+export function ScenesAndSongs({
+  rows,
+  roles = [],
+}: {
+  rows: ShowScene[];
+  roles?: ShowRole[];
+}) {
   const [character, setCharacter] = useState<string>("");
+
+  /*
+   * Where the picker comes from.
+   *
+   * Sweeney's names were typed into this file, so Frozen — same table, same
+   * component, forty roles of its own — offered a parent the choice between
+   * Mrs. Lovett and Toby. The show's own roles are the right source, and
+   * matching on their ids is more exact than matching on the Director's
+   * prose: "Full Company" in Sc. 14 already resolves to every role because
+   * the breakdown says which ones, rather than because this file guesses
+   * that a company scene includes everybody.
+   */
+  const choices = useMemo<Choice[]>(
+    () =>
+      roles.length > 0
+        ? [...roles]
+            .sort((a, b) => a.sortOrder - b.sortOrder)
+            .map((role) => ({ value: role.id, label: role.name, roleId: role.id }))
+        : CHARACTERS.map((name) => ({ value: name, label: name })),
+    [roles]
+  );
+
+  const chosen = choices.find((choice) => choice.value === character);
 
   // One table, two lists. kind is what separates a scene from a number, and
   // sortOrder is the workbook's own order for both.
@@ -74,20 +117,23 @@ export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
     [rows]
   );
 
-  const scenes = useMemo(
-    () =>
-      character
-        ? allScenes.filter((s) => matches(s.characters ?? "", character))
-        : allScenes,
-    [allScenes, character]
-  );
-  const numbers = useMemo(
-    () =>
-      character
-        ? allNumbers.filter((n) => matches(n.characters ?? "", character))
-        : allNumbers,
-    [allNumbers, character]
-  );
+  /*
+   * A row is theirs if the breakdown lists their role in it. Rows that carry
+   * no roles at all still fall back to reading the "who's in it" text, so a
+   * production seeded from a workbook and never linked up keeps working.
+   */
+  const keeps = useMemo(() => {
+    if (!chosen) return () => true;
+    return (row: ShowScene) => {
+      if (chosen.roleId && row.roleIds.length > 0) {
+        return row.roleIds.includes(chosen.roleId);
+      }
+      return matches(row.characters ?? "", chosen.label);
+    };
+  }, [chosen]);
+
+  const scenes = useMemo(() => allScenes.filter(keeps), [allScenes, keeps]);
+  const numbers = useMemo(() => allNumbers.filter(keeps), [allNumbers, keeps]);
 
   // A show with no breakdown loaded says so rather than rendering empty tables.
   if (rows.length === 0) return null;
@@ -106,9 +152,9 @@ export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
               className="rounded-md border bg-card px-2 py-1 text-[13px] text-foreground"
             >
               <option value="">Everyone</option>
-              {CHARACTERS.map((name) => (
-                <option key={name} value={name}>
-                  {name}
+              {choices.map((choice) => (
+                <option key={choice.value} value={choice.value}>
+                  {choice.label}
                 </option>
               ))}
             </select>
@@ -121,12 +167,12 @@ export function ScenesAndSongs({ rows }: { rows: ShowScene[] }) {
         scene order — when your child is called, everything they own is worked in
         that call. For what a given call works, see the page range on that
         entry in the schedule.
-        {character && (
+        {chosen && (
           <>
             {" "}
             Showing {scenes.length} scene{scenes.length === 1 ? "" : "s"} and{" "}
             {numbers.length} number{numbers.length === 1 ? "" : "s"} for{" "}
-            <strong className="text-foreground">{character}</strong>, including
+            <strong className="text-foreground">{chosen.label}</strong>, including
             full-company numbers.
           </>
         )}
