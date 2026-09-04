@@ -19,9 +19,28 @@ import { DirectUpload } from "@/components/forms/direct-upload";
 import { FieldError } from "@/components/forms/field-error";
 import { HeadshotCropper, type HeadshotResult } from "@/components/media/headshot-cropper";
 
+/**
+ * What a performer brings to an audition that is NOT about one show: their
+ * headshot, their resume, and a recording of them singing.
+ *
+ * These had a page of their own under the child's profile until Tony, 3 Sep
+ * 2026: "this should all be on the audition page — not a separate page all
+ * together." So they are components rather than a page now, and the audition
+ * form is where a family meets them — the only screen anybody opens with an
+ * audition in mind.
+ *
+ * They still belong to the STUDENT rather than to the show. Change the headshot
+ * while auditioning for Sweeney and it is the headshot everywhere, this season
+ * and next, which is why the audition page says so above them.
+ *
+ * These three stay UPLOADS while the show-specific links on the form above them
+ * are links. That is not an oversight: the headshot is cropped here into a web
+ * copy and a 300 DPI print copy, and neither can be made from a link we do not
+ * hold; the recording plays inline in an audio element, which a Drive or
+ * YouTube link cannot feed; and both are small files that finish.
+ */
+
 const initial: FamilyFormState = { ok: false };
-
-
 
 /* ── headshot ───────────────────────────────────────────────────────────── */
 

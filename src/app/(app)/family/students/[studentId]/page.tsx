@@ -65,11 +65,14 @@ export default async function StudentPage({
       </div>
 
       <div className="flex flex-wrap gap-2">
+        {/* The headshot, resume and recording moved onto the audition page
+            itself (Tony, 3 Sep 2026), so this goes to the auditions list rather
+            than to a page that now only redirects there. */}
         <Link
-          href={`/family/students/${student.id}/materials`}
+          href="/auditions"
           className="inline-flex h-11 items-center rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
         >
-          🎧 Audition materials
+          🎧 Auditions &amp; materials
         </Link>
         <Link
           href={`/family/students/${student.id}/resume`}
