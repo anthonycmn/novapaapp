@@ -288,6 +288,18 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
   const coachingIds = input.coachingActivityIds ?? new Set<number>();
 
+  /*
+   * (student, target) pairs already planned as creates THIS run.
+   *
+   * existingByKey only guards against rows that were in the database before
+   * the run started. With two sources feeding one snapshot (order_items and
+   * legacy_enrollments), the same child can appear twice for the same show —
+   * and both would pass the existing check, creating a duplicate enrollment.
+   * First line item wins; the duplicate is skipped silently because it is the
+   * same fact stated twice, not a problem a human needs to look at.
+   */
+  const plannedKeys = new Set<string>();
+
   for (const external of snapshot.enrollments) {
     const studentId = studentByParticipantId.get(external.participantExternalId);
     if (!studentId) continue; // reported above
@@ -339,7 +351,10 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
       productionId ?? classId ?? `coaching:${coachingActivityId}`;
     const existing = existingByKey.get(`${studentId}::${targetKey}`);
 
+    if (!existing && plannedKeys.has(`${studentId}::${targetKey}`)) continue;
+
     if (!existing) {
+      plannedKeys.add(`${studentId}::${targetKey}`);
       plan.creates.push({
         studentId,
         productionId,

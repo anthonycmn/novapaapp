@@ -1,10 +1,12 @@
 /**
  * Run a registration sync from the website source as the admin user and
  * summarize the outcome (counts + distinct issue kinds/offerings).
+ * Provisions first, exactly like the scheduled job (/api/jobs/registration-sync).
  * Run: npx tsx --tsconfig scripts/tsconfig.json scripts/run-website-sync.ts
  */
 process.env.NEXT_PUBLIC_DATA_MODE = "supabase";
 import { getProvider } from "../src/lib/api";
+import { provisionNewWebsiteAccounts } from "../src/lib/api/registration/provision";
 import { WebsiteDbRegistrationProvider } from "../src/lib/api/registration/website";
 
 async function main() {
@@ -12,6 +14,9 @@ async function main() {
   const adminEmail = process.argv[2] ?? "cj@novapa.org";
   const admin = await provider.getUserByEmail(adminEmail);
   if (!admin) throw new Error(`admin user ${adminEmail} not found`);
+
+  const provision = await provisionNewWebsiteAccounts();
+  console.log("provision:", JSON.stringify(provision));
 
   const snapshot = await new WebsiteDbRegistrationProvider().fetchSnapshot();
   const run = await provider.syncRegistration(admin.id, snapshot, "manual");

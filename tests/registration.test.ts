@@ -5,6 +5,7 @@ import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
 import { MockRegistrationProvider } from "@/lib/api/registration/mock";
 import { mapSnapshot } from "@/lib/api/registration/custom";
 import { reconcile } from "@/lib/api/registration/reconcile";
+import { resolveLegacyOfferingName } from "@/lib/api/registration/website";
 import * as seed from "@/lib/api/mock/seed-data";
 
 /**
@@ -628,5 +629,104 @@ describe("a hand-added enrollment is adopted and stamped", () => {
     const plan = await planFor(already, new Map([["enr-already", "some-other-line-item"]]));
     const mine = plan.updates.filter((u) => u.enrollmentId === "enr-already");
     expect(mine.every((u) => u.externalId === undefined)).toBe(true);
+  });
+});
+
+describe("one child stated twice in one snapshot", () => {
+  // Two sources feed one snapshot now (order_items and legacy_enrollments).
+  // The same child, the same show, two line items — one enrollment.
+  const twiceSnapshot = (offeringName: string) => ({
+    source: "website" as const,
+    fetchedAt: "2026-09-04T12:00:00.000Z",
+    accounts: [
+      {
+        externalId: "a1",
+        source: "website" as const,
+        guardianName: "Sofia Martinez",
+        email: "sofia@example.com",
+      },
+    ],
+    participants: [
+      {
+        externalId: "p1",
+        accountExternalId: "a1",
+        firstName: "Ava",
+        lastName: "Martinez",
+        dateOfBirth: "2015-03-12",
+      },
+    ],
+    enrollments: ["order_item:1", "legacy:1"].map((externalId) => ({
+      externalId,
+      source: "website" as const,
+      participantExternalId: "p1",
+      accountExternalId: "a1",
+      offeringName,
+      offeringCategory: "camp",
+      offeringActivityId: undefined,
+      status: "enrolled" as const,
+      balanceCents: 0,
+      amountPaidCents: 0,
+      enrolledAt: "2026-09-01T00:00:00.000Z",
+    })),
+  });
+
+  it("creates one enrollment, not two", () => {
+    const production = seed.productions[0];
+    const plan = reconcile({
+      ...reconcileInput(twiceSnapshot(production.title)),
+      enrollments: [],
+      productions: [production],
+    });
+    expect(plan.creates).toHaveLength(1);
+    expect(plan.counts.enrollmentsCreated).toBe(1);
+    // First line item wins — the order row, which carries the money.
+    expect(plan.creates[0].externalId).toBe("order_item:1");
+  });
+});
+
+describe("legacy offering resolution", () => {
+  const activities = new Map([
+    [1959805, { name: "Broadway Bound Teens | Frozen, Jr", category: "camp" }],
+  ]);
+  const showTitles = new Map([["frozen", "Frozen, Jr."]]);
+
+  it("prefers the activity catalog when the row names an activity", () => {
+    expect(
+      resolveLegacyOfferingName(
+        { activity_id: 1959805, activity_text: "something else entirely" },
+        showTitles,
+        activities
+      )
+    ).toBe("Broadway Bound Teens | Frozen, Jr");
+  });
+
+  it("falls back to the show-code map", () => {
+    expect(
+      resolveLegacyOfferingName({ show: "frozen" }, showTitles, activities)
+    ).toBe("Frozen, Jr.");
+  });
+
+  it("does NOT map Sawyer's period-free Frozen Jr spelling to a roster", () => {
+    // Sawyer order 7930828: "Broadway Bound | Frozen, Jr" — no period, no
+    // activity id, no show code, and CANCELLED in Sawyer ($0 collected,
+    // verified 2026-09-04). It must fall through as raw text and surface as
+    // an unknown_offering, never resolve to Cast B.
+    expect(
+      resolveLegacyOfferingName(
+        { activity_text: "Broadway Bound | Frozen, Jr" },
+        showTitles,
+        activities
+      )
+    ).toBe("Broadway Bound | Frozen, Jr");
+  });
+
+  it("passes unknown text through for reconcile to surface, not to guess", () => {
+    expect(
+      resolveLegacyOfferingName(
+        { activity_text: "Day at Theatre — Monster Mash" },
+        showTitles,
+        activities
+      )
+    ).toBe("Day at Theatre — Monster Mash");
   });
 });

@@ -84,16 +84,21 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
       throw new RegistrationUnavailableError("Supabase is not configured", this.source);
     }
 
-    const [familyRows, camperRows, itemRows, activityRows, showTitles] = await Promise.all([
-      this.selectAll("families", "id, email, parent_name, is_test"),
-      this.selectAll("campers", "id, family_id, name, birthdate"),
-      this.selectAll(
-        "order_items",
-        "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, created_at)"
-      ),
-      this.selectAll("activities", "id, name, category, age_range, class_times"),
-      fetchShowTitleMap(),
-    ]);
+    const [familyRows, camperRows, itemRows, legacyRows, activityRows, showTitles] =
+      await Promise.all([
+        this.selectAll("families", "id, email, parent_name, is_test"),
+        this.selectAll("campers", "id, family_id, name, birthdate"),
+        this.selectAll(
+          "order_items",
+          "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, created_at)"
+        ),
+        this.selectAll(
+          "legacy_enrollments",
+          "id, email, camper_name, activity_text, activity_id, show, paid_cents, imported_at"
+        ),
+        this.selectAll("activities", "id, name, category, age_range, class_times"),
+        fetchShowTitleMap(),
+      ]);
     const activities = buildActivityMap(activityRows);
 
     const accounts: ExternalAccount[] = [];
@@ -199,6 +204,69 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
       });
     }
 
+    /*
+     * SAWYER/LEGACY REGISTRATIONS, WHICH ARE HALF THE REGISTER.
+     *
+     * The import that created hub families and students for the Sawyer era
+     * read `legacy_enrollments` — but this snapshot never did, so those
+     * children stood in the app with no enrollment at all: a parent signed in
+     * and saw their child in no show. (Found 2026-09-04: 30 of the 76 Frozen
+     * registrations were legacy rows the sync had never seen.)
+     *
+     * Legacy rows attribute by email → family and camper name → participant,
+     * the same two joins the order path uses. A row whose (participant,
+     * offering) is already covered by a web order is skipped here — the web
+     * order carries real money figures and must win; letting the legacy twin
+     * through would clobber a live balance with an imported zero.
+     */
+    const seenOfferings = new Set(
+      enrollments.map(
+        (e) => `${e.participantExternalId}::${normalize(e.offeringName)}`
+      )
+    );
+    for (const row of legacyRows) {
+      const id = row.id == null ? undefined : String(row.id);
+      const email = str(row.email)?.toLowerCase();
+      const familyId = email ? familyByEmail.get(email) : undefined;
+      if (!id || !familyId) continue; // no family to hang it on; reconcile
+      // cannot report what the snapshot cannot attribute.
+
+      const offeringName = resolveLegacyOfferingName(row, showTitles, activities);
+      if (!offeringName) continue;
+
+      const camperName = str(row.camper_name);
+      const participantId =
+        (camperName && camperByFamilyName.get(`${familyId}:${normalize(camperName)}`)) ??
+        `unmatched:${familyId}:${normalize(camperName ?? "unknown")}`;
+
+      const key = `${participantId}::${normalize(offeringName)}`;
+      if (seenOfferings.has(key)) continue;
+      seenOfferings.add(key);
+
+      const activityId =
+        typeof row.activity_id === "number" ? row.activity_id : undefined;
+      const activity = activityId ? activities.get(activityId) : undefined;
+
+      enrollments.push({
+        externalId: `legacy:${id}`,
+        source: this.source,
+        participantExternalId: participantId,
+        accountExternalId: familyId,
+        offeringName,
+        offeringCategory:
+          activity?.category ?? categoryForShowCode(str(row.show)),
+        offeringActivityId: activityId,
+        sessionStartsOn: activity?.session?.startsOn,
+        sessionEndsOn: activity?.session?.endsOn,
+        // A legacy import carries no order status; the child attended, or is
+        // enrolled. Cancellations never made it into this table.
+        status: "enrolled",
+        balanceCents: 0,
+        amountPaidCents: num(row.paid_cents),
+        enrolledAt: str(row.imported_at) ?? new Date().toISOString(),
+      });
+    }
+
     return {
       accounts,
       participants,
@@ -286,6 +354,51 @@ export function resolveOfferingName(
   return activity.category === "class" || activity.category === "coaching"
     ? classOfferingName(activity)
     : activity.name;
+}
+
+/**
+ * Free-text Sawyer offerings that ARE a current production, spelled the way
+ * Sawyer spelled them. The keys are normalized (lowercase, punctuation
+ * stripped) before lookup, so match that shape here. Kept deliberately tiny:
+ * an alias asserts identity between two systems, and a wrong one puts a child
+ * on the wrong roster — add entries only for spellings verified against a
+ * real registration.
+ */
+const LEGACY_TEXT_ALIASES: Record<string, string> = {
+  // Currently empty. The one candidate — Sawyer order 7930828, "Broadway
+  // Bound | Frozen, Jr" with no period — turned out to be CANCELLED in
+  // Sawyer ($0 collected, verified 2026-09-04), so mapping it would have put
+  // a withdrawn child on a roster. The lesson stands as the rule above:
+  // verify against the money before adding an entry.
+};
+
+/**
+ * What a legacy row was for, best answer first: the activity catalog when the
+ * row names an activity, the show-code map when it carries a code, then the
+ * alias table for verified free-text spellings, and finally the raw text —
+ * which reconcile will surface as an unknown_offering for a human rather
+ * than guess at. Returns undefined only for a row with no text at all.
+ */
+export function resolveLegacyOfferingName(
+  row: Row,
+  showTitles: Map<string, string>,
+  activities: Map<number, ActivityInfo>
+): string | undefined {
+  const activity = activities.get(Number(row.activity_id));
+  if (activity) {
+    return activity.category === "class" || activity.category === "coaching"
+      ? classOfferingName(activity)
+      : activity.name;
+  }
+  const code = str(row.show);
+  if (code) {
+    const title = showTitles.get(code.toLowerCase()) ?? code;
+    return title;
+  }
+  const text = str(row.activity_text);
+  if (!text) return undefined;
+  const aliasKey = text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return LEGACY_TEXT_ALIASES[aliasKey] ?? text;
 }
 
 /** show code → title, from regpack products like "Broadway Bound | Charlie and the Chocolate Factory | Grades K-9". */

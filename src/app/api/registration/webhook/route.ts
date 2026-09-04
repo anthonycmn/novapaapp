@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/api";
 import { getRegistrationProvider } from "@/lib/api/registration";
+import { jobActorId } from "@/lib/jobs/actor";
 
 /**
  * Inbound sync trigger (#8). The registration system (or a Zapier zap in
@@ -37,15 +38,18 @@ export async function POST(request: NextRequest) {
   const provider = getProvider();
   const registration = getRegistrationProvider();
 
-  // Webhooks run without a user session; attribute to the automation account.
-  const systemUser = await provider.getUserByEmail("dana@example.com");
-  if (!systemUser) {
+  // Webhooks run without a user session; attribute to the job account. This
+  // was dana@example.com — a seed address with no production profile — so
+  // every real webhook call died here with a 503, the same dead-address
+  // failure the email queue once had. See lib/jobs/actor.ts.
+  const systemUserId = await jobActorId();
+  if (!systemUserId) {
     return NextResponse.json({ error: "No sync account configured" }, { status: 503 });
   }
 
   try {
     const snapshot = await registration.fetchSnapshot();
-    const run = await provider.syncRegistration(systemUser.id, snapshot, "webhook");
+    const run = await provider.syncRegistration(systemUserId, snapshot, "webhook");
     return NextResponse.json({
       status: run.status,
       counts: run.counts,
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const message = String(error);
     await provider.recordSyncFailure(
-      systemUser.id,
+      systemUserId,
       registration.source,
       "webhook",
       message
