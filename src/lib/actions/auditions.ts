@@ -64,6 +64,7 @@ const profileSchema = z.object({
     .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
       message: "That doesn't look like a web link — it should start with https://",
     }),
+  inPersonWithBackingTrack: z.boolean(),
   notes: z.string().max(2000),
   acknowledged: z.literal(true, {
     errorMap: () => ({
@@ -95,6 +96,7 @@ export async function submitAuditionProfileAction(
     auditionVideoUrl: String(formData.get("auditionVideoUrl") ?? "").trim(),
     danceVideoUrl: String(formData.get("danceVideoUrl") ?? "").trim(),
     resumeUrl: String(formData.get("resumeUrl") ?? "").trim(),
+    inPersonWithBackingTrack: formData.get("inPersonWithBackingTrack") === "on",
     notes: String(formData.get("notes") ?? ""),
     acknowledged: formData.get("acknowledged") === "on",
   });

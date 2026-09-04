@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ExternalLinkButton } from "@/components/external-link-button";
 import { MatchCard } from "./match-card";
+import { NotYetAvailable } from "@/components/not-yet-available";
+import { isFeatureOpen } from "@/lib/feature-availability";
 
 export const metadata = { title: "Photos" };
 
@@ -20,6 +22,19 @@ export const metadata = { title: "Photos" };
 export default async function PhotosPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+
+  /* Closed to families for now — CJ, 4 Sep 2026: "when I click photos tab in
+     the nav menu - it should not be available yet." Returned before the
+     galleries are fetched: there is no sense doing face-match work for a page
+     that is going to say "coming soon". */
+  if (!isFeatureOpen("photos")) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold">Photos</h1>
+        <NotYetAvailable feature="photos" />
+      </div>
+    );
+  }
 
   const provider = getProvider();
   const galleries = await provider.getGalleries(user.id);

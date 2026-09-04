@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CatalogItemForm } from "./catalog/catalog-form";
 import { ButtonDesigner } from "./designer";
 import { NotYetAvailable } from "@/components/not-yet-available";
-import { isStoreFeatureOpen } from "@/lib/store-availability";
+import { isFeatureOpen } from "@/lib/feature-availability";
 
 export const metadata = { title: "Spirit buttons & star pages" };
 
@@ -62,7 +62,7 @@ export default async function StorePage() {
       {/* Spirit buttons — closed to families for now (lib/store-availability).
           The designer is left intact behind the switch rather than removed, so
           opening it again is one boolean. */}
-      {!isStoreFeatureOpen("spiritButtons") ? (
+      {!isFeatureOpen("spiritButtons") ? (
         <NotYetAvailable feature="spiritButtons" />
       ) : templates.length === 0 ? (
         <Card>
@@ -92,7 +92,7 @@ export default async function StorePage() {
         )}
 
       {/* Star pages — same switch, same reason. */}
-      {!isStoreFeatureOpen("starPages") ? (
+      {!isFeatureOpen("starPages") ? (
         <NotYetAvailable feature="starPages" />
       ) : (
         <>

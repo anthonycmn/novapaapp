@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldError } from "@/components/forms/field-error";
+import { OptionalTag } from "@/components/forms/optional-tag";
 import { UnsavedChangesGuard } from "@/components/forms/unsaved-changes-guard";
 
 const initial: FamilyFormState = { ok: false };
@@ -32,23 +33,6 @@ const initial: FamilyFormState = { ok: false };
  */
 const SUGGESTION = "placeholder:italic placeholder:text-muted-foreground/70";
 
-/**
- * "Optional", in gold — CJ, 4 Sep 2026: "Put the word Optional in Gold after
- * Dance Video and after Resume link in the audition page."
- *
- * Gold rather than the muted grey every other hint on this form uses, and
- * deliberately: this is the one label telling a family they may skip something,
- * which is the opposite of a warning and should not read like the fine print
- * next to it. A parent who does not have a dance clip should be able to see
- * that from across the page.
- *
- * One component rather than the words typed twice, so the two cannot drift.
- */
-function OptionalTag() {
-  return (
-    <span className="font-semibold uppercase tracking-wide text-gold">Optional</span>
-  );
-}
 
 /**
  * Everything one performer is bringing to one show.
@@ -239,6 +223,37 @@ export function AuditionForm({
             as you.
           </p>
           <SharingNote url={videoUrl} />
+
+          {/*
+            CJ, 4 Sep 2026: "Under the video link for song submission put a
+            check box - my child will be auditioning in person and the link
+            above is the link to their audition kareoke song ... put this in
+            gold - spell it correctly and make it make sense."
+
+            The sentence is reworded because the dictated one packs two
+            different facts into one clause and misspells karaoke. What a
+            parent is actually saying by ticking it is: this link is not a
+            self-tape, it is the backing track, and my child will sing to it in
+            the room. That distinction matters to whoever opens the link — a
+            panel expecting a performance and finding an instrumental will
+            assume the wrong file was sent.
+
+            Gold, like the Optional tags, because it is the same kind of label:
+            it tells a family that the box above means something other than
+            what they might assume, rather than warning them about anything.
+          */}
+          <label className="mt-1 flex cursor-pointer items-start gap-2.5 rounded-lg border border-gold/50 bg-gold/5 p-3">
+            <input
+              type="checkbox"
+              name="inPersonWithBackingTrack"
+              defaultChecked={Boolean(existing?.inPersonWithBackingTrack)}
+              className="mt-0.5 size-4 shrink-0 accent-[var(--primary)]"
+            />
+            <span className="text-[13px] font-medium text-gold">
+              My child will audition in person, and the link above is their
+              karaoke backing track rather than a recording of them singing.
+            </span>
+          </label>
         </div>
 
         <div className="flex flex-col gap-1.5">

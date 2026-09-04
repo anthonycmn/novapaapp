@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { HeadshotSection } from "@/components/materials/student-materials";
+import { OptionalTag } from "@/components/forms/optional-tag";
 import { AuditionForm } from "../../audition-form";
 
 export const metadata = { title: "Audition" };

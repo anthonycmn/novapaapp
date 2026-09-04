@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SpiritButtonForm } from "./spirit-button-form";
 import { NotYetAvailable } from "@/components/not-yet-available";
-import { isStoreFeatureOpen } from "@/lib/store-availability";
+import { isFeatureOpen } from "@/lib/feature-availability";
 
 export const metadata = { title: "Spirit buttons" };
 
@@ -36,7 +36,7 @@ export default async function SpiritButtonsPage({
   /* Closed to families for now — see lib/store-availability. Returned before
      anything is loaded: there is no sense querying templates and enrolments
      for a page that is going to say "not yet". */
-  if (!isStoreFeatureOpen("spiritButtons")) {
+  if (!isFeatureOpen("spiritButtons")) {
     return (
       <div className="flex flex-col gap-4">
         <SectionHeader title="Spirit buttons" />

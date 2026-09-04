@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { STORE_FEATURE_COPY, type StoreFeature } from "@/lib/store-availability";
+import { FEATURE_COPY, type PortalFeature } from "@/lib/feature-availability";
 
 /**
  * What a family sees where a feature will be.
@@ -13,8 +13,8 @@ import { STORE_FEATURE_COPY, type StoreFeature } from "@/lib/store-availability"
  * A dead end that only says no is the kind of page that generates the email the
  * feature was meant to save.
  */
-export function NotYetAvailable({ feature }: { feature: StoreFeature }) {
-  const copy = STORE_FEATURE_COPY[feature];
+export function NotYetAvailable({ feature }: { feature: PortalFeature }) {
+  const copy = FEATURE_COPY[feature];
 
   return (
     <Card>

@@ -137,6 +137,15 @@ export interface AuditionProfile {
   songUrl?: string;
   /** A self-tape, when they audition by upload rather than in the room. */
   auditionVideoUrl?: string;
+  /**
+   * The link above is a backing track, not a performance.
+   *
+   * CJ, 4 Sep 2026. A family auditioning in the room may still send a link —
+   * the karaoke track their child will sing to — and without this the panel
+   * opens it expecting a self-tape, finds an instrumental, and reads it as the
+   * wrong file rather than as the right one used differently.
+   */
+  inPersonWithBackingTrack?: boolean;
   danceVideoUrl?: string;
   resumeUrl?: string;
   /** Anything else the directing team should know. */

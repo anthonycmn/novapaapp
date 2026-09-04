@@ -1288,6 +1288,7 @@ class SupabaseDataProvider {
       songTitle: s(row.song_title),
       songUrl: s(row.song_url),
       auditionVideoUrl: s(row.audition_video_url),
+      inPersonWithBackingTrack: Boolean(row.in_person_with_backing_track),
       danceVideoUrl: s(row.dance_video_url),
       resumeUrl: s(row.resume_url),
       notes: s(row.notes),
