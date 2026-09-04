@@ -151,3 +151,45 @@ function decodeEntities(s: string): string {
     .replace(/&amp;/g, "&")
     .replace(/&nbsp;/g, " ");
 }
+
+/**
+ * One show's published run: what the website calls it, the row verbatim so a
+ * failure can be read by a person, and the curtains parsed out of it.
+ */
+export interface PublishedRun {
+  name: string;
+  row: string;
+  curtains: Curtain[];
+}
+
+/** Two entries are the same run if they say the same thing. */
+function signature(run: PublishedRun): string {
+  return `${run.name}|${run.curtains.map((c) => `${c.date}T${c.time}`).join(",")}`;
+}
+
+/**
+ * The run whose first curtain falls exactly on `opensOn` (YYYY-MM-DD).
+ *
+ * ONE SHOW CAN BE ON SEVERAL PAGES, and missing that cost the feature its
+ * first real run. The fall shows are printed on /broadway-bound AND on
+ * /summer-2027, so every Frozen title came back twice, the guard below saw two
+ * matches for 22 January and refused — which deleted the wrong performances
+ * and wrote nothing in their place. Duplicates are collapsed first: two
+ * entries naming the same show with the same curtains are one show listed
+ * twice, not two shows.
+ *
+ * What the guard is for survives. Two DIFFERENT runs opening the same night —
+ * two casts of one title, which this company really does run — cannot be told
+ * apart by date, so those still refuse rather than pick. A refusal leaves a gap
+ * somebody notices; a guess leaves a wrong curtain nobody does.
+ */
+export function runOpeningOn(runs: PublishedRun[], opensOn: string): PublishedRun | null {
+  const matches = runs.filter(
+    (run) => run.curtains.length > 0 && run.curtains[0].date === opensOn
+  );
+
+  const distinct = new Map<string, PublishedRun>();
+  for (const run of matches) distinct.set(signature(run), run);
+
+  return distinct.size === 1 ? [...distinct.values()][0] : null;
+}

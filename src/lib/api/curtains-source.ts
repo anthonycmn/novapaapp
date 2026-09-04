@@ -1,5 +1,5 @@
 import "server-only";
-import { extractCurtainRows, parseCurtains, type Curtain } from "./curtains";
+import { extractCurtainRows, parseCurtains, type PublishedRun } from "./curtains";
 
 /**
  * Fetching the published curtain times from novapa.org.
@@ -33,13 +33,10 @@ const SEASON_PAGES = [
   "https://novapa.org/teen-conservatory",
 ] as const;
 
-export interface PublishedRun {
-  /** The show as the website names it, for the log. */
-  name: string;
-  /** The row verbatim, so a failure to parse can be read by a person. */
-  row: string;
-  curtains: Curtain[];
-}
+/* PublishedRun and runOpeningOn are pure, so they live in ./curtains where a
+   test can reach them without pulling in server-only. Re-exported here so
+   callers still have one import for the whole feature. */
+export { runOpeningOn, type PublishedRun } from "./curtains";
 
 /**
  * Every show card the website publishes a Curtains row for, parsed against a
@@ -76,18 +73,3 @@ export async function fetchPublishedRuns(year: number): Promise<PublishedRun[]> 
   return runs;
 }
 
-/**
- * The run whose first curtain falls exactly on `opensOn` (YYYY-MM-DD).
- *
- * Exactly one, or none. Two shows opening the same night is a real thing — two
- * casts of the same title often do — and in that case the date is not enough to
- * tell them apart, so this refuses rather than picks. Refusing leaves those
- * shows on whatever the calendar already said, which is a visible problem; a
- * wrong guess is an invisible one.
- */
-export function runOpeningOn(runs: PublishedRun[], opensOn: string): PublishedRun | null {
-  const matches = runs.filter(
-    (run) => run.curtains.length > 0 && run.curtains[0].date === opensOn
-  );
-  return matches.length === 1 ? matches[0] : null;
-}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractCurtainRows, parseCurtains } from "@/lib/api/curtains";
+import { runOpeningOn } from "@/lib/api/curtains";
 
 /**
  * The parser that decides what time a family turns up.
@@ -134,5 +135,46 @@ describe("finding the rows in the page", () => {
     const found = extractCurtainRows(noRow);
     expect(found).toHaveLength(2);
     expect(found.every((f) => f.name.includes("Frozen"))).toBe(true);
+  });
+});
+
+describe("picking the run that opens on a given night", () => {
+  const run = (name: string, dates: Array<[string, string]>) => ({
+    name,
+    row: "",
+    curtains: dates.map(([date, time]) => ({ date, time })),
+  });
+
+  const frozenKids = run("Disney’s Frozen KIDS", [
+    ["2027-01-22", "19:00"],
+    ["2027-01-23", "14:00"],
+    ["2027-01-23", "19:00"],
+  ]);
+
+  it("collapses the same show listed on two pages", () => {
+    /*
+     * This is not hypothetical. The fall shows are printed on /broadway-bound
+     * AND /summer-2027, so the first real run saw two Frozen KIDS entries,
+     * called it ambiguous, and wrote no performances at all — after deleting
+     * the wrong ones.
+     */
+    expect(runOpeningOn([frozenKids, { ...frozenKids }], "2027-01-22")?.name).toBe(
+      "Disney’s Frozen KIDS"
+    );
+  });
+
+  it("still refuses two genuinely different runs opening the same night", () => {
+    // Two casts of one title is a real thing here, and a date cannot tell
+    // them apart.
+    const otherCast = run("Disney’s Frozen KIDS — Cast B", [["2027-01-22", "19:00"]]);
+    expect(runOpeningOn([frozenKids, otherCast], "2027-01-22")).toBeNull();
+  });
+
+  it("returns nothing when no run opens that night", () => {
+    expect(runOpeningOn([frozenKids], "2027-03-01")).toBeNull();
+  });
+
+  it("ignores a run whose row would not parse", () => {
+    expect(runOpeningOn([{ name: "Mystery", row: "TBA", curtains: [] }], "2027-01-22")).toBeNull();
   });
 });
