@@ -3,11 +3,10 @@
 import { useActionState, useState } from "react";
 import { FileText, Music, Trash2 } from "lucide-react";
 import {
-  clearAuditionAudioAction,
-  saveAuditionAudioAction,
+  saveAuditionAudioLinkAction,
   saveHeadshotLinkAction,
   saveResumeCreditsAction,
-  saveResumePdfAction,
+  saveResumePdfLinkAction,
 } from "@/lib/actions/materials";
 import type { FamilyFormState } from "@/lib/actions/family";
 import type { ResumeCredit, Student } from "@/lib/api/types";
@@ -15,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DirectUpload } from "@/components/forms/direct-upload";
 import { FieldError } from "@/components/forms/field-error";
 import { SharingNote } from "@/components/forms/sharing-note";
 
@@ -33,10 +31,10 @@ import { SharingNote } from "@/components/forms/sharing-note";
  * while auditioning for Sweeney and it is the headshot everywhere, this season
  * and next, which is why the audition page says so above them.
  *
- * The headshot is a LINK, like everything on the form above (3 Sep). The
- * recording and the resume PDF are still uploads, and for one reason each: the
- * recording plays in an audio element, which a Drive or YouTube link cannot
- * feed, and both are small files that finish. Say the word and they follow.
+ * Nothing here is an upload any more (3 Sep): the headshot, the recording and
+ * the resume PDF are all links a family hosts, the same as the show-specific
+ * fields on the form above. The audio player survives for a link that is
+ * actually an audio file, which every recording uploaded before the change is.
  */
 
 const initial: FamilyFormState = { ok: false };
@@ -54,10 +52,9 @@ const initial: FamilyFormState = { ok: false };
  * physical 8×10 — so what actually goes is the ability to generate one later
  * without asking the family for the file.
  *
- * The photo on the child's profile page is still an upload, still writes this
- * same column, and is still the thing staff use to recognize a child at
- * check-in. Whichever was set last wins, which is why this shows what is
- * currently there rather than an empty box.
+ * This is the only place a face gets set. The profile page had an upload
+ * writing the same column until the same day, so the last screen saved won
+ * silently; it shows the photo now and points here.
  */
 export function HeadshotSection({ student }: { student: Student }) {
   const [url, setUrl] = useState(student.headshotUrl ?? "");
@@ -123,103 +120,142 @@ export function HeadshotSection({ student }: { student: Student }) {
 
 /* ── audition audio ─────────────────────────────────────────────────────── */
 
-export function AuditionAudioSection({ student }: { student: Student }) {
-  const [uploaded, setUploaded] = useState<{ fileName: string; path: string } | null>(null);
+/** A link the browser can play in place, rather than one it has to open. */
+function isPlayable(url: string): boolean {
+  return /\.(mp3|m4a|aac|wav|ogg|oga|webm|mp4)(\?|#|$)/i.test(url.trim());
+}
 
-  const bound = saveAuditionAudioAction.bind(null, student.id);
+/**
+ * The recording, as a link (Tony, 3 Sep 2026: "make the recording and resume
+ * links too").
+ *
+ * The player stays for a link that IS an audio file — every recording uploaded
+ * before today is one, and so is a direct file on a family's own hosting, and
+ * playing it in place beats sending a director to another tab. A Drive or
+ * YouTube link cannot feed an audio element, so that gets a plain link out
+ * instead of a broken player, which is the honest version of the same thing.
+ */
+export function AuditionAudioSection({ student }: { student: Student }) {
+  const [url, setUrl] = useState(student.auditionAudioUrl ?? "");
+  const bound = saveAuditionAudioLinkAction.bind(null, student.id);
   const [state, formAction, pending] = useActionState(bound, initial);
 
   return (
-    <div className="flex flex-col gap-3">
-      {student.auditionAudioUrl && (
+    <form action={formAction} className="flex flex-col gap-3">
+      {url && (
         <div className="flex flex-col gap-2 rounded-lg border p-3">
           <p className="flex items-center gap-2 text-sm font-medium">
             <Music aria-hidden className="size-4" />
             Current recording
           </p>
-          <audio controls src={student.auditionAudioUrl} className="w-full">
-            Your browser can&apos;t play audio. Download the file instead.
-          </audio>
-          <form action={clearAuditionAudioAction.bind(null, student.id)}>
-            <Button type="submit" variant="ghost" size="sm">
-              <Trash2 aria-hidden />
-              Remove recording
-            </Button>
-          </form>
+          {isPlayable(url) ? (
+            <audio controls src={url} className="w-full">
+              Your browser can&apos;t play audio. Open the link instead.
+            </audio>
+          ) : (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Open the recording
+            </a>
+          )}
         </div>
       )}
 
-      <form action={formAction} className="flex flex-col gap-2">
-        {/* Straight to storage: a recording will not fit a form post. */}
-        <DirectUpload
-          name="audioUrl"
-          pathName="audioPath"
-          bucket="audition-audio"
-          studentId={student.id}
-          label={student.auditionAudioUrl ? "Replace recording" : "Upload a recording"}
-          accept="audio/mpeg,audio/mp4,audio/wav,audio/x-m4a,audio/webm,audio/ogg"
-          hint="An MP3 or a phone voice memo, up to 10 MB."
-          onUploaded={setUploaded}
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="auditionAudioUrl" className="text-[13px] font-medium">
+          Link to the recording
+        </label>
+        <Input
+          id="auditionAudioUrl"
+          name="auditionAudioUrl"
+          type="url"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          maxLength={1000}
+          placeholder="https://…"
         />
-        <FieldError message={state.errors?._form} />
-        {uploaded && (
-          <Button type="submit" disabled={pending}>
-            {pending ? "Uploading…" : "Save recording"}
-          </Button>
-        )}
+        <FieldError message={state.errors?.auditionAudioUrl} />
+        <p className="text-xs text-muted-foreground">
+          An MP3 or a phone voice memo in Drive, Dropbox or iCloud. Clear the box
+          and save to take it down.
+        </p>
+      </div>
+
+      <SharingNote url={url} />
+      <FieldError message={state.errors?._form} />
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save recording"}
+        </Button>
         {state.ok && (
           <p role="status" className="text-sm font-medium text-primary">
-            ✓ Recording saved.
+            Saved ✓
           </p>
         )}
-      </form>
-    </div>
+      </div>
+    </form>
   );
 }
 
 /* ── resume PDF ─────────────────────────────────────────────────────────── */
 
 export function ResumePdfSection({ student }: { student: Student }) {
-  const [uploaded, setUploaded] = useState<{ fileName: string; path: string } | null>(null);
-  const bound = saveResumePdfAction.bind(null, student.id);
+  const [url, setUrl] = useState(student.resumePdfUrl ?? "");
+  const bound = saveResumePdfLinkAction.bind(null, student.id);
   const [state, formAction, pending] = useActionState(bound, initial);
 
   return (
-    <form action={formAction} className="flex flex-col gap-2">
-
-      {student.resumePdfUrl && (
+    <form action={formAction} className="flex flex-col gap-3">
+      {url && (
         <a
-          href={student.resumePdfUrl}
+          href={url}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
         >
           <FileText aria-hidden className="size-4" />
-          View uploaded resume PDF
+          Open the resume
         </a>
       )}
-      {/* Straight to storage: a scanned resume is well over the body cap. */}
-      <DirectUpload
-        name="resumePdfUrl"
-        pathName="resumePdfPath"
-        bucket="resumes"
-        studentId={student.id}
-        label={student.resumePdfUrl ? "Replace PDF" : "Upload a PDF resume"}
-        accept="application/pdf"
-        hint="PDF, up to 10 MB."
-        onUploaded={setUploaded}
-      />
-      <FieldError message={state.errors?._form} />
-      {uploaded && (
-        <Button type="submit" disabled={pending}>
-          {pending ? "Uploading…" : "Save PDF"}
-        </Button>
-      )}
-      {state.ok && (
-        <p role="status" className="text-sm font-medium text-primary">
-          ✓ Resume PDF saved.
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="resumePdfUrl" className="text-[13px] font-medium">
+          Link to a resume you already have
+        </label>
+        <Input
+          id="resumePdfUrl"
+          name="resumePdfUrl"
+          type="url"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          maxLength={1000}
+          placeholder="https://…"
+        />
+        <FieldError message={state.errors?.resumePdfUrl} />
+        <p className="text-xs text-muted-foreground">
+          Optional — the builder above makes one for you. This is for a PDF you
+          already keep in Drive, Dropbox or iCloud.
         </p>
-      )}
+      </div>
+
+      <SharingNote url={url} />
+      <FieldError message={state.errors?._form} />
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save resume link"}
+        </Button>
+        {state.ok && (
+          <p role="status" className="text-sm font-medium text-primary">
+            Saved ✓
+          </p>
+        )}
+      </div>
     </form>
   );
 }

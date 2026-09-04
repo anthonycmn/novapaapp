@@ -2643,41 +2643,27 @@ export class MockDataProvider implements DataProvider {
     return deepClone(student);
   }
 
-  async setResumePdf(
-    actorId: string,
-    studentId: string,
-    source: UploadSource
-  ): Promise<Student> {
+  async setResumePdfLink(actorId: string, studentId: string, url: string): Promise<Student> {
     const student = this.studentForWrite(actorId, studentId);
-    const resolved = await resolveUpload("resumes", source, studentId);
-    student.resumePdfUrl = resolved.url;
+    student.resumePdfUrl = url.trim() || undefined;
     student.updatedAt = nowIso();
     return deepClone(student);
   }
 
-  async setAuditionAudio(
+  async setAuditionAudioLink(
     actorId: string,
     studentId: string,
-    source: UploadSource
+    url: string
   ): Promise<Student> {
     const student = this.studentForWrite(actorId, studentId);
-    const resolved = await resolveUpload("audition-audio", source, studentId);
-    student.auditionAudioUrl = resolved.url;
+    /*
+     * An empty link clears the recording, which is the whole of "remove" now.
+     * Anything uploaded before the change stays where it is in its bucket: the
+     * record never kept a path, and sweeping orphans is a cleanup pass rather
+     * than something a parent emptying a box should set off.
+     */
+    student.auditionAudioUrl = url.trim() || undefined;
     student.updatedAt = nowIso();
-    return deepClone(student);
-  }
-
-  async clearAuditionAudio(actorId: string, studentId: string): Promise<Student> {
-    const student = this.studentForWrite(actorId, studentId);
-    if (student.auditionAudioUrl) {
-      // The object itself is left where it is, matching the Supabase provider.
-      // Recordings no longer sit at a predictable path — a direct upload is
-      // stamped with its time so a re-record cannot collide — and the record
-      // does not keep one. Sweeping orphans is a job for a cleanup pass, not
-      // for a parent pressing "remove".
-      student.auditionAudioUrl = undefined;
-      student.updatedAt = nowIso();
-    }
     return deepClone(student);
   }
 

@@ -3376,26 +3376,16 @@ class SupabaseDataProvider {
     });
   }
 
-  async setResumePdf(
-    actorId: string,
-    studentId: string,
-    source: UploadSource
-  ): Promise<Student> {
-    const stored = await resolveUpload("resumes", source, studentId);
-    return this.materialWrite(actorId, studentId, { resume_pdf_url: stored.url });
+  async setResumePdfLink(actorId: string, studentId: string, url: string): Promise<Student> {
+    return this.materialWrite(actorId, studentId, { resume_pdf_url: url.trim() || null });
   }
 
-  async setAuditionAudio(
+  async setAuditionAudioLink(
     actorId: string,
     studentId: string,
-    source: UploadSource
+    url: string
   ): Promise<Student> {
-    const stored = await resolveUpload("audition-audio", source, studentId);
-    return this.materialWrite(actorId, studentId, { audition_audio_url: stored.url });
-  }
-
-  async clearAuditionAudio(actorId: string, studentId: string): Promise<Student> {
-    return this.materialWrite(actorId, studentId, { audition_audio_url: null });
+    return this.materialWrite(actorId, studentId, { audition_audio_url: url.trim() || null });
   }
 
   async saveResumeCredits(

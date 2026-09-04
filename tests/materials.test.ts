@@ -17,7 +17,6 @@ const provider = new MockDataProvider();
 const PNG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const PDF = "data:application/pdf;base64,JVBERi0xLjQK";
-const MP3 = "data:audio/mpeg;base64,SUQzBAAAAAAA";
 
 beforeEach(() => {
   resetMockStore();
@@ -68,25 +67,31 @@ describe("student materials (#4)", () => {
     expect(cleared.headshotUrl).toBeUndefined();
   });
 
-  it("another family cannot upload to your student", async () => {
+  it("another family cannot set materials on your student", async () => {
     await expect(
       provider.setHeadshotLink("user-ngozi", "stu-ava", "https://example.com/a.jpg")
     ).rejects.toThrow(AccessDeniedError);
-    await expect(provider.setAuditionAudio("user-ngozi", "stu-ava", { kind: "dataUrl", dataUrl: MP3 })).rejects.toThrow(
-      AccessDeniedError
-    );
-  });
-
-  it("staff cannot upload student materials — families own them", async () => {
     await expect(
-      provider.setResumePdf("user-marcus", "stu-ava", { kind: "dataUrl", dataUrl: PDF })
+      provider.setAuditionAudioLink("user-ngozi", "stu-ava", "https://example.com/a.mp3")
     ).rejects.toThrow(AccessDeniedError);
   });
 
-  it("stores and clears audition audio", async () => {
-    const withAudio = await provider.setAuditionAudio("user-sofia", "stu-ava", { kind: "dataUrl", dataUrl: MP3 });
-    expect(withAudio.auditionAudioUrl).toBeTruthy();
-    const cleared = await provider.clearAuditionAudio("user-sofia", "stu-ava");
+  it("staff cannot set student materials — families own them", async () => {
+    await expect(
+      provider.setResumePdfLink("user-marcus", "stu-ava", "https://example.com/a.pdf")
+    ).rejects.toThrow(AccessDeniedError);
+  });
+
+  it("stores and clears the audition recording", async () => {
+    const withAudio = await provider.setAuditionAudioLink(
+      "user-sofia",
+      "stu-ava",
+      "https://example.com/take-one.mp3"
+    );
+    expect(withAudio.auditionAudioUrl).toBe("https://example.com/take-one.mp3");
+    // Emptying the box is how a recording comes down — there is no separate
+    // remove call any more, for any of the three.
+    const cleared = await provider.setAuditionAudioLink("user-sofia", "stu-ava", "");
     expect(cleared.auditionAudioUrl).toBeUndefined();
   });
 

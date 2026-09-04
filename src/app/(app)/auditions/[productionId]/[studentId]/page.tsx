@@ -174,7 +174,7 @@ export default async function AuditionPage({
             Resume
           </CardTitle>
           <CardDescription>
-            Build it here and we&apos;ll format it, or upload a PDF you already have.
+            Build it here and we&apos;ll format it, or link a PDF you already have.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
@@ -192,8 +192,8 @@ export default async function AuditionPage({
             Singing recording
           </CardTitle>
           <CardDescription>
-            An audio file the team can play without leaving the portal. The
-            video for THIS show goes in the form above.
+            A link to them singing. The video for THIS show goes in the form
+            above.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">

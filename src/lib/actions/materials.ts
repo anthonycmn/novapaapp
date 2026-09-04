@@ -25,14 +25,52 @@ function failure(error: unknown): FamilyFormState {
 /* ── student materials (#4) ─────────────────────────────────────────────── */
 
 /**
+ * Everything a family brings to an audition is a link they host.
+ *
+ * Videos and the show's resume went first (2 Sep), then the headshot, then the
+ * recording and the profile resume (3 Sep: "make the recording and resume links
+ * too"). So there is one shape of check for all of them, in one place: http(s)
+ * or nothing, a length bound, and an empty value that clears the field.
+ *
+ * Clearing matters as much as setting. "Empty the box and save" is now how a
+ * family takes a recording down, which is why there is no separate remove
+ * action any more.
+ */
+function readLink(
+  formData: FormData,
+  field: string
+): { url: string } | { error: FamilyFormState } {
+  const url = String(formData.get(field) ?? "").trim();
+  if (url && !/^https?:\/\/\S+$/i.test(url)) {
+    return {
+      error: {
+        ok: false,
+        errors: {
+          [field]: "That doesn't look like a web link — it should start with https://",
+        },
+      },
+    };
+  }
+  if (url.length > 1000) {
+    return { error: { ok: false, errors: { [field]: "That link is too long" } } };
+  }
+  return { url };
+}
+
+/** The pages that show a student's materials, refreshed after any of them save. */
+function revalidateMaterials(studentId: string): void {
+  revalidatePath(`/family/students/${studentId}`);
+  revalidatePath(`/family/students/${studentId}/resume`);
+  revalidatePath("/auditions");
+}
+
+/**
  * The headshot as a link, from the audition page (Tony, 3 Sep 2026: "make the
  * headshot a link too").
  *
  * This is now the ONLY way a family sets a face. The profile form used to have
  * an upload writing the same column, so the last screen saved won silently;
  * that came out the same day ("yes remove the profile photo upload too").
- *
- * An empty value clears it, which is how somebody takes a headshot down.
  */
 export async function saveHeadshotLinkAction(
   studentId: string,
@@ -42,30 +80,19 @@ export async function saveHeadshotLinkAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
-  const url = String(formData.get("headshotUrl") ?? "").trim();
-  if (url && !/^https?:\/\/\S+$/i.test(url)) {
-    return {
-      ok: false,
-      errors: {
-        headshotUrl: "That doesn't look like a web link — it should start with https://",
-      },
-    };
-  }
-  if (url.length > 1000) {
-    return { ok: false, errors: { headshotUrl: "That link is too long" } };
-  }
+  const read = readLink(formData, "headshotUrl");
+  if ("error" in read) return read.error;
 
   try {
-    await getProvider().setHeadshotLink(user.id, studentId, url);
+    await getProvider().setHeadshotLink(user.id, studentId, read.url);
   } catch (error) {
     return failure(error);
   }
-  revalidatePath(`/family/students/${studentId}`);
-  revalidatePath("/auditions");
+  revalidateMaterials(studentId);
   return { ok: true };
 }
 
-export async function saveAuditionAudioAction(
+export async function saveAuditionAudioLinkAction(
   studentId: string,
   _prev: FamilyFormState,
   formData: FormData
@@ -73,26 +100,19 @@ export async function saveAuditionAudioAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
-  const source = storedUpload(formData, "audioPath");
-  if (!source) return { ok: false, errors: { _form: "Choose a recording first" } };
+  const read = readLink(formData, "auditionAudioUrl");
+  if ("error" in read) return read.error;
 
   try {
-    await getProvider().setAuditionAudio(user.id, studentId, source);
+    await getProvider().setAuditionAudioLink(user.id, studentId, read.url);
   } catch (error) {
     return failure(error);
   }
-  revalidatePath(`/family/students/${studentId}/materials`);
+  revalidateMaterials(studentId);
   return { ok: true };
 }
 
-export async function clearAuditionAudioAction(studentId: string): Promise<void> {
-  const user = await getSessionUser();
-  if (!user) return;
-  await getProvider().clearAuditionAudio(user.id, studentId);
-  revalidatePath(`/family/students/${studentId}/materials`);
-}
-
-export async function saveResumePdfAction(
+export async function saveResumePdfLinkAction(
   studentId: string,
   _prev: FamilyFormState,
   formData: FormData
@@ -100,15 +120,15 @@ export async function saveResumePdfAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
-  const source = storedUpload(formData, "resumePdfPath");
-  if (!source) return { ok: false, errors: { _form: "Choose a PDF first" } };
+  const read = readLink(formData, "resumePdfUrl");
+  if ("error" in read) return read.error;
 
   try {
-    await getProvider().setResumePdf(user.id, studentId, source);
+    await getProvider().setResumePdfLink(user.id, studentId, read.url);
   } catch (error) {
     return failure(error);
   }
-  revalidatePath(`/family/students/${studentId}/materials`);
+  revalidateMaterials(studentId);
   return { ok: true };
 }
 

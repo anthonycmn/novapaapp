@@ -596,9 +596,17 @@ export interface DataProvider {
    * An empty string removes the headshot.
    */
   setHeadshotLink(actorId: string, studentId: string, url: string): Promise<Student>;
-  setResumePdf(actorId: string, studentId: string, source: UploadSource): Promise<Student>;
-  setAuditionAudio(actorId: string, studentId: string, source: UploadSource): Promise<Student>;
-  clearAuditionAudio(actorId: string, studentId: string): Promise<Student>;
+  /**
+   * The resume and the recording, as links the family hosts (3 Sep 2026:
+   * "make the recording and resume links too").
+   *
+   * Nothing a family brings to an audition is uploaded any more. An empty
+   * string clears the field, which is how a recording comes down — there is no
+   * separate clear call, because "empty the box and save" is the same gesture
+   * for all three.
+   */
+  setResumePdfLink(actorId: string, studentId: string, url: string): Promise<Student>;
+  setAuditionAudioLink(actorId: string, studentId: string, url: string): Promise<Student>;
   saveResumeCredits(
     actorId: string,
     studentId: string,
