@@ -24,38 +24,13 @@ function failure(error: unknown): FamilyFormState {
 
 /* ── student materials (#4) ─────────────────────────────────────────────── */
 
-export async function saveHeadshotAction(
-  studentId: string,
-  _prev: FamilyFormState,
-  formData: FormData
-): Promise<FamilyFormState> {
-  const user = await getSessionUser();
-  if (!user) return { ok: false, errors: { _form: "Not signed in" } };
-
-  const webDataUrl = String(formData.get("webDataUrl") ?? "");
-  const printDataUrl = String(formData.get("printDataUrl") ?? "");
-  if (!webDataUrl || !printDataUrl) {
-    return { ok: false, errors: { _form: "Crop a photo first" } };
-  }
-
-  try {
-    await getProvider().setHeadshot(user.id, studentId, { webDataUrl, printDataUrl });
-  } catch (error) {
-    return failure(error);
-  }
-  revalidatePath(`/family/students/${studentId}`);
-  revalidatePath(`/family/students/${studentId}/materials`);
-  return { ok: true };
-}
-
 /**
  * The headshot as a link, from the audition page (Tony, 3 Sep 2026: "make the
  * headshot a link too").
  *
- * The photo on the profile page is still an upload and still writes the same
- * column — that one exists so staff can put a face to a name at check-in, and
- * a parent adding it there is not thinking about auditions. Whichever was set
- * last is the headshot.
+ * This is now the ONLY way a family sets a face. The profile form used to have
+ * an upload writing the same column, so the last screen saved won silently;
+ * that came out the same day ("yes remove the profile photo upload too").
  *
  * An empty value clears it, which is how somebody takes a headshot down.
  */

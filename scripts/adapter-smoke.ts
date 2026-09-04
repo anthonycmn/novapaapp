@@ -940,13 +940,17 @@ async function main() {
       (await p.getFamilyIdByCalendarToken("bogus")) === null
   );
 
-  const png = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAAAAAAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==";
-  const withHeadshot = await p.setHeadshot(sofia.id, ava.id, {
-    webDataUrl: png, printDataUrl: png,
-  });
+  // The headshot is a link the family hosts (3 Sep 2026), so there is no upload
+  // to smoke-test here — only that the column is written and cleared.
+  const withHeadshot = await p.setHeadshotLink(
+    sofia.id,
+    ava.id,
+    "https://example.com/headshot.jpg"
+  );
   check(
-    "headshot uploads to real storage",
-    Boolean(withHeadshot.headshotUrl) && Boolean(withHeadshot.headshotPrintUrl)
+    "headshot link saved, with no stale print copy",
+    withHeadshot.headshotUrl === "https://example.com/headshot.jpg" &&
+      !withHeadshot.headshotPrintUrl
   );
   const withCredits = await p.saveResumeCredits(sofia.id, ava.id, [
     { id: "rc-new", category: "role", title: "Elsa — Frozen Jr. (2026)" },

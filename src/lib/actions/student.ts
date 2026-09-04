@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
-import { assertUploadAllowed } from "@/lib/api/storage";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   parseStudentProfile,
@@ -36,22 +35,16 @@ export async function updateStudentAction(
 
   const patch: Record<string, unknown> = { ...parsed.values };
 
-  // A photo of their child, if they chose one this time. An empty field means
-  // "I didn't touch it", never "delete the photo".
-  const headshotDataUrl = String(formData.get("headshotDataUrl") ?? "");
-  if (headshotDataUrl) {
-    try {
-      assertUploadAllowed("button-photos", headshotDataUrl);
-    } catch (error) {
-      return {
-        ok: false,
-        errors: {
-          headshotDataUrl: error instanceof Error ? error.message : "Bad photo",
-        },
-      };
-    }
-    patch.headshotUrl = headshotDataUrl;
-  }
+  /*
+   * The photo used to be set here as well, from a file picker on this form, and
+   * it wrote the same column as the headshot on the audition page — so whichever
+   * screen saved last won and neither said so (Tony, 3 Sep 2026: "yes remove
+   * the profile photo upload too").
+   *
+   * This action no longer reads headshotDataUrl at all. Ignoring it rather than
+   * merely dropping the field from the form is the point: a stale tab posting
+   * the old shape must not overwrite the link.
+   */
 
   await getProvider().updateStudent(user.id, studentId, patch);
   revalidatePath(`/family/students/${studentId}`);

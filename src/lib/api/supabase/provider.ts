@@ -3366,18 +3366,6 @@ class SupabaseDataProvider {
     return stored.url;
   }
 
-  async setHeadshot(
-    actorId: string,
-    studentId: string,
-    files: { webDataUrl: string; printDataUrl: string }
-  ): Promise<Student> {
-    const web = await this.storeFile("headshots", `${studentId}/web.jpg`, files.webDataUrl);
-    const print = await this.storeFile("headshots", `${studentId}/print.jpg`, files.printDataUrl);
-    return this.materialWrite(actorId, studentId, {
-      headshot_url: web, headshot_print_url: print,
-    });
-  }
-
   async setHeadshotLink(actorId: string, studentId: string, url: string): Promise<Student> {
     const link = url.trim();
     return this.materialWrite(actorId, studentId, {

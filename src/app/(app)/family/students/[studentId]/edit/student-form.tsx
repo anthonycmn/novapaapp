@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
 import { updateStudentAction } from "@/lib/actions/student";
 import type { FamilyFormState } from "@/lib/actions/family";
 import type { Student, TShirtSize } from "@/lib/api/types";
-import { readImageFile, ImageRejectedError, type PickedImage } from "@/lib/platform/image-picker";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,30 +19,13 @@ const initialState: FamilyFormState = { ok: false };
 
 export function StudentForm({ student }: { student: Student }) {
   const router = useRouter();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [dirty, setDirty] = useState(false);
-  const [photo, setPhoto] = useState<PickedImage | null>(null);
-  const [photoError, setPhotoError] = useState<string | null>(null);
 
   // Age is derived, never stored: a stored age is wrong within a year.
   const age = student.dateOfBirth
     ? Math.floor((Date.now() - new Date(student.dateOfBirth).getTime()) / 31_557_600_000)
     : null;
 
-  async function onPickFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setPhotoError(null);
-    setDirty(true);
-    try {
-      setPhoto(await readImageFile(file));
-    } catch (error) {
-      setPhoto(null);
-      setPhotoError(
-        error instanceof ImageRejectedError ? error.message : "Could not read that photo."
-      );
-    }
-  }
   const boundAction = updateStudentAction.bind(null, student.id);
   const [state, formAction, pending] = useActionState(
     async (prev: FamilyFormState, formData: FormData) => {
@@ -60,35 +42,31 @@ export function StudentForm({ student }: { student: Student }) {
   return (
     <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-4">
       <UnsavedChangesGuard dirty={dirty} />
-      <input type="hidden" name="headshotDataUrl" value={photo?.dataUrl ?? ""} />
+      {/*
+        The photo, which is no longer set here.
 
-      {/* A photo of their child, so staff can put a face to a name at
-          check-in. Optional, and the page says so. */}
+        There were two ways to put a face on a child — an upload on this form
+        and the headshot link on the audition page — writing the same column, so
+        whichever was saved last silently won and neither screen said so. Tony,
+        3 Sep 2026: "yes remove the profile photo upload too." One place for it
+        now; this shows what is there and where to change it.
+      */}
       <div className="flex items-center gap-3">
         <Avatar
           name={`${student.firstName} ${student.lastName}`}
-          src={photo?.dataUrl ?? student.headshotUrl}
+          src={student.headshotUrl}
           className="size-16 text-[15px]"
         />
-        <div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            onChange={onPickFile}
-            className="sr-only"
-            aria-label="Photo of your child"
-          />
-          <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-            <Upload aria-hidden />
-            {student.headshotUrl || photo ? "Change photo" : "Add a photo"}
-          </Button>
-          <p className="mt-1 text-[11.5px] text-muted-foreground">
-            Optional. Helps staff recognize your child at check-in.
-          </p>
-          {photoError && <FieldError message={photoError} />}
-          <FieldError message={state.errors?.headshotDataUrl} />
-        </div>
+        <p className="text-[12.5px] text-muted-foreground">
+          {student.headshotUrl
+            ? "This is the photo staff see. "
+            : "No photo yet — it helps staff recognize your child at check-in. "}
+          Set it as a link under{" "}
+          <Link href="/auditions" className="text-primary underline-offset-4 hover:underline">
+            Auditions
+          </Link>
+          , with the rest of their materials.
+        </p>
       </div>
 
       {/* Legal name and birthday. These are the fields the registration system

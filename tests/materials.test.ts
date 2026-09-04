@@ -48,18 +48,29 @@ describe("upload limits are enforced server-side", () => {
 });
 
 describe("student materials (#4)", () => {
-  it("saves both headshot resolutions", async () => {
-    const student = await provider.setHeadshot("user-sofia", "stu-ava", {
-      webDataUrl: PNG,
-      printDataUrl: PNG,
-    });
-    expect(student.headshotUrl).toBeTruthy();
-    expect(student.headshotPrintUrl).toBeTruthy();
+  it("saves the headshot as the family's own link", async () => {
+    const student = await provider.setHeadshotLink(
+      "user-sofia",
+      "stu-ava",
+      "https://drive.google.com/file/d/abc/view"
+    );
+    expect(student.headshotUrl).toBe("https://drive.google.com/file/d/abc/view");
+    /*
+     * Nothing was uploaded, so there is no derived print copy — and one left
+     * over from a previous photo must not survive under the new headshot.
+     */
+    expect(student.headshotPrintUrl).toBeUndefined();
+  });
+
+  it("clears the headshot when the link is emptied", async () => {
+    await provider.setHeadshotLink("user-sofia", "stu-ava", "https://example.com/a.jpg");
+    const cleared = await provider.setHeadshotLink("user-sofia", "stu-ava", "");
+    expect(cleared.headshotUrl).toBeUndefined();
   });
 
   it("another family cannot upload to your student", async () => {
     await expect(
-      provider.setHeadshot("user-ngozi", "stu-ava", { webDataUrl: PNG, printDataUrl: PNG })
+      provider.setHeadshotLink("user-ngozi", "stu-ava", "https://example.com/a.jpg")
     ).rejects.toThrow(AccessDeniedError);
     await expect(provider.setAuditionAudio("user-ngozi", "stu-ava", { kind: "dataUrl", dataUrl: MP3 })).rejects.toThrow(
       AccessDeniedError

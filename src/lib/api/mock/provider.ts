@@ -2632,26 +2632,6 @@ export class MockDataProvider implements DataProvider {
     return stored.url;
   }
 
-  async setHeadshot(
-    actorId: string,
-    studentId: string,
-    files: { webDataUrl: string; printDataUrl: string }
-  ): Promise<Student> {
-    const student = this.studentForWrite(actorId, studentId);
-    student.headshotUrl = await this.store(
-      "headshots",
-      `${studentId}/web.jpg`,
-      files.webDataUrl
-    );
-    student.headshotPrintUrl = await this.store(
-      "headshots",
-      `${studentId}/print.jpg`,
-      files.printDataUrl
-    );
-    student.updatedAt = nowIso();
-    return deepClone(student);
-  }
-
   async setHeadshotLink(actorId: string, studentId: string, url: string): Promise<Student> {
     const student = this.studentForWrite(actorId, studentId);
     const link = url.trim();

@@ -585,11 +585,6 @@ export interface DataProvider {
   ): Promise<ReviewWindow>;
 
   /* student materials (#4) */
-  setHeadshot(
-    actorId: string,
-    studentId: string,
-    files: { webDataUrl: string; printDataUrl: string }
-  ): Promise<Student>;
   /**
    * A headshot the family hosts themselves (3 Sep 2026).
    *
