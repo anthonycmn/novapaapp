@@ -33,6 +33,24 @@ const initial: FamilyFormState = { ok: false };
 const SUGGESTION = "placeholder:italic placeholder:text-muted-foreground/70";
 
 /**
+ * "Optional", in gold — CJ, 4 Sep 2026: "Put the word Optional in Gold after
+ * Dance Video and after Resume link in the audition page."
+ *
+ * Gold rather than the muted grey every other hint on this form uses, and
+ * deliberately: this is the one label telling a family they may skip something,
+ * which is the opposite of a warning and should not read like the fine print
+ * next to it. A parent who does not have a dance clip should be able to see
+ * that from across the page.
+ *
+ * One component rather than the words typed twice, so the two cannot drift.
+ */
+function OptionalTag() {
+  return (
+    <span className="font-semibold uppercase tracking-wide text-gold">Optional</span>
+  );
+}
+
+/**
  * Everything one performer is bringing to one show.
  *
  * This used to be split in two: hopes and a role preference here, and the
@@ -225,8 +243,7 @@ export function AuditionForm({
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="danceVideoUrl" className="text-[13px] font-medium">
-            Link to their dance video{" "}
-            <span className="font-normal text-muted-foreground">(optional)</span>
+            Link to their dance video <OptionalTag />
           </label>
           <Input
             id="danceVideoUrl"
@@ -250,7 +267,7 @@ export function AuditionForm({
             households anyway. */}
         <div className="flex flex-col gap-1.5">
           <label htmlFor="resumeUrl" className="text-[13px] font-medium">
-            Link to their resume
+            Link to their resume <OptionalTag />
           </label>
           <Input
             id="resumeUrl"
