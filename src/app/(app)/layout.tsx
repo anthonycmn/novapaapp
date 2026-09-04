@@ -7,6 +7,7 @@ import { AppShell } from "@/components/app-shell/app-shell";
 import { Spot } from "@/components/spot/spot";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { currentImpersonation } from "@/lib/auth/impersonation";
+import { getNavAlerts } from "@/lib/nav-alerts";
 
 /**
  * Authenticated app shell. Everything inside the (app) route group requires
@@ -33,6 +34,10 @@ export default async function AppLayout({
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const unreadCount = await getProvider().getUnreadNotificationCount(user.id);
+  /* A mark beside every menu item with something waiting behind it — unread
+     notifications, and forms that are not finished. The second kind stays put
+     until the form is signed rather than until the page is visited. */
+  const navAlerts = await getNavAlerts(user);
   /* Hub 0063. Null for every real parent, which is all but a handful of
      sessions ever — the cost of asking is one signed-cookie check, cached for
      the request and shared with the guards. */
@@ -43,6 +48,7 @@ export default async function AppLayout({
       displayName={user.displayName}
       roleLabel={user.family?.name ?? ROLE_LABEL[user.role] ?? user.role}
       unreadCount={unreadCount}
+      navAlerts={navAlerts}
       signOutSlot={
         <form action={signOut}>
           <button

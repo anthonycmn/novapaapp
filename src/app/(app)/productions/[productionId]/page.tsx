@@ -57,9 +57,11 @@ export default async function ProductionPage({
    * concluded the calendar was broken. Now the run is always there, with
    * their own calls marked and selected by default.
    */
-  const [staff, events, familyEvents, scenes, roles, calendarToken, origin] =
+  const [staff, showStaff, events, familyEvents, scenes, roles, calendarToken, origin] =
     await Promise.all([
       provider.getStaffProfiles(),
+      // This show's own creative team, for the contact card.
+      provider.getProductionStaff(productionId),
       provider.getProductionCalendar(user.id, productionId),
       user.familyId
         ? provider.getFamilyCalendar(user.id, user.familyId)
@@ -367,7 +369,7 @@ export default async function ProductionPage({
               special because its breakdown lived in a file. */}
           <ScenesAndSongs rows={scenes} roles={roles} />
 
-          <WhoToEmail director={director} />
+          <WhoToEmail showStaff={showStaff} showTitle={production.title} />
 
           <ComingSoonCards />
         </div>

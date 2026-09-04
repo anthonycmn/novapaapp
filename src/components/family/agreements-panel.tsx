@@ -35,6 +35,12 @@ export interface StudentPaperwork {
   hasCampFees: boolean;
 }
 
+/*
+ * The three "not done" branches below ask the same question as the sidebar
+ * badge — isHealthFormOutstanding in lib/nav-alerts. Kept in step on purpose:
+ * if they disagreed, the nav would send a family to finish something this
+ * panel tells them is already done.
+ */
 function healthState(form: HealthForm | null): {
   tone: "good" | "bad";
   label: string;

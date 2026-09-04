@@ -321,6 +321,34 @@ export interface StaffProfile {
  * roles are a list against one profile rather than one row per assignment. A
  * card per role would show a parent the same face four times.
  */
+/**
+ * One person on one show's creative team, for the show page's contact card.
+ *
+ * No email, and that is not an omission: family_hub.staff_profiles does not
+ * hold one. A show's team is reached through their profile page — which is
+ * also where their bio and photo live — while the handful of standing
+ * addresses in config/contacts carry mailto links.
+ */
+export interface ProductionStaffMember {
+  staffId: string;
+  fullName: string;
+  /** Their job on THIS show: "Music Director", "Choreographer". */
+  role: string;
+  /** Their standing job title, when they have one on their profile. */
+  title?: string;
+  /**
+   * Whether they have a published profile to link to.
+   *
+   * A NAME AND A ROLE ARE NOT PRIVATE. getStaffForFamily has read every
+   * profile, published or not, since it was written, for the reason in its own
+   * comment: a family meets these people at pickup. What approval gates is the
+   * bio and the photo. So an unpublished colleague still appears here by name
+   * — otherwise Frozen KIDS lists eight people and not its director, who is
+   * the one a parent most wants named — and simply is not a link.
+   */
+  isPublished: boolean;
+}
+
 export interface StaffAssignment {
   profile: StaffProfile;
   /** "Vocal Director on Frozen, Kids", "Teaches Acting (9 – 12 yrs)". */

@@ -21,6 +21,18 @@ import { UnsavedChangesGuard } from "@/components/forms/unsaved-changes-guard";
 const initial: FamilyFormState = { ok: false };
 
 /**
+ * How an example reads — CJ, 4 Sep 2026: "make the fill in text as suggestions
+ * in italics and lighter so that it looks like they didn't write it but that it
+ * is instructive, also put a For Example to start it off."
+ *
+ * Placeholder text in the same weight as typed text is text a parent thinks
+ * they already entered — they tab past it, submit, and the box is empty. Italic
+ * and lighter says "this is us, not you", and "For example" says it in words
+ * for anybody whose eye does not catch the styling.
+ */
+const SUGGESTION = "placeholder:italic placeholder:text-muted-foreground/70";
+
+/**
  * Everything one performer is bringing to one show.
  *
  * This used to be split in two: hopes and a role preference here, and the
@@ -126,39 +138,14 @@ export function AuditionForm({
         <FieldError message={state.errors?.preferenceTier} />
       </fieldset>
 
-      {/* ── the song ────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3 rounded-lg border p-4">
-        <p className="text-sm font-medium">Their audition song</p>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="songTitle" className="text-[13px]">
-            Song and show it&apos;s from
-          </label>
-          <Input
-            id="songTitle"
-            name="songTitle"
-            defaultValue={existing?.songTitle ?? ""}
-            maxLength={200}
-            placeholder="Part of Your World — The Little Mermaid"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="songUrl" className="text-[13px]">
-            Link to the track or sheet music (optional)
-          </label>
-          <Input
-            id="songUrl"
-            name="songUrl"
-            type="url"
-            defaultValue={existing?.songUrl ?? ""}
-            maxLength={500}
-            placeholder="https://…"
-          />
-          <FieldError message={state.errors?.songUrl} />
-          <p className="text-xs text-muted-foreground">
-            A YouTube, Drive or Dropbox link is fine.
-          </p>
-        </div>
-      </div>
+      {/*
+        The "Their audition song" tile is gone — CJ, 4 Sep 2026: "eliminate the
+        'Their Audition Song' tile and box - since it is collected below."
+
+        It asked for the song by name and for a link to the track, immediately
+        above a block that asks for a link to them singing it. Two boxes for one
+        answer, and the second is the one the panel actually watches.
+      */}
 
       {/* ── recordings and resume, all three as links ────────────────────── */}
       <div className="flex flex-col gap-4 rounded-lg border p-4">
@@ -171,6 +158,33 @@ export function AuditionForm({
           {/* Said once, before anybody pastes anything — a preference is only
               useful if it arrives before the decision. */}
           <p className="mt-2 text-xs text-muted-foreground">{VIDEO_PREFERENCE}</p>
+        </div>
+
+        {/*
+          How to film it, in red, immediately above the boxes — CJ, 4 Sep 2026,
+          who dictated the wording.
+
+          Red because this is the one thing on the page that costs a family a
+          re-shoot if they miss it: a vertical video filmed against a busy
+          background cannot be fixed by the panel, only re-recorded. It sits
+          directly above the link fields rather than in the grey note above,
+          because instructions a family scrolls past are instructions nobody
+          followed.
+        */}
+        <div className="rounded-lg border border-red-500/60 bg-red-50 p-3 text-[13px] leading-relaxed text-red-900 dark:border-red-500/40 dark:bg-red-950/40 dark:text-red-100">
+          <p>
+            We are asking to see 60 to 90 seconds of a song they are comfortable
+            and confident singing. Please film with a plain background,
+            horizontally, from the waist up for all songs.
+          </p>
+          <p className="mt-2">
+            If they wish to audition in person and not submit a video, that is
+            also OK — but this gives them the option to perfect the song and
+            submit it. All songs are watched in their entirety.
+          </p>
+          <p className="mt-2">
+            For the dance, please film horizontally, in an open space.
+          </p>
         </div>
 
         {/*
@@ -211,7 +225,8 @@ export function AuditionForm({
 
         <div className="flex flex-col gap-1.5">
           <label htmlFor="danceVideoUrl" className="text-[13px] font-medium">
-            Link to their dance video
+            Link to their dance video{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
           <Input
             id="danceVideoUrl"
@@ -264,8 +279,8 @@ export function AuditionForm({
           id="hopes"
           name="hopes"
           defaultValue={existing?.hopes ?? ""}
-          placeholder="Growing confidence, making friends, trying a bigger part…"
-          className="min-h-28"
+          placeholder="For example: growing confidence, making friends, trying a bigger part…"
+          className={`min-h-28 ${SUGGESTION}`}
           maxLength={2000}
         />
       </div>
@@ -278,8 +293,8 @@ export function AuditionForm({
           id="previousRoles"
           name="previousRoles"
           defaultValue={existing?.previousRoles ?? ""}
-          placeholder={"Young Anna — Frozen Jr. (2025)\nEnsemble — Annie Jr. (2024)"}
-          className="min-h-24"
+          placeholder={"For example:\nYoung Anna — Frozen Jr. (2025)\nEnsemble — Annie Jr. (2024)"}
+          className={`min-h-24 ${SUGGESTION}`}
           maxLength={2000}
         />
         <p className="text-xs text-muted-foreground">
@@ -295,8 +310,8 @@ export function AuditionForm({
           id="notes"
           name="notes"
           defaultValue={existing?.notes ?? ""}
-          placeholder="A conflict during tech week, an injury, a name they'd rather be called in the room…"
-          className="min-h-24"
+          placeholder="For example: a conflict during tech week, an injury, a name they'd rather be called in the room…"
+          className={`min-h-24 ${SUGGESTION}`}
           maxLength={2000}
         />
       </div>

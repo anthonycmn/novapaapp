@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mail, UtensilsCrossed, HandHeart } from "lucide-react";
 import { STAFF_CONTACTS } from "@/config/contacts";
+import type { ProductionStaffMember } from "@/lib/api/types";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 
@@ -12,10 +13,19 @@ import { SectionHeader } from "@/components/ui/section-header";
  * wants to send the message now, not copy an address into another app.
  */
 export function WhoToEmail({
-  director,
+  showStaff = [],
+  showTitle,
 }: {
-  /** Folded in from the old "Creative team" card — one person, one place. */
-  director?: { id: string; fullName: string } | null;
+  /**
+   * This show's own team — CJ, 4 Sep 2026: "each show should have a different
+   * 'who to contact' based on the show's assigned staff."
+   *
+   * Empty is a normal answer, not an error: a show with nobody published, or a
+   * portal where 0226 has not yet opened production_staff to families, simply
+   * shows the standing desks below.
+   */
+  showStaff?: ProductionStaffMember[];
+  showTitle: string;
 }) {
   return (
     <Card pad={false}>
@@ -28,16 +38,47 @@ export function WhoToEmail({
           </span>
         }
       />
-      {director && (
-        <p className="border-b bg-muted/40 px-4 py-2 text-[12px] text-muted-foreground">
-          Directing this show:{" "}
-          <Link
-            href={`/staff/${director.id}`}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
-          >
-            {director.fullName}
-          </Link>
-        </p>
+      {showStaff.length > 0 && (
+        <div className="border-b bg-muted/40 px-4 py-3">
+          <p className="text-[11.5px] font-semibold uppercase tracking-wide text-gold">
+            On {showTitle}
+          </p>
+          {/*
+            Names and jobs, linked to their profile rather than an address.
+            family_hub.staff_profiles holds no email — the bio and the photo
+            are what it keeps — so this offers the thing that exists instead of
+            a mailto that would have to be invented.
+          */}
+          <ul className="mt-1.5 flex flex-col gap-1">
+            {showStaff.map((member) => (
+              <li
+                key={`${member.staffId}-${member.role}`}
+                className="flex flex-wrap items-baseline justify-between gap-x-3 text-[12.5px]"
+              >
+                {member.isPublished ? (
+                  <Link
+                    href={`/staff/${member.staffId}`}
+                    className="font-medium text-foreground underline-offset-4 hover:underline"
+                  >
+                    {member.fullName}
+                  </Link>
+                ) : (
+                  /* Named, but not linked: there is no published bio behind
+                     them yet. Leaving the name out instead would drop this
+                     show's director off its own page. */
+                  <span className="font-medium text-foreground">{member.fullName}</span>
+                )}
+                <span className="text-[11.5px] uppercase tracking-wide text-muted-foreground">
+                  {member.role}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            For anything about the show itself, these are the people in the
+            room. The desks below answer for any production.
+          </p>
+        </div>
       )}
       <ul className="divide-y">
         {STAFF_CONTACTS.map((contact) => (

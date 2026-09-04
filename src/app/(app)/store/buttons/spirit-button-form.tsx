@@ -22,12 +22,21 @@ import { ButtonPreview } from "@/components/store/button-preview";
 
 const initialState: SubmissionState = { ok: false };
 
-const SIZES: ButtonSize[] = ["2.25", "3", "3.5"];
-const STYLES: Array<{ value: ButtonStyle; label: string }> = [
-  { value: "classic", label: "Classic" },
-  { value: "star", label: "Star" },
-  { value: "ribbon", label: "Ribbon" },
-];
+/*
+ * One size, one style — CJ, 4 Sep 2026: "all buttons are 3 inches and ribbons -
+ * no choices."
+ *
+ * They were pickers offering three sizes and three styles, which asked a parent
+ * to make two decisions we do not actually offer: the press takes one die and
+ * the ribbons are what we stock. A choice that is not a choice is a chance to
+ * pick the wrong one and a support email afterwards.
+ *
+ * Still submitted as hidden fields under the same names, so the cart, the
+ * manifest the press works from, and size_inches in the database all read
+ * exactly as they did.
+ */
+const FIXED_SIZE: ButtonSize = "3";
+const FIXED_STYLE: ButtonStyle = "ribbon";
 
 /**
  * Design one spirit button, and see it as you go.
@@ -56,8 +65,8 @@ export function SpiritButtonForm({
     students[0] ? (students[0].preferredName ?? students[0].firstName) : ""
   );
   const [role, setRole] = useState("");
-  const [size, setSize] = useState<ButtonSize>("2.25");
-  const [style, setStyle] = useState<ButtonStyle>("classic");
+  const size = FIXED_SIZE;
+  const style = FIXED_STYLE;
   const [quantity, setQuantity] = useState(1);
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -124,7 +133,7 @@ export function SpiritButtonForm({
           showTitle={production.title}
         />
         <p className="text-[13px] text-muted-foreground">
-          {size}&quot; · {formatCents(SPIRIT_BUTTON_PRICE_CENTS)} each ·{" "}
+          {size}&quot; with a ribbon · {formatCents(SPIRIT_BUTTON_PRICE_CENTS)} each ·{" "}
           <span className="font-medium text-foreground">
             {formatCents(SPIRIT_BUTTON_PRICE_CENTS * quantity)} total
           </span>
@@ -220,37 +229,9 @@ export function SpiritButtonForm({
           />
         </div>
 
+        {/* Size and style are no longer asked — see FIXED_SIZE above. What a
+            parent is getting is said in the line under the preview instead. */}
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="size">Size</Label>
-            <select
-              id="size"
-              value={size}
-              onChange={(event) => setSize(event.target.value as ButtonSize)}
-              className="h-11 rounded-lg border border-input bg-card px-3 text-base"
-            >
-              {SIZES.map((option) => (
-                <option key={option} value={option}>
-                  {option}&quot;
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="style">Style</Label>
-            <select
-              id="style"
-              value={style}
-              onChange={(event) => setStyle(event.target.value as ButtonStyle)}
-              className="h-11 rounded-lg border border-input bg-card px-3 text-base"
-            >
-              {STYLES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="quantity">How many</Label>
             <Input

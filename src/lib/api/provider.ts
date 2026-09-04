@@ -34,6 +34,7 @@ import type {
   ResumeCredit,
   Season,
   ShowHistoryEntry,
+  ProductionStaffMember,
   StaffAssignment,
   StaffProfile,
   Student,
@@ -191,6 +192,20 @@ export interface DataProvider {
    * directory; the four people teaching your child is an answer.
    */
   getStaffForFamily(actorId: string, familyId: string): Promise<StaffAssignment[]>;
+
+  /**
+   * The team on ONE show, as a family may see them.
+   *
+   * CJ, 4 Sep 2026: "under who to contact - make sure to list the staff of
+   * that show ... each show should have a different 'who to contact' based on
+   * the show's assigned staff."
+   *
+   * Published profiles only. Whether a person's name may be shown to families
+   * is already answered by staff_profiles.is_published, and this asks the same
+   * question rather than inventing a second one that could disagree with the
+   * staff list.
+   */
+  getProductionStaff(productionId: string): Promise<ProductionStaffMember[]>;
 
   /**
    * What is open for registration right now, from the org's own catalog.

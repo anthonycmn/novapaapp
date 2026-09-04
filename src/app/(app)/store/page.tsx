@@ -7,6 +7,8 @@ import { formatCents } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CatalogItemForm } from "./catalog/catalog-form";
 import { ButtonDesigner } from "./designer";
+import { NotYetAvailable } from "@/components/not-yet-available";
+import { isStoreFeatureOpen } from "@/lib/store-availability";
 
 export const metadata = { title: "Spirit buttons & star pages" };
 
@@ -57,50 +59,62 @@ export default async function StorePage() {
         </Link>
       </div>
 
-      {templates.length === 0 ? (
+      {/* Spirit buttons — closed to families for now (lib/store-availability).
+          The designer is left intact behind the switch rather than removed, so
+          opening it again is one boolean. */}
+      {!isStoreFeatureOpen("spiritButtons") ? (
+        <NotYetAvailable feature="spiritButtons" />
+      ) : templates.length === 0 ? (
         <Card>
-          <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            No button designs are available right now. They go live when a show
-            is announced.
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle as="h2" className="text-base">
-              Design your button
-            </CardTitle>
-            <CardDescription>
-              The preview updates as you go — that&apos;s exactly what gets pressed.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ButtonDesigner
-              templates={templates}
-              productions={productions}
-              students={students}
-            />
-          </CardContent>
-        </Card>
-      )}
+            <CardContent className="p-10 text-center text-sm text-muted-foreground">
+              No button designs are available right now. They go live when a show
+              is announced.
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle as="h2" className="text-base">
+                Design your button
+              </CardTitle>
+              <CardDescription>
+                The preview updates as you go — that&apos;s exactly what gets pressed.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ButtonDesigner
+                templates={templates}
+                productions={productions}
+                students={students}
+              />
+            </CardContent>
+          </Card>
+        )}
 
-      {starPages.map((product) => (
-        <Card key={product.id}>
-          <CardHeader className="pb-2">
-            <CardTitle as="h2" className="flex items-center gap-2 text-base">
-              <span aria-hidden>⭐</span>
-              {product.name}
-            </CardTitle>
-            <CardDescription>{product.description}</CardDescription>
-            <p className="text-sm font-medium">
-              From {formatCents(product.basePriceCents)}
-            </p>
-          </CardHeader>
-          <CardContent>
-            <CatalogItemForm product={product} students={students} staff={staff} />
-          </CardContent>
-        </Card>
-      ))}
+      {/* Star pages — same switch, same reason. */}
+      {!isStoreFeatureOpen("starPages") ? (
+        <NotYetAvailable feature="starPages" />
+      ) : (
+        <>
+        {starPages.map((product) => (
+          <Card key={product.id}>
+            <CardHeader className="pb-2">
+              <CardTitle as="h2" className="flex items-center gap-2 text-base">
+                <span aria-hidden>⭐</span>
+                {product.name}
+              </CardTitle>
+              <CardDescription>{product.description}</CardDescription>
+              <p className="text-sm font-medium">
+                From {formatCents(product.basePriceCents)}
+              </p>
+            </CardHeader>
+            <CardContent>
+              <CatalogItemForm product={product} students={students} staff={staff} />
+            </CardContent>
+          </Card>
+        ))}
+        </>
+      )}
 
       <div className="flex flex-col items-center gap-2 text-sm font-medium">
         <Link

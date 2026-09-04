@@ -46,10 +46,29 @@ export const ROLE_TIERS: Array<{
       "A named character with some lines, and possibly a solo. On stage across multiple scenes, supporting the leads.",
   },
   {
+    /*
+     * CJ, 4 Sep 2026: "Eliminate includes extra rehearsals under 'Lead Role' on
+     * the Audition Form. Remove 'Tracked Role'."
+     *
+     * The extra-rehearsals clause goes because it reads as a warning at the
+     * exact moment a child is deciding whether to put themselves forward, and
+     * how much a lead actually rehearses depends on the show. A sentence that
+     * discourages the ambitious and cannot be relied on by the ones who say yes
+     * is worse than no sentence.
+     *
+     * "Tracked role" goes because it is our word, not a family's: a parent has
+     * no way to know that a track is the set of parts one performer covers, and
+     * a label nobody outside the building understands makes the choice harder
+     * rather than clearer.
+     *
+     * THE STORED VALUE STAYS "lead". Every audition profile already submitted
+     * carries it, and changing what a family sees must not change what the
+     * casting team has already read.
+     */
     value: "lead",
-    label: "Lead / tracked role",
+    label: "Lead role",
     definition:
-      "A principal character who carries scenes — a combination of significant lines, songs, and/or dance. The largest time commitment, including extra rehearsals.",
+      "A principal character who carries scenes — a combination of significant lines, songs, and/or dance.",
   },
 ];
 

@@ -43,6 +43,7 @@ import type {
   ResumeCredit,
   Season,
   ShowHistoryEntry,
+  ProductionStaffMember,
   StaffAssignment,
   StaffProfile,
   Student,
@@ -700,6 +701,18 @@ export class MockDataProvider implements DataProvider {
       );
     }
     return runs;
+  }
+
+  async getProductionStaff(productionId: string): Promise<ProductionStaffMember[]> {
+    // The mock has no production_staff table; the director is the one member
+    // it can honestly name, so the card falls back to the standing contacts.
+    const production = (await this.getProductions()).find((p) => p.id === productionId);
+    const profile = production?.directorStaffId
+      ? (await this.getStaffProfiles()).find((s) => s.id === production.directorStaffId)
+      : undefined;
+    return profile
+      ? [{ staffId: profile.id, fullName: profile.fullName, role: "Director", title: profile.title, isPublished: profile.isPublished }]
+      : [];
   }
 
   async getStaffForFamily(

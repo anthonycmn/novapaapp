@@ -8,6 +8,8 @@ import { formatCents } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { SpiritButtonForm } from "./spirit-button-form";
+import { NotYetAvailable } from "@/components/not-yet-available";
+import { isStoreFeatureOpen } from "@/lib/store-availability";
 
 export const metadata = { title: "Spirit buttons" };
 
@@ -30,6 +32,18 @@ export default async function SpiritButtonsPage({
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
+
+  /* Closed to families for now — see lib/store-availability. Returned before
+     anything is loaded: there is no sense querying templates and enrolments
+     for a page that is going to say "not yet". */
+  if (!isStoreFeatureOpen("spiritButtons")) {
+    return (
+      <div className="flex flex-col gap-4">
+        <SectionHeader title="Spirit buttons" />
+        <NotYetAvailable feature="spiritButtons" />
+      </div>
+    );
+  }
   const { show } = await searchParams;
 
   const provider = getProvider();
@@ -45,21 +59,31 @@ export default async function SpiritButtonsPage({
   ]);
 
   const byProduction = new Map(templates.map((t) => [t.productionId, t]));
-  const offered = productions
-    .filter((production) => byProduction.has(production.id))
+      /*
+       * Their shows and nothing else — CJ, 4 Sep 2026: "when I click on spirit
+       * buttons or star pages - I only want my show to pop up that I am
+       * enrolled in."
+       *
+       * It used to list every show that had artwork and merely sort a family's
+       * own to the top, which meant a parent of one performer scrolling a
+       * catalogue of twenty other people's productions and, worse, being able
+       * to order a button for a show their child is not in.
+       */
+      const offered = productions
+    .filter(
+      (production) =>
+        byProduction.has(production.id) &&
+        enrollments.some(
+          (enrollment) =>
+            enrollment.productionId === production.id &&
+            enrollment.status !== "withdrawn"
+        )
+    )
     .map((production) => ({
       production,
       template: byProduction.get(production.id)!,
-      // Their own shows come first: a parent of one performer should not hunt
-      // through twenty titles to find the one they are here for.
-      isMine: enrollments.some(
-        (enrollment) =>
-          enrollment.productionId === production.id && enrollment.status !== "withdrawn"
-      ),
     }))
-    .sort((a, b) =>
-      a.isMine === b.isMine ? a.production.title.localeCompare(b.production.title) : a.isMine ? -1 : 1
-    );
+    .sort((a, b) => a.production.title.localeCompare(b.production.title));
 
   const chosen = show ? offered.find((row) => row.production.id === show) : undefined;
 
@@ -108,7 +132,7 @@ export default async function SpiritButtonsPage({
         </Card>
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {offered.map(({ production, isMine }) => (
+          {offered.map(({ production }) => (
             <Link
               key={production.id}
               href={`/store/buttons?show=${production.id}`}
@@ -119,7 +143,7 @@ export default async function SpiritButtonsPage({
                   {production.title}
                 </span>
                 <span className="mt-0.5 block text-[12px] text-muted-foreground">
-                  {isMine ? "Your performer's show" : production.venue.split(",")[0]}
+                  {production.venue.split(",")[0]}
                 </span>
               </span>
               <ArrowRight aria-hidden size={15} className="shrink-0 text-muted-foreground" />

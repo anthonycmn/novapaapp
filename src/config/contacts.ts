@@ -27,21 +27,26 @@ export interface StaffContact {
   forWhat: string;
 }
 
+/*
+ * THE FIVE WHO ARE ON EVERY SHOW — CJ, 4 Sep 2026: "always include Katie
+ * Rivers, Jason Jones, Jen Travis, Todd Cimino-Johnson, and Tony
+ * Cimino-Johnson but each show should have a different 'who to contact' based
+ * on the show's assigned staff."
+ *
+ * Colton Sorensen and Ryyana Cunningham used to sit in this list and were
+ * therefore printed on the contact card of every production in the portal —
+ * including the twenty-odd they have nothing to do with. They are Sweeney's
+ * creative team. A parent of a Frozen KIDS five-year-old was being told to
+ * email the Sweeney vocal director about "your child's track".
+ *
+ * They have not been deleted, only moved to where they belong: a show's own
+ * team now comes from production_staff, per show, and appears above this list.
+ * Colton appears on Sweeney because he is assigned to Sweeney.
+ *
+ * What stays here is the standing desks — the five people who answer for any
+ * show in the building, whichever one your child is in.
+ */
 export const STAFF_CONTACTS: StaffContact[] = [
-  {
-    name: "Colton Sorensen",
-    title: "Director & Vocal Director",
-    email: "colton@novapa.org",
-    forWhat:
-      "The show itself — casting, music, what happens in a rehearsal, your child's track.",
-  },
-  {
-    name: "Ryyana Cunningham",
-    title: "Movement, Staging & Choreography",
-    email: "ryyana@novapa.org",
-    forWhat:
-      "Choreography, staging and the Saturday leads calls.",
-  },
   {
     name: "Katie Rivers",
     title: "Director of Health & Safety",

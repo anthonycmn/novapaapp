@@ -9,6 +9,7 @@ import { Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import type { NavAlerts } from "@/lib/nav-alerts";
 
 /**
  * The staff portal's sidebar, for families.
@@ -24,12 +25,24 @@ export function Sidebar({
   displayName,
   roleLabel,
   onNavigate,
+  navAlerts,
   signOutSlot,
 }: {
   displayName: string;
   roleLabel: string;
   /** Mobile drawer closes itself on selection; the desktop rail passes nothing. */
   onNavigate?: () => void;
+  /**
+   * href → how many things are waiting there — CJ, 4 Sep 2026: "whenever there
+   * is a notification put a notification mark next to the menu item ... if
+   * forms are not finished make sure to leave the notifications there until the
+   * forms are filled out."
+   *
+   * Computed from the record rather than from whether the page was opened, so
+   * an unfinished form keeps its mark until it is actually signed rather than
+   * until somebody looks at it. See lib/nav-alerts.
+   */
+  navAlerts?: NavAlerts;
   signOutSlot?: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -80,12 +93,15 @@ export function Sidebar({
             </div>
             {sections.map(({ href, label, Icon }) => {
               const active = isActive(href);
+              /* 0 for almost every row, almost always. */
+              const count = navAlerts?.[href] ?? 0;
               return (
                 <Link
                   key={href}
                   href={href}
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
+                  aria-label={count > 0 ? `${label} (${count} needing attention)` : undefined}
                   className={cn(
                     "mb-0.5 flex items-center gap-2.5 rounded-md border px-2 py-1.5 text-[13px] transition-colors",
                     active

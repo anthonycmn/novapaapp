@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Eye, Printer } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 import { getProvider } from "@/lib/api";
-import type { ResumeCredit } from "@/lib/api/types";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   Card,
@@ -11,13 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  AuditionAudioSection,
-  HeadshotSection,
-  PerformerDetails,
-  ResumeBuilder,
-  ResumePdfSection,
-} from "@/components/materials/student-materials";
+import { HeadshotSection } from "@/components/materials/student-materials";
 import { AuditionForm } from "../../audition-form";
 
 export const metadata = { title: "Audition" };
@@ -73,21 +66,12 @@ export default async function AuditionPage({
   );
   if (!registered) notFound();
 
-  const [existing, history] = await Promise.all([
-    provider.getAuditionProfile(user.id, student.id, production.id),
-    provider.getShowHistory(user.id, student.id),
-  ]);
+  const existing = await provider.getAuditionProfile(
+    user.id,
+    student.id,
+    production.id
+  );
   const displayName = student.preferredName ?? student.firstName;
-
-  // Show history is the source of truth for past roles, so the resume offers
-  // them as rows rather than making a parent retype what we already know.
-  const suggested: ResumeCredit[] = history.map((entry, index) => ({
-    id: `from-history-${index}`,
-    category: "role",
-    title: `${entry.role} — ${entry.productionTitle}`,
-    organization: entry.organization ?? "NOVA PA",
-    year: entry.year,
-  }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -123,6 +107,37 @@ export default async function AuditionPage({
         </CardContent>
       </Card>
 
+      {/* ── the headshot, at the top where it belongs ────────────────────── */}
+      {/*
+        CJ, 4 Sep 2026: "Move Headshot up to the top where it logically makes
+        sense, and eliminate the rest below it."
+
+        Above the form rather than under it: the photo is the first thing the
+        panel sees beside a name, and it was the last thing the page asked for.
+
+        The resume builder and the singing-recording card that sat below it are
+        gone on the same instruction. The recording duplicated the singing-video
+        link the form above already collects for THIS show, and the resume was a
+        second place to keep a document nobody had asked a family for at the
+        moment they were filling in an audition.
+      */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle as="h3" className="text-base">
+            Headshot
+          </CardTitle>
+          <CardDescription>
+            The photo the team sees next to {displayName}&apos;s name, here and
+            everywhere else in the portal. This one is {displayName}&apos;s
+            rather than this show&apos;s — change it here and it changes
+            everywhere, including next season.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <HeadshotSection student={student} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-5">
           <AuditionForm
@@ -134,82 +149,6 @@ export default async function AuditionPage({
         </CardContent>
       </Card>
 
-      {/* ── the same performer, whatever the show ────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-5">
-        <div>
-          <h2 className="text-lg font-semibold">{displayName}&apos;s materials</h2>
-          <p className="text-[13px] text-muted-foreground">
-            Headshot, resume and recording. These are {displayName}&apos;s, not
-            this show&apos;s — change them here and they change everywhere,
-            including next season.
-          </p>
-        </div>
-        <Link
-          href={`/family/students/${student.id}/resume`}
-          className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
-        >
-          <Printer aria-hidden className="size-4" />
-          Printable resume
-        </Link>
-      </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle as="h3" className="text-base">
-            Headshot
-          </CardTitle>
-          <CardDescription>
-            The photo the team sees next to {displayName}&apos;s name, here and
-            everywhere else in the portal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <HeadshotSection student={student} />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle as="h3" className="text-base">
-            Resume
-          </CardTitle>
-          <CardDescription>
-            Build it here and we&apos;ll format it, or link a PDF you already have.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <PerformerDetails student={student} />
-          <ResumeBuilder student={student} suggested={suggested} />
-          <div className="border-t pt-4">
-            <ResumePdfSection student={student} />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle as="h3" className="text-base">
-            Singing recording
-          </CardTitle>
-          <CardDescription>
-            A link to them singing. The video for THIS show goes in the form
-            above.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {student.auditionSongUrl && (
-            <a
-              href={student.auditionSongUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-              Open the video linked on {displayName}&apos;s profile
-            </a>
-          )}
-          <AuditionAudioSection student={student} />
-        </CardContent>
-      </Card>
     </div>
   );
 }

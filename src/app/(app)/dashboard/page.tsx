@@ -249,7 +249,13 @@ export default async function DashboardPage() {
               <BadgeCheck aria-hidden size={17} />
             </span>
             <span className="min-w-0">
-              <span className="block text-[14px] font-semibold">Spirit buttons</span>
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[14px] font-semibold">Spirit buttons</span>
+                {/* Said before the click, not after it — CJ, 4 Sep 2026. */}
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  Coming soon
+                </span>
+              </span>
               <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
                 Pick a show, add a photo, see the button before you order.
               </span>
@@ -264,7 +270,13 @@ export default async function DashboardPage() {
               <Star aria-hidden size={17} />
             </span>
             <span className="min-w-0">
-              <span className="block text-[14px] font-semibold">Star pages</span>
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[14px] font-semibold">Star pages</span>
+                {/* Said before the click, not after it — CJ, 4 Sep 2026. */}
+                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                  Coming soon
+                </span>
+              </span>
               <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
                 A playbill tribute to your performer, from the whole family.
               </span>

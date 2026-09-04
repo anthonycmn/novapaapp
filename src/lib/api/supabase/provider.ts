@@ -50,6 +50,7 @@ import type {
   CallResponseRecord,
   LoanedScript,
   VolunteerSheet,
+  ProductionStaffMember,
 } from "../types";
 import {
   LESSON_CALENDAR_WEEKS,
@@ -374,6 +375,47 @@ class SupabaseDataProvider {
       );
     }
     return runs;
+  }
+
+  /**
+   * The team on one show.
+   *
+   * Reads production_staff, which holds every current show's creative team
+   * already linked to a profile — and which families could not read at all
+   * until the staff portal's 0226 opened it to them. Before that migration
+   * lands this returns nothing for a parent, and the card falls back to the
+   * standing contacts rather than rendering an empty team.
+   *
+   * Published profiles only: is_published is the one answer to "may this
+   * person be shown to families", and it is asked here rather than duplicated.
+   */
+  async getProductionStaff(productionId: string): Promise<ProductionStaffMember[]> {
+    const { data: rows, error } = await this.db
+      .from("production_staff")
+      .select("staff_id, role")
+      .eq("production_id", productionId);
+    if (error || !rows?.length) return [];
+
+    // Every profile, published or not — see ProductionStaffMember.isPublished.
+    const profiles = await this.allStaffProfiles();
+    const byId = new Map(profiles.map((profile) => [profile.id, profile]));
+
+    const members: ProductionStaffMember[] = [];
+    for (const row of rows) {
+      const profile = byId.get(String(row.staff_id));
+      // Only a row with no profile at all is dropped.
+      if (!profile) continue;
+      members.push({
+        staffId: profile.id,
+        fullName: profile.fullName,
+        role: String(row.role ?? "").trim() || profile.title,
+        title: profile.title,
+        isPublished: profile.isPublished,
+      });
+    }
+    return members.sort(
+      (a, b) => a.role.localeCompare(b.role) || a.fullName.localeCompare(b.fullName)
+    );
   }
 
   async getStaffForFamily(

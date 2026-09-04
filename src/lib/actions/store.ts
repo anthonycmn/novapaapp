@@ -17,6 +17,7 @@ import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { assessPhotoQuality } from "@/lib/store-rules";
 import type { FamilyFormState } from "./family";
+import { isStoreFeatureOpen, STORE_FEATURE_COPY } from "@/lib/store-availability";
 
 const designSchema = z.object({
   photoUrl: z.string().min(1, "Add a photo"),
@@ -38,6 +39,13 @@ export async function addToCartAction(
 ): Promise<FamilyFormState> {
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  /* This one parses a spirit-button design, so it closes with spirit buttons.
+     addCatalogItemAction below is deliberately left open: it also carries
+     private lessons, which are still on sale. */
+  if (!isStoreFeatureOpen("spiritButtons")) {
+    return { ok: false, errors: { _form: STORE_FEATURE_COPY.spiritButtons.title } };
+  }
 
   const parsed = designSchema.safeParse({
     photoUrl: String(formData.get("photoUrl") ?? ""),

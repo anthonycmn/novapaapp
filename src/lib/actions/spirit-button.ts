@@ -7,6 +7,7 @@ import { formatCents } from "@/lib/format";
 import { notifySubmission, submissionMessage } from "./notify-submission";
 import { addToCartAction } from "./store";
 import type { FamilyFormState } from "./family";
+import { isStoreFeatureOpen, STORE_FEATURE_COPY } from "@/lib/store-availability";
 
 /** The shared form state plus a line of reassurance to show on success. */
 export type SubmissionState = FamilyFormState & { message?: string };
@@ -24,6 +25,12 @@ export async function submitSpiritButtonAction(
   prev: FamilyFormState,
   formData: FormData
 ): Promise<SubmissionState> {
+  /* Closed to families for now. Asked before addToCartAction below, so a stale
+     tab left open from before the switch cannot put one in a basket. */
+  if (!isStoreFeatureOpen("spiritButtons")) {
+    return { ok: false, errors: { _form: STORE_FEATURE_COPY.spiritButtons.title } };
+  }
+
   const saved = await addToCartAction(prev, formData);
   if (!saved.ok) return saved;
 

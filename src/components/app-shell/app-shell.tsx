@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bell, Menu } from "lucide-react";
 import { Wordmark } from "@/components/brand/logo";
 import { Sidebar } from "@/components/app-shell/sidebar";
+import type { NavAlerts } from "@/lib/nav-alerts";
 
 /**
  * The staff portal's shell, for families: a fixed sidebar from `lg` up, and
@@ -19,12 +20,15 @@ export function AppShell({
   displayName,
   roleLabel,
   unreadCount,
+  navAlerts,
   signOutSlot,
   children,
 }: {
   displayName: string;
   roleLabel: string;
   unreadCount: number;
+  /** href → how many things are waiting there. See lib/nav-alerts. */
+  navAlerts?: NavAlerts;
   signOutSlot?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -53,6 +57,7 @@ export function AppShell({
       displayName={displayName}
       roleLabel={roleLabel}
       onNavigate={() => setOpen(false)}
+      navAlerts={navAlerts}
       signOutSlot={signOutSlot}
     />
   );

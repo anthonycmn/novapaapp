@@ -9,6 +9,7 @@ import { notifySubmission, submissionMessage } from "./notify-submission";
 import { addCatalogItemAction } from "./store";
 import type { FamilyFormState } from "./family";
 import type { SubmissionState } from "./spirit-button";
+import { isStoreFeatureOpen, STORE_FEATURE_COPY } from "@/lib/store-availability";
 
 /**
  * A family submits a star page for the playbill.
@@ -26,6 +27,11 @@ export async function submitStarPageAction(
   prev: FamilyFormState,
   formData: FormData
 ): Promise<SubmissionState> {
+  /* Closed to families for now — same switch, same reason as spirit buttons. */
+  if (!isStoreFeatureOpen("starPages")) {
+    return { ok: false, errors: { _form: STORE_FEATURE_COPY.starPages.title } };
+  }
+
   const saved = await addCatalogItemAction(prev, formData);
   if (!saved.ok) return saved;
 
