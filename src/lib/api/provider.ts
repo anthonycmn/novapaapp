@@ -590,6 +590,17 @@ export interface DataProvider {
     studentId: string,
     files: { webDataUrl: string; printDataUrl: string }
   ): Promise<Student>;
+  /**
+   * A headshot the family hosts themselves (3 Sep 2026).
+   *
+   * The audition page takes a link now rather than a file, so there is nothing
+   * to crop and no 300 DPI copy to derive — `headshotPrintUrl` is cleared
+   * rather than left pointing at the previous photo, which would be a print
+   * copy of somebody's old headshot sitting behind their new one.
+   *
+   * An empty string removes the headshot.
+   */
+  setHeadshotLink(actorId: string, studentId: string, url: string): Promise<Student>;
   setResumePdf(actorId: string, studentId: string, source: UploadSource): Promise<Student>;
   setAuditionAudio(actorId: string, studentId: string, source: UploadSource): Promise<Student>;
   clearAuditionAudio(actorId: string, studentId: string): Promise<Student>;

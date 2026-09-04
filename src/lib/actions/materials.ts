@@ -48,6 +48,48 @@ export async function saveHeadshotAction(
   return { ok: true };
 }
 
+/**
+ * The headshot as a link, from the audition page (Tony, 3 Sep 2026: "make the
+ * headshot a link too").
+ *
+ * The photo on the profile page is still an upload and still writes the same
+ * column — that one exists so staff can put a face to a name at check-in, and
+ * a parent adding it there is not thinking about auditions. Whichever was set
+ * last is the headshot.
+ *
+ * An empty value clears it, which is how somebody takes a headshot down.
+ */
+export async function saveHeadshotLinkAction(
+  studentId: string,
+  _prev: FamilyFormState,
+  formData: FormData
+): Promise<FamilyFormState> {
+  const user = await getSessionUser();
+  if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  const url = String(formData.get("headshotUrl") ?? "").trim();
+  if (url && !/^https?:\/\/\S+$/i.test(url)) {
+    return {
+      ok: false,
+      errors: {
+        headshotUrl: "That doesn't look like a web link — it should start with https://",
+      },
+    };
+  }
+  if (url.length > 1000) {
+    return { ok: false, errors: { headshotUrl: "That link is too long" } };
+  }
+
+  try {
+    await getProvider().setHeadshotLink(user.id, studentId, url);
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/family/students/${studentId}`);
+  revalidatePath("/auditions");
+  return { ok: true };
+}
+
 export async function saveAuditionAudioAction(
   studentId: string,
   _prev: FamilyFormState,

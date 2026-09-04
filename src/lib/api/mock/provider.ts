@@ -2652,6 +2652,17 @@ export class MockDataProvider implements DataProvider {
     return deepClone(student);
   }
 
+  async setHeadshotLink(actorId: string, studentId: string, url: string): Promise<Student> {
+    const student = this.studentForWrite(actorId, studentId);
+    const link = url.trim();
+    student.headshotUrl = link || undefined;
+    // Nothing was uploaded, so there is no print copy to keep — and the one
+    // from the previous photo must not survive under the new headshot.
+    student.headshotPrintUrl = undefined;
+    student.updatedAt = nowIso();
+    return deepClone(student);
+  }
+
   async setResumePdf(
     actorId: string,
     studentId: string,

@@ -159,7 +159,8 @@ export default async function AuditionPage({
             Headshot
           </CardTitle>
           <CardDescription>
-            We save two versions: one for the app and a 300&nbsp;DPI 8×10 for printing.
+            The photo the team sees next to {displayName}&apos;s name, here and
+            everywhere else in the portal.
           </CardDescription>
         </CardHeader>
         <CardContent>

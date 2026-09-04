@@ -5,7 +5,7 @@ import { FileText, Music, Trash2 } from "lucide-react";
 import {
   clearAuditionAudioAction,
   saveAuditionAudioAction,
-  saveHeadshotAction,
+  saveHeadshotLinkAction,
   saveResumeCreditsAction,
   saveResumePdfAction,
 } from "@/lib/actions/materials";
@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DirectUpload } from "@/components/forms/direct-upload";
 import { FieldError } from "@/components/forms/field-error";
-import { HeadshotCropper, type HeadshotResult } from "@/components/media/headshot-cropper";
+import { SharingNote } from "@/components/forms/sharing-note";
 
 /**
  * What a performer brings to an audition that is NOT about one show: their
@@ -33,53 +33,90 @@ import { HeadshotCropper, type HeadshotResult } from "@/components/media/headsho
  * while auditioning for Sweeney and it is the headshot everywhere, this season
  * and next, which is why the audition page says so above them.
  *
- * These three stay UPLOADS while the show-specific links on the form above them
- * are links. That is not an oversight: the headshot is cropped here into a web
- * copy and a 300 DPI print copy, and neither can be made from a link we do not
- * hold; the recording plays inline in an audio element, which a Drive or
- * YouTube link cannot feed; and both are small files that finish.
+ * The headshot is a LINK, like everything on the form above (3 Sep). The
+ * recording and the resume PDF are still uploads, and for one reason each: the
+ * recording plays in an audio element, which a Drive or YouTube link cannot
+ * feed, and both are small files that finish. Say the word and they follow.
  */
 
 const initial: FamilyFormState = { ok: false };
 
 /* ── headshot ───────────────────────────────────────────────────────────── */
 
+/**
+ * The headshot, as a link the family hosts (Tony, 3 Sep 2026: "make the
+ * headshot a link too").
+ *
+ * What this gives up, said plainly because it is a real loss: the cropper made
+ * a web copy and a 300 DPI 8×10 print copy out of an uploaded photo, and
+ * neither can be made from a link we do not hold. Nothing in the app reads the
+ * print copy today — the printable resume tells you to staple the page behind a
+ * physical 8×10 — so what actually goes is the ability to generate one later
+ * without asking the family for the file.
+ *
+ * The photo on the child's profile page is still an upload, still writes this
+ * same column, and is still the thing staff use to recognize a child at
+ * check-in. Whichever was set last wins, which is why this shows what is
+ * currently there rather than an empty box.
+ */
 export function HeadshotSection({ student }: { student: Student }) {
-  const [cropped, setCropped] = useState<HeadshotResult | null>(null);
-  const bound = saveHeadshotAction.bind(null, student.id);
+  const [url, setUrl] = useState(student.headshotUrl ?? "");
+  const bound = saveHeadshotLinkAction.bind(null, student.id);
   const [state, formAction, pending] = useActionState(bound, initial);
 
   return (
     <form action={formAction} className="flex flex-col gap-3">
-      <input type="hidden" name="webDataUrl" value={cropped?.webDataUrl ?? ""} />
-      <input type="hidden" name="printDataUrl" value={cropped?.printDataUrl ?? ""} />
-
-      <HeadshotCropper
-        currentUrl={student.headshotUrl}
-        onCropped={setCropped}
-        disabled={pending}
-      />
-
-      {cropped && (
-        <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      <div className="flex items-start gap-3">
+        {url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={cropped.webDataUrl}
-            alt="Cropped headshot preview"
-            className="h-24 w-[77px] rounded-lg border object-cover"
+            src={url}
+            alt={`${student.preferredName ?? student.firstName}'s headshot`}
+            className="h-24 w-[77px] shrink-0 rounded-lg border object-cover"
           />
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save headshot"}
-          </Button>
+        ) : (
+          <div className="flex h-24 w-[77px] shrink-0 items-center justify-center rounded-lg border border-dashed text-center text-[11px] text-muted-foreground">
+            No headshot
+          </div>
+        )}
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <label htmlFor="headshotUrl" className="text-[13px] font-medium">
+            Link to their headshot
+          </label>
+          <Input
+            id="headshotUrl"
+            name="headshotUrl"
+            type="url"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+            maxLength={1000}
+            placeholder="https://…"
+          />
+          <FieldError message={state.errors?.headshotUrl} />
+          <p className="text-xs text-muted-foreground">
+            A photo in Drive, Dropbox or iCloud — the link has to open the image
+            itself for somebody who is not signed in as you. Clear the box and
+            save to take it down.
+          </p>
         </div>
-      )}
+      </div>
+
+      {/* The preview above is the honest test: if the image does not appear
+          there, it will not appear for the directing team either. */}
+      <SharingNote url={url} />
 
       <FieldError message={state.errors?._form} />
-      {state.ok && (
-        <p role="status" className="text-sm font-medium text-primary">
-          ✓ Headshot saved — web and print versions generated.
-        </p>
-      )}
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save headshot"}
+        </Button>
+        {state.ok && (
+          <p role="status" className="text-sm font-medium text-primary">
+            Saved ✓
+          </p>
+        )}
+      </div>
     </form>
   );
 }

@@ -3378,6 +3378,16 @@ class SupabaseDataProvider {
     });
   }
 
+  async setHeadshotLink(actorId: string, studentId: string, url: string): Promise<Student> {
+    const link = url.trim();
+    return this.materialWrite(actorId, studentId, {
+      headshot_url: link || null,
+      // No file, no derived copy. Clearing it beats leaving the print URL
+      // pointing at the photo this one replaced.
+      headshot_print_url: null,
+    });
+  }
+
   async setResumePdf(
     actorId: string,
     studentId: string,
