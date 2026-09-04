@@ -94,9 +94,20 @@ export default async function AuditionsPage() {
                 title={`${displayName} — ${production.title}`}
                 subtitle={
                   existing
-                    ? hasFiles
-                      ? "Submitted, with recordings"
-                      : "Submitted — you can still add a video or resume link"
+                    ? /*
+                       * CJ, 4 Sep 2026: "allow them to also edit their form."
+                       *
+                       * It always could be — the form reopens with everything
+                       * they entered and the button says "Update audition" —
+                       * but this line said only that a video or a resume could
+                       * still be ADDED, which reads as "the rest is now fixed".
+                       * A family who chose Ensemble in September and wants to
+                       * say Lead in October should not have to ring the office
+                       * to find out they were allowed to.
+                       */
+                      hasFiles
+                      ? "Submitted, with recordings — you can still change anything"
+                      : "Submitted — you can still change anything until auditions begin"
                     : "Not started"
                 }
                 meta={existing?.songTitle ? `Song: ${existing.songTitle}` : undefined}

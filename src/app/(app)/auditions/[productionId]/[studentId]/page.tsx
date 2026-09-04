@@ -125,7 +125,7 @@ export default async function AuditionPage({
       <Card>
         <CardHeader className="pb-2">
           <CardTitle as="h3" className="text-base">
-            Headshot
+            Headshot <OptionalTag />
           </CardTitle>
           <CardDescription>
             The photo the team sees next to {displayName}&apos;s name, here and
