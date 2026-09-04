@@ -9,6 +9,8 @@ import { formatCents } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CartItems } from "./cart-items";
+import { currentImpersonation } from "@/lib/auth/impersonation";
+import { BlockedWhileImpersonating } from "@/components/blocked-while-impersonating";
 
 export const metadata = { title: "Cart" };
 
@@ -33,6 +35,10 @@ export default async function CartPage({
     0
   );
   const payments = getPaymentProvider();
+
+  /* Hub 0063 — a Chief standing in for this family can see the basket and
+     cannot spend from it. */
+  const standingIn = Boolean(await currentImpersonation());
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,11 +86,15 @@ export default async function CartPage({
             </p>
           )}
 
-          <form action={checkoutAction}>
-            <Button type="submit" size="lg" className="w-full">
-              Checkout · {formatCents(subtotal)}
-            </Button>
-          </form>
+          {standingIn ? (
+            <BlockedWhileImpersonating action="store" title="Checking out" />
+          ) : (
+            <form action={checkoutAction}>
+              <Button type="submit" size="lg" className="w-full">
+                Checkout · {formatCents(subtotal)}
+              </Button>
+            </form>
+          )}
 
           <Link
             href="/store"

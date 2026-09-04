@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrivalCard } from "@/components/family/arrival-card";
 import { PickupRequestForm } from "./request-form";
+import { currentImpersonation } from "@/lib/auth/impersonation";
+import { BlockedWhileImpersonating } from "@/components/blocked-while-impersonating";
 
 export const metadata = { title: "Pickup & drop-off" };
 
@@ -43,6 +45,10 @@ export default async function PickupPage() {
   const live = requests.filter(
     (request) => request.status === "approved" && request.endDate >= today
   );
+
+  /* Hub 0063 — a Chief standing in for this family may read all of this
+     and submit none of it. */
+  const standingIn = Boolean(await currentImpersonation());
 
   return (
     <div className="flex flex-col gap-4">
@@ -121,7 +127,11 @@ export default async function PickupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <PickupRequestForm students={students} />
+          {standingIn ? (
+            <BlockedWhileImpersonating action="pickup" title="Arranging a collection" />
+          ) : (
+            <PickupRequestForm students={students} />
+          )}
         </CardContent>
       </Card>
     </div>

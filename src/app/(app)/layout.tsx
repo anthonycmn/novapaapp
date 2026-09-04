@@ -5,6 +5,8 @@ import { signOut } from "@/lib/auth/actions";
 import { getProvider } from "@/lib/api";
 import { AppShell } from "@/components/app-shell/app-shell";
 import { Spot } from "@/components/spot/spot";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { currentImpersonation } from "@/lib/auth/impersonation";
 
 /**
  * Authenticated app shell. Everything inside the (app) route group requires
@@ -31,6 +33,10 @@ export default async function AppLayout({
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const unreadCount = await getProvider().getUnreadNotificationCount(user.id);
+  /* Hub 0063. Null for every real parent, which is all but a handful of
+     sessions ever — the cost of asking is one signed-cookie check, cached for
+     the request and shared with the guards. */
+  const impersonation = await currentImpersonation();
 
   return (
     <AppShell
@@ -50,6 +56,14 @@ export default async function AppLayout({
         </form>
       }
     >
+      {/* Above the page, not inside it, so it survives every route in the
+          group and cannot be scrolled away from. */}
+      {impersonation && (
+        <ImpersonationBanner
+          who={`${user.displayName}${user.family?.name ? ` — ${user.family.name}` : ""}`}
+          actorEmail={impersonation.actorEmail}
+        />
+      )}
       {children}
       {/* Spot rides along on every signed-in page: a parent who cannot find
           something is, by definition, not on the page that would explain it.
