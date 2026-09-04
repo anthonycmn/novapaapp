@@ -8,6 +8,7 @@ import type { ResumeCredit } from "@/lib/api/types";
 import { UploadRejectedError } from "@/lib/api/storage";
 import type { DocumentCategory } from "@/lib/api/documents/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import type { FamilyFormState } from "./family";
 
 function failure(error: unknown): FamilyFormState {
@@ -207,6 +208,11 @@ export async function uploadDocumentAction(
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
+  /* Hub 0063. A record that appears in a family's file should be one they put
+     there. */
+  const refused = await refuseIfImpersonating("document");
+  if (refused) return { ok: false, errors: { _form: refused.message } };
+
   const name = String(formData.get("name") ?? "").trim();
   const category = String(formData.get("category") ?? "other") as DocumentCategory;
   const studentId = String(formData.get("studentId") ?? "") || undefined;
@@ -239,6 +245,11 @@ export async function uploadDocumentAction(
 export async function deleteDocumentAction(documentId: string): Promise<void> {
   const user = await getSessionUser();
   if (!user) return;
+  /* Hub 0063. Removing a document from somebody's own file is not a thing to
+     do on their behalf — and this one returns void, so the refusal is the
+     document still being there. The page hides the button while impersonating;
+     this is the backstop behind it. */
+  if (await refuseIfImpersonating("document")) return;
   await getProvider().deleteFamilyDocument(user.id, documentId);
   revalidatePath("/family/documents");
 }

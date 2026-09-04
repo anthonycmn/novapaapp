@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
+import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { FamilyFormState } from "./family";
 import type { SubmissionState } from "./spirit-button";
@@ -35,6 +36,14 @@ export async function saveHealthFormAction(
 ): Promise<SubmissionState> {
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  /* Hub 0063. Asked before the input is even parsed: "may this session do this
+     at all" comes before "is this any good". This form carries a signature,
+     and the provenance stamp below records a name, a time and an IP against
+     it — a Chief's IP under a parent's name is the row that must never be
+     written. */
+  const refused = await refuseIfImpersonating("health");
+  if (refused) return { ok: false, errors: { _form: refused.message } };
 
   const parsed = answersSchema.safeParse({
     allergies: String(formData.get("allergies") ?? ""),

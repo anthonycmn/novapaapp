@@ -4,6 +4,8 @@ import { getSessionUser } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { HealthFormEditor } from "./health-form";
+import { currentImpersonation } from "@/lib/auth/impersonation";
+import { BlockedWhileImpersonating } from "@/components/blocked-while-impersonating";
 
 export const metadata = { title: "Health form" };
 
@@ -33,6 +35,10 @@ export default async function HealthFormPage({
   ]);
 
   const displayName = student.preferredName ?? student.firstName;
+
+  /* Hub 0063 — a Chief standing in for this family may read all of this
+     and submit none of it. */
+  const standingIn = Boolean(await currentImpersonation());
 
   return (
     <div className="flex flex-col gap-4">
@@ -68,13 +74,17 @@ export default async function HealthFormPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <HealthFormEditor
-            studentId={student.id}
-            seasonId={season.id}
-            studentName={displayName}
-            current={current}
-            previous={previous}
-          />
+          {standingIn ? (
+            <BlockedWhileImpersonating action="health" title="The health form" />
+          ) : (
+            <HealthFormEditor
+              studentId={student.id}
+              seasonId={season.id}
+              studentName={displayName}
+              current={current}
+              previous={previous}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

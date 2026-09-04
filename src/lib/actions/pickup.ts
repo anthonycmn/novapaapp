@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { ARRIVAL_RECIPIENTS } from "@/config/submission-recipients";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { formatDate } from "@/lib/format";
 import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { FamilyFormState } from "./family";
@@ -42,6 +43,12 @@ export async function createPickupRequestAction(
 ): Promise<SubmissionState> {
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  /* Hub 0063. Who may collect a child is the parent's to say, and a change
+     here has to be traceable to the parent who asked for it rather than to
+     whoever happened to take the call. */
+  const refused = await refuseIfImpersonating("pickup");
+  if (refused) return { ok: false, errors: { _form: refused.message } };
 
   const parsed = requestSchema.safeParse({
     studentId: formData.get("studentId"),

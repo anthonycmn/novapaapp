@@ -14,6 +14,7 @@ import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import type { Customization } from "@/lib/api/store/catalog";
 import { assertUploadAllowed } from "@/lib/api/storage";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { assessPhotoQuality } from "@/lib/store-rules";
 import type { FamilyFormState } from "./family";
 
@@ -176,6 +177,11 @@ export async function removeCartItemAction(itemId: string): Promise<void> {
 export async function checkoutAction(): Promise<void> {
   const user = await getSessionUser();
   if (!user?.familyId) redirect("/login");
+
+  /* Hub 0063. This spends a family's money on their saved card. Redirected
+     rather than silently dropped, because a basket that does not check out and
+     does not say why is a basket somebody presses four more times. */
+  if (await refuseIfImpersonating("store")) redirect("/store/cart?blocked=impersonation");
 
   const provider = getProvider();
   const cart = await provider.getCart(user.id);

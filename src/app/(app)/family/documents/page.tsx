@@ -14,6 +14,8 @@ import {
 } from "@/components/family/agreements-panel";
 import { PoliciesRecord } from "@/components/family/policies-record";
 import { DeleteDocumentButton, DocumentUploadForm } from "./document-forms";
+import { currentImpersonation } from "@/lib/auth/impersonation";
+import { BlockedWhileImpersonating } from "@/components/blocked-while-impersonating";
 
 export const metadata = { title: "Documents" };
 
@@ -58,6 +60,10 @@ export default async function DocumentsPage() {
   const studentName = new Map(
     students.map((student) => [student.id, student.preferredName ?? student.firstName])
   );
+
+  /* Hub 0063 — a Chief standing in for this family may read all of this
+     and submit none of it. */
+  const standingIn = Boolean(await currentImpersonation());
 
   return (
     <div className="flex flex-col gap-4">
@@ -136,7 +142,11 @@ export default async function DocumentsPage() {
           <CardDescription>PDF or photo, up to 20 MB.</CardDescription>
         </CardHeader>
         <CardContent>
-          <DocumentUploadForm familyId={user.familyId} students={students} />
+          {standingIn ? (
+            <BlockedWhileImpersonating action="document" title="Adding a document" />
+          ) : (
+            <DocumentUploadForm familyId={user.familyId} students={students} />
+          )}
         </CardContent>
       </Card>
     </div>
