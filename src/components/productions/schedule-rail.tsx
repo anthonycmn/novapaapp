@@ -5,8 +5,11 @@ import {
   CalendarDays,
   CalendarPlus,
   Check,
+  ChevronDown,
   Clock,
   Copy,
+  Download,
+  FileText,
   ListMusic,
   MapPin,
   Package,
@@ -18,6 +21,15 @@ import { formatInTimeZone } from "date-fns-tz";
 import { formatTime } from "@/lib/format";
 import { org } from "@/config/org";
 import { Card } from "@/components/ui/card";
+import { CallResponse, type CallAnswer } from "@/components/dashboard/call-response";
+
+/** One of this family's performers, for the per-child rows on each call. */
+export interface RailStudent {
+  id: string;
+  name: string;
+  /** Their published role(s) in THIS show — "Johanna", "Ensemble of London". */
+  roleNames: string[];
+}
 
 /**
  * The show's calendar, as a list, down the right-hand side — Tony,
@@ -70,6 +82,9 @@ export function ScheduleRail({
   sceneNames,
   feedUrl,
   productionTitle,
+  students,
+  calledStudentsByEvent,
+  answers,
 }: {
   events: CalendarEvent[];
   /** Event ids this family is actually called to, for the "My calls" view. */
@@ -79,8 +94,18 @@ export function ScheduleRail({
   /** Absolute tokenised iCal feed for this family; omitted for staff. */
   feedUrl?: string;
   productionTitle: string;
+  /** This family's performers in the show; omitted for staff. */
+  students?: RailStudent[];
+  /** eventId → studentIds actually called, from the family calendar. */
+  calledStudentsByEvent?: Record<string, string[]>;
+  /** `${eventId}:${studentId}` → the family's standing answer, if any. */
+  answers?: Record<string, CallAnswer>;
 }) {
   const mine = useMemo(() => new Set(myEventIds ?? []), [myEventIds]);
+  const studentById = useMemo(
+    () => new Map((students ?? []).map((student) => [student.id, student])),
+    [students]
+  );
   // Default to the family's own calls when they have any — that is the
   // question they arrived with. Everyone else opens on the whole run.
   const [filter, setFilter] = useState<Filter>(mine.size > 0 ? "mine" : "all");
@@ -332,16 +357,63 @@ export function ScheduleRail({
                           </p>
                         )}
 
+                        {/* The director's full plan, in his own words — the
+                            event description off the show calendar. Folded
+                            behind a line so the rail stays scannable. */}
+                        {event.details && <EventDetails details={event.details} />}
+
                         {event.changeNote && (
                           <p className="mt-1 rounded-md bg-tip px-2 py-1 text-[12px] leading-snug text-tip-foreground">
                             {event.changeNote}
                           </p>
                         )}
-                        {isMine && filter !== "mine" && (
-                          <p className="mt-0.5 text-[11.5px] font-medium text-gold">
-                            Your child is called
-                          </p>
-                        )}
+
+                        {/* THIS family's children on THIS call, each with the
+                            attendance chip from the dashboard — CJ, 5 Sep
+                            2026: a parent must see per child what is coming,
+                            what they'll be doing, and whether a conflict has
+                            been submitted, and fix it from the same row. */}
+                        {(() => {
+                          const kids = (calledStudentsByEvent?.[event.id] ?? [])
+                            .map((id) => studentById.get(id))
+                            .filter((kid): kid is RailStudent => Boolean(kid));
+                          if (kids.length === 0) {
+                            return isMine && filter !== "mine" ? (
+                              <p className="mt-0.5 text-[11.5px] font-medium text-gold">
+                                Your child is called
+                              </p>
+                            ) : null;
+                          }
+                          const when = `${formatInTimeZone(new Date(event.startsAt), org.timeZone, "EEE d MMM")} · ${formatTime(event.startsAt)}`;
+                          return (
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                              {kids.map((kid) =>
+                                isPast ? (
+                                  <span key={kid.id} className="text-[11.5px] text-muted-foreground">
+                                    {kid.name}
+                                    {kid.roleNames.length > 0 && ` — ${kid.roleNames.join(" / ")}`}
+                                  </span>
+                                ) : (
+                                  <span key={kid.id} className="inline-flex items-baseline gap-1.5">
+                                    <CallResponse
+                                      eventId={event.id}
+                                      studentId={kid.id}
+                                      studentName={kid.name}
+                                      answer={answers?.[`${event.id}:${kid.id}`] ?? null}
+                                      eventTitle={event.title}
+                                      eventWhen={when}
+                                    />
+                                    {kid.roleNames.length > 0 && (
+                                      <span className="text-[11px] text-muted-foreground">
+                                        {kid.roleNames.join(" / ")}
+                                      </span>
+                                    )}
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </li>
                   );
@@ -384,6 +456,49 @@ export function ScheduleRail({
 
       {feedUrl && <SubscribeRow feedUrl={feedUrl} />}
     </Card>
+  );
+}
+
+/**
+ * The event's full description off the show calendar, behind a fold.
+ *
+ * The notes above it answer "is my child called" at a glance; this is for the
+ * parent who wants the whole plan — every room, every time block, in the
+ * director's own words. A "---" line is the divider the calendar drew.
+ */
+function EventDetails({ details }: { details: string }) {
+  const [open, setOpen] = useState(false);
+  const lines = details.split("\n");
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1 text-[11.5px] font-medium text-primary underline-offset-4 hover:underline"
+      >
+        <FileText aria-hidden size={11} className="shrink-0" />
+        {open ? "Hide the full plan" : "Full plan"}
+        <ChevronDown
+          aria-hidden
+          size={11}
+          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="mt-1 rounded-md border bg-muted/40 px-2.5 py-2 text-[12px] leading-relaxed text-muted-foreground">
+          {lines.map((line, index) =>
+            line === "---" ? (
+              <hr key={index} className="my-1.5 border-border" />
+            ) : (
+              <p key={index} className="whitespace-pre-wrap">
+                {line}
+              </p>
+            )
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -441,6 +556,15 @@ function SubscribeRow({ feedUrl }: { feedUrl: string }) {
           {copied ? <Check aria-hidden size={12} /> : <Copy aria-hidden size={12} />}
           {copied ? "Copied" : "Copy link"}
         </button>
+        {/* A one-off .ics file, for the parent who wants the dates without a
+            subscription — the route already serves it as an attachment. */}
+        <a
+          href={feedUrl}
+          className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-muted"
+        >
+          <Download aria-hidden size={12} />
+          Download .ics
+        </a>
       </div>
       <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground">
         Subscribe once and every change syncs itself. This link is private to

@@ -9,6 +9,7 @@ import {
   callTimeFor,
   cleanTitle,
   descriptionLines,
+  detailsFor,
   eventTypeFor,
   worksNoteFor,
 } from "@/lib/ical/map";
@@ -373,6 +374,33 @@ describe("descriptions whose line breaks are block tags, not <br>", () => {
     expect(
       descriptionLines("<b>CALLED (2): Toby · Fogg</b><br>Scene: Act I Sc. 1")
     ).toEqual(["CALLED (2): Toby · Fogg", "Scene: Act I Sc. 1"]);
+  });
+});
+
+/**
+ * CJ, 5 Sep 2026: "I want the parents to be able to see the descriptions of
+ * the events." The description travels to the show page as flattened lines —
+ * verbatim, dividers and all, because a summary of the director's plan is a
+ * second version of it.
+ */
+describe("the full plan families can read", () => {
+  it("keeps every line, in order, with the divider", () => {
+    const html =
+      "<b>ROOM A</b> — Colton<br>Music call — COMPANY NUMBER<br>" +
+      "<hr /><b>CALLED — 11 of 12:</b><br><b>Sweeney Todd · Mrs. Lovett</b>";
+    expect(detailsFor(html)).toBe(
+      ["ROOM A — Colton", "Music call — COMPANY NUMBER", "---", "CALLED — 11 of 12:", "Sweeney Todd · Mrs. Lovett"].join("\n")
+    );
+  });
+
+  it("drops dividers that frame nothing", () => {
+    expect(detailsFor("<hr><div>Only line</div><hr>")).toBe("Only line");
+    expect(detailsFor("<div>A</div><hr><hr><div>B</div>")).toBe("A\n---\nB");
+  });
+
+  it("returns nothing for an empty description", () => {
+    expect(detailsFor("")).toBeUndefined();
+    expect(detailsFor("<div> </div>")).toBeUndefined();
   });
 });
 

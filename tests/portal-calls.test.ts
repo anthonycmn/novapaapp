@@ -66,6 +66,73 @@ describe("which calls belong to an event", () => {
   });
 });
 
+/**
+ * The 12 September regression, verbatim. The calendar has a 9:00–12:30 event
+ * and a 1:00–3:00 event; the afternoon's rooms start at 12:30, in the
+ * half-hour gap between them. The old rule dropped them from BOTH events —
+ * which is how Sweeney Todd and Mrs. Lovett vanished from a Saturday they
+ * were called to for two and a half hours, and their families were told they
+ * were not needed.
+ */
+describe("a call that starts between two events", () => {
+  const day = [
+    call({ starts_at: "09:00:00", ends_at: "10:30:00", act_scene: "Pages 40 - 48" }),
+    call({ starts_at: "10:30:00", ends_at: "12:00:00", act_scene: "Pages 61 - 68" }),
+    call({
+      starts_at: "12:30:00",
+      ends_at: "15:00:00",
+      act_scene: "Pages 68 - 80",
+      called: ["Sweeney Todd", "Mrs. Lovett"],
+    }),
+    call({
+      starts_at: "12:30:00",
+      ends_at: "14:00:00",
+      act_scene: "Pages 54 - 60",
+      called: ["Beadle", "Anthony", "Johanna", "Judge Turpin"],
+    }),
+    call({
+      starts_at: "14:00:00",
+      ends_at: "15:00:00",
+      act_scene: "Pages 50 - 53",
+      called: ["Anthony", "Johanna"],
+    }),
+  ];
+  const windows = [
+    { startsAt: et("09:00"), endsAt: et("12:30") },
+    { startsAt: et("13:00"), endsAt: et("15:00") },
+  ];
+
+  it("hands an orphaned call to the event its range overlaps", () => {
+    const pm = callsForEvent(day, et("13:00"), et("15:00"), undefined, windows);
+    expect(pm.map((c) => c.act_scene)).toEqual([
+      "Pages 68 - 80",
+      "Pages 54 - 60",
+      "Pages 50 - 53",
+    ]);
+  });
+
+  it("keeps the morning's own calls with the morning", () => {
+    const am = callsForEvent(day, et("09:00"), et("12:30"), undefined, windows);
+    expect(am.map((c) => c.act_scene)).toEqual(["Pages 40 - 48", "Pages 61 - 68"]);
+  });
+
+  it("tells the whole day's cast the truth", () => {
+    // The families this bug hid: Todd, Lovett, Beadle and the Judge are all
+    // in the afternoon overlay once the orphans land where they belong.
+    const pm = callsForEvent(day, et("13:00"), et("15:00"), undefined, windows);
+    const overlay = overlayFor(pm);
+    for (const name of ["Sweeney Todd", "Mrs. Lovett", "Beadle", "Judge Turpin"]) {
+      expect(overlay.calledNote).toContain(name);
+    }
+  });
+
+  it("does not adopt orphans without the day's full window list", () => {
+    // With only its own window to look at, adopting would over-claim.
+    const pm = callsForEvent(day, et("13:00"), et("15:00"));
+    expect(pm.map((c) => c.act_scene)).toEqual(["Pages 50 - 53"]);
+  });
+});
+
 describe("what families are told", () => {
   it("joins the cast across the rooms of one event, without repeats", () => {
     const overlay = overlayFor([

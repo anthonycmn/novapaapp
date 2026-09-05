@@ -415,6 +415,12 @@ export interface CalendarEvent {
   calledNote?: string;
   /** What this call works: its scene and music lines. */
   worksNote?: string;
+  /**
+   * The show calendar event's own description, flattened to text lines
+   * ("---" line = a divider the calendar drew). The full plan in the
+   * director's words, for the parent who wants more than the notes above.
+   */
+  details?: string;
   /** Set when the event time/location changed after creation. */
   changedAt?: string;
   changeNote?: string;

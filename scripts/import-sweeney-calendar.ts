@@ -11,26 +11,22 @@
  * waiting for the top of the hour, and debugging a feed locally. It shares one
  * implementation with the job, so there is no chance of the two drifting.
  *
- * Needs, in the environment (never committed — a Google "private address" ICS
- * URL is a bearer token for that calendar):
- *   SWEENEY_ICS_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Needs, in the environment:
+ *   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * The feed URLs themselves live in staff_portal.production_calendar_feeds
+ * (each one a bearer token for its calendar — never committed, never echoed).
  *
  * Run: npx tsx --tsconfig scripts/tsconfig.json scripts/import-sweeney-calendar.ts
  *
- * To undo entirely:
- *   delete from family_hub.calendar_events where external_source = 'sweeney_ics';
+ * To undo one feed entirely:
+ *   delete from family_hub.calendar_events where external_source = '<feed key>';
  */
 process.env.NEXT_PUBLIC_DATA_MODE = "supabase";
-import { ICAL_FEEDS } from "../src/config/ical-feeds";
 import { syncIcalFeeds } from "../src/lib/api/ical-sync";
 
 async function main() {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
     throw new Error("Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
-  }
-  const unconfigured = ICAL_FEEDS.filter((feed) => !feed.url).map((feed) => feed.key);
-  if (unconfigured.length) {
-    console.warn(`No URL in the environment for: ${unconfigured.join(", ")}`);
   }
 
   const { feeds } = await syncIcalFeeds();

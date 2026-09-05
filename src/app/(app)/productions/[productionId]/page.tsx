@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { BookMarked, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
-import type { CalendarEvent } from "@/lib/api/types";
+import type { CalendarEvent, FamilyCalendarEvent } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { requestOrigin } from "@/lib/request-origin";
@@ -65,7 +65,7 @@ export default async function ProductionPage({
       provider.getProductionCalendar(user.id, productionId),
       user.familyId
         ? provider.getFamilyCalendar(user.id, user.familyId)
-        : Promise.resolve<CalendarEvent[]>([]),
+        : Promise.resolve<FamilyCalendarEvent[]>([]),
       provider.getShowScenes(productionId),
       // The show's own cast, so the scene list's picker offers this
       // production's roles rather than a list typed into the component.
@@ -180,11 +180,39 @@ export default async function ProductionPage({
             characterName: a.isUnderstudy
               ? `${a.characterName} (understudy)`
               : a.characterName,
+            studentId: student.id,
             studentName: student.preferredName ?? student.firstName,
           }));
       })
     )
   ).flat();
+
+  /*
+   * The per-child view of the schedule — CJ, 5 Sep 2026: a family should
+   * identify at a glance what rehearsal is coming up FOR THEIR CHILD, what
+   * that child will be doing, and whether they have told the show about a
+   * conflict for it. The family calendar already worked out per student which
+   * events they are called to; here it is keyed for the rail, alongside the
+   * family's standing answers so every row shows its own record.
+   */
+  const railStudents = students.map((student) => ({
+    id: student.id,
+    name: student.preferredName ?? student.firstName,
+    roleNames: myRoles
+      .filter((role) => role.studentId === student.id)
+      .map((role) => role.characterName),
+  }));
+  const calledStudentsByEvent = Object.fromEntries(
+    familyEvents
+      .filter((event) => event.productionId === production.id)
+      .map((event) => [event.id, event.studentIds])
+  );
+  const callAnswers = Object.fromEntries(
+    (user.familyId ? await provider.getMyCallResponses(user.id) : []).map((response) => [
+      `${response.eventId}:${response.studentId}`,
+      { status: response.status, reason: response.reason },
+    ])
+  );
 
   return (
     <>
@@ -313,7 +341,13 @@ export default async function ProductionPage({
 
       {/* The one question this page exists to answer, at the size it
           deserves — then the run, for the dates families send to relatives. */}
-      <NextCall event={nextCall} productionId={production.id} />
+      <NextCall
+        event={nextCall}
+        productionId={production.id}
+        students={railStudents}
+        calledStudentIds={nextCall ? (calledStudentsByEvent[nextCall.id] ?? []) : []}
+        answers={callAnswers}
+      />
 
       {myScripts.length > 0 && (
         <Card>
@@ -382,6 +416,9 @@ export default async function ProductionPage({
             sceneNames={sceneNames}
             feedUrl={calendarToken ? `${origin}/api/calendar/${calendarToken}` : undefined}
             productionTitle={production.title}
+            students={railStudents}
+            calledStudentsByEvent={calledStudentsByEvent}
+            answers={callAnswers}
           />
         </div>
       </div>
