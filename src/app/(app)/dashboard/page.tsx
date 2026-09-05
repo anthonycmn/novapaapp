@@ -25,7 +25,11 @@ import {
   StaffHighlight,
 } from "@/components/dashboard/panels";
 import { DashboardArranger, type ArrangerTile } from "@/components/dashboard/arranger";
-import { UpcomingPaymentsPanel } from "@/components/dashboard/upcoming-payments";
+import {
+  BalanceDueStat,
+  BillingAwareEnrollments,
+  UpcomingPaymentsPanel,
+} from "@/components/dashboard/upcoming-payments";
 import { WeekCalendar } from "@/components/dashboard/week-calendar";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
@@ -376,13 +380,29 @@ export default async function DashboardPage() {
               blurb: "What each child is registered for, and what is owed.",
               zone: "top" as const,
             },
+            /* Streamed: the pills tell Stripe's truth (installments vs paid),
+               and the card must not wait on Stripe to paint. The fallback is
+               the same card with the plan unknown — no pill says "Paid"
+               before it has been verified. */
             node: (
-              <EnrollmentsCard
-                enrollments={enrollments}
-                students={students}
-                productions={productions}
-                classes={classes}
-              />
+              <Suspense
+                fallback={
+                  <EnrollmentsCard
+                    enrollments={enrollments}
+                    students={students}
+                    productions={productions}
+                    classes={classes}
+                  />
+                }
+              >
+                <BillingAwareEnrollments
+                  familyId={user.familyId}
+                  enrollments={enrollments}
+                  students={students}
+                  productions={productions}
+                  classes={classes}
+                />
+              </Suspense>
             ),
           },
         ]
@@ -498,19 +518,39 @@ export default async function DashboardPage() {
           tone={nextShow && nextShow.days !== null && nextShow.days <= 7 ? "warn" : "default"}
           href={nextShow ? `/productions/${nextShow.production.id}` : "/shows"}
         />
-        <StatTile
-          label="Balance due"
-          value={balanceCents > 0 ? `$${(balanceCents / 100).toFixed(2)}` : "$0.00"}
-          hint={balanceCents > 0 ? "Tap to pay in your account" : "Nothing outstanding"}
-          tone={balanceCents > 0 ? "warn" : "good"}
-          /*
-           * Balances are owed to the registration system and paid there —
-           * that is where the money and the ledger both live, so paying here
-           * would leave a family chased for what they had already settled.
-           * The tile says what is owed and hands them straight to it.
-           */
-          href={balanceCents > 0 ? registration.parentAccountUrl : undefined}
-        />
+        {/*
+         * Balances are owed to the registration system and paid there — that
+         * is where the money and the ledger both live. For a family on a
+         * payment plan the recorded balance is not the story (a migrated plan
+         * records nothing; a checkout plan's balance goes stale as
+         * installments charge), so the plan-aware tile streams in over this
+         * fallback and says what is LEFT and when the next automatic
+         * withdrawal lands — CJ, 5 Sep 2026, after "Nothing outstanding"
+         * showed over a live $1,381.73 plan.
+         */}
+        {user.familyId ? (
+          <Suspense
+            fallback={
+              <StatTile
+                label="Balance due"
+                value={`$${(balanceCents / 100).toFixed(2)}`}
+                hint={balanceCents > 0 ? "Tap to pay in your account" : "Synced from registration"}
+                tone={balanceCents > 0 ? "warn" : "default"}
+                href={balanceCents > 0 ? registration.parentAccountUrl : undefined}
+              />
+            }
+          >
+            <BalanceDueStat familyId={user.familyId} recordedBalanceCents={balanceCents} />
+          </Suspense>
+        ) : (
+          <StatTile
+            label="Balance due"
+            value={balanceCents > 0 ? `$${(balanceCents / 100).toFixed(2)}` : "$0.00"}
+            hint={balanceCents > 0 ? "Tap to pay in your account" : "Nothing outstanding"}
+            tone={balanceCents > 0 ? "warn" : "good"}
+            href={balanceCents > 0 ? registration.parentAccountUrl : undefined}
+          />
+        )}
         <StatTile
           label="Unread notifications"
           value={unread.length}

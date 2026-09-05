@@ -1,9 +1,12 @@
 import { CalendarClock, ExternalLink } from "lucide-react";
 import { registration } from "@/config/registration";
 import { fetchUpcomingPayments } from "@/lib/api/registration/billing";
+import type { ClassOffering, Enrollment, Production, Student } from "@/lib/api/types";
 import { formatCents, formatDate } from "@/lib/format";
+import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
+import { StatTile } from "@/components/ui/stat-tile";
 
 /**
  * What will be charged, and when — the schedule families kept asking for.
@@ -20,7 +23,7 @@ import { SectionHeader } from "@/components/ui/section-header";
  */
 export async function UpcomingPaymentsPanel({ familyId }: { familyId: string }) {
   const upcoming = await fetchUpcomingPayments(familyId);
-  if (!upcoming) return null;
+  if (!upcoming || upcoming.length === 0) return null;
 
   const [next, ...rest] = upcoming;
   const last = upcoming[upcoming.length - 1];
@@ -91,5 +94,83 @@ export async function UpcomingPaymentsPanel({ familyId }: { familyId: string }) 
         </p>
       </div>
     </Card>
+  );
+}
+
+/**
+ * The enrollments card, upgraded with the family's live plan — streamed so
+ * the pills can tell Stripe's truth without the card waiting on Stripe.
+ * The Suspense fallback renders the same card with `upcoming` undefined:
+ * recorded balances show, and no pill claims "Paid" before verification.
+ */
+export async function BillingAwareEnrollments(props: {
+  familyId: string;
+  enrollments: Enrollment[];
+  students: Student[];
+  productions: Production[];
+  classes: ClassOffering[];
+}) {
+  const { familyId, ...cardProps } = props;
+  const upcoming = await fetchUpcomingPayments(familyId);
+  return <EnrollmentsCard {...cardProps} upcoming={upcoming} />;
+}
+
+/**
+ * The "Balance due" stat, told the way a card statement with autopay tells
+ * it (CJ, 5 Sep 2026): an installment family sees HOW MUCH is left, and the
+ * next withdrawal's amount and date — never "$0.00 · Nothing outstanding"
+ * over a live plan. A membership family sees the renewal. Everyone else
+ * keeps the recorded-balance tile exactly as it was.
+ */
+export async function BalanceDueStat({
+  familyId,
+  recordedBalanceCents,
+}: {
+  familyId: string;
+  recordedBalanceCents: number;
+}) {
+  const upcoming = await fetchUpcomingPayments(familyId);
+  const onPlan = Array.isArray(upcoming) && upcoming.length > 0;
+
+  if (onPlan) {
+    const next = upcoming[0];
+    const finite = upcoming.filter((p) => !p.renews);
+    const nextDate = formatDate(new Date(next.date).toISOString());
+    if (finite.length > 0) {
+      const remaining = finite.reduce((sum, p) => sum + p.amountCents, 0);
+      return (
+        <StatTile
+          label="Left on your payment plan"
+          value={formatCents(remaining)}
+          hint={`Next ${formatCents(next.amountCents)} on ${nextDate} · automatic`}
+          href={registration.parentAccountUrl}
+        />
+      );
+    }
+    return (
+      <StatTile
+        label="Membership"
+        value={formatCents(next.amountCents)}
+        hint={`Renews ${nextDate} · automatic`}
+        href={registration.parentAccountUrl}
+      />
+    );
+  }
+
+  const verified = upcoming !== undefined;
+  return (
+    <StatTile
+      label="Balance due"
+      value={formatCents(Math.max(recordedBalanceCents, 0))}
+      hint={
+        recordedBalanceCents > 0
+          ? "Tap to pay in your account"
+          : verified
+            ? "Nothing outstanding"
+            : "Synced from registration"
+      }
+      tone={recordedBalanceCents > 0 ? "warn" : verified ? "good" : "default"}
+      href={recordedBalanceCents > 0 ? registration.parentAccountUrl : undefined}
+    />
   );
 }

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { getServiceClient, getWebsiteReadClient, isSupabaseConfigured } from "../supabase/client";
 
 /**
@@ -21,9 +22,15 @@ import { getServiceClient, getWebsiteReadClient, isSupabaseConfigured } from "..
  * caller must already be authenticated as a guardian of exactly this family;
  * nothing here is reachable with anyone else's familyId.
  *
- * FAILURE IS SILENCE, like the account page itself: no link, no token, a
- * slow or failing endpoint — all return null, and the dashboard renders no
- * billing section rather than a broken one.
+ * THREE ANSWERS, AND THE DIFFERENCE IS THE POINT (CJ, 5 Sep 2026: a plan
+ * family reading "Paid" is the mistake this build exists to end):
+ *
+ *   UpcomingPayment[]  the endpoint answered. Empty means VERIFIED no
+ *                      upcoming charges — "Paid" may be said out loud.
+ *   null               no registration link or token: no plan can exist
+ *                      through registration, so recorded balances stand.
+ *   undefined          could not verify (endpoint down, timeout, malformed).
+ *                      Callers must claim NOTHING — not "Paid", not a plan.
  */
 
 /** One future charge, exactly as the registration site states it. */
@@ -38,29 +45,40 @@ export interface UpcomingPayment {
   renews: boolean;
 }
 
+export type BillingAnswer = UpcomingPayment[] | null | undefined;
+
 const REG_ACCOUNT_URL = "https://novapa.org/api/reg-account";
 const FETCH_TIMEOUT_MS = 12_000;
 
-export async function fetchUpcomingPayments(
+/**
+ * Wrapped in React cache(): the dashboard asks three times per load (the
+ * balance stat, the enrollment pills, the schedule panel) and the family's
+ * plan must be fetched once and answered identically to all three.
+ */
+export const fetchUpcomingPayments = cache(fetchUpcomingPaymentsUncached);
+
+async function fetchUpcomingPaymentsUncached(
   familyId: string
-): Promise<UpcomingPayment[] | null> {
-  if (!familyId || !isSupabaseConfigured()) return null;
+): Promise<BillingAnswer> {
+  if (!familyId || !isSupabaseConfigured()) return undefined;
   try {
     const hub = getServiceClient();
-    const { data: link } = await hub
+    const { data: link, error: linkError } = await hub
       .from("registration_account_links")
       .select("external_id")
       .eq("family_id", familyId)
       .eq("source", "website")
       .maybeSingle();
+    if (linkError) return undefined;
     const externalId = (link as { external_id?: string } | null)?.external_id;
     if (!externalId) return null;
 
-    const { data: fam } = await getWebsiteReadClient()
+    const { data: fam, error: famError } = await getWebsiteReadClient()
       .from("families")
       .select("portal_token")
       .eq("id", externalId)
       .maybeSingle();
+    if (famError) return undefined;
     const token = (fam as { portal_token?: string } | null)?.portal_token;
     if (!token || !/^[0-9a-f-]{36}$/.test(token)) return null;
 
@@ -75,15 +93,20 @@ export async function fetchUpcomingPayments(
         cache: "no-store",
         signal: controller.signal,
       });
-      if (!res.ok) return null;
+      if (!res.ok) return undefined;
       payload = await res.json();
     } finally {
       clearTimeout(timer);
     }
 
-    const raw = (payload as { payments?: { upcoming?: unknown } | null } | null)
-      ?.payments?.upcoming;
-    if (!Array.isArray(raw)) return null;
+    const payments = (payload as { payments?: { upcoming?: unknown } | null } | null)
+      ?.payments;
+    // The endpoint reports null when IT could not read Stripe (key absent,
+    // outage). That is "unknown", never "no plan" — the account page hides
+    // its section on the same signal.
+    if (payments == null) return undefined;
+    const raw = payments.upcoming;
+    if (!Array.isArray(raw)) return undefined;
 
     // Trust nothing implicitly: a row is shown only when its date and amount
     // are real numbers. A malformed row is dropped, never rendered as $NaN.
@@ -104,8 +127,8 @@ export async function fetchUpcomingPayments(
       });
     }
     upcoming.sort((a, b) => a.date - b.date);
-    return upcoming.length ? upcoming : null;
+    return upcoming;
   } catch {
-    return null; // billing display must never break the dashboard
+    return undefined; // billing display must never break the dashboard
   }
 }
