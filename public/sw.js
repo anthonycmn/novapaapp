@@ -7,7 +7,7 @@
  *  - Never cache API/auth routes.
  * Phase 3 adds calendar payload caching; Phase 2 adds push handlers.
  */
-const VERSION = "v4";
+const VERSION = "v5";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -106,7 +106,10 @@ self.addEventListener("push", (event) => {
     self.registration.showNotification(payload.title ?? "NOVA PA", {
       body: payload.body ?? "",
       icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      /* The status-bar glyph. Android renders ONLY this image's alpha, so a
+         full-colour icon here becomes a white square (CJ, 5 Sep 2026) —
+         it must be a pure silhouette: the white butterfly, on nothing. */
+      badge: "/icons/badge-96.png",
       data: { url: payload.url ?? "/" },
       tag: payload.tag,
     })
