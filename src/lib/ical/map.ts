@@ -61,6 +61,14 @@ export interface CalledList {
   companyCount?: number;
   /** True when the calendar explicitly says nobody is called. */
   nobodyCalled: boolean;
+  /**
+   * True for "CALLED — 40 of 40." with no names listed — the Frozen
+   * calendars' way of saying everyone. Without this, the only names the
+   * parser could find were strays in the prose ("Elsa does not run #22
+   * full-out between shows"), and a performance would have shown to one
+   * family instead of forty.
+   */
+  fullCompany?: boolean;
 }
 
 /**
@@ -85,15 +93,18 @@ export function calledFrom(description: string): CalledList {
 
   // Preferred: the summary footer's "CALLED — 12 of 12:" and the line under it.
   for (let i = 0; i < summary.length; i++) {
-    const header = summary[i].match(/^CALLED\s*[—–-]\s*(\d+)\s*of\s*(\d+)\s*:?\s*(.*)$/i);
+    const header = summary[i].match(/^CALLED\s*[—–-]\s*(\d+)\s*of\s*(\d+)\s*[:.]?\s*(.*)$/i);
     if (!header) continue;
     const inline = header[3].trim();
     const names = splitNames(inline || summary[i + 1] || "");
+    const calledCount = Number(header[1]);
+    const companyCount = Number(header[2]);
     return {
       called: names,
-      calledCount: Number(header[1]),
-      companyCount: Number(header[2]),
-      nobodyCalled: Number(header[1]) === 0,
+      calledCount,
+      companyCount,
+      nobodyCalled: calledCount === 0,
+      fullCompany: names.length === 0 && calledCount > 0 && calledCount === companyCount,
     };
   }
 
@@ -119,14 +130,17 @@ export function calledFrom(description: string): CalledList {
 function splitNames(value: string): string[] {
   return value
     .split(/\s*[·•]\s*/)
-    .map((name) => name.trim())
-    .filter((name) => name.length > 0 && !/^nobody\b/i.test(name));
+    .map((name) => name.trim().replace(/[.]+$/, ""))
+    // A token with no letters is punctuation left over from the header
+    // ("CALLED — 40 of 40." leaves a bare full stop), not a name.
+    .filter((name) => /\p{L}/u.test(name) && !/^nobody\b/i.test(name));
 }
 
 /** A one-line "called" summary for the row, or undefined when unknown. */
 export function calledNoteFor(description: string): string | undefined {
-  const { called, nobodyCalled } = calledFrom(description);
+  const { called, nobodyCalled, fullCompany } = calledFrom(description);
   if (nobodyCalled && called.length === 0) return "No student call";
+  if (fullCompany) return "Full company";
   if (called.length === 0) return undefined;
   return called.join(" · ");
 }
@@ -454,8 +468,18 @@ export function blockSheetFrom(
          * Turpin — and that is the direction to err in. An extra call on a
          * family's page is a question; a missing one is a child who never
          * came.
+         *
+         * SHORT phrases only. The Frozen calendars write whole sentences into
+         * their descriptions ("Elsa in particular does not run #22 full-out
+         * between shows"), and fishing a name out of prose is not reading a
+         * call sheet — it once would have made that sentence the entire cast
+         * of a performance. A phrase longer than four words is prose.
          */
         const words = token.split(/\s+/);
+        if (words.length > 4) {
+          prose.push(token);
+          continue;
+        }
         const hits = words.filter((word) => roleFor(word, roles, aliases));
         if (hits.length > 0) {
           for (const word of hits) {

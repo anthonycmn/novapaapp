@@ -176,18 +176,24 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
         songTitles
       );
       if (!row.called_note && sheet.called.length > 0) {
-        row.called_note = sheet.called.join(" · ");
+        // A sheet that names the entire cast one by one — "Featured: Whole
+        // company" on a show with 85 roles — reads better as two words than
+        // as 85; the unresolvable phrase leaves role_ids null, which IS
+        // "show this to everyone".
+        row.called_note =
+          sheet.called.length === (roles ?? []).length
+            ? "Full company"
+            : sheet.called.join(" · ");
       }
-      // Last resort: a title that says FULL COMPANY in so many words. Several
-      // calls carry it there and nowhere else — "COSTUME PARADE - FULL
-      // COMPANY" has an empty description. Only the unambiguous phrase counts;
-      // titles never yield individual characters, or the call titled "SWEENEY
-      // TODD" would summon one boy to a rehearsal meant for the whole company.
       if (!row.works_note) {
-        const note = [
-          ...sheet.pages.map((run) => `Pages ${run}`),
-          ...sheet.prose,
-        ].join(" · ");
+        /*
+         * Only lines that read like labels. The Frozen calendars write whole
+         * teaching paragraphs into their descriptions, and gluing those into
+         * one rail note made it unreadable — the full text is on the row
+         * anyway, as details. Short fragments and page runs are the summary.
+         */
+        const prose = sheet.prose.filter((part) => part.length <= 64).slice(0, 5);
+        const note = [...sheet.pages.map((run) => `Pages ${run}`), ...prose].join(" · ");
         if (note) row.works_note = note;
       }
       // Last resort: a title that says FULL COMPANY in so many words. Several

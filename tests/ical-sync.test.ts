@@ -202,6 +202,30 @@ describe("who is called to each rehearsal", () => {
     expect(calledNoteFor(parentsOnly)).toBe("No student call");
   });
 
+  /**
+   * The Frozen calendars' shorthand: "CALLED — 40 of 40." names nobody
+   * because it means everybody. Before this was read as such, the only
+   * names findable were strays in the prose ("Elsa in particular does not
+   * run #22 full-out between shows") — and a two-show Saturday would have
+   * appeared on exactly one family's calendar.
+   */
+  it("reads an n-of-n with no names as the full company", () => {
+    const matinee =
+      "<b>12:30 PM</b> — Cast call and sign-in. Costumes on.<br>" +
+      "<b>Vocal note:</b> Elsa in particular does not run #22 full-out between shows.<br>" +
+      "<hr><b>CALLED — 40 of 40.</b>";
+    const list = calledFrom(matinee);
+    expect(list.fullCompany).toBe(true);
+    expect(list.called).toEqual([]);
+    expect(calledNoteFor(matinee)).toBe("Full company");
+  });
+
+  it("does not call an n-of-m with no names anything at all", () => {
+    // A count without names is information we cannot act on by name.
+    expect(calledFrom("<b>CALLED — 12 of 40.</b>").fullCompany).toBeFalsy();
+    expect(calledNoteFor("<b>CALLED — 12 of 40.</b>")).toBeUndefined();
+  });
+
   it("returns nothing rather than guessing when the description is silent", () => {
     expect(calledNoteFor("<b>Some note with no call list</b>")).toBeUndefined();
     expect(calledNoteFor("")).toBeUndefined();
@@ -511,6 +535,19 @@ describe("the free-form call sheet", () => {
     const sheet = read("7pm - 9pm - Pages 5 - 9 - Anthony, Mxyzptlk");
     expect(sheet.called).toEqual(["Anthony Hope"]);
     expect(sheet.unknown).toEqual(["Mxyzptlk"]);
+  });
+
+  /**
+   * Prose is not a call sheet. A sentence that happens to contain a
+   * character's name ("Johanna" in a vocal note) must not become the cast —
+   * the salvage rule only reaches into short phrases like "Anthony & Johanna
+   * Vocals", never into sentences.
+   */
+  it("does not fish a name out of a sentence", () => {
+    const sheet = read(
+      "Vocal note: Johanna in particular does not run the aria full-out between shows"
+    );
+    expect(sheet.called).toEqual([]);
   });
 
   /** The whole point: this note then feeds the existing role_ids matcher. */
