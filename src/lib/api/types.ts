@@ -702,6 +702,11 @@ export interface ButtonTemplate {
   backgroundImageUrl?: string;
   /** Hex accent used for the ring and text. */
   accentColor: string;
+  /**
+   * CSS font-family stack the name/role are lettered in (hub 0069) — one of
+   * BUTTON_FONTS in lib/store/button-artwork. Absent = the system default.
+   */
+  fontFamily?: string;
   seasonName: string;
   isActive: boolean;
 }

@@ -103,7 +103,6 @@ export function ButtonDesigner({
           size={size}
           style={style}
           template={template}
-          showTitle={production?.title}
         />
         <p className="text-sm text-muted-foreground">
           {size}&quot; · {formatCents(BUTTON_PRICES_CENTS[size])} each

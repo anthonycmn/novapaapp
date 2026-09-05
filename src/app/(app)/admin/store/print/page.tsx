@@ -81,7 +81,6 @@ export default async function PrintSheetPage({
                       size={item.size}
                       style={item.style}
                       template={template}
-                      showTitle={production?.title}
                       printInches
                     />
                     <p className="mt-0.5 text-[8px] text-muted-foreground print:text-black">

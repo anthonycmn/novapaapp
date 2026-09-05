@@ -6,7 +6,7 @@ import { saveButtonTemplateAction } from "@/lib/actions/button-templates";
 import type { ButtonTemplate, Production } from "@/lib/api/types";
 import type { FamilyFormState } from "@/lib/actions/family";
 import { readImageFile, ImageRejectedError } from "@/lib/platform/image-picker";
-import { renderButtonArtwork } from "@/lib/store/button-artwork";
+import { BUTTON_FONTS, DEFAULT_BUTTON_FONT, renderButtonArtwork } from "@/lib/store/button-artwork";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ export function TemplateForm({
   const [removed, setRemoved] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [accent, setAccent] = useState(template?.accentColor ?? "#8e1f2f");
+  const [font, setFont] = useState(template?.fontFamily ?? DEFAULT_BUTTON_FONT);
   const [sample, setSample] = useState<string>("");
   const [state, formAction, pending] = useActionState(saveButtonTemplateAction, initialState);
 
@@ -65,10 +66,10 @@ export function TemplateForm({
           {
             backgroundUrl: effectiveBackground,
             accentColor: accent,
+            fontFamily: font,
             photoIsCutout: false,
             studentName: "Performer Name",
             role: "Their Role",
-            showTitle: production.title,
             size: "3",
           },
           448
@@ -81,7 +82,7 @@ export function TemplateForm({
     return () => {
       cancelled = true;
     };
-  }, [effectiveBackground, accent, production.title]);
+  }, [effectiveBackground, accent, font]);
 
   return (
     <form
@@ -94,6 +95,7 @@ export function TemplateForm({
       <input type="hidden" name="seasonName" value={template?.seasonName ?? ""} />
       <input type="hidden" name="backgroundDataUrl" value={background} />
       <input type="hidden" name="removeBackground" value={String(removed)} />
+      <input type="hidden" name="fontFamily" value={font} />
 
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-[14.5px] font-semibold leading-snug">{production.title}</h2>
@@ -183,6 +185,23 @@ export function TemplateForm({
               />
             </div>
             <FieldError message={state.errors?.accentColor} />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`font-${production.id}`}>Font</Label>
+            <select
+              id={`font-${production.id}`}
+              value={font}
+              onChange={(event) => setFont(event.target.value)}
+              className="h-9 rounded-md border bg-transparent px-2 text-sm"
+            >
+              {BUTTON_FONTS.map((option) => (
+                <option key={option.label} value={option.value} style={{ fontFamily: option.value }}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <FieldError message={state.errors?.fontFamily} />
           </div>
 
           <FieldError message={state.errors?._form} />

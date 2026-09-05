@@ -4124,6 +4124,7 @@ class SupabaseDataProvider {
       logoUrl: s(row.logo_url),
       backgroundImageUrl: s(row.background_image_url),
       accentColor: String(row.accent_color ?? "#8e1f2f"),
+      fontFamily: s(row.font_family),
       seasonName: String(row.season_name ?? ""),
       isActive: Boolean(row.is_active),
     };
@@ -4234,6 +4235,7 @@ class SupabaseDataProvider {
       logo_url: template.logoUrl ?? null,
       background_image_url: template.backgroundImageUrl ?? null,
       accent_color: template.accentColor,
+      font_family: template.fontFamily ?? null,
       season_name: template.seasonName,
       is_active: template.isActive,
     };

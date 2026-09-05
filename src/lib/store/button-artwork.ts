@@ -37,10 +37,31 @@ export const FACE_DIAMETER_IN: Record<ButtonSize, number> = {
   "3.5": 3.5,
 };
 
+/**
+ * The letterforms a show may pick for its buttons (hub 0069). Every stack is
+ * web-safe on purpose: the print file is drawn in the PARENT'S browser at
+ * submit, so a font that needs downloading would silently fall back on some
+ * devices and the pressed button would not match the approved sample. The
+ * value is stored verbatim in button_templates.font_family.
+ */
+export const BUTTON_FONTS: ReadonlyArray<{ label: string; value: string }> = [
+  { label: "Classic", value: "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" },
+  { label: "Serif", value: "Georgia, 'Times New Roman', serif" },
+  { label: "Poster", value: "Impact, 'Arial Black', sans-serif" },
+  { label: "Rounded", value: "'Trebuchet MS', 'Segoe UI', sans-serif" },
+  { label: "Typewriter", value: "'Courier New', Courier, monospace" },
+  { label: "Playful", value: "'Comic Sans MS', 'Comic Sans', cursive" },
+  { label: "Script", value: "'Brush Script MT', 'Segoe Script', cursive" },
+];
+
+export const DEFAULT_BUTTON_FONT = BUTTON_FONTS[0].value;
+
 export interface ButtonArtworkSpec {
   /** Show background (data URL). Absent = accent radial gradient. */
   backgroundUrl?: string;
   accentColor: string;
+  /** Font stack for the name/role — a BUTTON_FONTS value. Absent = Classic. */
+  fontFamily?: string;
   /** The performer image (data URL); a transparent cutout or a plain photo. */
   photoUrl?: string;
   /** True when photoUrl has a transparent background and should stand ON the
@@ -48,7 +69,6 @@ export interface ButtonArtworkSpec {
   photoIsCutout: boolean;
   studentName: string;
   role: string;
-  showTitle: string;
   size: ButtonSize;
 }
 
@@ -93,9 +113,9 @@ function fitText(
   y: number,
   maxWidth: number,
   px: number,
-  weight: number
+  weight: number,
+  family: string = DEFAULT_BUTTON_FONT
 ) {
-  const family = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
   let size = px;
   context.font = `${weight} ${size}px ${family}`;
   while (size > px * 0.55 && context.measureText(text).width > maxWidth) {
@@ -105,23 +125,6 @@ function fitText(
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillText(text, cx, y, maxWidth);
-}
-
-function roundedRect(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number
-) {
-  context.beginPath();
-  context.moveTo(x + radius, y);
-  context.arcTo(x + width, y, x + width, y + height, radius);
-  context.arcTo(x + width, y + height, x, y + height, radius);
-  context.arcTo(x, y + height, x, y, radius);
-  context.arcTo(x, y, x + width, y, radius);
-  context.closePath();
 }
 
 /**
@@ -225,35 +228,26 @@ export async function renderButtonArtwork(
     context.restore();
   }
 
-  /* ---- name + role banner ---- */
+  /* ---- name + role stripe, full bleed ----
+     CJ, 5 Sep 2026: the stripe runs the whole way across the button (the
+     circle clip trims it to the edge), and there is no show-title pill —
+     the title lives in the uploaded artwork now. Text still stays inside
+     the face so nothing legible wraps around the back. */
   if (spec.studentName) {
-    const bannerWidth = faceR * 2 * 0.86;
+    const font = spec.fontFamily || DEFAULT_BUTTON_FONT;
+    const textWidth = faceR * 2 * 0.86;
     context.fillStyle = accent;
-    roundedRect(context, c - bannerWidth / 2, bannerTop, bannerWidth, bannerHeight, ppi * 0.045);
-    context.fill();
+    context.fillRect(0, bannerTop, diameterPx, bannerHeight);
 
     context.fillStyle = onAccent;
     const namePx = ppi * 0.16;
     const rolePx = ppi * 0.12;
     if (spec.role) {
-      fitText(context, spec.studentName, c, bannerTop + bannerHeight * 0.32, bannerWidth * 0.92, namePx, 700);
-      fitText(context, spec.role, c, bannerTop + bannerHeight * 0.72, bannerWidth * 0.92, rolePx, 500);
+      fitText(context, spec.studentName, c, bannerTop + bannerHeight * 0.32, textWidth * 0.92, namePx, 700, font);
+      fitText(context, spec.role, c, bannerTop + bannerHeight * 0.72, textWidth * 0.92, rolePx, 500, font);
     } else {
-      fitText(context, spec.studentName, c, bannerTop + bannerHeight * 0.52, bannerWidth * 0.92, namePx, 700);
+      fitText(context, spec.studentName, c, bannerTop + bannerHeight * 0.52, textWidth * 0.92, namePx, 700, font);
     }
-  }
-
-  /* ---- show title pill along the top ---- */
-  if (spec.showTitle) {
-    const titlePx = ppi * 0.11;
-    const pillWidth = faceR * 2 * 0.76;
-    const pillHeight = titlePx * 1.7;
-    const pillTop = c - faceR * 0.86;
-    context.fillStyle = accent;
-    roundedRect(context, c - pillWidth / 2, pillTop, pillWidth, pillHeight, pillHeight / 2);
-    context.fill();
-    context.fillStyle = onAccent;
-    fitText(context, spec.showTitle, c, pillTop + pillHeight * 0.54, pillWidth * 0.9, titlePx, 600);
   }
 
   context.restore();

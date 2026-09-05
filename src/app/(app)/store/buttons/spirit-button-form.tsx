@@ -153,11 +153,11 @@ export function SpiritButtonForm({
         const drawn = await renderPrintFile({
           backgroundUrl: template.backgroundImageUrl,
           accentColor: template.accentColor,
+          fontFamily: template.fontFamily,
           photoUrl: cutout?.dataUrl ?? photo.dataUrl,
           photoIsCutout: Boolean(cutout),
           studentName,
           role,
-          showTitle: production.title,
           size,
         });
         if (!cancelled && token === pickToken.current) setArtwork(drawn);
@@ -172,7 +172,7 @@ export function SpiritButtonForm({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [photo, cutout, cutting, studentName, role, size, template, production.title]);
+  }, [photo, cutout, cutting, studentName, role, size, template]);
 
   if (state.ok) {
     return (
@@ -229,7 +229,6 @@ export function SpiritButtonForm({
             size={size}
             style={style}
             template={template}
-            showTitle={production.title}
           />
         )}
         <p className="text-[13px] text-muted-foreground">

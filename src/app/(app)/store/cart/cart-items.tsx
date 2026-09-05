@@ -44,7 +44,6 @@ export function CartItems({
                     size={button.size}
                     style={button.style}
                     template={template}
-                    showTitle={production?.title}
                     className="!w-20 !h-20 shrink-0"
                   />
                 ) : (

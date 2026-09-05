@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { assertUploadAllowed } from "@/lib/api/storage";
+import { BUTTON_FONTS } from "@/lib/store/button-artwork";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -25,6 +26,12 @@ const templateSchema = z.object({
   name: z.string().min(1, "Name the template").max(80),
   seasonName: z.string().max(80),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Pick an accent color"),
+  /** One of BUTTON_FONTS — the row stores the stack, not the label. */
+  fontFamily: z
+    .string()
+    .refine((value) => !value || BUTTON_FONTS.some((font) => font.value === value), {
+      message: "Pick a font from the list",
+    }),
   /** New background (data URL); empty string = keep what's there. */
   backgroundDataUrl: z.string(),
   /** "true" removes the background entirely. */
@@ -46,6 +53,7 @@ export async function saveButtonTemplateAction(
     name: String(formData.get("name") ?? "").trim(),
     seasonName: String(formData.get("seasonName") ?? "").trim(),
     accentColor: String(formData.get("accentColor") ?? "").trim(),
+    fontFamily: String(formData.get("fontFamily") ?? ""),
     backgroundDataUrl: String(formData.get("backgroundDataUrl") ?? ""),
     removeBackground: formData.get("removeBackground") === "true",
   });
@@ -85,6 +93,7 @@ export async function saveButtonTemplateAction(
       name: input.name,
       seasonName: input.seasonName,
       accentColor: input.accentColor,
+      fontFamily: input.fontFamily || undefined,
       frameImageUrl: existing?.frameImageUrl,
       logoUrl: existing?.logoUrl,
       backgroundImageUrl: input.removeBackground

@@ -16,7 +16,6 @@ export function ButtonPreview({
   size,
   style,
   template,
-  showTitle,
   className,
   printInches,
 }: {
@@ -32,7 +31,6 @@ export function ButtonPreview({
   size: ButtonSize;
   style: ButtonStyle;
   template?: ButtonTemplate;
-  showTitle?: string;
   className?: string;
   /** When set, render at true physical size for printing. */
   printInches?: boolean;
@@ -69,7 +67,7 @@ export function ButtonPreview({
 
   return (
     <div
-      className={cn("relative shrink-0 select-none", className)}
+      className={cn("relative shrink-0 select-none overflow-hidden rounded-full", className)}
       style={{ width: dimension, height: dimension }}
     >
       {/* Outer ring in the show's accent color */}
@@ -112,10 +110,16 @@ export function ButtonPreview({
         </div>
       )}
 
-      {/* Name + role banner */}
+      {/* Name + role stripe — full width, trimmed by the circle's own edge
+          (overflow-hidden on the wrapper). No show-title pill: the title
+          lives in the show's uploaded artwork now (hub 0069). */}
       <div
-        className="absolute inset-x-[7%] bottom-[9%] rounded-md px-1 py-0.5 text-center"
-        style={{ backgroundColor: accent, color: onAccent }}
+        className="absolute inset-x-0 bottom-[9%] px-1 py-0.5 text-center"
+        style={{
+          backgroundColor: accent,
+          color: onAccent,
+          fontFamily: template?.fontFamily,
+        }}
       >
         <p
           className="truncate font-semibold leading-tight"
@@ -132,23 +136,6 @@ export function ButtonPreview({
           </p>
         )}
       </div>
-
-      {/* Show + season along the top. This sits over the photo well, whose
-          color we don't control (any uploaded image, or the empty-state
-          background), so it carries its own accent pill — contrast is
-          guaranteed rather than incidental. */}
-      {(showTitle || template) && (
-        <p
-          className="absolute inset-x-[12%] top-[7%] truncate rounded px-1 text-center font-semibold leading-tight"
-          style={{
-            fontSize: printInches ? "0.11in" : "0.65rem",
-            color: onAccent,
-            backgroundColor: accent,
-          }}
-        >
-          {showTitle ?? template?.seasonName}
-        </p>
-      )}
     </div>
   );
 }
