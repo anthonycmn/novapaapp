@@ -228,6 +228,15 @@ function AgendaView({
   events: FamilyCalendarEvent[];
   colorByStudent: Record<string, string>;
 }) {
+  // The agenda opens at today, not at the first event of the season —
+  // finished days move into a collapsed archive instead of pushing the
+  // whole list back to opening night.
+  const [showPast, setShowPast] = useState(false);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const past = events.filter((event) => new Date(event.startsAt) < todayStart);
+  const upcoming = events.filter((event) => new Date(event.startsAt) >= todayStart);
+
   if (events.length === 0) {
     return (
       <Card>
@@ -239,9 +248,33 @@ function AgendaView({
   }
   return (
     <div className="flex flex-col gap-2">
-      {events.map((event) => (
-        <EventCard key={event.id} event={event} colorByStudent={colorByStudent} />
-      ))}
+      {past.length > 0 && (
+        <button
+          type="button"
+          aria-expanded={showPast}
+          onClick={() => setShowPast((current) => !current)}
+          className="min-h-9 rounded-lg border text-sm font-medium text-muted-foreground hover:bg-accent"
+        >
+          {showPast
+            ? "Hide past events"
+            : `Show ${past.length} past event${past.length === 1 ? "" : "s"}`}
+        </button>
+      )}
+      {showPast &&
+        past.map((event) => (
+          <EventCard key={event.id} event={event} colorByStudent={colorByStudent} />
+        ))}
+      {upcoming.length === 0 ? (
+        <Card>
+          <CardContent className="p-10 text-center text-sm text-muted-foreground">
+            Nothing coming up. Enjoy the intermission!
+          </CardContent>
+        </Card>
+      ) : (
+        upcoming.map((event) => (
+          <EventCard key={event.id} event={event} colorByStudent={colorByStudent} />
+        ))
+      )}
     </div>
   );
 }
