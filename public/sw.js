@@ -7,7 +7,7 @@
  *  - Never cache API/auth routes.
  * Phase 3 adds calendar payload caching; Phase 2 adds push handlers.
  */
-const VERSION = "v2";
+const VERSION = "v3";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -115,16 +115,46 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url ?? "/";
+  /* Absolute, because openWindow/navigate resolve relative URLs differently
+     across platforms, and the tap must land on the row's page every time —
+     a reply's notification carries /messages/<threadId>, and that is where
+     the parent expects to be standing. */
+  const target = new URL(event.notification.data?.url ?? "/", self.location.origin).href;
   event.waitUntil(
-    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if (client.url.includes(self.location.origin) && "focus" in client) {
-          client.navigate(url);
-          return client.focus();
+    (async () => {
+      const windows = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of windows) {
+        if (new URL(client.url).origin !== self.location.origin) continue;
+        /* FOCUS FIRST, then navigate. The old order navigated before
+           focusing; on Android the navigate() of a background window can
+           reject, the waitUntil promise died, and the app flashed open and
+           vanished (CJ, 5 Sep 2026: "it only opens quickly and then
+           disappears"). A focus that lands is worth keeping even if the
+           navigation is then refused. */
+        try {
+          await client.focus();
+        } catch {
+          continue;
         }
+        try {
+          await client.navigate(target);
+        } catch {
+          /* Uncontrolled or cross-scope window: focused but not moved.
+             The user is in the app; the bell badge takes them the rest
+             of the way. */
+        }
+        return;
       }
-      return self.clients.openWindow(url);
-    })
+      try {
+        await self.clients.openWindow(target);
+      } catch {
+        /* Some Android WebAPK states refuse deep-link opens; open the app
+           at its root rather than doing nothing at all. */
+        await self.clients.openWindow("/");
+      }
+    })()
   );
 });
