@@ -91,6 +91,72 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return cached;
 }
 
+/**
+ * The accent a piece of artwork asks for — its dominant saturated color.
+ *
+ * CJ, 5 Sep 2026: "the accent color should also pull from the artwork
+ * automatically." The artwork desks call this when a background is uploaded
+ * and prefill the accent with the answer; the admin can still override it.
+ *
+ * How: the image is sampled at 64×64, pixels are bucketed by coarse RGB
+ * (4 bits per channel), and each bucket is scored by how many pixels it
+ * holds weighted by how saturated they are — so a big vivid region beats
+ * both a larger wash of gray and a tiny splash of neon. Near-white and
+ * near-black pixels are skipped outright: they are usually sky, paper, or
+ * outline, and neither makes a stripe a name can sit on. Returns null when
+ * nothing qualifies (an all-gray image) rather than inventing a color.
+ */
+export async function accentFromArtwork(dataUrl: string): Promise<string | null> {
+  const image = await loadImage(dataUrl);
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  context.drawImage(image, 0, 0, size, size);
+
+  let pixels: Uint8ClampedArray;
+  try {
+    pixels = context.getImageData(0, 0, size, size).data;
+  } catch {
+    return null; // tainted canvas — never the case for data URLs, but cheap to survive
+  }
+
+  const buckets = new Map<number, { score: number; r: number; g: number; b: number; n: number }>();
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i];
+    const g = pixels[i + 1];
+    const b = pixels[i + 2];
+    if (pixels[i + 3] < 128) continue;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (min > 232 || max < 28) continue; // near-white / near-black
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+    const bucket = buckets.get(key) ?? { score: 0, r: 0, g: 0, b: 0, n: 0 };
+    bucket.score += 0.05 + saturation;
+    bucket.r += r;
+    bucket.g += g;
+    bucket.b += b;
+    bucket.n += 1;
+    buckets.set(key, bucket);
+  }
+
+  let best: { score: number; r: number; g: number; b: number; n: number } | null = null;
+  for (const bucket of buckets.values()) {
+    if (!best || bucket.score > best.score) best = bucket;
+  }
+  if (!best || best.n === 0) return null;
+
+  const chosen = best;
+  const toHex = (sum: number) =>
+    Math.round(sum / chosen.n)
+      .toString(16)
+      .padStart(2, "0");
+  return `#${toHex(chosen.r)}${toHex(chosen.g)}${toHex(chosen.b)}`;
+}
+
 /** Draw `image` covering a circle centred at (cx, cy) with radius r. */
 function drawCover(
   context: CanvasRenderingContext2D,

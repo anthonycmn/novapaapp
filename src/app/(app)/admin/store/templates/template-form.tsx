@@ -6,7 +6,12 @@ import { saveButtonTemplateAction } from "@/lib/actions/button-templates";
 import type { ButtonTemplate, Production } from "@/lib/api/types";
 import type { FamilyFormState } from "@/lib/actions/family";
 import { readImageFile, ImageRejectedError } from "@/lib/platform/image-picker";
-import { BUTTON_FONTS, DEFAULT_BUTTON_FONT, renderButtonArtwork } from "@/lib/store/button-artwork";
+import {
+  accentFromArtwork,
+  BUTTON_FONTS,
+  DEFAULT_BUTTON_FONT,
+  renderButtonArtwork,
+} from "@/lib/store/button-artwork";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +54,10 @@ export function TemplateForm({
       const picked = await readImageFile(file, BACKGROUND_BUDGET);
       setBackground(picked.dataUrl);
       setRemoved(false);
+      // The artwork names its own accent (dominant saturated color); the
+      // pickers below stay live for overriding it.
+      const pulled = await accentFromArtwork(picked.dataUrl).catch(() => null);
+      if (pulled) setAccent(pulled);
     } catch (error) {
       setUploadError(
         error instanceof ImageRejectedError ? error.message : "Could not read that image."
