@@ -1,4 +1,5 @@
-import { ICAL_FEEDS, type IcalFeed } from "@/config/ical-feeds";
+import { type IcalFeed } from "@/config/ical-feeds";
+import { loadIcalFeeds } from "@/lib/ical/feeds";
 import { parseIcal } from "@/lib/ical/parse";
 import {
   rowFor,
@@ -10,6 +11,7 @@ import {
 import {
   callsForEvent,
   overlayFor,
+  type EventWindow,
   type PortalCall,
 } from "@/lib/ical/portal-calls";
 import { getPortalReadClient, getServiceClient } from "@/lib/api/supabase/client";
@@ -116,21 +118,25 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
    * this empty and the feed's own prose stands.
    */
   let portalCalls: PortalCall[] = [];
-  if (feed.portalTitle) {
+  if (feed.portalProductionId || feed.portalTitle) {
     try {
       const portal = getPortalReadClient();
-      const { data: production } = await portal
-        .from("productions")
-        .select("id")
-        .eq("title", feed.portalTitle)
-        .maybeSingle();
-      if (production?.id) {
+      let portalProductionId = feed.portalProductionId;
+      if (!portalProductionId && feed.portalTitle) {
+        const { data: production } = await portal
+          .from("productions")
+          .select("id")
+          .eq("title", feed.portalTitle)
+          .maybeSingle();
+        portalProductionId = production?.id ? String(production.id) : undefined;
+      }
+      if (portalProductionId) {
         const { data } = await portal
           .from("curriculum_calls")
           .select(
             "call_date, starts_at, ends_at, call_type, room, staff_leading, act_scene, material, called, calendar_status"
           )
-          .eq("production_id", production.id)
+          .eq("production_id", portalProductionId)
           .order("call_date");
         portalCalls = (data ?? []) as PortalCall[];
       }
@@ -142,8 +148,23 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     }
   }
 
+  // Every timed window, so a call landing between two events on the same day
+  // is handed to the right one rather than dropped — see callsForEvent.
+  const dayWindows: EventWindow[] = rows.map((row) => ({
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+  }));
+
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
+    /*
+     * Did the calendar itself state who is called? A labelled call sheet
+     * ("CALLED — 11 of 12: …") is CJ speaking directly, and nothing below is
+     * allowed to shrink it — the 3 Sep call said eleven names while the
+     * curriculum still held the old workbook's seven, and families were shown
+     * the seven.
+     */
+    const calendarStatedCast = Boolean(row.called_note);
     // Format A first — a labelled call sheet says exactly what it means. Only
     // when there is none do we read the free-form block lines.
     if (!row.called_note || !row.works_note) {
@@ -180,17 +201,25 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     }
 
     /*
-     * The portal has the last word on who is called and what is worked.
+     * The portal has the last word on who is called and what is worked —
+     * EXCEPT against a cast list the calendar states in so many words.
      *
      * It splits this event into the rooms it is actually run as, and staff
      * correct it by hand — so when a cast changes on the staff side, this is
      * the line that carries it to families. It overrides rather than merges:
      * two accounts of who is called, stitched together, would be a third
      * account that neither side agreed to.
+     *
+     * The exception is CJ's rule of 5 Sep 2026: what he writes in the Google
+     * calendar must reach families exactly. A description carrying its own
+     * labelled CALLED list keeps it; the portal still contributes the room
+     * detail of what is worked.
      */
     if (portalCalls.length > 0) {
-      const overlay = overlayFor(callsForEvent(portalCalls, row.starts_at, row.ends_at));
-      if (overlay.calledNote) row.called_note = overlay.calledNote;
+      const overlay = overlayFor(
+        callsForEvent(portalCalls, row.starts_at, row.ends_at, undefined, dayWindows)
+      );
+      if (overlay.calledNote && !calendarStatedCast) row.called_note = overlay.calledNote;
       if (overlay.worksNote) row.works_note = overlay.worksNote;
     }
 
@@ -199,7 +228,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
 
   const { data: existing, error: readError } = await hub
     .from("calendar_events")
-    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time, called_note, works_note, role_ids")
+    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time, called_note, works_note, details, role_ids")
     .eq("external_source", feed.key)
     .eq("production_id", feed.productionId);
   if (readError) throw new Error(`${feed.key}: events read failed: ${readError.message}`);
@@ -229,6 +258,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
       String(current.called_note ?? "") !== String(row.called_note ?? "") ||
       !sameIdSet(current.role_ids, row.role_ids ?? null) ||
       String(current.works_note ?? "") !== String(row.works_note ?? "") ||
+      String(current.details ?? "") !== String(row.details ?? "") ||
       Date.parse(String(current.call_time ?? "")) !==
         Date.parse(String(row.call_time ?? ""));
     if (!changed) continue;
@@ -273,7 +303,10 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
 
 export async function syncIcalFeeds(): Promise<IcalSyncResult> {
   const feeds: IcalFeedResult[] = [];
-  for (const feed of ICAL_FEEDS) {
+  // The feed list lives in staff_portal.production_calendar_feeds now, so
+  // connecting a show's calendar is a paste on the staff show page rather
+  // than a code change — see src/lib/ical/feeds.ts.
+  for (const feed of await loadIcalFeeds()) {
     feeds.push(await syncFeed(feed));
   }
   return { feeds };

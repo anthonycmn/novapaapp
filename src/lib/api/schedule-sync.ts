@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { ICAL_OWNED_PRODUCTION_IDS } from "@/config/ical-feeds";
+import { icalOwnedProductionIds } from "@/lib/ical/feeds";
 import { getPortalReadClient, getServiceClient } from "./supabase/client";
 import { fetchPublishedRuns, runOpeningOn, type PublishedRun } from "./curtains-source";
 
@@ -419,12 +419,16 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
   const desired = new Map<string, DesiredEvent>();
   const hubProdsByPortalId = new Map<string, string[]>();
 
+  // Dynamic since the feed list moved to the database: connecting a calendar
+  // on the staff show page hands that show to the iCal sync on the same run.
+  const icalOwned = await icalOwnedProductionIds();
+
   for (const hp of hubProds ?? []) {
     // A show whose calendar comes from an iCal feed has exactly one writer.
     // Generating portal-sourced events for it too would show families every
     // call twice; skipping it here also means the stale sweep below removes
     // any portal rows this show still has from before the feed took over.
-    if (ICAL_OWNED_PRODUCTION_IDS.has(String(hp.id))) continue;
+    if (icalOwned.has(String(hp.id))) continue;
     const portalTitle = PORTAL_TITLE_MAP[String(hp.title)];
     const pp = portalTitle ? portalByTitle.get(portalTitle) : undefined;
     if (!pp) continue;

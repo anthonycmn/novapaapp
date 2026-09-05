@@ -1,7 +1,18 @@
 import Link from "next/link";
-import { BadgeCheck, CalendarDays, Clock, MapPin, Package, Star } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarDays,
+  Clock,
+  ListMusic,
+  MapPin,
+  Package,
+  Star,
+  Users,
+} from "lucide-react";
 import type { CalendarEvent } from "@/lib/api/types";
 import { formatEventTime } from "@/lib/format";
+import { CallResponse, type CallAnswer } from "@/components/dashboard/call-response";
+import type { RailStudent } from "@/components/productions/schedule-rail";
 
 /**
  * The one thing a parent opens a show page to find out: where do I take my
@@ -18,10 +29,19 @@ import { formatEventTime } from "@/lib/format";
 export function NextCall({
   event,
   productionId,
+  students,
+  calledStudentIds,
+  answers,
 }: {
   event?: CalendarEvent;
   /** Preselects the show in the store, so nobody picks it twice. */
   productionId?: string;
+  /** This family's performers in the show; omitted for staff. */
+  students?: RailStudent[];
+  /** Which of them are called to THIS event. */
+  calledStudentIds?: string[];
+  /** `${eventId}:${studentId}` → the family's standing answer. */
+  answers?: Record<string, CallAnswer>;
 }) {
   if (!event) {
     return (
@@ -84,6 +104,76 @@ export function NextCall({
             </p>
           )}
         </div>
+
+        {/* Who is called and what the room works — from the show calendar,
+            so this box and Google always say the same thing. */}
+        {event.calledNote && (
+          <p className="mt-2 flex items-start gap-2 text-[13px] text-muted-foreground">
+            <Users aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
+            <span>
+              <span className="font-medium text-foreground">Called</span> {event.calledNote}
+            </span>
+          </p>
+        )}
+        {event.worksNote && (
+          <p className="mt-1 flex items-start gap-2 text-[13px] text-muted-foreground">
+            <ListMusic aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
+            <span>
+              <span className="font-medium text-foreground">Working</span> {event.worksNote}
+            </span>
+          </p>
+        )}
+
+        {/* The whole plan, in the director's own words, folded by default. */}
+        {event.details && (
+          <details className="mt-2 rounded-md border bg-muted/40 px-3 py-1.5">
+            <summary className="cursor-pointer text-[12.5px] font-medium text-primary">
+              Full plan for this call
+            </summary>
+            <div className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
+              {event.details.split("\n").map((line, index) =>
+                line === "---" ? (
+                  <hr key={index} className="my-1.5 border-border" />
+                ) : (
+                  <p key={index} className="whitespace-pre-wrap">
+                    {line}
+                  </p>
+                )
+              )}
+            </div>
+          </details>
+        )}
+
+        {/* Each of this family's children on the call: their role, and the
+            attendance chip — the record of what has been told to the show,
+            editable in place. */}
+        {(() => {
+          const kids = (calledStudentIds ?? [])
+            .map((id) => (students ?? []).find((student) => student.id === id))
+            .filter((kid): kid is RailStudent => Boolean(kid));
+          if (kids.length === 0) return null;
+          return (
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 border-t pt-2.5">
+              {kids.map((kid) => (
+                <span key={kid.id} className="inline-flex items-baseline gap-1.5">
+                  <CallResponse
+                    eventId={event.id}
+                    studentId={kid.id}
+                    studentName={kid.name}
+                    answer={answers?.[`${event.id}:${kid.id}`] ?? null}
+                    eventTitle={event.title}
+                    eventWhen={formatEventTime(event.startsAt)}
+                  />
+                  {kid.roleNames.length > 0 && (
+                    <span className="text-[12px] text-muted-foreground">
+                      as {kid.roleNames.join(" / ")}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </div>
+          );
+        })()}
 
         {event.changeNote && (
           <p className="mt-2 rounded-md bg-tip px-3 py-1.5 text-[12.5px] text-tip-foreground">

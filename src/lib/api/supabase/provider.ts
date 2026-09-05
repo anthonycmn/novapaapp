@@ -641,6 +641,7 @@ class SupabaseDataProvider {
       sceneIds: (row.scene_ids ?? undefined) as string[] | undefined,
       calledNote: s(row.called_note),
       worksNote: s(row.works_note),
+      details: s(row.details),
       changedAt: s(row.changed_at),
       changeNote: s(row.change_note),
     };

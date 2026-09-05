@@ -150,6 +150,28 @@ export function worksNoteFor(description: string): string | undefined {
 }
 
 /**
+ * The event's own description, flattened to plain text lines for families.
+ *
+ * CJ, 5 Sep 2026: "I also want the parents to be able to see the descriptions
+ * of the events that exist on the Sweeney Todd Google Calendar." The notes
+ * derived above answer "is my child called" at a glance; this is the full
+ * plan, in the calendar's own words, for the parent who wants to read it. An
+ * <hr> survives as a "---" line so the rail can draw the divider the calendar
+ * drew.
+ */
+export function detailsFor(description: string): string | undefined {
+  const lines = descriptionLines(description);
+  // Leading and trailing dividers frame nothing; collapse doubled ones.
+  const kept: string[] = [];
+  for (const line of lines) {
+    if (line === "---" && (kept.length === 0 || kept.at(-1) === "---")) continue;
+    kept.push(line);
+  }
+  while (kept.at(-1) === "---") kept.pop();
+  return kept.length > 0 ? kept.join("\n") : undefined;
+}
+
+/**
  * Performances are what families buy tickets for and plan around, so they are
  * typed differently from calls. "No rehearsal" markers are neither.
  */
@@ -227,6 +249,7 @@ export function rowFor(event: IcalEvent, feed: IcalFeed) {
     location: locationFor(event.location ?? "", feed),
     called_note: calledNoteFor(event.description ?? "") ?? null,
     works_note: worksNoteFor(event.description ?? "") ?? null,
+    details: detailsFor(event.description ?? "") ?? null,
     production_id: feed.productionId,
     external_source: feed.key,
     external_ref: event.uid,

@@ -51,6 +51,13 @@ export interface PortalOverlay {
 }
 
 const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : null);
+const mins = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+/** A same-day sibling's clock window, for deciding which event owns a call. */
+export interface EventWindow {
+  startsAt: string;
+  endsAt: string;
+}
 
 /**
  * Which of a day's calls belong to this event.
@@ -61,12 +68,22 @@ const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : null);
  * belongs to the window that contains its start; the boundary goes to the
  * later event, so 12:30 is the start of the afternoon rather than the tail of
  * the morning.
+ *
+ * A call that starts in NO window still belongs somewhere. 12 September's
+ * calendar has a 9:00–12:30 event and a 1:00–3:00 event, and the afternoon's
+ * rooms start at 12:30 — in the half-hour gap. The old rule dropped them from
+ * both events, which is how Sweeney Todd and Mrs. Lovett vanished from a
+ * Saturday they were called to for two and a half hours. An orphaned call now
+ * goes to the sibling its RANGE overlaps most (12:30–15:00 overlaps the
+ * afternoon by two hours and the morning by nothing), and only to the nearest
+ * edge when it overlaps nothing at all, later event winning a tie.
  */
 export function callsForEvent(
   calls: PortalCall[],
   startsAt: string,
   endsAt: string,
-  timeZone: string = org.timeZone
+  timeZone: string = org.timeZone,
+  siblings: EventWindow[] = []
 ): PortalCall[] {
   const date = formatInTimeZone(new Date(startsAt), timeZone, "yyyy-MM-dd");
   const from = formatInTimeZone(new Date(startsAt), timeZone, "HH:mm");
@@ -79,11 +96,65 @@ export function callsForEvent(
   const timed = sameDay.filter((call) => hhmm(call.starts_at));
   if (timed.length === 0 || from >= to) return sameDay;
 
-  const inside = timed.filter((call) => {
+  /*
+   * Orphan adoption needs the WHOLE day's windows to be safe: with only its
+   * own window to look at, an event would adopt every stray call on the day,
+   * and the morning would claim the afternoon's rooms. A caller that cannot
+   * supply the siblings gets the strict containment rule instead.
+   */
+  if (siblings.length === 0) {
+    return timed.filter((call) => {
+      const start = hhmm(call.starts_at)!;
+      return start >= from && start < to;
+    });
+  }
+
+  // Every sibling window on this same local day, this event among them.
+  const windows = siblings
+    .map((sib) => ({
+      date: formatInTimeZone(new Date(sib.startsAt), timeZone, "yyyy-MM-dd"),
+      from: formatInTimeZone(new Date(sib.startsAt), timeZone, "HH:mm"),
+      to: formatInTimeZone(new Date(sib.endsAt), timeZone, "HH:mm"),
+    }))
+    .filter((w) => w.date === date && w.from < w.to);
+  if (!windows.some((w) => w.from === from && w.to === to)) {
+    windows.push({ date, from, to });
+  }
+
+  const owner = (call: PortalCall): { from: string; to: string } | null => {
     const start = hhmm(call.starts_at)!;
-    return start >= from && start < to;
+    const contains = windows.filter((w) => start >= w.from && start < w.to);
+    if (contains.length > 0) {
+      // Boundary to the later event: the last window whose start is <= call.
+      return contains.sort((a, b) => a.from.localeCompare(b.from)).at(-1)!;
+    }
+    // Orphan: no window contains it. Most overlapped range wins; a call with
+    // no end, or no overlap anywhere, goes to the nearest edge. Ties later.
+    const end = hhmm(call.ends_at) ?? start;
+    let best: { w: { from: string; to: string }; overlap: number; gap: number } | null = null;
+    for (const w of windows) {
+      const overlap = Math.max(
+        0,
+        Math.min(mins(end), mins(w.to)) - Math.max(mins(start), mins(w.from))
+      );
+      const gap = Math.min(
+        Math.abs(mins(start) - mins(w.from)),
+        Math.abs(mins(start) - mins(w.to))
+      );
+      const wins =
+        !best ||
+        overlap > best.overlap ||
+        (overlap === best.overlap && gap < best.gap) ||
+        (overlap === best.overlap && gap === best.gap && w.from >= best.w.from);
+      if (wins) best = { w, overlap, gap };
+    }
+    return best?.w ?? null;
+  };
+
+  return timed.filter((call) => {
+    const w = owner(call);
+    return w !== null && w.from === from && w.to === to;
   });
-  return inside;
 }
 
 /**

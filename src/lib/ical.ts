@@ -54,8 +54,13 @@ export function buildFamilyIcs(
       kids && `For: ${kids}`,
       event.callTime && `Call time: ${new Date(event.callTime).toLocaleString("en-US", { timeZone: org.timeZone })}`,
       event.whatToBring && `Bring: ${event.whatToBring}`,
+      event.calledNote && `Called: ${event.calledNote}`,
+      event.worksNote && `Working: ${event.worksNote}`,
       event.contactName && `Contact: ${event.contactName}${event.contactEmail ? ` <${event.contactEmail}>` : ""}`,
       event.changeNote && `Note: ${event.changeNote}`,
+      // The show calendar's own description, so what a family downloads or
+      // subscribes to says the same thing the portal and Google do.
+      event.details && `\n${event.details.replaceAll("---", "—")}`,
     ].filter(Boolean);
 
     lines.push(

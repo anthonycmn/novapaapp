@@ -51,6 +51,13 @@ export interface IcalFeed {
    */
   portalTitle?: string;
   /**
+   * staff_portal.productions.id for the same show — set by the database-driven
+   * feed loader (src/lib/ical/feeds.ts), where the mapping is a join rather
+   * than a title. When present it saves the sync a title lookup; portalTitle
+   * remains for the static entries.
+   */
+  portalProductionId?: string;
+  /**
    * Corrections to the address the feed supplies, first match wins.
    *
    * The feed is the source of truth for WHEN; it has been unreliable about
