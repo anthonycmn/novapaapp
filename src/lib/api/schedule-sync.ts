@@ -669,6 +669,15 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     const { error } = await hub.from("calendar_events").delete().eq("id", e.id);
     if (error) throw new Error(`remove: ${error.message}`);
     removed++;
+    /*
+     * A handover is not a cancellation. When a show's calendar moves to an
+     * iCal feed, this sweep removes the season-plan placeholders the feed
+     * has just replaced with the real schedule — and telling seventy Frozen
+     * families "24 canceled" about rehearsals that are very much happening
+     * is how the first thing the new calendar does is start a panic. Only a
+     * removal from a show this job still owns is news.
+     */
+    if (e.production_id && icalOwned.has(String(e.production_id))) continue;
     changes.push({
       kind: "canceled",
       productionId: e.production_id ? String(e.production_id) : null,
