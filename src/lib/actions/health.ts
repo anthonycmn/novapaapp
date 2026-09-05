@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { notifySubmission, submissionMessage } from "./notify-submission";
@@ -106,6 +107,16 @@ export async function saveHealthFormAction(
   const childName = student
     ? `${student.preferredName ?? student.firstName} ${student.lastName}`
     : "a student";
+
+  /* Deliberately no medical detail here either — the play-by-play says the
+     form was signed, never what it says. */
+  await logActivity({
+    user,
+    action: "health.form_signed",
+    summary: `Signed the health form for ${childName}`,
+    studentId,
+    detail: { signedBy: signatureParsed.data },
+  });
 
   const outcome = await notifySubmission({
     subject: `Health form signed — ${childName}`,

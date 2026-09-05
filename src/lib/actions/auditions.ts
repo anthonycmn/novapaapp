@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getProvider } from "@/lib/api";
 import type { Discipline, RoleTier } from "@/lib/api/auditions/types";
 import { RUBRIC_CRITERIA } from "@/lib/api/auditions/types";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 import { profileSchema } from "./audition-schema";
@@ -74,6 +75,16 @@ export async function submitAuditionProfileAction(
   } catch (error) {
     return fail(error);
   }
+  const production = await getProvider()
+    .getProduction(parsed.data.productionId)
+    .catch(() => null);
+  await logActivity({
+    user,
+    action: "audition.profile_submitted",
+    summary: `Submitted an audition profile${production ? ` — ${production.title}` : ""}`,
+    studentId: parsed.data.studentId,
+    detail: { productionId: parsed.data.productionId, preferenceTier: parsed.data.preferenceTier },
+  });
   revalidatePath("/auditions");
   revalidatePath(`/auditions/${parsed.data.productionId}/${parsed.data.studentId}`);
   return { ok: true };
@@ -214,6 +225,14 @@ export async function respondToCastingAction(
   } catch (error) {
     return fail(error);
   }
+  await logActivity({
+    user,
+    action: "casting.responded",
+    summary: nameCorrect
+      ? "Confirmed their child's playbill name"
+      : "Asked for a playbill name correction",
+    detail: { confirmationId },
+  });
   revalidatePath("/casting");
   return { ok: true };
 }
@@ -222,5 +241,11 @@ export async function requestFeedbackAction(confirmationId: string): Promise<voi
   const user = await getSessionUser();
   if (!user) return;
   await getProvider().requestAuditionFeedback(user.id, confirmationId);
+  await logActivity({
+    user,
+    action: "casting.feedback_requested",
+    summary: "Requested audition feedback",
+    detail: { confirmationId },
+  });
   revalidatePath("/casting");
 }

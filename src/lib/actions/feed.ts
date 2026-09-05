@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import type { FeedCategory, ReactionKind } from "@/lib/api/types";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -11,6 +12,12 @@ export async function reactAction(postId: string, kind: ReactionKind): Promise<v
   const user = await getSessionUser();
   if (!user) return;
   await getProvider().reactToPost(user.id, postId, kind);
+  await logActivity({
+    user,
+    action: "feed.reacted",
+    summary: `Reacted to an announcement (${kind})`,
+    detail: { postId },
+  });
   revalidatePath("/feed");
 }
 
@@ -27,6 +34,12 @@ export async function askQuestionAction(
     return { ok: false, errors: { question: "Keep it under 1000 characters" } };
   }
   await getProvider().askQuestion(user.id, postId, question);
+  await logActivity({
+    user,
+    action: "feed.question_asked",
+    summary: "Asked a private question on an announcement",
+    detail: { postId, question },
+  });
   revalidatePath("/feed");
   return { ok: true };
 }

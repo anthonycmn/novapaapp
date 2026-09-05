@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { parseEmergencyContacts } from "@/lib/family/emergency-contacts";
 
@@ -46,6 +47,16 @@ export async function updateFamilyAction(
   }
 
   await getProvider().updateFamily(user.id, user.familyId, parsed.data);
+  await logActivity({
+    user,
+    action: "family.profile_updated",
+    summary: "Updated the family address and contact preferences",
+    detail: {
+      city: parsed.data.city,
+      state: parsed.data.state,
+      preferredContactMethod: parsed.data.preferredContactMethod,
+    },
+  });
   revalidatePath("/family");
   // Also the page the form is ON. Without it a parent who saves, then comes
   // back to edit something else, is handed the values they just replaced —
@@ -81,6 +92,12 @@ export async function inviteGuardianAction(
   }
 
   await getProvider().inviteGuardian(user.id, user.familyId, parsed.data);
+  await logActivity({
+    user,
+    action: "family.guardian_invited",
+    summary: `Invited ${parsed.data.fullName} (${parsed.data.relationship}) as a guardian`,
+    detail: { email: parsed.data.email },
+  });
   // Real email invite goes out via the EmailProvider in Phase 2.
   revalidatePath("/family");
   return { ok: true };
@@ -136,6 +153,11 @@ export async function saveEmergencyContactsAction(
     };
   }
 
+  await logActivity({
+    user,
+    action: "family.emergency_contacts_saved",
+    summary: `Saved ${contacts.length} emergency contact${contacts.length === 1 ? "" : "s"}`,
+  });
   revalidatePath("/family");
   revalidatePath("/family/edit");
   return { ok: true };

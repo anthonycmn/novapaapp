@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   parseStudentProfile,
@@ -47,6 +48,16 @@ export async function updateStudentAction(
    */
 
   await getProvider().updateStudent(user.id, studentId, patch);
+  const student = await getProvider().getStudent(user.id, studentId).catch(() => null);
+  await logActivity({
+    user,
+    action: "student.profile_updated",
+    summary: `Updated ${
+      student ? `${student.preferredName ?? student.firstName} ${student.lastName}` : "a child"
+    }'s profile`,
+    studentId,
+    detail: { fields: Object.keys(patch) },
+  });
   revalidatePath(`/family/students/${studentId}`);
   revalidatePath("/family");
   revalidatePath("/family/edit");
@@ -82,6 +93,12 @@ export async function saveHopesAction(
   }
 
   await getProvider().upsertHopes(user.id, studentId, parsed.data);
+  await logActivity({
+    user,
+    action: "student.hopes_saved",
+    summary: `Saved the season's hopes & dreams (written by the ${parsed.data.author})`,
+    studentId,
+  });
   revalidatePath(`/family/students/${studentId}`);
   return { ok: true };
 }
@@ -122,6 +139,12 @@ export async function addShowHistoryAction(
   await getProvider().addShowHistoryEntry(user.id, studentId, {
     ...parsed.data,
     seasonName: parsed.data.year,
+  });
+  await logActivity({
+    user,
+    action: "student.show_history_added",
+    summary: `Added a show credit: ${parsed.data.productionTitle} (${parsed.data.role}, ${parsed.data.year})`,
+    studentId,
   });
   revalidatePath(`/family/students/${studentId}`);
   return { ok: true };

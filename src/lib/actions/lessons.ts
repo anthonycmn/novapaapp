@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -30,6 +31,13 @@ export async function bookLessonAction(
       errors: { _form: error instanceof Error ? error.message : String(error) },
     };
   }
+  await logActivity({
+    user,
+    action: "lessons.booked",
+    summary: "Booked a private lesson",
+    studentId,
+    detail: { slotId },
+  });
   revalidatePath("/store/lessons");
   revalidatePath("/schedule");
   return { ok: true };
@@ -39,6 +47,12 @@ export async function cancelLessonBookingAction(bookingId: string): Promise<void
   const user = await getSessionUser();
   if (!user) return;
   await getProvider().cancelLessonBooking(user.id, bookingId);
+  await logActivity({
+    user,
+    action: "lessons.cancelled",
+    summary: "Cancelled a private lesson booking",
+    detail: { bookingId },
+  });
   revalidatePath("/store/lessons");
   revalidatePath("/schedule");
 }

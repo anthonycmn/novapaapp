@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -59,6 +60,15 @@ export async function submitReviewAction(
     };
   }
 
+  // The Chief-only page may name the reviewer — the app's standing rule is
+  // that admins see everything, including who wrote an anonymous review —
+  // but the line says the anonymity out loud so nobody quotes a name back.
+  await logActivity({
+    user,
+    action: "reviews.submitted",
+    summary: `Left a private review${isAnonymous ? " (marked anonymous)" : ""}`,
+    detail: { windowId },
+  });
   revalidatePath("/reviews");
   return { ok: true };
 }

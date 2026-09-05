@@ -13,6 +13,7 @@ import {
 import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import type { Customization } from "@/lib/api/store/catalog";
 import { assertUploadAllowed } from "@/lib/api/storage";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { assessPhotoQuality } from "@/lib/store-rules";
@@ -79,6 +80,12 @@ export async function addToCartAction(
   }
 
   await getProvider().addToCart(user.id, design, quantity);
+  await logActivity({
+    user,
+    action: "store.cart_added",
+    summary: `Added a spirit button to the cart (${quantity} × ${design.size}", for ${design.studentName})`,
+    detail: { style: design.style, templateId: design.templateId },
+  });
   revalidatePath("/store/cart");
   return { ok: true };
 }
@@ -160,6 +167,12 @@ export async function addCatalogItemAction(
     };
   }
 
+  await logActivity({
+    user,
+    action: "store.cart_added",
+    summary: `Added to the cart: ${product.name}${optionValue ? ` (${optionValue})` : ""} for ${studentName}`,
+    detail: { productId, quantity },
+  });
   revalidatePath("/store/cart");
   // Catalog products render on both successor pages.
   revalidatePath("/store");
@@ -211,6 +224,15 @@ export async function checkoutAction(): Promise<void> {
   // Reserve the order first so the payment reference always has a home.
   const order = await provider.createOrder(user.id, "pending");
 
+  await logActivity({
+    user,
+    action: "store.checkout_started",
+    summary: `Checked out the cart — order ${order.reference}, ${cart.length} item${
+      cart.length === 1 ? "" : "s"
+    }`,
+    detail: { reference: order.reference },
+  });
+
   const checkout = await payments.createCheckout({
     orderReference: order.reference,
     customerEmail: user.email,
@@ -240,6 +262,12 @@ export async function reorderAction(orderId: string): Promise<void> {
   const user = await getSessionUser();
   if (!user) return;
   await getProvider().reorder(user.id, orderId);
+  await logActivity({
+    user,
+    action: "store.reordered",
+    summary: "Re-added a previous order to the cart",
+    detail: { orderId },
+  });
   revalidatePath("/store/cart");
   redirect("/store/cart");
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { ARRIVAL_RECIPIENTS } from "@/config/submission-recipients";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { formatDate } from "@/lib/format";
@@ -77,6 +78,21 @@ export async function createPickupRequestAction(
   const childName = student
     ? `${student.preferredName ?? student.firstName} ${student.lastName}`
     : "a student";
+
+  await logActivity({
+    user,
+    action: "pickup.requested",
+    summary: `Requested ${KIND_LABEL[parsed.data.kind].toLowerCase()} for ${childName} (${
+      parsed.data.startDate
+    }${parsed.data.endDate !== parsed.data.startDate ? ` – ${parsed.data.endDate}` : ""})`,
+    studentId: parsed.data.studentId,
+    detail: {
+      reason: parsed.data.reason,
+      dropOffTime: parsed.data.dropOffTime,
+      pickUpTime: parsed.data.pickUpTime,
+      authorizedPickupPerson: parsed.data.authorizedPickupPerson,
+    },
+  });
 
   /**
    * Tell the office. Tony, 17 Aug 2026: "A notification is then sent to Katie
@@ -169,6 +185,13 @@ export async function markArrivedAction(requestId: string): Promise<SubmissionSt
   const childName = student
     ? `${student.preferredName ?? student.firstName} ${student.lastName}`
     : "a student";
+
+  await logActivity({
+    user,
+    action: "pickup.arrived",
+    summary: `Tapped “I'm here” for ${childName}`,
+    studentId: result.request.studentId,
+  });
 
   const outcome = await notifySubmission({
     subject: `HERE NOW — ${user.displayName} for ${childName}`,

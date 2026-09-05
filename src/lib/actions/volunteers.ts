@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -54,6 +55,12 @@ export async function claimVolunteerSlotAction(
     const result = await getProvider().claimVolunteerSlot(user.id, parsed.data);
     if (!result.ok) return fail(new Error(result.message ?? "That slot could not be taken."));
 
+    await logActivity({
+      user,
+      action: "volunteers.slot_claimed",
+      summary: `Signed up ${parsed.data.volunteerName} for a volunteer slot`,
+      detail: { slotId: parsed.data.slotId },
+    });
     revalidatePath("/volunteers");
     return { ok: true, errors: {} };
   } catch (error) {
@@ -73,6 +80,12 @@ export async function releaseVolunteerSlotAction(
     if (!signupId) return fail(new Error("Nothing to give back."));
 
     await getProvider().releaseVolunteerSlot(user.id, signupId);
+    await logActivity({
+      user,
+      action: "volunteers.slot_released",
+      summary: "Gave back a volunteer slot",
+      detail: { signupId },
+    });
     revalidatePath("/volunteers");
     return { ok: true, errors: {} };
   } catch (error) {

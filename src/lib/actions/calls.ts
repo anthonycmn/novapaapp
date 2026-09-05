@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 
 /**
@@ -19,6 +20,17 @@ import { getSessionUser } from "@/lib/auth/session";
  * Conflicts page reads, so a parent answering here has told the people who
  * needed telling, rather than filling in a second thing nobody watches.
  */
+
+const CALL_SUMMARY: Record<
+  "attending" | "not_attending" | "injury" | "partial" | "clear",
+  string
+> = {
+  attending: "Confirmed attendance for a rehearsal call",
+  not_attending: "Said their child will miss a rehearsal call",
+  injury: "Reported an injury for a rehearsal call",
+  partial: "Said their child will partly miss a rehearsal call",
+  clear: "Cleared their answer on a rehearsal call",
+};
 
 const schema = z.object({
   eventId: z.string().min(1),
@@ -44,6 +56,14 @@ export async function respondToCallAction(input: {
 
     const result = await getProvider().respondToCall(user.id, parsed.data);
     if (!result.ok) return result;
+
+    await logActivity({
+      user,
+      action: "call.responded",
+      summary: CALL_SUMMARY[parsed.data.status],
+      studentId: parsed.data.studentId,
+      detail: { eventId: parsed.data.eventId, reason: parsed.data.reason },
+    });
 
     // Both places the answer is drawn.
     revalidatePath("/dashboard");

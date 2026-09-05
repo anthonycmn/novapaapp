@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { assertUploadAllowed } from "@/lib/api/storage";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -81,6 +82,12 @@ export async function updateGuardianAction(
     };
   }
 
+  await logActivity({
+    user,
+    action: "family.guardian_updated",
+    summary: `Updated guardian ${parsed.data.fullName}${photoDataUrl ? " (new photo)" : ""}`,
+    detail: { guardianId },
+  });
   revalidatePath("/family");
   revalidatePath("/family/edit");
   return { ok: true };
@@ -119,6 +126,13 @@ export async function addGuardianAction(
     };
   }
 
+  await logActivity({
+    user,
+    action: "family.guardian_added",
+    summary: `Added guardian ${parsed.data.fullName}${
+      parsed.data.relationship ? ` (${parsed.data.relationship})` : ""
+    }`,
+  });
   revalidatePath("/family");
   revalidatePath("/family/edit");
   return { ok: true };

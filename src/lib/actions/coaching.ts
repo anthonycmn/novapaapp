@@ -19,6 +19,7 @@ import {
   getPaymentProvider,
   livePaymentsBlockedBecause,
 } from "@/lib/api/payments";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 
 export interface CoachingFormState {
@@ -77,6 +78,14 @@ export async function bookCoachingAction(
    * booking is made; a mail provider having a bad minute is not the family's
    * problem and must not be shown to them as one.
    */
+  await logActivity({
+    user,
+    action: "coaching.booked",
+    summary: "Booked a coaching session",
+    studentId,
+    detail: { coachStaffId, startsAt, sessionId: result.sessionId },
+  });
+
   await notifyCoachingBooked(result.sessionId);
 
   revalidatePath("/coaches");
@@ -92,6 +101,13 @@ export async function cancelCoachingAction(
 
   const result = await cancelCoachingSession(user.familyId, sessionId);
   if (!result.ok) return { ok: false, error: result.error };
+
+  await logActivity({
+    user,
+    action: "coaching.cancelled",
+    summary: "Cancelled a coaching session",
+    detail: { sessionId },
+  });
 
   // After the cancellation, not before: the message says how many sessions are
   // back on the package, and that number is only right once the row is
@@ -165,6 +181,16 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     redirect(`/coaches?error=${encodeURIComponent(message)}`);
   }
+
+  await logActivity({
+    user,
+    action: "coaching.purchase_started",
+    summary: `Started a coaching package purchase — ${purchase.service} (${purchase.sessions} session${
+      purchase.sessions === 1 ? "" : "s"
+    }) for ${purchase.studentName}`,
+    studentId,
+    detail: { reference: purchase.reference, amountCents: purchase.amountCents },
+  });
 
   const headerList = await headers();
   const origin =

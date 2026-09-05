@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -60,6 +61,13 @@ export async function startThreadAction(
     };
   }
 
+  await logActivity({
+    user,
+    action: "messages.thread_started",
+    summary: `Messaged the office: “${parsed.data.subject}”`,
+    studentId: parsed.data.studentId,
+    detail: { threadId, topicId: parsed.data.topicId, recipientRole: parsed.data.recipientRole },
+  });
   revalidatePath("/messages");
   redirect(`/messages/${threadId}`);
 }
@@ -84,6 +92,12 @@ export async function replyAction(
     };
   }
 
+  await logActivity({
+    user,
+    action: "messages.replied",
+    summary: "Replied in a message thread",
+    detail: { threadId },
+  });
   revalidatePath(`/messages/${threadId}`);
   revalidatePath(`/admin/messages/${threadId}`);
   return { ok: true };

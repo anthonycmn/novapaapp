@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { describeAbsenceWindow } from "@/lib/absence-window";
 import { notifySubmission, submissionMessage } from "./notify-submission";
@@ -152,6 +153,14 @@ export async function reportAbsenceAction(
     endsAtTime: parsed.data.endsAtTime,
   });
 
+  await logActivity({
+    user,
+    action: "absence.reported",
+    summary: `Reported an absence for ${childName} — ${showTitle}, ${dates}`,
+    studentId: parsed.data.studentId,
+    detail: { reason: parsed.data.reason, reportId: report.id },
+  });
+
   const outcome = await notifySubmission({
     subject: `Absence — ${childName}, ${showTitle}`,
     category: "absence_report",
@@ -226,6 +235,12 @@ export async function withdrawAbsenceAction(
     const result = await getProvider().withdrawAbsenceReport(user.id, reportId);
     if (!result.ok) return result;
 
+    await logActivity({
+      user,
+      action: "absence.withdrawn",
+      summary: "Withdrew an absence report",
+      detail: { reportId },
+    });
     revalidatePath("/family/absences");
     revalidatePath("/admin/absences");
     // The calendar chip is drawn from the answer this may have cleared.

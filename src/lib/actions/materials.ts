@@ -7,6 +7,7 @@ import type { UploadSource } from "@/lib/api/storage";
 import type { ResumeCredit } from "@/lib/api/types";
 import { UploadRejectedError } from "@/lib/api/storage";
 import type { DocumentCategory } from "@/lib/api/documents/types";
+import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import type { FamilyFormState } from "./family";
@@ -89,6 +90,13 @@ export async function saveHeadshotLinkAction(
   } catch (error) {
     return failure(error);
   }
+  await logActivity({
+    user,
+    action: "materials.link_saved",
+    summary: read.url ? "Updated the headshot link" : "Removed the headshot link",
+    studentId,
+    detail: { field: "headshot" },
+  });
   revalidateMaterials(studentId);
   return { ok: true };
 }
@@ -109,6 +117,13 @@ export async function saveAuditionAudioLinkAction(
   } catch (error) {
     return failure(error);
   }
+  await logActivity({
+    user,
+    action: "materials.link_saved",
+    summary: read.url ? "Updated the audition recording link" : "Removed the audition recording link",
+    studentId,
+    detail: { field: "auditionAudio" },
+  });
   revalidateMaterials(studentId);
   return { ok: true };
 }
@@ -129,6 +144,13 @@ export async function saveResumePdfLinkAction(
   } catch (error) {
     return failure(error);
   }
+  await logActivity({
+    user,
+    action: "materials.link_saved",
+    summary: read.url ? "Updated the resume PDF link" : "Removed the resume PDF link",
+    studentId,
+    detail: { field: "resumePdf" },
+  });
   revalidateMaterials(studentId);
   return { ok: true };
 }
@@ -173,6 +195,12 @@ export async function saveResumeCreditsAction(
   } catch (error) {
     return failure(error);
   }
+  await logActivity({
+    user,
+    action: "materials.resume_saved",
+    summary: `Saved the resume (${credits.length} credit${credits.length === 1 ? "" : "s"})`,
+    studentId,
+  });
   revalidatePath(`/family/students/${studentId}/materials`);
   revalidatePath(`/family/students/${studentId}/resume`);
   return { ok: true };
@@ -238,6 +266,12 @@ export async function uploadDocumentAction(
   } catch (error) {
     return failure(error);
   }
+  await logActivity({
+    user,
+    action: "documents.uploaded",
+    summary: `Uploaded a document: ${name} (${category})`,
+    studentId,
+  });
   revalidatePath("/family/documents");
   return { ok: true };
 }
@@ -251,6 +285,12 @@ export async function deleteDocumentAction(documentId: string): Promise<void> {
      this is the backstop behind it. */
   if (await refuseIfImpersonating("document")) return;
   await getProvider().deleteFamilyDocument(user.id, documentId);
+  await logActivity({
+    user,
+    action: "documents.deleted",
+    summary: "Deleted a document from the family vault",
+    detail: { documentId },
+  });
   revalidatePath("/family/documents");
 }
 

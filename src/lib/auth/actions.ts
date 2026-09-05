@@ -3,7 +3,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getProvider } from "@/lib/api";
-import { sessionCookieName, signSession } from "./session";
+import { logActivity } from "@/lib/activity";
+import { getSessionUser, sessionCookieName, signSession } from "./session";
 
 /**
  * Auth actions. Mock mode: sign in as a seeded demo user by email.
@@ -89,6 +90,11 @@ export async function signUpWithEmail(formData: FormData): Promise<void> {
   if (data.user && data.user.identities && data.user.identities.length === 0) {
     redirect(`/login?error=already-registered&email=${encodeURIComponent(email)}`);
   }
+  await logActivity({
+    actorEmail: email,
+    action: "auth.signup_requested",
+    summary: "Requested a new account — confirmation email sent",
+  });
   redirect(`/signup?sent=1&email=${encodeURIComponent(email)}`);
 }
 
@@ -116,6 +122,11 @@ export async function requestPasswordReset(formData: FormData): Promise<void> {
   const site = process.env.URL ?? "https://portal.novapa.org";
   await anon.auth.resetPasswordForEmail(email, {
     redirectTo: `${site}/reset-password`,
+  });
+  await logActivity({
+    actorEmail: email,
+    action: "auth.password_reset_requested",
+    summary: "Asked for a password reset link",
   });
   redirect(`/forgot-password?sent=1&email=${encodeURIComponent(email)}`);
 }
@@ -156,6 +167,19 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
     if (!linked) {
       redirect(`/login?error=no-family&email=${encodeURIComponent(email)}`);
     }
+    // The play-by-play (hub 0065). Resolved through the provider because the
+    // session cookie is only set below — best-effort like every log line.
+    const signedIn = await getProvider().getUserById(data.user.id).catch(() => null);
+    const family =
+      signedIn?.familyId
+        ? await getProvider().getFamily(signedIn.id, signedIn.familyId).catch(() => null)
+        : null;
+    await logActivity({
+      user: signedIn ? { ...signedIn, family: family ?? undefined } : null,
+      actorEmail: email,
+      action: "auth.signed_in",
+      summary: "Signed in",
+    });
     jar.set(sessionCookieName, signSession(data.user.id), {
       httpOnly: true,
       sameSite: "lax",
@@ -180,6 +204,8 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
+  const user = await getSessionUser().catch(() => null);
+  await logActivity({ user, action: "auth.signed_out", summary: "Signed out" });
   const jar = await cookies();
   jar.delete(sessionCookieName);
   redirect("/login");
