@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PushToggle } from "@/components/pwa/push-toggle";
 
 export const metadata = { title: "Notification settings" };
 
@@ -32,6 +33,11 @@ export default async function NotificationSettingsPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Notification settings</h1>
+
+      {/* The device switch first: the type toggles below decide what is
+          worth interrupting for, but only once a device can be interrupted
+          at all (hub 0068). */}
+      <PushToggle />
 
       <Card>
         <CardHeader>

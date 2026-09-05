@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { syncPortalSchedule } from "@/lib/api/schedule-sync";
+import { kickPushQueue } from "@/lib/push/queue";
 
 /**
  * The schedule bridge's trigger: mirrors the staff portal's season plan
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const result = await syncPortalSchedule();
+    /* A rehearsal change should beat the drive to rehearsal: the sync just
+       wrote its schedule_change rows, so ring them now rather than at the
+       next push-queue tick (hub 0068). */
+    await kickPushQueue();
     return NextResponse.json(result);
   } catch (error) {
     return NextResponse.json(

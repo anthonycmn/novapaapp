@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
+import { kickPushQueue } from "@/lib/push/queue";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -68,6 +69,9 @@ export async function startThreadAction(
     studentId: parsed.data.studentId,
     detail: { threadId, topicId: parsed.data.topicId, recipientRole: parsed.data.recipientRole },
   });
+  /* The staff being asked should feel the buzz now, not at the next cron
+     tick — a new thread wrote its notification rows already (hub 0068). */
+  await kickPushQueue();
   revalidatePath("/messages");
   redirect(`/messages/${threadId}`);
 }
@@ -98,6 +102,8 @@ export async function replyAction(
     summary: "Replied in a message thread",
     detail: { threadId },
   });
+  /* A reply is the push families asked for by name; ring it now. */
+  await kickPushQueue();
   revalidatePath(`/messages/${threadId}`);
   revalidatePath(`/admin/messages/${threadId}`);
   return { ok: true };

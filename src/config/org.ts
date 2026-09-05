@@ -12,9 +12,11 @@ export const org = {
   /**
    * Tony, 2026-08-15: "Parents will live in a parent portal not an app."
    * This is the product's name everywhere a family sees it — sign-in, tab
-   * title, PWA manifest. The install prompt went with the old name: the
-   * portal is a website you visit, not an app you're nagged to install
-   * (it still works installed for anyone who chooses to, but we don't ask).
+   * title, PWA manifest.
+   *
+   * Reversed 2026-09-05: "do tier 1 now with push notifications" — the
+   * portal now asks to be installed (InstallPrompt in the app layout),
+   * because push on iPhone only works once it is on the home screen.
    */
   appName: "NOVA PA Parent Portal",
 

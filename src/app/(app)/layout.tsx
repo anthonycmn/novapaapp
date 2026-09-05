@@ -8,6 +8,8 @@ import { Spot } from "@/components/spot/spot";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { currentImpersonation } from "@/lib/auth/impersonation";
 import { getNavAlerts } from "@/lib/nav-alerts";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { PushSync } from "@/components/pwa/push-sync";
 
 /**
  * Authenticated app shell. Everything inside the (app) route group requires
@@ -76,6 +78,11 @@ export default async function AppLayout({
           It costs nothing to run — everything it knows ships in the bundle
           and is matched in the browser. */}
       <Spot />
+      {/* Tony, 2026-09-05, reversing 2026-08-15: the portal now asks to go
+          on the home screen — push on iPhone only works installed. Signed-in
+          pages only: a login screen nagging to be installed is noise. */}
+      <InstallPrompt />
+      <PushSync />
     </AppShell>
   );
 }

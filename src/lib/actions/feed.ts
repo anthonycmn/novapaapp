@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import type { FeedCategory, ReactionKind } from "@/lib/api/types";
 import { logActivity } from "@/lib/activity";
+import { kickPushQueue } from "@/lib/push/queue";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
 
@@ -57,6 +58,8 @@ export async function answerQuestionAction(
   if (!answer) return { ok: false, errors: { answer: "Write an answer first" } };
   const publishAsFaq = formData.get("publishAsFaq") === "on";
   await getProvider().answerQuestion(user.id, questionId, answer, publishAsFaq);
+  /* The parent who asked gets their answer's buzz now (hub 0068). */
+  await kickPushQueue();
   revalidatePath("/feed");
   revalidatePath("/admin/questions");
   return { ok: true };
@@ -103,6 +106,8 @@ export async function createPostAction(
     linkUrl: linkUrl || undefined,
     audience: productionId ? { productionIds: [productionId] } : {},
   });
+  /* An announcement's whole point is being seen; ring it now (hub 0068). */
+  await kickPushQueue();
   revalidatePath("/feed");
   return { ok: true };
 }
