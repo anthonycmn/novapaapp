@@ -19,7 +19,9 @@
  * that turns it back on rather than in a dashboard nobody reads.
  */
 export const FEATURE_AVAILABILITY = {
-  spiritButtons: false,
+  /* CJ, 5 Sep 2026: "Turn spirit buttons on" — opened the same day the cutout
+     designer landed (hub 0066). */
+  spiritButtons: true,
   starPages: false,
   /* CJ, 4 Sep 2026: "when I click photos tab in the nav menu - it should not be
      available yet." */
