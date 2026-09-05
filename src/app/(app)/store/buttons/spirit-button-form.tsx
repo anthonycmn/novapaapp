@@ -20,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FieldError } from "@/components/forms/field-error";
-import { ButtonPreview } from "@/components/store/button-preview";
 
 const initialState: SubmissionState = { ok: false };
 
@@ -140,9 +139,14 @@ export function SpiritButtonForm({
    * Re-draw the artwork whenever anything on the button changes. Debounced a
    * beat so typing a name doesn't render 300-DPI artwork per keystroke; the
    * token guard keeps a slow render from overwriting a newer one.
+   *
+   * Drawn from the very first paint, photo or none — CJ, 5 Sep 2026: "I want
+   * to see the background that I uploaded and then I upload a photo of my
+   * child and it goes on it." The show's artwork and name stripe are the
+   * opening scene; the performer steps onto it when the photo arrives.
    */
   useEffect(() => {
-    if (!photo || cutting) {
+    if (cutting) {
       setArtwork("");
       return;
     }
@@ -154,7 +158,7 @@ export function SpiritButtonForm({
           backgroundUrl: template.backgroundImageUrl,
           accentColor: template.accentColor,
           fontFamily: template.fontFamily,
-          photoUrl: cutout?.dataUrl ?? photo.dataUrl,
+          photoUrl: cutout?.dataUrl ?? photo?.dataUrl,
           photoIsCutout: Boolean(cutout),
           studentName,
           role,
@@ -212,24 +216,26 @@ export function SpiritButtonForm({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={artwork}
-            alt={`Preview of ${studentName || "your performer"}'s spirit button`}
+            alt={
+              photo
+                ? `Preview of ${studentName || "your performer"}'s spirit button`
+                : `The ${production.title} button artwork, waiting for your performer's photo`
+            }
             className="size-56 select-none rounded-full shadow-[0_6px_18px_rgba(0,0,0,0.18)]"
           />
-        ) : cutting || photo ? (
+        ) : (
           <div className="flex size-56 flex-col items-center justify-center gap-2 rounded-full bg-muted text-muted-foreground">
             <Loader2 aria-hidden className="size-5 animate-spin" />
             <span className="px-6 text-center text-[12px]">
               {cutting ? "Cutting out your performer…" : "Drawing your button…"}
             </span>
           </div>
-        ) : (
-          <ButtonPreview
-            studentName={studentName}
-            role={role}
-            size={size}
-            style={style}
-            template={template}
-          />
+        )}
+        {photo && !cutting && (
+          <Button type="button" variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
+            <Upload aria-hidden />
+            Use a new photo
+          </Button>
         )}
         <p className="text-[13px] text-muted-foreground">
           {size}&quot; with a ribbon · {formatCents(SPIRIT_BUTTON_PRICE_CENTS)} each ·{" "}
@@ -239,7 +245,8 @@ export function SpiritButtonForm({
         </p>
         {!photo && (
           <p className="text-center text-[12px] text-muted-foreground">
-            Add a photo to see the finished button.
+            This is your show&apos;s button. Add a photo and your performer
+            will stand right on it.
           </p>
         )}
         {cutout && artwork && (
