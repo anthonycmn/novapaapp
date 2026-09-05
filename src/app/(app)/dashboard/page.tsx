@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { ArrowRight, BadgeCheck, CalendarDays, Star } from "lucide-react";
 import { org } from "@/config/org";
@@ -24,6 +25,7 @@ import {
   StaffHighlight,
 } from "@/components/dashboard/panels";
 import { DashboardArranger, type ArrangerTile } from "@/components/dashboard/arranger";
+import { UpcomingPaymentsPanel } from "@/components/dashboard/upcoming-payments";
 import { WeekCalendar } from "@/components/dashboard/week-calendar";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
@@ -228,6 +230,26 @@ export default async function DashboardPage() {
       },
       node: <RegisterPanel offerings={offerings} />,
     },
+    ...(user.familyId
+      ? [
+          {
+            def: {
+              key: "payments",
+              title: "Upcoming payments",
+              blurb: "What will be charged to your card, and on which day.",
+              zone: "right" as const,
+            },
+            /* Streams in behind Suspense: the schedule is a live Stripe read
+               via the registration site (2–3s), and the dashboard must never
+               wait on it. No plan on file renders nothing. */
+            node: (
+              <Suspense fallback={null}>
+                <UpcomingPaymentsPanel familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
     {
       def: {
         key: "store",
