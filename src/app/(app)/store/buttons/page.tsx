@@ -33,9 +33,9 @@ export default async function SpiritButtonsPage({
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
-  /* Closed to families for now — see lib/store-availability. Returned before
-     anything is loaded: there is no sense querying templates and enrolments
-     for a page that is going to say "not yet". */
+  /* Gated by the feature switch — see lib/feature-availability (renamed from
+     store-availability). Returned before anything is loaded: there is no
+     sense querying templates and enrolments for a page saying "not yet". */
   if (!isFeatureOpen("spiritButtons")) {
     return (
       <div className="flex flex-col gap-4">

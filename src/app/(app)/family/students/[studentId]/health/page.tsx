@@ -83,6 +83,7 @@ export default async function HealthFormPage({
               studentName={displayName}
               current={current}
               previous={previous}
+              profileAllergies={student.allergies}
             />
           )}
         </CardContent>

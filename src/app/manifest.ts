@@ -27,5 +27,12 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "maskable",
       },
     ],
+    /* Long-press destinations for the installed app — the three questions a
+       parent actually opens it for. */
+    shortcuts: [
+      { name: "Schedule", url: "/schedule" },
+      { name: "Messages", url: "/messages" },
+      { name: "Notifications", url: "/notifications" },
+    ],
   };
 }

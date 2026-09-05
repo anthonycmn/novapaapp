@@ -17,6 +17,7 @@ import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { isFeatureOpen } from "@/lib/feature-availability";
 import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { NeedsAttentionPanel } from "@/components/dashboard/needs-attention";
+import { StayInLoopCard } from "@/components/dashboard/stay-in-loop";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
@@ -226,6 +227,25 @@ export default async function DashboardPage() {
         </Card>
       ),
     },
+    ...(user.familyId
+      ? [
+          {
+            def: {
+              key: "stay-in-loop",
+              title: "Get rehearsals on your phone",
+              blurb: "Calendar subscription and notifications, until they're set up.",
+              zone: "right" as const,
+            },
+            /* Renders only until the family subscribes; removing the tile is
+               the opt-out for anyone who never wants the nudge. */
+            node: (
+              <Suspense fallback={null}>
+                <StayInLoopCard familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
     {
       def: {
         key: "notifications",

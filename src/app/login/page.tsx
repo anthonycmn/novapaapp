@@ -124,6 +124,12 @@ export default async function LoginPage({
                     or contact the office and we&apos;ll connect you.
                   </p>
                 )}
+                {error === "impersonation-expired" && (
+                  <p role="alert" className="text-sm text-destructive">
+                    Your stand-in session ended. Sign in with your own account
+                    to start a new one.
+                  </p>
+                )}
                 <a
                   href="/forgot-password"
                   className="self-start text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline"

@@ -24,12 +24,21 @@ export function HealthFormEditor({
   studentName,
   current,
   previous,
+  profileAllergies,
 }: {
   studentId: string;
   seasonId: string;
   studentName: string;
   current: HealthFormRecord | null;
   previous: HealthFormRecord | null;
+  /**
+   * The student profile's allergies field, used as the LAST prefill fallback
+   * when no form exists at all. The two fields were asked independently with
+   * no cross-fill (Sep 5 2026 audit) — a parent who answered on the profile
+   * (or at registration, which seeds it) opened a blank form and reasonably
+   * concluded the portal had lost their answer.
+   */
+  profileAllergies?: string | null;
 }) {
   const router = useRouter();
   const [dirty, setDirty] = useState(false);
@@ -69,7 +78,7 @@ export function HealthFormEditor({
           <Textarea
             id="allergies"
             name="allergies"
-            defaultValue={answers?.allergies ?? ""}
+            defaultValue={answers?.allergies ?? profileAllergies ?? ""}
             placeholder="Food, medication, environmental — and what to do"
             className="min-h-16"
           />

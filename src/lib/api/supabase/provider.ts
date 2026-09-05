@@ -5097,18 +5097,29 @@ class SupabaseDataProvider {
     role: MessageThread["recipientRole"],
     title: string,
     body: string,
-    url: string
+    url: string,
+    /**
+     * The one person the thread is actually addressed to. Coverage used to
+     * stop at admins and H&S directors, so a message routed to a show
+     * director generated no in-app signal for the director at all — their
+     * only channel was the email (Sep 5 2026 audit). Matched by staff id
+     * first, then by the route's email, against hub profiles.
+     */
+    direct?: { staffId?: string | null; email?: string | null }
   ): Promise<void> {
     const [{ data: staffUsers }, { data: hsProfiles }] = await Promise.all([
-      this.db.from("profiles").select("id, role, staff_id")
+      this.db.from("profiles").select("id, role, staff_id, email")
         .in("role", ["staff", "admin", "super_admin"]),
       this.db.from("staff_profiles").select("id").eq("is_health_safety_director", true),
     ]);
     const hsIds = new Set((hsProfiles ?? []).map((pr) => pr.id));
+    const directEmail = direct?.email?.trim().toLowerCase() || null;
     const recipients = (staffUsers ?? []).filter((u) =>
       u.role === "admin" || u.role === "super_admin"
         ? true
-        : role === "health_safety" && u.staff_id && hsIds.has(u.staff_id)
+        : (role === "health_safety" && u.staff_id && hsIds.has(u.staff_id)) ||
+          (direct?.staffId != null && u.staff_id === direct.staffId) ||
+          (directEmail !== null && String(u.email ?? "").toLowerCase() === directEmail)
     );
     if (recipients.length) {
       await this.db.from("notifications").insert(
@@ -5305,7 +5316,8 @@ class SupabaseDataProvider {
           ? "New health & safety message"
           : "New message from a family",
         input.subject.trim(),
-        `/admin/messages/${thread.id}`
+        `/admin/messages/${thread.id}`,
+        { staffId: mapped.recipientStaffId, email: mapped.recipientEmail }
       ),
       this.emailThreadRecipient(mapped, actor.displayName, input.body.trim(), true),
     ]);
@@ -5409,7 +5421,8 @@ class SupabaseDataProvider {
       await Promise.all([
         this.notifyRoleCoverage(
           thread.recipientRole, "New reply from a family", thread.subject,
-          `/admin/messages/${thread.id}`
+          `/admin/messages/${thread.id}`,
+          { staffId: thread.recipientStaffId, email: thread.recipientEmail }
         ),
         this.emailThreadRecipient(thread, actor.displayName, body.trim(), false),
       ]);

@@ -59,9 +59,9 @@ export default async function StorePage() {
         </Link>
       </div>
 
-      {/* Spirit buttons — closed to families for now (lib/store-availability).
-          The designer is left intact behind the switch rather than removed, so
-          opening it again is one boolean. */}
+      {/* Spirit buttons — gated by lib/feature-availability (renamed from
+          store-availability). The designer is left intact behind the switch
+          rather than removed, so opening it again is one boolean. */}
       {!isFeatureOpen("spiritButtons") ? (
         <NotYetAvailable feature="spiritButtons" />
       ) : templates.length === 0 ? (
