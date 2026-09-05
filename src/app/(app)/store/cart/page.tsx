@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ShoppingCart } from "lucide-react";
 import { getProvider } from "@/lib/api";
-import { getPaymentProvider } from "@/lib/api/payments";
+import { getPaymentProvider, livePaymentsBlockedBecause } from "@/lib/api/payments";
 import { getSessionUser } from "@/lib/auth/session";
 import { checkoutAction } from "@/lib/actions/store";
 import { formatCents } from "@/lib/format";
@@ -35,6 +35,7 @@ export default async function CartPage({
     0
   );
   const payments = getPaymentProvider();
+  const blockedNote = livePaymentsBlockedBecause();
 
   /* Hub 0063 — a Chief standing in for this family can see the basket and
      cannot spend from it. */
@@ -59,7 +60,7 @@ export default async function CartPage({
             <ShoppingCart aria-hidden className="size-8 text-muted-foreground" />
             <p className="font-medium">Your cart is empty</p>
             <Link
-              href="/store"
+              href="/store/buttons"
               className="text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
               Design a spirit button
@@ -79,11 +80,19 @@ export default async function CartPage({
             </CardContent>
           </Card>
 
-          {!payments.isConfigured() && (
+          {/* Say it BEFORE the press, in the family's language. The blocked
+              message is the same one checkoutAction will refuse with; the
+              demo note only ever renders on the mock-data demo site. */}
+          {blockedNote ? (
             <p className="rounded-lg bg-accent p-3 text-sm text-accent-foreground">
-              Payments are in demo mode — checkout completes without charging a
-              card. Add a Stripe key to take real payments.
+              {blockedNote}
             </p>
+          ) : (
+            !payments.isConfigured() && (
+              <p className="rounded-lg bg-accent p-3 text-sm text-accent-foreground">
+                This demo checkout completes without charging a card.
+              </p>
+            )
           )}
 
           {standingIn ? (

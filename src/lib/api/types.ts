@@ -494,6 +494,13 @@ export type NotificationType =
   | "payment_due"
   | "photos_posted"
   | "casting_released"
+  /** Pick-up/drop-off request approved or denied. Was form_due until the
+   *  Sep 5 2026 audit; a safety decision deserves its own toggle. */
+  | "pickup_decision"
+  /** A general announcement echo (bulk email, answered question). Was
+   *  broadcast, which the dashboard's red emergency band renders — see the
+   *  same audit. broadcast is reserved for closures and cancellations. */
+  | "announcement"
   | "broadcast";
 
 /**

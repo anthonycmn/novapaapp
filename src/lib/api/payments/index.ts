@@ -154,9 +154,23 @@ export function describeButton(studentName: string, role: string, size: string):
  * So the answer is to fail closed and take no money at all. The alternative
  * failure, falling back to the mock, would hand out spirit buttons for free;
  * of the two, refusing to sell is the one you can apologize for.
+ *
+ * AND ONE MORE, FOUND THE DAY SPIRIT BUTTONS WENT LIVE (Sep 5 2026 audit):
+ * no Stripe key at all. That used to mean "demo mode, nothing to protect" —
+ * true when the whole app ran on the mock data store, and false the moment
+ * real families could check out against the real database: the mock adapter
+ * completes the order and marks it PAID with no money moved, and the store
+ * queue fills with paid orders nobody paid for. The rule now keys off the
+ * data mode, which is what "demo" actually means here: mock data may take
+ * mock money; the real database sells nothing until Stripe is configured.
  */
 export function livePaymentsBlockedBecause(): string | null {
-  if (!process.env.STRIPE_SECRET_KEY) return null; // mock mode; nothing to protect
+  const demoData = (process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") === "mock";
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return demoData
+      ? null // the demo store may complete demo checkouts
+      : "Card payments aren't switched on quite yet. Nothing has been charged — please try again soon.";
+  }
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
     return "Card payments are being set up and aren't quite ready. Nothing has been charged — please try again shortly.";
   }

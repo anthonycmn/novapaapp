@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Reactions } from "./reactions";
 import { QuestionBox } from "./question-box";
+import { isFeatureOpen } from "@/lib/feature-availability";
 
 export const metadata = { title: "News" };
 
@@ -40,10 +41,13 @@ export default async function FeedPage() {
   );
 
   // "Photos of your child" pin above the feed (#6). Reads stored matches
-  // only — matching itself runs in a background job.
-  const matches = user.familyId
-    ? await provider.getMatchesForFamily(user.id, user.familyId)
-    : [];
+  // only — matching itself runs in a background job. Gated with the photos
+  // feature (Sep 5 2026 audit): while photos are closed, the pin's "See all
+  // your photos" led straight to a page saying they aren't available.
+  const matches =
+    user.familyId && isFeatureOpen("photos")
+      ? await provider.getMatchesForFamily(user.id, user.familyId)
+      : [];
 
   return (
     <div className="flex flex-col gap-4">

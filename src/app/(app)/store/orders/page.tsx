@@ -65,7 +65,7 @@ export default async function OrdersPage({
             <Package aria-hidden className="size-8 text-muted-foreground" />
             <p className="font-medium">No orders yet</p>
             <Link
-              href="/store"
+              href="/store/buttons"
               className="text-sm font-medium text-primary underline-offset-4 hover:underline"
             >
               Design your first button

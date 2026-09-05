@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/session";
 import { signOut } from "@/lib/auth/actions";
 import { getProvider } from "@/lib/api";
@@ -10,6 +9,7 @@ import { currentImpersonation } from "@/lib/auth/impersonation";
 import { getNavAlerts } from "@/lib/nav-alerts";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { PushSync } from "@/components/pwa/push-sync";
+import { SignOutButton } from "@/components/app-shell/sign-out-button";
 
 /**
  * Authenticated app shell. Everything inside the (app) route group requires
@@ -52,16 +52,9 @@ export default async function AppLayout({
       unreadCount={unreadCount}
       navAlerts={navAlerts}
       signOutSlot={
-        <form action={signOut}>
-          <button
-            type="submit"
-            title="Sign out"
-            aria-label="Sign out"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <LogOut aria-hidden size={14} />
-          </button>
-        </form>
+        /* The client wrapper purges the service worker's page cache and the
+           push subscription before the cookie goes — see SignOutButton. */
+        <SignOutButton action={signOut} />
       }
     >
       {/* Above the page, not inside it, so it survives every route in the

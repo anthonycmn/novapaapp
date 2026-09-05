@@ -12,8 +12,22 @@ export default function OfflinePage() {
       <h1 className="text-2xl font-semibold">You&apos;re offline</h1>
       <p className="max-w-sm text-muted-foreground">
         No connection right now — theater basements will do that. Pages
-        you&apos;ve visited recently (including your schedule) are still
-        available from the navigation.
+        you&apos;ve visited recently still work.
+      </p>
+      {/* Plain <a> links, on purpose: this page renders OUTSIDE the app
+          shell, so there is no sidebar here — the old copy said "use the
+          navigation" on a page that had none (Sep 5 2026 audit). These load
+          from the service worker's cache. */}
+      <p className="flex flex-wrap justify-center gap-4 text-sm font-medium">
+        <a className="underline underline-offset-4" href="/schedule">
+          Your schedule
+        </a>
+        <a className="underline underline-offset-4" href="/dashboard">
+          Dashboard
+        </a>
+        <a className="underline underline-offset-4" href="/family/documents">
+          Documents
+        </a>
       </p>
       <p className="text-sm text-muted-foreground">{org.appName}</p>
     </main>

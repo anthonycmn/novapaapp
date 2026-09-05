@@ -267,7 +267,9 @@ async function announceScheduleChanges(
         type: "schedule_change",
         title: "Your calendar changed",
         body: headline + ". " + named + "." + rest + " Open the calendar for the full week.",
-        url: "/calendar",
+        // The calendar page's route is /schedule — "/calendar" was a 404 on
+        // every schedule-change tap until the Sep 5 2026 audit caught it.
+        url: "/schedule",
       });
     }
     families += 1;

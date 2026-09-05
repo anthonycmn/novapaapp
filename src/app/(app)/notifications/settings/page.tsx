@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getProvider } from "@/lib/api";
 import type { NotificationType } from "@/lib/api/types";
+import { isFeatureOpen } from "@/lib/feature-availability";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   setQuietHoursAction,
@@ -18,9 +19,15 @@ const TYPES: Array<{ type: NotificationType; label: string; hint: string }> = [
   { type: "feed_post", label: "Feed posts", hint: "New announcements from staff" },
   { type: "direct_message", label: "Replies", hint: "Answers to your questions" },
   { type: "form_due", label: "Forms", hint: "Health forms due or expiring" },
+  { type: "pickup_decision", label: "Pick-up & drop-off", hint: "Requests approved or denied" },
   { type: "schedule_change", label: "Schedule changes", hint: "Rehearsal moves and cancellations" },
   { type: "payment_due", label: "Payments", hint: "Balance reminders" },
-  { type: "photos_posted", label: "Photos", hint: "New photos of your child" },
+  { type: "announcement", label: "General notices", hint: "Newsletters and order updates" },
+  // Offered only once the photos feature is open — a toggle for a product
+  // that renders "not yet available" was a promise nobody could act on.
+  ...(isFeatureOpen("photos")
+    ? [{ type: "photos_posted" as const, label: "Photos", hint: "New photos of your child" }]
+    : []),
   { type: "casting_released", label: "Casting", hint: "Cast lists going live" },
 ];
 

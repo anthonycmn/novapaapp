@@ -60,7 +60,11 @@ export async function GET(
   return new NextResponse(ics, {
     headers: {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="novapa-family.ics"',
+      // inline, not attachment: this is a subscription feed. As an
+      // attachment, the "Copy link" path pasted into a browser downloaded a
+      // file instead of showing anything, which read as broken (Sep 5 2026
+      // audit). Calendar clients ignore the disposition either way.
+      "Content-Disposition": 'inline; filename="novapa-family.ics"',
       "Cache-Control": "private, max-age=300",
     },
   });

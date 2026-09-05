@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getProvider } from "@/lib/api";
 import { groupTopics } from "@/lib/api/messages/topics";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { NewThreadForm } from "./new-thread-form";
 
@@ -10,7 +10,10 @@ export const metadata = { title: "New message" };
 export default async function NewMessagePage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  if (!user.familyId) redirect("/admin/messages");
+  // Same routing as /messages: staff to the office queue, an unlinked
+  // parent to /family, which explains the state instead of a silent bounce.
+  if (!user.familyId)
+    redirect(hasRoleAtLeast(user, "staff") ? "/admin/messages" : "/family");
 
   const provider = getProvider();
   const [students, topics] = await Promise.all([

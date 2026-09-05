@@ -111,6 +111,18 @@ export function Sidebar({
                 >
                   <Icon aria-hidden size={15} className="shrink-0" />
                   <span className="flex-1 truncate">{label}</span>
+                  {/* The mark itself — the count was computed and read to
+                      screen readers from day one, but no pixel was ever
+                      drawn (Sep 5 2026 audit). Gold, like everything that
+                      asks for attention here. */}
+                  {count > 0 && (
+                    <span
+                      aria-hidden
+                      className="ml-auto inline-flex h-[17px] min-w-[17px] shrink-0 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold leading-none text-background"
+                    >
+                      {count > 9 ? "9+" : count}
+                    </span>
+                  )}
                 </Link>
               );
             })}

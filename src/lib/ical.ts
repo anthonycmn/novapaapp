@@ -43,6 +43,11 @@ export function buildFamilyIcs(
     "METHOD:PUBLISH",
     foldLine(`X-WR-CALNAME:${icsEscape(`${org.shortName} — ${options.familyName}`)}`),
     `X-WR-TIMEZONE:${org.timeZone}`,
+    // Without a stated cadence Apple Calendar refreshes subscribed feeds
+    // weekly — a Tuesday rehearsal move reached some phones the following
+    // Sunday (Sep 5 2026 audit). Both spellings, because clients disagree.
+    "REFRESH-INTERVAL;VALUE=DURATION:PT1H",
+    "X-PUBLISHED-TTL:PT1H",
   ];
 
   for (const event of events) {

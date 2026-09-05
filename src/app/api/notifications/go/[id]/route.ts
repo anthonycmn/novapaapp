@@ -13,7 +13,12 @@ export async function GET(
 ) {
   const user = await getSessionUser();
   if (!user) {
-    return NextResponse.redirect(new URL("/login", request.nextUrl.origin));
+    // Keep the destination: a parent tapping a push after their session
+    // lapsed should land where the notification pointed, not on the
+    // dashboard. Login already honors ?next= for exactly this.
+    const login = new URL("/login", request.nextUrl.origin);
+    login.searchParams.set("next", request.nextUrl.pathname);
+    return NextResponse.redirect(login);
   }
 
   const { id } = await params;

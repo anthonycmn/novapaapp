@@ -1154,11 +1154,11 @@ export class MockDataProvider implements DataProvider {
   ): number {
     let sent = 0;
     for (const recipient of recipients) {
-      if (!this.prefAllows(recipient.id, "broadcast")) continue;
+      if (!this.prefAllows(recipient.id, "announcement")) continue;
       store.notifications.push({
         id: nextId("ntf"),
         userId: recipient.id,
-        type: "broadcast",
+        type: "announcement",
         title: subject,
         body: body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160),
         url: "/notifications",
@@ -1646,7 +1646,7 @@ export class MockDataProvider implements DataProvider {
       store.notifications.push({
         id: nextId("ntf"),
         userId: parent.id,
-        type: "form_due",
+        type: "pickup_decision",
         title: `Pick-up request ${decision.status}`,
         body: `${student?.firstName ?? "Your student"}: ${decision.note ?? "See details in the app."}`,
         url: "/family/pickup",
@@ -2047,7 +2047,7 @@ export class MockDataProvider implements DataProvider {
         store.notifications.push({
           id: nextId("ntf"),
           userId: parent.id,
-          type: "broadcast",
+          type: "announcement",
           title:
             status === "ready"
               ? `Order ${order.reference} is ready`
@@ -2859,7 +2859,7 @@ export class MockDataProvider implements DataProvider {
       store.notifications.push({
         id: nextId("ntf"),
         userId: admin.id,
-        type: "broadcast",
+        type: "announcement",
         audience: "staff",
         title: "Staff profile update to review",
         body: `${profile.fullName} submitted changes to their profile.`,
@@ -2893,7 +2893,7 @@ export class MockDataProvider implements DataProvider {
       store.notifications.push({
         id: nextId("ntf"),
         userId: owner.id,
-        type: "broadcast",
+        type: "announcement",
         title: "Your profile is live",
         body: "An administrator approved your profile changes.",
         url: `/staff/${staffId}`,
@@ -2921,7 +2921,7 @@ export class MockDataProvider implements DataProvider {
       store.notifications.push({
         id: nextId("ntf"),
         userId: owner.id,
-        type: "broadcast",
+        type: "announcement",
         title: "Profile changes need another look",
         body: reason,
         url: "/staff/edit",
@@ -3977,7 +3977,7 @@ export class MockDataProvider implements DataProvider {
         store.notifications.push({
           id: nextId("ntf"),
           userId: staff.id,
-          type: "broadcast",
+          type: "announcement",
           audience: "staff",
           title: "Playbill name correction",
           body: `${student?.firstName ?? "A student"} → "${corrected}"`,
@@ -4304,7 +4304,7 @@ export class MockDataProvider implements DataProvider {
               kind === "reminder"
                 ? `${names} ${names.includes("&") ? "are" : "is"} called ${when} at ${event.location}.${event.whatToBring ? ` Bring: ${event.whatToBring}.` : ""}`
                 : `${names} did wonderful work at ${event.title}. See the calendar for what's next.`,
-            url: "/calendar",
+            url: "/schedule",
             createdAt: nowIso(),
           });
         }

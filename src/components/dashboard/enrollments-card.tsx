@@ -2,6 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { registration } from "@/config/registration";
 import type { ClassOffering, Enrollment, Production, Student } from "@/lib/api/types";
 import type { UpcomingPayment } from "@/lib/api/registration/billing";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { formatCents, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +42,9 @@ export function EnrollmentsCard({
   classes: ClassOffering[];
   upcoming?: UpcomingPayment[] | null;
 }) {
-  const active = enrollments.filter((e) => e.status !== "withdrawn");
+  // Running enrollments only — a show that closed three weeks ago is show
+  // history, not a line item a family still owes attention to.
+  const active = enrollments.filter(enrollmentIsCurrent);
   const studentsById = new Map(students.map((s) => [s.id, s]));
   const productionsById = new Map(productions.map((p) => [p.id, p]));
   const classesById = new Map(classes.map((c) => [c.id, c]));

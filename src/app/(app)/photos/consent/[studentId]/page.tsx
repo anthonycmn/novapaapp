@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConsentExplanation } from "./explanation";
 import { ConsentForm } from "./consent-form";
+import { NotYetAvailable } from "@/components/not-yet-available";
+import { isFeatureOpen } from "@/lib/feature-availability";
 
 export const metadata = { title: "Photo matching" };
 
@@ -16,6 +18,18 @@ export default async function ConsentPage({
 }: {
   params: Promise<{ studentId: string }>;
 }) {
+  /* Gated like /photos itself (Sep 5 2026 audit — this page missed the
+     guard): while the feature is closed, a deep link must not reach a form
+     that collects a child's face photos and records biometric consent. */
+  if (!isFeatureOpen("photos")) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold">Photo matching</h1>
+        <NotYetAvailable feature="photos" />
+      </div>
+    );
+  }
+
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const { studentId } = await params;

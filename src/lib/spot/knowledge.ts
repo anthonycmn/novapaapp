@@ -17,6 +17,8 @@
  * the same entry as "illness", because families do not use our vocabulary.
  */
 
+import { isFeatureOpen } from "@/lib/feature-availability";
+
 export interface SpotAnswer {
   id: string;
   /** How Spot introduces the answer. */
@@ -209,7 +211,11 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "photos",
     title: "Photos of your child",
-    body: "Show galleries are on the photos page, and photos we have matched to your child are pinned at the top of News.",
+    // Truth-tracked by the feature switch (Sep 5 2026 audit): Spot was
+    // promising galleries while /photos said "not yet available".
+    body: isFeatureOpen("photos")
+      ? "Show galleries are on the photos page — we let you know when photos of your child are matched."
+      : "Photos are still being set up. When they open you will see your child's show galleries on the photos page, and we will let you know.",
     links: [
       { label: "Photos", href: "/photos" },
       { label: "News", href: "/feed" },
@@ -235,10 +241,14 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "store",
     title: "Spirit buttons and star pages",
-    body: "Spirit buttons and playbill star pages are in the store, and your past orders are there too.",
+    body: isFeatureOpen("starPages")
+      ? "Spirit buttons and playbill star pages are in the store, and your past orders are there too."
+      : "Spirit buttons are in the store now, and your past orders are there too. Playbill star pages are on the way — we will announce when they open.",
     links: [
       { label: "Spirit buttons", href: "/store/buttons" },
-      { label: "Star pages", href: "/store/star-pages" },
+      ...(isFeatureOpen("starPages")
+        ? [{ label: "Star pages", href: "/store/star-pages" }]
+        : []),
       { label: "Your orders", href: "/store/orders" },
     ],
     keywords: [

@@ -11,11 +11,15 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const DISMISSED_KEY = "novapa-install-dismissed";
+/* A dismiss is "not now", not "never": on iOS, installing is the only path
+   to push notifications, and the old forever-dismiss meant one accidental ✕
+   permanently cut that path off (Sep 5 2026 audit). Re-offer after two weeks. */
+const DISMISS_FOR_MS = 14 * 24 * 3600 * 1000;
 
 /**
  * Add-to-home-screen prompt. Shows a small banner when the browser fires
  * `beforeinstallprompt` (Chrome/Edge/Android). iOS Safari never fires it,
- * so we show a one-time hint with the share-sheet instructions instead.
+ * so we show a hint with the share-sheet instructions instead.
  */
 export function InstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
@@ -23,7 +27,10 @@ export function InstallPrompt() {
 
   useEffect(() => {
     try {
-      if (localStorage.getItem(DISMISSED_KEY)) return;
+      const dismissedAt = Number(localStorage.getItem(DISMISSED_KEY) ?? 0);
+      // "1" from the forever era parses as an ancient timestamp, so those
+      // earlier dismissals re-offer immediately — which is the fix, not a bug.
+      if (dismissedAt && Date.now() - dismissedAt < DISMISS_FOR_MS) return;
     } catch {
       return;
     }
@@ -50,7 +57,7 @@ export function InstallPrompt() {
     setDeferred(null);
     setShowIosHint(false);
     try {
-      localStorage.setItem(DISMISSED_KEY, "1");
+      localStorage.setItem(DISMISSED_KEY, String(Date.now()));
     } catch {
       // ignore
     }
@@ -66,7 +73,9 @@ export function InstallPrompt() {
   if (!deferred && !showIosHint) return null;
 
   return (
-    <Card className="fixed inset-x-4 bottom-20 z-50 mx-auto max-w-md shadow-lg">
+    // bottom-4: the old bottom-20 was clearance for a tab bar the layout
+    // removed on Aug 16.
+    <Card className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md shadow-lg">
       <CardContent className="flex items-center gap-3 p-4">
         <span aria-hidden className="text-2xl">🎭</span>
         <div className="min-w-0 flex-1 text-sm">

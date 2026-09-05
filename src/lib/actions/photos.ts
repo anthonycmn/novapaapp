@@ -7,6 +7,7 @@ import { MAX_REFERENCE_PHOTOS, MIN_REFERENCE_PHOTOS } from "@/lib/api/photos/typ
 import { logActivity } from "@/lib/activity";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { runIngestAndMatch } from "@/lib/jobs/photo-matching";
+import { isFeatureOpen, FEATURE_COPY } from "@/lib/feature-availability";
 import type { FamilyFormState } from "./family";
 
 const consentSchema = z.object({
@@ -26,6 +27,13 @@ export async function grantConsentAction(
 ): Promise<FamilyFormState> {
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
+
+  /* Same gate the store actions carry (Sep 5 2026 audit): while photos are
+     closed, nothing may collect a child's face photos or record biometric
+     consent — a deep link must not reach further than the front door. */
+  if (!isFeatureOpen("photos")) {
+    return { ok: false, errors: { _form: FEATURE_COPY.photos.title } };
+  }
 
   const parsed = consentSchema.safeParse({
     understood: formData.get("understood") === "on",

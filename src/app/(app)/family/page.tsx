@@ -15,15 +15,17 @@ export default async function FamilyPage() {
   if (!user) redirect("/login");
 
   if (!user.familyId) {
-    // Staff/admin land here from the tab bar; the staff directory grows in Phase 1.
+    // "Phase 1" copy retired Sep 5 2026 — rosters and student lookup have
+    // lived in the staff portal since Aug 16, and roadmap language in a
+    // parent-visible string outlives the roadmap.
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-semibold">Family</h1>
         <Card>
           <CardContent className="p-10 text-center text-sm text-muted-foreground">
             {hasRoleAtLeast(user, "staff")
-              ? "Staff accounts don't have a family profile. Rosters and student lookup arrive with Phase 1."
-              : "Your account isn't linked to a family yet. Contact the front office."}
+              ? "Staff accounts don't have a family profile. Rosters and student lookup live in the staff portal."
+              : "Your account isn't linked to a family yet. Message the front office at info@novapa.org and we'll connect it."}
           </CardContent>
         </Card>
       </div>
@@ -97,8 +99,12 @@ export default async function FamilyPage() {
                       {student.preferredName ?? student.firstName} {student.lastName}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Grade {student.grade}
-                      {student.school ? ` · ${student.school}` : ""}
+                      {[
+                        student.grade ? `Grade ${student.grade}` : null,
+                        student.school || null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "Tap to complete their profile"}
                     </p>
                   </div>
                 </CardContent>

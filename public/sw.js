@@ -7,13 +7,26 @@
  *  - Never cache API/auth routes.
  * Phase 3 adds calendar payload caching; Phase 2 adds push handlers.
  */
-const VERSION = "v5";
+const VERSION = "v6";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const OFFLINE_URL = "/offline";
 
-/* Routes worth having in a theater basement with no signal (#5, #9). */
-const OFFLINE_CRITICAL = ["/schedule", "/dashboard", "/admin/health"];
+/* Routes worth having in a theater basement with no signal (#5, #9).
+   /family/documents joined the list in the Sep 5 2026 audit — the health
+   form and emergency contacts are exactly what a basement needs. */
+const OFFLINE_CRITICAL = ["/schedule", "/dashboard", "/admin/health", "/family/documents"];
+
+/*
+ * Sign-out tells us to forget the rendered pages. Cached navigations carry
+ * the previous user's children and schedule; on a shared device those must
+ * not survive into the next sign-in (Sep 5 2026 audit).
+ */
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "clear-shell-cache") {
+    event.waitUntil(caches.delete(SHELL_CACHE));
+  }
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -222,7 +222,15 @@ export async function checkoutAction(): Promise<void> {
   /* Hub 0063. This spends a family's money on their saved card. Redirected
      rather than silently dropped, because a basket that does not check out and
      does not say why is a basket somebody presses four more times. */
-  if (await refuseIfImpersonating("store")) redirect("/store/cart?blocked=impersonation");
+  // ?error= is the parameter the cart actually renders — this used to send
+  // ?blocked=, which nothing read, so a blocked Chief saw a silent no-op:
+  // the exact four-more-presses basket this comment warns about.
+  if (await refuseIfImpersonating("store"))
+    redirect(
+      `/store/cart?error=${encodeURIComponent(
+        "You're viewing this family's account as staff, so checkout is disabled — it would spend their money."
+      )}`
+    );
 
   const provider = getProvider();
   const cart = await provider.getCart(user.id);

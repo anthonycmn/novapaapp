@@ -35,6 +35,14 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
+  // On a phone the sidebar's marks live behind the hamburger, so the
+  // hamburger itself carries a dot when anything besides notifications is
+  // waiting (the bell already covers those). Unfinished forms must be
+  // visible from every page, not just from an open drawer.
+  const hiddenAlerts = Object.entries(navAlerts ?? {}).some(
+    ([href, count]) => href !== "/notifications" && count > 0
+  );
+
   // Any navigation closes the drawer — otherwise it stays over the page you
   // just asked for.
   useEffect(() => setOpen(false), [pathname]);
@@ -90,11 +98,17 @@ export function AppShell({
         <header className="flex items-center gap-3 border-b bg-card px-4 py-2.5 lg:hidden">
           <button
             onClick={() => setOpen(true)}
-            aria-label="Menu"
+            aria-label={hiddenAlerts ? "Menu (items need your attention)" : "Menu"}
             aria-expanded={open}
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="relative inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <Menu aria-hidden size={18} />
+            {hiddenAlerts && (
+              <span
+                aria-hidden
+                className="absolute right-1.5 top-1.5 size-2 rounded-full bg-gold"
+              />
+            )}
           </button>
           {/* On a phone the top bar IS the top-left corner, so it carries the
               same wordmark as the desktop rail rather than a second treatment. */}

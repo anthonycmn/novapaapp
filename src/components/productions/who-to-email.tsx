@@ -107,45 +107,46 @@ export function WhoToEmail({
 }
 
 /**
- * Meals and volunteering are real parts of a show week, and families ask
- * about them before we are ready to take sign-ups. Saying "coming soon"
- * beats saying nothing: it tells a parent the thing exists and that they
- * have not missed it.
+ * Meals and volunteering are real parts of a show week. Meals genuinely is
+ * coming soon; volunteering SHIPPED on Aug 26 and this card kept saying it
+ * hadn't (Sep 5 2026 audit) — every show page told parents a live feature
+ * didn't exist, and didn't link to it. Now the volunteer card is the way in.
  */
 export function ComingSoonCards() {
-  const items = [
-    {
-      Icon: UtensilsCrossed,
-      title: "Meals & potluck",
-      body: "Who is bringing what for tech week and show nights. Sign-ups open here once the run is set.",
-    },
-    {
-      Icon: HandHeart,
-      title: "Volunteer sign-ups",
-      body: "Front of house, costumes, load-in and strike. We will post the slots here when they are ready.",
-    },
-  ];
-
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {items.map(({ Icon, title, body }) => (
-        <Card key={title} className="border-dashed" pad>
+      <Card className="border-dashed" pad>
+        <div className="flex items-start gap-3">
+          <UtensilsCrossed aria-hidden size={17} className="mt-0.5 shrink-0 text-gold" />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-[14px] font-semibold">Meals &amp; potluck</h3>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                Coming soon
+              </span>
+            </div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+              Who is bringing what for tech week and show nights. Sign-ups open
+              here once the run is set.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <Link href="/volunteers" className="gold-hover block">
+        <Card pad>
           <div className="flex items-start gap-3">
-            <Icon aria-hidden size={17} className="mt-0.5 shrink-0 text-gold" />
+            <HandHeart aria-hidden size={17} className="mt-0.5 shrink-0 text-gold" />
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-[14px] font-semibold">{title}</h3>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  Coming soon
-                </span>
-              </div>
+              <h3 className="text-[14px] font-semibold">Volunteer sign-ups</h3>
               <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
-                {body}
+                Front of house, costumes, load-in and strike. See the published
+                sheets for your shows and take a slot.
               </p>
             </div>
           </div>
         </Card>
-      ))}
+      </Link>
     </div>
   );
 }

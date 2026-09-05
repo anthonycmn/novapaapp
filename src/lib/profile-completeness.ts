@@ -161,7 +161,11 @@ export function studentAlerts(student: Student): ProfileAlert[] {
       severity: "suggested",
       label: "A photo",
       why: "Helps staff put a face to a name at check-in. Entirely optional.",
-      href: `/family/students/${student.id}/edit`,
+      // The headshot field moved to the audition page (3 Sep 2026); /edit no
+      // longer has one, which made this alert unclearable from where it sent
+      // you (Sep 5 audit). /materials routes to the right audition page for
+      // the child, or the audition index when they're in several shows.
+      href: `/family/students/${student.id}/materials`,
     });
   }
 

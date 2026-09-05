@@ -124,8 +124,12 @@ export default async function DirectoryPage({
                         )}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        Grade {student.grade}
-                        {student.school ? ` · ${student.school}` : ""}
+                        {[
+                          student.grade ? `Grade ${student.grade}` : null,
+                          student.school || null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "No grade on file"}
                       </p>
                     </div>
                     {(student.allergies || student.medicalFlags) && (

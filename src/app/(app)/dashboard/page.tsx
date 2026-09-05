@@ -14,6 +14,8 @@ import type {
   Student,
 } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { isFeatureOpen } from "@/lib/feature-availability";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
@@ -120,7 +122,9 @@ export default async function DashboardPage() {
     provider.getDashboardLayout(user.id),
   ]);
 
-  const active = enrollments.filter((e) => e.status !== "withdrawn");
+  // Current means running: withdrawn rows and finished sessions both drop
+  // out, so a wrapped show stops reading "run under way" forever.
+  const active = enrollments.filter(enrollmentIsCurrent);
   const balanceCents = active.reduce((sum, e) => sum + e.balanceCents, 0);
   const firstName = user.displayName.split(" ")[0];
   const today = todayKey();
@@ -277,10 +281,15 @@ export default async function DashboardPage() {
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[14px] font-semibold">Spirit buttons</span>
-                {/* Said before the click, not after it — CJ, 4 Sep 2026. */}
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                  Coming soon
-                </span>
+                {/* Said before the click, not after it — CJ, 4 Sep 2026 —
+                    and said by the feature switch, not a hardcoded pill: the
+                    tile was still promising "coming soon" the day the store
+                    opened (Sep 5 2026 audit). */}
+                {!isFeatureOpen("spiritButtons") && (
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                    Coming soon
+                  </span>
+                )}
               </span>
               <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
                 Pick a show, add a photo, see the button before you order.
@@ -298,10 +307,12 @@ export default async function DashboardPage() {
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[14px] font-semibold">Star pages</span>
-                {/* Said before the click, not after it — CJ, 4 Sep 2026. */}
-                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
-                  Coming soon
-                </span>
+                {/* Same rule: the switch speaks, not a hardcoded pill. */}
+                {!isFeatureOpen("starPages") && (
+                  <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                    Coming soon
+                  </span>
+                )}
               </span>
               <span className="mt-0.5 block text-[12.5px] text-muted-foreground">
                 A playbill tribute to your performer, from the whole family.
@@ -350,9 +361,14 @@ export default async function DashboardPage() {
                         <p className="truncate text-[13px] font-medium">
                           {student.preferredName ?? student.firstName} {student.lastName}
                         </p>
-                        <p className="truncate text-[12px] text-muted-foreground">
-                          Grade {student.grade}
-                        </p>
+                        {/* 916 of 943 students have no grade on file — a
+                            blank "Grade" line on nearly every card read as
+                            broken (Sep 5 2026 audit). Say it or say nothing. */}
+                        {student.grade && (
+                          <p className="truncate text-[12px] text-muted-foreground">
+                            Grade {student.grade}
+                          </p>
+                        )}
                       </div>
                     </Link>
                   ))}

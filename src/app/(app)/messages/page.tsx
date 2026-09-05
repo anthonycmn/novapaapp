@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { RECIPIENT_ROLES } from "@/lib/api/messages/types";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +15,12 @@ export const metadata = { title: "Messages" };
 export default async function MessagesPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
-  if (!user.familyId) redirect("/admin/messages");
+  // Staff work the office queue; a parent whose account isn't linked to a
+  // family yet goes to /family, which explains that state and names the fix
+  // — not through /admin/messages, whose non-staff redirect silently dumped
+  // them on the dashboard (Sep 5 2026 audit).
+  if (!user.familyId)
+    redirect(hasRoleAtLeast(user, "staff") ? "/admin/messages" : "/family");
 
   const threads = await getProvider().getMyThreads(user.id);
   const roleLabel = new Map(RECIPIENT_ROLES.map((role) => [role.value, role.label]));

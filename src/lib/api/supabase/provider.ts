@@ -1047,7 +1047,7 @@ class SupabaseDataProvider {
       ]);
       const notifications = (admins ?? []).map((admin) => ({
         user_id: admin.id,
-        type: "broadcast",
+        type: "announcement",
         // Office work, not family news: this is another family's child (0056).
         audience: "staff",
         title: "Playbill name correction",
@@ -2678,9 +2678,16 @@ class SupabaseDataProvider {
           (parent) => parent.family_id === student.family_id
         );
         for (const parent of familyParents) {
+          // One nudge per child per day, not per lifetime: the old dedupe
+          // had no time window, so "new photos of Ana" could only ever fire
+          // once — and its %name% substring let "Sam" suppress "Samantha".
+          // Exact body match + 24h window fixes both (Sep 5 2026 audit).
           const { data: dupe } = await this.db
             .from("notifications").select("id").eq("user_id", parent.id)
-            .eq("type", "photos_posted").ilike("body", `%${name}%`).limit(1);
+            .eq("type", "photos_posted")
+            .eq("body", `We found new photos of ${name}.`)
+            .gte("created_at", new Date(Date.now() - 24 * 3600_000).toISOString())
+            .limit(1);
           if (dupe?.length) continue;
           await this.db.from("notifications").insert({
             user_id: parent.id, type: "photos_posted",
@@ -3255,7 +3262,10 @@ class SupabaseDataProvider {
     body: string
   ): Promise<number> {
     return this.notifyFamilies(recipients, {
-      type: "broadcast",
+      // announcement, not broadcast: broadcast is the dashboard's red
+      // emergency band ("a closure, a venue move, a canceled night"), and a
+      // newsletter echo was lighting it on 800 dashboards (Sep 5 2026 audit).
+      type: "announcement",
       title: subject,
       body: SupabaseDataProvider.preview(body),
       url: "/notifications",
@@ -3683,7 +3693,7 @@ class SupabaseDataProvider {
     if (admins?.length) {
       await this.db.from("notifications").insert(
         admins.map((admin) => ({
-          user_id: admin.id, type: "broadcast", audience: "staff",
+          user_id: admin.id, type: "announcement", audience: "staff",
           title: "Staff profile update to review",
           body: `${profileRow.full_name} submitted changes to their profile.`,
           url: "/admin/staff-profiles",
@@ -3734,7 +3744,7 @@ class SupabaseDataProvider {
       .from("profiles").select("id").eq("staff_id", staffId).maybeSingle();
     if (owner) {
       await this.db.from("notifications").insert({
-        user_id: owner.id, type: "broadcast",
+        user_id: owner.id, type: "announcement",
         title: "Your profile is live",
         body: "An administrator approved your profile changes.",
         url: `/staff/${staffId}`,
@@ -3762,7 +3772,7 @@ class SupabaseDataProvider {
       .from("profiles").select("id").eq("staff_id", staffId).maybeSingle();
     if (owner) {
       await this.db.from("notifications").insert({
-        user_id: owner.id, type: "broadcast",
+        user_id: owner.id, type: "announcement",
         title: "Profile changes need another pass",
         body: reason,
         url: "/staff/edit",
@@ -4468,7 +4478,7 @@ class SupabaseDataProvider {
         await this.db.from("notifications").insert(
           parents.map((parent) => ({
             user_id: parent.id,
-            type: "broadcast",
+            type: "announcement",
             title:
               status === "ready"
                 ? `Order ${order.reference} is ready`
@@ -4768,7 +4778,10 @@ class SupabaseDataProvider {
       await this.db.from("notifications").insert(
         parents.map((parent) => ({
           user_id: parent.id,
-          type: "form_due",
+          // Its own type since the Sep 5 2026 audit: this borrowed form_due,
+          // so muting "Forms" silently muted pick-up approvals — a safety
+          // message riding a paperwork toggle.
+          type: "pickup_decision",
           title: `Pick-up request ${decision.status}`,
           body: `${student?.first_name ?? "Your student"}: ${decision.note ?? "See details in the app."}`,
           url: "/family/pickup",
@@ -4991,10 +5004,11 @@ class SupabaseDataProvider {
       .select().single();
     if (error) throw new Error(`answer failed: ${error.message}`);
 
-    // Tell the asker their question was answered.
+    // Tell the asker their question was answered. direct_message is the type
+    // whose toggle already reads "Replies — answers to your questions".
     await this.db.from("notifications").insert({
       user_id: updated.asker_user_id,
-      type: "broadcast",
+      type: "direct_message",
       title: "Your question was answered",
       body: String(updated.question).slice(0, 120),
       url: "/feed",
@@ -5671,7 +5685,8 @@ class SupabaseDataProvider {
                 kind === "reminder"
                   ? `${names} ${names.includes("&") ? "are" : "is"} called ${whenText(startsAt)} at ${event.location}.${event.what_to_bring ? ` Bring: ${event.what_to_bring}.` : ""}`
                   : `${names} did wonderful work at ${event.title}. See the calendar for what's next.`,
-              url: "/calendar",
+              // /schedule is the calendar's real route; "/calendar" 404'd.
+              url: "/schedule",
             }))
           );
         }
@@ -6002,20 +6017,26 @@ class SupabaseDataProvider {
      * by any signed-in family — that is what lets a parent see whether a shift
      * still needs them — but showing every show's strike night to a family
      * whose child is in none of them is noise, not access.
+     *
+     * "Actually on" means ENROLLED, not cast. This used to resolve through
+     * casting_confirmations, which sounded stricter and was actually a wall:
+     * on the day of the Sep 5 2026 audit exactly one of thirty-three shows
+     * had a published cast, so every other family saw "Nothing to sign up
+     * for yet" no matter what sheets were live. A parent can carry chairs
+     * before their child has a role.
      */
-    const { data: confirmations } = await this.db
-      .from("casting_confirmations")
-      .select("assignment_id")
-      .eq("family_id", actor.familyId);
-    const assignmentIds = (confirmations ?? []).map((c) => c.assignment_id);
-    if (!assignmentIds.length) return [];
-
-    const { data: assignments } = await this.db
-      .from("casting_assignments")
-      .select("production_id")
-      .in("id", assignmentIds);
+    const { data: enrolledRows } = await this.db
+      .from("enrollments")
+      .select("production_id, students!inner(family_id)")
+      .eq("status", "enrolled")
+      .eq("students.family_id", actor.familyId)
+      .not("production_id", "is", null);
     const productionIds = [
-      ...new Set((assignments ?? []).map((a) => a.production_id).filter(Boolean)),
+      ...new Set(
+        ((enrolledRows ?? []) as Array<{ production_id: string | null }>)
+          .map((row) => row.production_id)
+          .filter((id): id is string => Boolean(id))
+      ),
     ];
     if (!productionIds.length) return [];
 

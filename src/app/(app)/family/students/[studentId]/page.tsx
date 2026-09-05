@@ -52,8 +52,12 @@ export default async function StudentPage({
             {displayName} {student.lastName}
           </h1>
           <p className="text-muted-foreground">
-            Grade {student.grade}
-            {student.pronouns ? ` · ${student.pronouns}` : ""}
+            {[
+              student.grade ? `Grade ${student.grade}` : null,
+              student.pronouns || null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
         <Link
