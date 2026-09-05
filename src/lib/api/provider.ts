@@ -342,6 +342,12 @@ export interface DataProvider {
   getProductionCalendar(actorId: string, productionId: string): Promise<CalendarEvent[]>;
   /** Stable per-family token for the iCal feed URL. */
   getCalendarToken(actorId: string, familyId: string): Promise<string>;
+  /**
+   * Mint a fresh token and kill the old one — the lever the subscribe card's
+   * "anyone with this link can see your schedule" warning promised and never
+   * had (Sep 5 2026 audit). Old subscriptions stop working immediately.
+   */
+  regenerateCalendarToken(actorId: string, familyId: string): Promise<string>;
   /** Reverse lookup for the public .ics route. Returns null for bad tokens. */
   getFamilyIdByCalendarToken(token: string): Promise<string | null>;
 

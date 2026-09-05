@@ -1361,6 +1361,14 @@ export class MockDataProvider implements DataProvider {
     return token;
   }
 
+  async regenerateCalendarToken(actorId: string, familyId: string): Promise<string> {
+    const actor = getActor(actorId);
+    assertFamilyAccess(actor, familyId);
+    const token = `cal-tok-${familyId}-${Math.random().toString(36).slice(2, 10)}`;
+    store.calendarTokens.set(familyId, token);
+    return token;
+  }
+
   async getFamilyIdByCalendarToken(token: string): Promise<string | null> {
     for (const [familyId, candidate] of store.calendarTokens) {
       if (candidate === token) return familyId;

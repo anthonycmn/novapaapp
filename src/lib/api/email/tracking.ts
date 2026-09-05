@@ -50,6 +50,48 @@ export function decodeTrackingToken(token: string): TrackingRef | null {
   return { sendId, recipientId };
 }
 
+/* ── unsubscribe tokens ─────────────────────────────────────────────────── */
+
+/**
+ * Only these categories carry an unsubscribe link, and only these may be
+ * opted out of. Everything else is safety or logistics — the schema's own
+ * CHECK refuses a `critical` opt-out row — and CAN-SPAM does not require an
+ * opt-out for transactional mail.
+ */
+export const OPT_OUT_CATEGORIES = new Set(["newsletter", "fundraising"]);
+
+export interface UnsubscribeRef {
+  recipientId: string;
+  category: string;
+}
+
+/** Same secret, distinct payload shape — see decode for the shape check. */
+export function encodeUnsubscribeToken(ref: UnsubscribeRef): string {
+  const payload = `unsub:${ref.recipientId}:${ref.category}`;
+  return `${Buffer.from(payload).toString("base64url")}.${sign(payload)}`;
+}
+
+export function decodeUnsubscribeToken(token: string): UnsubscribeRef | null {
+  const [encoded, signature] = token.split(".");
+  if (!encoded || !signature) return null;
+
+  let payload: string;
+  try {
+    payload = Buffer.from(encoded, "base64url").toString("utf8");
+  } catch {
+    return null;
+  }
+
+  const expected = sign(payload);
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+
+  const [kind, recipientId, category] = payload.split(":");
+  if (kind !== "unsub" || !recipientId || !OPT_OUT_CATEGORIES.has(category ?? "")) return null;
+  return { recipientId, category: category! };
+}
+
 /**
  * Rewrites links in an email body to go through the click tracker, and
  * appends the open-tracking pixel.
@@ -57,11 +99,17 @@ export function decodeTrackingToken(token: string): TrackingRef | null {
  * Deliberately skips `mailto:` and `tel:` — rewriting those would break
  * them — and skips the unsubscribe link, because a tracker sitting between
  * a family and their opt-out is a dark pattern.
+ *
+ * When the send is an opt-outable category, the per-recipient unsubscribe
+ * link is appended here — the one place every delivery path already visits
+ * per recipient. It was designed, defended in comments, and never emitted
+ * until the Sep 5 2026 audit found newsletters going out with no way off.
  */
 export function instrumentEmailBody(
   body: string,
   ref: TrackingRef,
-  origin: string
+  origin: string,
+  category?: string
 ): string {
   const token = encodeTrackingToken(ref);
 
@@ -74,5 +122,14 @@ export function instrumentEmailBody(
   );
 
   const pixel = `\n\n<img src="${origin}/api/email/open/${token}" width="1" height="1" alt="" style="display:none">`;
-  return withTrackedLinks + pixel;
+
+  const unsubscribe =
+    category && OPT_OUT_CATEGORIES.has(category)
+      ? `\n<p style="margin:16px 0 0;text-align:center;font-size:12px;color:#8a8a8a;">` +
+        `Don't want these emails? ` +
+        `<a href="${origin}/unsubscribe/${encodeUnsubscribeToken({ recipientId: ref.recipientId, category })}" style="color:#8a8a8a;">Unsubscribe</a>.` +
+        ` Safety and schedule messages always come through.</p>`
+      : "";
+
+  return withTrackedLinks + pixel + unsubscribe;
 }

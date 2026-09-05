@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { AccessDeniedError, getProvider } from "@/lib/api";
 import { describeRecipient } from "@/lib/api/messages/topics";
 import { RECIPIENT_ROLES } from "@/lib/api/messages/types";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,9 +62,25 @@ export default async function ThreadPage({
 
       <Card>
         <CardContent className="p-4">
-          <MessageList messages={view.messages} viewerSide="family" />
+          {/* Staff opening a family thread through this route used to see
+              the bubbles mirrored — their own replies drawn as the other
+              party's (Sep 5 2026 audit). The side follows the viewer. */}
+          <MessageList
+            messages={view.messages}
+            viewerSide={hasRoleAtLeast(user, "staff") ? "staff" : "family"}
+          />
         </CardContent>
       </Card>
+
+      {/* Expectation-setting was only ever shown to families told to phone
+          instead. Everyone waiting on a reply deserves the same sentence. */}
+      {view.thread.status !== "closed" && (
+        <p className="text-[12.5px] text-muted-foreground">
+          Messages are read during office hours — you can usually expect a
+          reply within one business day. Urgent tonight? Call the office
+          instead.
+        </p>
+      )}
 
       <ReplyForm threadId={threadId} />
     </div>

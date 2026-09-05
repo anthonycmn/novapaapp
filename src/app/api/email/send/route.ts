@@ -3,6 +3,7 @@ import { outgoingBody } from "@/lib/email/queue";
 import { getProvider } from "@/lib/api";
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
+import { getOptedOutFamilies, keepSubscribed } from "@/lib/email/opt-outs";
 import type { EmailCategory } from "@/lib/api/types";
 import { corsHeaders, userFromBearer } from "@/lib/auth/portal-bridge";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
@@ -186,8 +187,14 @@ export async function POST(request: NextRequest) {
   }
 
   const delivery = getEmailDeliveryProvider();
+  // Opt-outs apply to real audiences only — a test to yourself always lands.
   const recipients =
-    mode === "test" ? [user] : await provider.resolveAudience(user.id, audience);
+    mode === "test"
+      ? [user]
+      : keepSubscribed(
+          await provider.resolveAudience(user.id, audience),
+          await getOptedOutFamilies(send.category)
+        );
 
   // {{show_title}} only has an answer when exactly one show was picked. With
   // two, there is no single right substitution and resolveMergeFields would
@@ -209,7 +216,8 @@ export async function POST(request: NextRequest) {
     const instrumented = instrumentEmailBody(
       resolvedBody,
       { sendId: send.id, recipientId: recipient.id },
-      origin
+      origin,
+      send.category
     );
     const result = await delivery.send({
       to: recipient.email,

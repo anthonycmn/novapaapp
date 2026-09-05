@@ -27,6 +27,7 @@
  */
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
+import { getOptedOutFamilies, keepSubscribed } from "@/lib/email/opt-outs";
 import type { EmailSend, FeedAudience, User } from "@/lib/api/types";
 
 export interface QueueProvider {
@@ -119,7 +120,14 @@ export async function runEmailQueue(
 
   for (const send of due) {
     try {
-      const recipients = await provider.resolveAudience(actorId, send.audience);
+      // Opt-outs are honored at delivery, the same moment the audience is
+      // resolved — a family who unsubscribed after the send was scheduled
+      // still gets their wish.
+      const optedOut = await getOptedOutFamilies(send.category);
+      const recipients = keepSubscribed(
+        await provider.resolveAudience(actorId, send.audience),
+        optedOut
+      );
       let delivered = 0;
 
       for (const recipient of recipients) {
@@ -133,7 +141,8 @@ export async function runEmailQueue(
         const instrumented = instrumentEmailBody(
           merged,
           { sendId: send.id, recipientId: recipient.id },
-          origin
+          origin,
+          send.category
         );
         const outcome = await delivery.send({
           to: recipient.email,

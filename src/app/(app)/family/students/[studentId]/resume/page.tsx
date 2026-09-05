@@ -1,8 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import { org } from "@/config/org";
 import { AccessDeniedError, getProvider } from "@/lib/api";
+import type { ResumeCredit } from "@/lib/api/types";
 import { getSessionUser } from "@/lib/auth/session";
 import { PrintButton } from "@/components/media/print-button";
+import { ResumeBuilder } from "@/components/materials/student-materials";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata = { title: "Resume" };
 
@@ -56,6 +59,16 @@ export default async function ResumePage({
 
   const fullName = `${student.preferredName ?? student.firstName} ${student.lastName}`;
 
+  // Show history offered to the builder, shaped exactly like the print
+  // fallback above so accepting a suggestion is a no-op on paper.
+  const suggestedCredits: ResumeCredit[] = history.map((entry, index) => ({
+    id: `history-${index}`,
+    category: "role",
+    title: `${entry.role} — ${entry.productionTitle}`,
+    organization: entry.organization ?? "NOVA PA",
+    year: entry.year,
+  }));
+
   return (
     <>
       <style
@@ -90,7 +103,7 @@ export default async function ResumePage({
             {[
               student.pronouns,
               student.vocalRange && `Vocal range: ${student.vocalRange}`,
-              `Grade ${student.grade}`,
+              student.grade && `Grade ${student.grade}`,
             ]
               .filter(Boolean)
               .join("  ·  ")}
@@ -146,6 +159,25 @@ export default async function ResumePage({
           Represented by {org.name} · {org.supportEmail}
         </footer>
       </article>
+
+      {/* The editor, right under the thing it edits — screen only. The
+          builder existed fully-formed and was mounted nowhere (Sep 5 2026
+          audit), so Training and Special Skills could never be filled in.
+          Show-history suggestions use the same mapping the print fallback
+          does, so accepting them changes nothing on paper — it just makes
+          the credits editable from then on. */}
+      <Card className="no-print mx-auto mt-6 max-w-[7.5in]">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Edit this resume</CardTitle>
+          <CardDescription>
+            Add roles from other theatres, training, and special skills — the
+            printed page above updates when you save.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <ResumeBuilder student={student} suggested={suggestedCredits} />
+        </CardContent>
+      </Card>
     </>
   );
 }

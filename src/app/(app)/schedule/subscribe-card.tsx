@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Check, Copy, RotateCcw } from "lucide-react";
+import { resetCalendarLinkAction } from "@/lib/actions/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -18,6 +19,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
  */
 export function SubscribeCard({ feedUrl }: { feedUrl: string }) {
   const [copied, setCopied] = useState(false);
+  const [confirmingReset, setConfirmingReset] = useState(false);
+  const [resetting, startReset] = useTransition();
 
   const webcalUrl = feedUrl.replace(/^https?:/, "webcal:");
 
@@ -65,10 +68,45 @@ export function SubscribeCard({ feedUrl }: { feedUrl: string }) {
         <p className="break-all rounded-lg bg-muted p-2 font-mono text-xs text-muted-foreground">
           {feedUrl}
         </p>
-        <p className="text-xs text-muted-foreground">
-          This link is private to your family — anyone with it can see your
-          schedule, so don&apos;t post it publicly.
-        </p>
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>
+            This link is private to your family — anyone with it can see your
+            schedule, so don&apos;t post it publicly.
+          </span>
+          {/* The lever that warning always implied. Two taps on purpose: a
+              reset silently unsubscribes every device on the old link. */}
+          {confirmingReset ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="font-medium text-foreground">
+                Every subscribed device will need the new link.
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={resetting}
+                onClick={() =>
+                  startReset(async () => {
+                    await resetCalendarLinkAction();
+                    setConfirmingReset(false);
+                  })
+                }
+              >
+                {resetting ? "Resetting…" : "Yes, reset it"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmingReset(false)}>
+                Keep it
+              </Button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmingReset(true)}
+              className="inline-flex items-center gap-1 font-medium underline underline-offset-4 hover:text-foreground"
+            >
+              <RotateCcw aria-hidden size={12} /> Leaked? Reset the link
+            </button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

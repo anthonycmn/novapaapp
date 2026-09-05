@@ -119,7 +119,8 @@ export default async function StudentPage({
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Show history</CardTitle>
           <CardDescription>
-            Auto-filled when casting is published; outside credits can be added.
+            Auto-filled when casting is published. Credits from other theatres
+            go on the resume, which you can edit from the Resume button above.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">

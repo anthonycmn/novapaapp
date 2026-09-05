@@ -16,6 +16,7 @@ import type {
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { isFeatureOpen } from "@/lib/feature-availability";
 import { enrollmentIsCurrent } from "@/lib/enrollment-current";
+import { NeedsAttentionPanel } from "@/components/dashboard/needs-attention";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
@@ -175,6 +176,25 @@ export default async function DashboardPage() {
    * account has no business seeing one it is not in the list to be placed.
    */
   const tiles: ArrangerTile[] = [
+    ...(user.familyId
+      ? [
+          {
+            def: {
+              key: "attention",
+              title: "Needs your attention",
+              blurb: "Unsigned forms and profile gaps, each linking to its fix.",
+              zone: "top" as const,
+            },
+            /* Streamed: the health-form lookups are per-child reads that must
+               not hold up the page. Renders nothing when nothing is owed. */
+            node: (
+              <Suspense fallback={null}>
+                <NeedsAttentionPanel userId={user.id} familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
     {
       def: {
         key: "week",

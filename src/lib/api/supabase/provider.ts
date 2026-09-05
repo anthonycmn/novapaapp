@@ -3385,6 +3385,19 @@ class SupabaseDataProvider {
     return String(data.token);
   }
 
+  async regenerateCalendarToken(actorId: string, familyId: string): Promise<string> {
+    const actor = await this.actor(actorId);
+    this.assertFamilyAccess(actor, familyId);
+    // Delete-then-insert so the column default mints the new token the same
+    // way it minted the first one; the old link 404s from this moment.
+    await this.db.from("family_calendar_tokens").delete().eq("family_id", familyId);
+    const { data, error } = await this.db
+      .from("family_calendar_tokens").insert({ family_id: familyId })
+      .select("token").single();
+    if (error) throw new Error(`calendar token reset failed: ${error.message}`);
+    return String(data.token);
+  }
+
   async getFamilyIdByCalendarToken(token: string): Promise<string | null> {
     const { data } = await this.db
       .from("family_calendar_tokens").select("family_id").eq("token", token).maybeSingle();
