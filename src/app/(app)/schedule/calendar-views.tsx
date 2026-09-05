@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { FamilyCalendarEvent } from "@/lib/api/types";
 import { formatEventTime, formatTime } from "@/lib/format";
+import { EventDetails, EventNotes } from "@/components/calendar/event-details";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -179,6 +180,10 @@ function EventCard({
                 <span className="font-medium">Bring:</span> {event.whatToBring}
               </p>
             )}
+            {/* What is happening at this rehearsal — who is called, what is
+                worked, and the director's full plan behind the fold. */}
+            <EventNotes event={event} />
+            {event.details && <EventDetails details={event.details} />}
             {event.contactName && (
               <p className="text-sm text-muted-foreground">
                 Contact: {event.contactName}

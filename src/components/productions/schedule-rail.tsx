@@ -5,11 +5,9 @@ import {
   CalendarDays,
   CalendarPlus,
   Check,
-  ChevronDown,
   Clock,
   Copy,
   Download,
-  FileText,
   ListMusic,
   MapPin,
   Package,
@@ -22,6 +20,7 @@ import { formatTime } from "@/lib/format";
 import { org } from "@/config/org";
 import { Card } from "@/components/ui/card";
 import { CallResponse, type CallAnswer } from "@/components/dashboard/call-response";
+import { EventDetails } from "@/components/calendar/event-details";
 
 /** One of this family's performers, for the per-child rows on each call. */
 export interface RailStudent {
@@ -456,49 +455,6 @@ export function ScheduleRail({
 
       {feedUrl && <SubscribeRow feedUrl={feedUrl} />}
     </Card>
-  );
-}
-
-/**
- * The event's full description off the show calendar, behind a fold.
- *
- * The notes above it answer "is my child called" at a glance; this is for the
- * parent who wants the whole plan — every room, every time block, in the
- * director's own words. A "---" line is the divider the calendar drew.
- */
-function EventDetails({ details }: { details: string }) {
-  const [open, setOpen] = useState(false);
-  const lines = details.split("\n");
-  return (
-    <div className="mt-1">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1 text-[11.5px] font-medium text-primary underline-offset-4 hover:underline"
-      >
-        <FileText aria-hidden size={11} className="shrink-0" />
-        {open ? "Hide the full plan" : "Full plan"}
-        <ChevronDown
-          aria-hidden
-          size={11}
-          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open && (
-        <div className="mt-1 rounded-md border bg-muted/40 px-2.5 py-2 text-[12px] leading-relaxed text-muted-foreground">
-          {lines.map((line, index) =>
-            line === "---" ? (
-              <hr key={index} className="my-1.5 border-border" />
-            ) : (
-              <p key={index} className="whitespace-pre-wrap">
-                {line}
-              </p>
-            )
-          )}
-        </div>
-      )}
-    </div>
   );
 }
 

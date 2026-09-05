@@ -15,6 +15,7 @@ import {
 } from "@/lib/calendar/week";
 import type { CallResponseRecord, FamilyCalendarEvent } from "@/lib/api/types";
 import { CallResponse } from "@/components/dashboard/call-response";
+import { EventDetails, EventNotes } from "@/components/calendar/event-details";
 import { formatTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -271,9 +272,10 @@ function EventRow({
         </p>
       )}
 
-      {event.calledNote && (
-        <p className="text-[12px] text-muted-foreground">Called: {event.calledNote}</p>
-      )}
+      {/* What is happening at rehearsal — the thing parents kept saying
+          they could not see from here. Who is called, what is worked; the
+          full plan follows below, outside the link. */}
+      <EventNotes event={event} compact />
 
       {showChildren && (
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -322,6 +324,10 @@ function EventRow({
       ) : (
         <div className="px-0 py-1">{body}</div>
       )}
+
+      {/* Outside the link on purpose: a toggle inside it would navigate
+          instead of unfolding. */}
+      {event.details && <EventDetails details={event.details} compact />}
 
       {canRespond &&
         event.studentIds.map((studentId) => (
