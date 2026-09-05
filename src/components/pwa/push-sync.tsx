@@ -17,19 +17,21 @@ export function PushSync() {
     async function sync() {
       if (!("serviceWorker" in navigator) || !("Notification" in window)) return;
       if (Notification.permission !== "granted") return;
-      /* Once per session is plenty; this runs in a layout that persists
-         across client navigations, but a hard reload repeats it. */
-      try {
-        if (sessionStorage.getItem("novapa-push-synced")) return;
-      } catch {
-        /* storage blocked — sync anyway */
-      }
       const registration = await navigator.serviceWorker.getRegistration();
       const subscription = await registration?.pushManager.getSubscription();
       if (!subscription) return;
+      /* Skip only when THIS endpoint was already filed this session — keyed
+         by endpoint, not a boolean, because Chrome rotates endpoints (CJ's
+         phone went silently deaf on 5 Sep 2026 when a worker update rotated
+         his) and a rotated one must re-file even mid-session. */
+      try {
+        if (sessionStorage.getItem("novapa-push-synced") === subscription.endpoint) return;
+      } catch {
+        /* storage blocked — sync anyway */
+      }
       await syncPushSubscriptionAction(subscription.toJSON());
       try {
-        sessionStorage.setItem("novapa-push-synced", "1");
+        sessionStorage.setItem("novapa-push-synced", subscription.endpoint);
       } catch {
         /* ignore */
       }

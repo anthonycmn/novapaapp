@@ -7,7 +7,7 @@
  *  - Never cache API/auth routes.
  * Phase 3 adds calendar payload caching; Phase 2 adds push handlers.
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -110,6 +110,42 @@ self.addEventListener("push", (event) => {
       data: { url: payload.url ?? "/" },
       tag: payload.tag,
     })
+  );
+});
+
+/* Chrome rotates push endpoints — on worker updates, and whenever it
+   pleases. Without this handler the rotation happens in silence: the old
+   endpoint starts answering 410, the server prunes it, and the phone is
+   deaf until the person thinks to toggle push off and on (which nobody
+   ever does — they just stop hearing from us). Re-subscribe with the same
+   VAPID key and re-file, session cookie riding along. */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const oldSub = event.oldSubscription;
+        let newSub = event.newSubscription ?? null;
+        if (!newSub) {
+          const key = oldSub?.options?.applicationServerKey;
+          if (!key) return;
+          newSub = await self.registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: key,
+          });
+        }
+        await fetch("/api/push/subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subscription: newSub.toJSON(),
+            oldEndpoint: oldSub?.endpoint ?? null,
+          }),
+        });
+      } catch {
+        /* Signed out, offline, or subscribe refused: the next app open
+           re-files whatever the browser holds (PushSync). */
+      }
+    })()
   );
 });
 
