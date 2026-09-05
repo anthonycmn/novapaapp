@@ -38,6 +38,7 @@ export function CartItems({
                 {button ? (
                   <ButtonPreview
                     photoUrl={button.photoUrl}
+                    printImageUrl={button.printImageUrl}
                     studentName={button.studentName}
                     role={button.role}
                     size={button.size}

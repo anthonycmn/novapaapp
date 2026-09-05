@@ -694,6 +694,12 @@ export interface ButtonTemplate {
   frameImageUrl?: string;
   /** Show logo placed on the button. */
   logoUrl?: string;
+  /**
+   * The show's background artwork (data URI), drawn across the whole button
+   * with the performer cutout on top. Admin-uploaded on /admin/store/templates.
+   * Absent = the accent-color gradient the buttons launched with.
+   */
+  backgroundImageUrl?: string;
   /** Hex accent used for the ring and text. */
   accentColor: string;
   seasonName: string;
@@ -722,11 +728,24 @@ export const BUTTON_MIN_PIXELS: Record<ButtonSize, number> = {
 };
 
 export interface ButtonDesign {
-  /** Uploaded photo (data URL in mock mode, storage URL in production). */
+  /**
+   * The performer image on the button. Since the cutout designer (hub 0066)
+   * this is a transparent PNG of the child with the background removed;
+   * designs from before, and from browsers that cannot run the cutout, hold
+   * the plain uploaded photo instead. Data URL either way.
+   */
   photoUrl: string;
-  /** Natural pixel dimensions of the upload, for the low-res guard. */
+  /** Natural pixel dimensions of the ORIGINAL upload, for the low-res guard. */
   photoWidth: number;
   photoHeight: number;
+  /**
+   * The finished artwork at press resolution (300 DPI with bleed), composited
+   * in the parent's browser from exactly what the preview showed. This is the
+   * file the office downloads and sends to the button producer. Generated for
+   * every design — cutout or plain-photo fallback — but absent on designs
+   * placed before hub 0066.
+   */
+  printImageUrl?: string;
   studentName: string;
   role: string;
   size: ButtonSize;

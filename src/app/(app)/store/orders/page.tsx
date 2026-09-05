@@ -95,6 +95,7 @@ export default async function OrdersPage({
                     {isButtonLine(item) ? (
                       <ButtonPreview
                         photoUrl={item.photoUrl}
+                        printImageUrl={item.printImageUrl}
                         studentName={item.studentName}
                         role={item.role}
                         size={item.size}

@@ -44,3 +44,6 @@ coverage/
 
 # local mock-data persistence (dev only)
 .dev-data/
+
+# MediaPipe wasm runtime, copied from node_modules at build time
+/public/mediapipe/

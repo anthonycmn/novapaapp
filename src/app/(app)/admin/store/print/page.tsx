@@ -75,6 +75,7 @@ export default async function PrintSheetPage({
                   <div key={`${item.id}-${copy}`} className="flex flex-col items-center">
                     <ButtonPreview
                       photoUrl={item.photoUrl}
+                      printImageUrl={item.printImageUrl}
                       studentName={item.studentName}
                       role={item.role}
                       size={item.size}

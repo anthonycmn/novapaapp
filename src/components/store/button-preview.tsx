@@ -1,5 +1,6 @@
 import type { ButtonSize, ButtonStyle, ButtonTemplate } from "@/lib/api/types";
 import { readableTextOn } from "@/lib/color";
+import { CUT_DIAMETER_IN } from "@/lib/store/button-artwork";
 import { cn } from "@/lib/utils";
 
 /**
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
  */
 export function ButtonPreview({
   photoUrl,
+  printImageUrl,
   studentName,
   role,
   size,
@@ -19,6 +21,12 @@ export function ButtonPreview({
   printInches,
 }: {
   photoUrl?: string;
+  /**
+   * The finished press artwork saved with the design (hub 0066). When
+   * present it IS the button — rendered as-is instead of the CSS layers,
+   * so every surface shows exactly what the producer receives.
+   */
+  printImageUrl?: string;
   studentName: string;
   role: string;
   size: ButtonSize;
@@ -34,6 +42,30 @@ export function ButtonPreview({
   // from it — fixed white fails WCAG AA on mid-tone accents.
   const onAccent = readableTextOn(accent);
   const dimension = printInches ? `${size}in` : "14rem";
+
+  if (printImageUrl) {
+    // The stored file is the FULL-BLEED circle (larger than the face — the
+    // edge wraps around the back), so on paper it prints at the cut diameter,
+    // not the face diameter. On screen, sizing stays in classes so callers'
+    // !w-16-style overrides keep working.
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={printImageUrl}
+        alt=""
+        className={cn("size-56 shrink-0 select-none rounded-full", className)}
+        style={
+          printInches
+            ? {
+                width: `${CUT_DIAMETER_IN[size]}in`,
+                height: `${CUT_DIAMETER_IN[size]}in`,
+              }
+            : { boxShadow: "0 6px 18px rgba(0,0,0,0.18)" }
+        }
+        loading="lazy"
+      />
+    );
+  }
 
   return (
     <div

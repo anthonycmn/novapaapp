@@ -12,9 +12,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx scripts/seed.ts",
-    "verify": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "verify": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "predev": "node scripts/copy-mediapipe-assets.mjs",
+    "prebuild": "node scripts/copy-mediapipe-assets.mjs"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
     "@netlify/blobs": "^10.7.11",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.112.3",

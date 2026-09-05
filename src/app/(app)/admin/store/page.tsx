@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, Download, Printer } from "lucide-react";
+import { AlertTriangle, Download, Palette, Printer } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import { describeCustomization } from "@/lib/api/store/catalog";
@@ -22,6 +22,15 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   ready: "Ready",
   delivered: "Delivered",
 };
+
+/** "NPA-1042-elsie.jpg" — what the button producer receives, named findably. */
+function printFileName(reference: string, studentName?: string): string {
+  const slug = (studentName ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return `${reference}${slug ? `-${slug}` : ""}.jpg`;
+}
 
 /** Admin fulfillment queue (#11). */
 export default async function StoreAdminPage({
@@ -61,6 +70,13 @@ export default async function StoreAdminPage({
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/admin/store/templates"
+            className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
+          >
+            <Palette aria-hidden className="size-4" />
+            Button artwork
+          </Link>
           <a
             href={`/api/store/manifest${query}`}
             className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
@@ -142,6 +158,7 @@ export default async function StoreAdminPage({
                       <div key={item.id} className="flex items-center gap-2">
                         <ButtonPreview
                           photoUrl={item.photoUrl}
+                          printImageUrl={item.printImageUrl}
                           studentName={item.studentName}
                           role={item.role}
                           size={item.size}
@@ -152,6 +169,16 @@ export default async function StoreAdminPage({
                         <div className="text-sm">
                           <p className="font-medium">×{item.quantity}</p>
                           <p className="text-muted-foreground">{item.size}&quot;</p>
+                          {item.printImageUrl && (
+                            <a
+                              href={item.printImageUrl}
+                              download={printFileName(order.reference, item.studentName)}
+                              className="mt-0.5 inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+                            >
+                              <Download aria-hidden className="size-3" />
+                              Print file
+                            </a>
+                          )}
                         </div>
                       </div>
                     ) : (

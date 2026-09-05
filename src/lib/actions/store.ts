@@ -22,6 +22,9 @@ import { isFeatureOpen, FEATURE_COPY } from "@/lib/feature-availability";
 
 const designSchema = z.object({
   photoUrl: z.string().min(1, "Add a photo"),
+  /** The press-ready artwork the preview drew. Optional: a browser that
+   *  couldn't draw it still gets to order a button. */
+  printUrl: z.string().optional(),
   photoWidth: z.number().int().positive(),
   photoHeight: z.number().int().positive(),
   studentName: z.string().min(1, "Enter a name").max(40),
@@ -50,6 +53,7 @@ export async function addToCartAction(
 
   const parsed = designSchema.safeParse({
     photoUrl: String(formData.get("photoUrl") ?? ""),
+    printUrl: String(formData.get("printUrl") ?? "") || undefined,
     photoWidth: Number(formData.get("photoWidth") ?? 0),
     photoHeight: Number(formData.get("photoHeight") ?? 0),
     studentName: String(formData.get("studentName") ?? ""),
@@ -69,7 +73,7 @@ export async function addToCartAction(
     return { ok: false, errors };
   }
 
-  const { quantity, acknowledgedLowRes, ...design } = parsed.data;
+  const { quantity, acknowledgedLowRes, printUrl, ...design } = parsed.data;
 
   // Server-side re-check of the low-res guard: the client warns, but the
   // server is what actually refuses, so a bypassed dialog can't sneak a
@@ -79,7 +83,23 @@ export async function addToCartAction(
     return { ok: false, errors: { photoUrl: quality.message ?? "Photo resolution too low" } };
   }
 
-  await getProvider().addToCart(user.id, design, quantity);
+  // Both images ride the row as data URIs; the bucket limits (type + size)
+  // are re-checked here because the strings came from the client.
+  try {
+    assertUploadAllowed("button-photos", design.photoUrl);
+    if (printUrl) assertUploadAllowed("button-photos", printUrl);
+  } catch (error) {
+    return {
+      ok: false,
+      errors: { photoUrl: error instanceof Error ? error.message : "Bad photo" },
+    };
+  }
+
+  await getProvider().addToCart(
+    user.id,
+    { ...design, printImageUrl: printUrl },
+    quantity
+  );
   await logActivity({
     user,
     action: "store.cart_added",
