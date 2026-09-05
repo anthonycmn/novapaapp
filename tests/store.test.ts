@@ -239,3 +239,33 @@ describe("store access control", () => {
     );
   });
 });
+
+describe("cutout designer: the press file rides the line (hub 0066)", () => {
+  it("print_image_url survives cart → order untouched", async () => {
+    const printImageUrl = "data:image/jpeg;base64,PRINTFILE";
+    await provider.addToCart("user-sofia", design({ printImageUrl }), 2);
+
+    const [line] = await provider.getCart("user-sofia");
+    expect(line.printImageUrl).toBe(printImageUrl);
+
+    const order = await provider.createOrder("user-sofia", "pending");
+    expect(order.items[0].printImageUrl).toBe(printImageUrl);
+  });
+
+  it("a design without a print file (old browser, pre-0066 row) still orders", async () => {
+    await provider.addToCart("user-sofia", design(), 1);
+    const order = await provider.createOrder("user-sofia", "pending");
+    expect(order.items[0].printImageUrl).toBeUndefined();
+  });
+
+  it("an admin's background upload round-trips on the template", async () => {
+    const backgroundImageUrl = "data:image/jpeg;base64,BACKDROP";
+    const [existing] = await provider.getButtonTemplates("prod-frozen");
+    await provider.upsertButtonTemplate("user-dana", {
+      ...existing,
+      backgroundImageUrl,
+    });
+    const [reloaded] = await provider.getButtonTemplates("prod-frozen");
+    expect(reloaded.backgroundImageUrl).toBe(backgroundImageUrl);
+  });
+});
