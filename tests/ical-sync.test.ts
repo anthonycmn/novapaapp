@@ -301,6 +301,68 @@ describe("the call sheet drives who sees the rehearsal", () => {
   });
 });
 
+/**
+ * The Frozen calendars write numbered ensembles as ranges — "Snow Chorus
+ * 1-6", "Ensemble 1-3" — and before expansion every such token switched the
+ * event to fail-open, so per-child filtering could never engage for those
+ * shows.
+ */
+describe("numbered-role ranges", () => {
+  const FROZEN = [
+    { id: "f-anna", name: "Anna" },
+    { id: "f-sc1", name: "Snow Chorus 1" },
+    { id: "f-sc2", name: "Snow Chorus 2" },
+    { id: "f-sc3", name: "Snow Chorus 3" },
+    { id: "f-of1", name: "Oaken's Family 1" },
+    { id: "f-of2", name: "Oaken's Family 2" },
+    { id: "f-te1", name: "Townsperson 1 / Ensemble" },
+    { id: "f-te2", name: "Townsperson 2 / Ensemble" },
+  ];
+  const ALIAS = {
+    "Oaken Family 1": "Oaken's Family 1",
+    "Oaken Family 2": "Oaken's Family 2",
+    "Ensemble 1": "Townsperson 1 / Ensemble",
+    "Ensemble 2": "Townsperson 2 / Ensemble",
+  };
+
+  it("expands a range in a call sheet to every numbered member", () => {
+    expect(roleIdsFromCalledNote("Anna · Snow Chorus 1-3", FROZEN, {})).toEqual([
+      "f-anna",
+      "f-sc1",
+      "f-sc2",
+      "f-sc3",
+    ]);
+  });
+
+  it("resolves each member of an aliased range", () => {
+    expect(roleIdsFromCalledNote("Ensemble 1-2", FROZEN, ALIAS)).toEqual(["f-te1", "f-te2"]);
+    expect(roleIdsFromCalledNote("Oaken Family 1-2", FROZEN, ALIAS)).toEqual(["f-of1", "f-of2"]);
+  });
+
+  it("fails open when a range has a missing member", () => {
+    // Half a range resolving is a guess, and a guess hides a child's call.
+    expect(roleIdsFromCalledNote("Snow Chorus 1-6", FROZEN, {})).toBeNull();
+  });
+
+  it("reads a range on a free-form block line", () => {
+    const sheet = blockSheetFrom("7pm - 8pm - Anna, Snow Chorus 1-3", FROZEN, {}, [], []);
+    expect(sheet.called).toEqual(["Anna", "Snow Chorus 1", "Snow Chorus 2", "Snow Chorus 3"]);
+  });
+
+  /**
+   * "Snow Chorus" names the corps, not its first member. The prefix matcher
+   * alone resolved it to Snow Chorus 1, which would have filtered a corps
+   * call down to one child once casting published.
+   */
+  it("expands a bare group name to every numbered member", () => {
+    expect(roleIdsFromCalledNote("Snow Chorus", FROZEN, {})).toEqual(["f-sc1", "f-sc2", "f-sc3"]);
+  });
+
+  it("still resolves a single numbered role to just itself", () => {
+    expect(roleIdsFromCalledNote("Snow Chorus 2", FROZEN, {})).toEqual(["f-sc2"]);
+  });
+});
+
 describe("the address families drive to", () => {
   /**
    * The feed owns WHEN a call is and has been wrong about WHERE. Correcting

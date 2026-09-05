@@ -310,6 +310,64 @@ export function roleFor(
   );
 }
 
+/**
+ * "Snow Chorus 1-6" → the six numbered roles it abbreviates.
+ *
+ * The Frozen calendars write their numbered ensembles as ranges, and before
+ * this existed every such token failed to resolve, which switched the whole
+ * event to fail-open — per-child filtering could never engage. Each member
+ * resolves through roleFor with the feed's aliases (so "Ensemble 1-3" can
+ * reach "Townsperson 1 / Ensemble"); HALF a range resolving is treated as no
+ * range at all, because guessing at the other half is how a child's call
+ * goes missing.
+ */
+const ROLE_RANGE = /^(.+?)\s+(\d+)\s*[-–—]\s*(\d+)$/;
+
+export function rolesForRange(
+  token: string,
+  roles: ReadonlyArray<Record<string, unknown>>,
+  aliases: Record<string, string> = {}
+): Record<string, unknown>[] | null {
+  const match = token.trim().match(ROLE_RANGE);
+  if (!match) return null;
+  const from = Number(match[2]);
+  const to = Number(match[3]);
+  if (!(from < to) || to - from > 30) return null;
+  const found: Record<string, unknown>[] = [];
+  for (let i = from; i <= to; i++) {
+    const hit = roleFor(`${match[1]} ${i}`, roles, aliases);
+    if (!hit) return null;
+    found.push(hit);
+  }
+  return found;
+}
+
+/**
+ * A GROUP mention — "Snow Chorus" on a show whose roles are Snow Chorus
+ * 1 through 10 — means every numbered member, not the first one the prefix
+ * matcher happens to find. Without this, a note that named the group would
+ * have filtered the event down to one child. Only fires when the token
+ * matches two or more numbered roles; a single match stays with roleFor.
+ */
+export function roleGroup(
+  token: string,
+  roles: ReadonlyArray<Record<string, unknown>>,
+  aliases: Record<string, string> = {}
+): Record<string, unknown>[] | null {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+  const aliasKey = Object.keys(aliases).find(
+    (key) => key.toLowerCase() === trimmed.toLowerCase()
+  );
+  const want = (aliasKey ? aliases[aliasKey] : trimmed).toLowerCase();
+  const members = roles.filter((role) =>
+    new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s+\\d`, "i").test(
+      String(role.name ?? "").toLowerCase()
+    )
+  );
+  return members.length >= 2 ? members : null;
+}
+
 export function roleIdsFromCalledNote(
   calledNote: unknown,
   roles: ReadonlyArray<Record<string, unknown>>,
@@ -322,9 +380,21 @@ export function roleIdsFromCalledNote(
   for (const raw of note.split("·")) {
     const token = raw.trim();
     if (!token) continue;
+    // Groups before singles: "Snow Chorus" must reach the whole corps, not
+    // the first numbered role the prefix matcher finds.
+    const group = roleGroup(token, roles, aliases);
+    if (group) {
+      for (const member of group) ids.add(String(member.id));
+      continue;
+    }
     const hit = roleFor(token, roles, aliases);
-    if (!hit) return null;
-    ids.add(String(hit.id));
+    if (hit) {
+      ids.add(String(hit.id));
+      continue;
+    }
+    const range = rolesForRange(token, roles, aliases);
+    if (!range) return null;
+    for (const member of range) ids.add(String(member.id));
   }
   return ids.size > 0 ? [...ids] : null;
 }
@@ -451,6 +521,15 @@ export function blockSheetFrom(
       if (role) {
         const name = String(role.name ?? "");
         if (name && !called.includes(name)) called.push(name);
+        continue;
+      }
+      // "Snow Chorus 1-6" is six calls written as one token.
+      const range = rolesForRange(token, roles, aliases);
+      if (range) {
+        for (const member of range) {
+          const name = String(member.name ?? "");
+          if (name && !called.includes(name)) called.push(name);
+        }
         continue;
       }
       if (songs.has(songKey(token))) {

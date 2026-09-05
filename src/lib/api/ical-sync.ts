@@ -54,6 +54,18 @@ function sameInstant(a: unknown, b: string): boolean {
   return Date.parse(String(a)) === Date.parse(b);
 }
 
+/**
+ * Like sameInstant, but where BOTH sides may be null — call_time usually is.
+ * Comparing two nulls through Date.parse gives NaN !== NaN, which read every
+ * row without a call time as "changed" and silently rewrote 109 rows per
+ * sync, forever. Steady state must cost zero writes.
+ */
+function sameNullableInstant(a: unknown, b: string | null): boolean {
+  const left = a == null || a === "" ? null : Date.parse(String(a));
+  const right = b == null || b === "" ? null : Date.parse(b);
+  return left === right;
+}
+
 function sameIdSet(a: unknown, b: string[] | null): boolean {
   const left = ((a ?? []) as string[]).map(String).sort().join(",");
   const right = (b ?? []).map(String).sort().join(",");
@@ -265,8 +277,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
       !sameIdSet(current.role_ids, row.role_ids ?? null) ||
       String(current.works_note ?? "") !== String(row.works_note ?? "") ||
       String(current.details ?? "") !== String(row.details ?? "") ||
-      Date.parse(String(current.call_time ?? "")) !==
-        Date.parse(String(row.call_time ?? ""));
+      !sameNullableInstant(current.call_time, row.call_time);
     if (!changed) continue;
 
     const { error } = await hub
