@@ -39,7 +39,7 @@ export function BlockedWhileImpersonating({
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   return (
-    <div className="rounded-lg border border-amber-500/50 bg-amber-50 p-4 text-sm dark:bg-amber-950/40">
+    <div className="rounded-lg border border-amber-500/50 bg-amber-50 p-4 text-sm dark:border-amber-600/60 dark:bg-secondary">
       <p className="flex items-center gap-2 font-semibold text-amber-950 dark:text-amber-100">
         <Lock aria-hidden size={15} className="shrink-0" />
         {title} has to be done by the family

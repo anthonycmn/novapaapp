@@ -109,7 +109,7 @@ export function AbsenceForm({ options }: { options: AbsenceOption[] }) {
             <FieldError message={state.errors?.endsAtTime} />
           </div>
         </div>
-        <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
+        <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 dark:border-amber-600/60 dark:bg-secondary dark:text-amber-100">
           <strong className="font-semibold">Only mark the times you will not be present.</strong>{" "}
           Arriving at 8.00 for a 7.00 call? That is 7.00 to 8.00. Leaving an
           hour early? Put the last hour. Missing the whole call, leave both

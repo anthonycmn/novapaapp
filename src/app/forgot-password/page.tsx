@@ -59,7 +59,7 @@ export default async function ForgotPasswordPage({
               most households gave us two addresses and only one carries the
               login, so the parent is watching the wrong inbox (27 Aug 2026).
             */}
-            <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
+            <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 dark:border-amber-600/60 dark:bg-secondary dark:text-amber-100">
               <strong className="font-semibold">Nothing after five minutes?</strong>{" "}
               Your account is probably under a different email — plenty of
               families have two on file. Write to{" "}

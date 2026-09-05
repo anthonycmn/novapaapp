@@ -67,6 +67,17 @@
      to shout. */
   --tip-strong: rgb(251 191 36 / 0.38);
   --gold: #8a5a15;
+  /*
+   * The gold band's line and hover, as tokens rather than literals in the
+   * classes below — because in dark mode they cannot be translucent at all.
+   * CJ, 5 Sep 2026 (staff portal, same day, same arithmetic): translucent
+   * gold over navy composites to slate grey or olive brown, so the dark
+   * theme gets solid values and the light theme keeps the exact washes it
+   * always had.
+   */
+  --gold-line: rgb(232 184 75 / 0.3);
+  --gold-line-strong: rgb(232 184 75 / 0.6);
+  --gold-wash-hover: rgb(232 184 75 / 0.22);
   --destructive: #be123c;
   --destructive-foreground: #ffffff;
   --border: #d8dfea;
@@ -83,15 +94,19 @@
 .dark {
   --background: #08111f;
   --foreground: #e8edf5;
-  --card: #101d31;
+  /* Bluer than they used to be — #101d31-family surfaces read as charcoal
+     grey on most panels, and grey is banned outright (CJ, 5 Sep 2026: the
+     dark theme is NAVY, and a surface should say so). Same values the staff
+     portal moved to the same day, so the two products stay one material. */
+  --card: #13223d;
   --card-foreground: #e8edf5;
-  --popover: #101d31;
+  --popover: #13223d;
   --popover-foreground: #e8edf5;
   --primary: #9fc0f0;
   --primary-foreground: #08111f;
   --secondary: #17294c;
   --secondary-foreground: #e8edf5;
-  --muted: #16243c;
+  --muted: #1a2a4c;
   --muted-foreground: #a7b5ca;
   /* Tony, 17 Aug 2026: "All of the brown that's reading is brown in dark mode
      should be the gold opaque at twelve percent" — and, that afternoon, the
@@ -106,21 +121,34 @@
 
      --accent joins it here. It was a navy, which was defensible on its own but
      meant a selected row was blue in one theme and gold in the other; the same
-     wash in both is what makes the accent mean one thing. */
-  --accent: rgb(232 184 75 / 0.12);
+     wash in both is what makes the accent mean one thing.
+
+     SOLID SINCE 5 SEP 2026, superseding the paragraph above the way it
+     superseded #2a2314: the 12% translucent wash was honest about not being
+     brown, but compositing 12% gold over a navy card is arithmetic for
+     #2b3341 — slate grey — and grey is banned in dark mode as flatly as
+     brown is. A yellow dark enough to tint a dark page cannot exist, so the
+     dark wash stops trying: it is a LIFTED NAVY band, brighter and bluer
+     than the card under it, and the gold lives in the border and the text,
+     which can afford to be bright. Same values as the staff portal's
+     --gold-wash, moved the same day. */
+  --accent: #243458;
   --accent-foreground: #f7d98f;
-  --tip: rgb(232 184 75 / 0.12);
+  --tip: #243458;
   --tip-foreground: #e8b84b;
-  /* Much lower than the light theme's 38%, and not a mistake. A bright wash
-     on a dark card closes on the gold text from below: at 38% the pair falls
-     to 3.65:1 and fails AA. Here the band stays dark and the TEXT carries the
-     yellow, which is the way round that works on a dark ground. */
-  --tip-strong: rgb(251 191 36 / 0.18);
+  /* The loud one stays the loud one by being the LIGHTEST navy on the page,
+     with the yellow carried entirely by the text — the old 18% amber wash
+     composited to olive (#3a3a2f), which is the brown this file thought it
+     had already killed. */
+  --tip-strong: #2e4066;
   --gold: #e8b84b;
+  --gold-line: #8f6f26;
+  --gold-line-strong: #c8892a;
+  --gold-wash-hover: #2e4066;
   --destructive: #f8a7ba;
   --destructive-foreground: #3d1420;
-  --border: #243450;
-  --input: #243450;
+  --border: #263862;
+  --input: #263862;
   --ring: #5e8ad0;
   --chart-1: #e8b84b;
   --chart-2: #f7d98f;
@@ -192,13 +220,15 @@
   .gold-band {
     background-color: var(--tip);
     color: var(--tip-foreground);
-    border-color: rgb(232 184 75 / 0.3);
+    /* A token, not a literal: translucent gold over a dark card is a muddy
+       line, so dark mode substitutes a solid dark gold. */
+    border-color: var(--gold-line);
   }
   /* Hover state for a gold-washed tile: more of the same thing rather than a
      second colour, so the feedback reads as depth and not as a mode change. */
   .gold-hover:hover {
-    background-color: rgb(232 184 75 / 0.22);
-    border-color: rgb(232 184 75 / 0.55);
+    background-color: var(--gold-wash-hover);
+    border-color: var(--gold-line-strong);
   }
 
   /*
@@ -214,7 +244,7 @@
   .gold-band-strong {
     background-color: var(--tip-strong);
     color: var(--tip-foreground);
-    border-color: rgb(232 184 75 / 0.6);
+    border-color: var(--gold-line-strong);
   }
 }
 
