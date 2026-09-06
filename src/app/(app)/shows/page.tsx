@@ -10,6 +10,7 @@ import {
   describeRun,
   openingNight,
 } from "@/lib/api/productions/run";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { formatDate, formatEventTime } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLinkButton } from "@/components/external-link-button";
@@ -45,7 +46,7 @@ export default async function ShowsPage() {
 
   const mine = new Set(
     enrollments
-      .filter((enrollment) => enrollment.status !== "withdrawn")
+      .filter(enrollmentIsCurrent)
       .map((enrollment) => enrollment.productionId)
       .filter(Boolean)
   );

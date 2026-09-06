@@ -61,7 +61,10 @@ export function MessageList({
                   : "rounded-bl-sm bg-muted"
               )}
             >
-              <p className="whitespace-pre-line text-sm">{message.body}</p>
+              {/* break-words: office staff paste links and confirmation codes;
+                  an unbroken string must wrap inside the bubble, not scroll
+                  the whole page sideways at phone width. */}
+              <p className="whitespace-pre-line break-words text-sm">{message.body}</p>
             </div>
             <p className="px-1 text-xs text-muted-foreground">
               {message.authorName}

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StarPageForm } from "./star-page-form";
@@ -71,7 +72,7 @@ export default async function StarPagesPage({
         enrollments.some(
           (enrollment) =>
             enrollment.productionId === production.id &&
-            enrollment.status !== "withdrawn"
+            enrollmentIsCurrent(enrollment)
         )
     )
     .map((production) => ({

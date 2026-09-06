@@ -132,8 +132,10 @@ export default async function NotificationsPage({
                     href={`/api/notifications/go/${notification.id}`}
                     className="min-w-0 flex-1 rounded-md hover:opacity-80"
                   >
-                    <p className="font-medium">{notification.title}</p>
-                    <p className="text-sm text-muted-foreground">{notification.body}</p>
+                    <p className="break-words font-medium">{notification.title}</p>
+                    <p className="break-words text-sm text-muted-foreground">
+                      {notification.body}
+                    </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {formatEventTime(notification.createdAt)}
                       {notification.url && " · tap to open"}
@@ -141,7 +143,10 @@ export default async function NotificationsPage({
                   </a>
                   {!notification.readAt && (
                     <form action={markReadAction.bind(null, notification.id)}>
-                      <Button variant="ghost" size="sm" type="submit">
+                      {/* min-h/w 44px-ish: this button sits beside a card
+                          that is one big link; a small target here misfires
+                          into the navigation. */}
+                      <Button variant="ghost" size="sm" type="submit" className="min-h-11 px-3">
                         Read
                       </Button>
                     </form>

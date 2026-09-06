@@ -33,10 +33,15 @@ const OPTIONS: Array<{
   Icon: typeof Check;
   tone: string;
 }> = [
-  { value: "attending", label: "Attending", Icon: Check, tone: "text-emerald-600" },
+  {
+    value: "attending",
+    label: "Attending",
+    Icon: Check,
+    tone: "text-emerald-600 dark:text-emerald-400",
+  },
   { value: "not_attending", label: "Not Attending", Icon: X, tone: "text-destructive" },
-  { value: "injury", label: "Injury", Icon: Bandage, tone: "text-sky-600" },
-  { value: "partial", label: "Partial", Icon: Clock, tone: "text-amber-600" },
+  { value: "injury", label: "Injury", Icon: Bandage, tone: "text-sky-600 dark:text-sky-400" },
+  { value: "partial", label: "Partial", Icon: Clock, tone: "text-amber-600 dark:text-amber-400" },
 ];
 
 export function AttendanceDialog({
@@ -99,11 +104,13 @@ export function AttendanceDialog({
               {eventTitle}: {eventWhen}
             </p>
           </div>
+          {/* size-11: a 7am bottom-sheet close button is tapped with a
+              thumb, not a cursor. */}
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+            className="-mr-1.5 -mt-1.5 inline-flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
           >
             <X aria-hidden size={18} />
           </button>

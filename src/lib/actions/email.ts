@@ -1,13 +1,13 @@
 "use server";
 
 import { headers } from "next/headers";
-import { outgoingBody } from "@/lib/email/queue";
+import { looksLikeHtml, outgoingBody } from "@/lib/email/queue";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getProvider } from "@/lib/api";
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
-import { getOptedOutFamilies, keepSubscribed } from "@/lib/email/opt-outs";
+import { resolveSubscribedAudience } from "@/lib/email/opt-outs";
 import type { EmailCategory } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
@@ -66,10 +66,7 @@ export async function sendEmailAction(
   const recipients =
     mode === "test"
       ? [user]
-      : keepSubscribed(
-          await provider.resolveAudience(user.id, audience),
-          await getOptedOutFamilies(rest.category)
-        );
+      : await resolveSubscribedAudience(provider, user.id, audience, rest.category);
   if (!scheduledFor || mode === "test") {
     const production = productionId ? await provider.getProduction(productionId) : null;
     const headerList = await headers();
@@ -89,7 +86,8 @@ export async function sendEmailAction(
         resolvedBody,
         { sendId: send.id, recipientId: recipient.id },
         origin,
-        send.category
+        send.category,
+        looksLikeHtml(send.body)
       );
       await delivery.send({
         to: recipient.email,

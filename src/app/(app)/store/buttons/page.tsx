@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { SPIRIT_BUTTON_PRICE_CENTS } from "@/lib/api/types";
 import { getSessionUser } from "@/lib/auth/session";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { formatCents } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -76,7 +77,7 @@ export default async function SpiritButtonsPage({
         enrollments.some(
           (enrollment) =>
             enrollment.productionId === production.id &&
-            enrollment.status !== "withdrawn"
+            enrollmentIsCurrent(enrollment)
         )
     )
     .map((production) => ({

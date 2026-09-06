@@ -211,7 +211,7 @@ function EventCard({
             href={`https://maps.google.com/?q=${encodeURIComponent(event.location)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-1 inline-block text-sm font-medium text-primary underline-offset-4 hover:underline"
+            className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline"
           >
             Map
           </a>

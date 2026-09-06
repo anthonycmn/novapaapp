@@ -190,7 +190,10 @@ export default async function StudentPage({
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Details</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-x-4 gap-y-2 pt-0 text-sm">
+        <CardContent className="pt-0">
+          {/* A real <dl>: dt/dd loose in a div is invalid HTML and loses the
+              label-value pairing for screen readers. */}
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
           {student.school && (
             <>
               <dt className="text-muted-foreground">School</dt>
@@ -215,6 +218,7 @@ export default async function StudentPage({
               <dd>{student.allergies}</dd>
             </>
           )}
+          </dl>
         </CardContent>
       </Card>
     </div>

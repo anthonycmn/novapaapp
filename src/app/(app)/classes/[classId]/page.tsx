@@ -5,6 +5,7 @@ import { getProvider } from "@/lib/api";
 import { classSchedule } from "@/lib/api/catalog/class-schedule";
 import type { FamilyCalendarEvent } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { formatEventTime } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
@@ -51,7 +52,7 @@ export default async function ClassPage({
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   const nextSession = mySessions.find((event) => event.endsAt >= nowIso);
   const enrolled = enrollments.filter(
-    (enrollment) => enrollment.classId === offering.id && enrollment.status !== "withdrawn"
+    (enrollment) => enrollment.classId === offering.id && enrollmentIsCurrent(enrollment)
   );
 
   return (

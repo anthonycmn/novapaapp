@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AlertCircle, ArrowRight, CircleDot } from "lucide-react";
-import { getProvider } from "@/lib/api";
-import { reviewProfile } from "@/lib/profile-completeness";
+import { loadProfileReview } from "@/lib/profile-review";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 
@@ -27,26 +26,10 @@ export async function NeedsAttentionPanel({
   userId: string;
   familyId: string;
 }) {
-  const provider = getProvider();
   try {
-    const season = await provider.getCurrentSeason();
-    const [family, students, guardians] = await Promise.all([
-      provider.getFamily(userId, familyId),
-      provider.getStudentsForFamily(userId, familyId),
-      provider.getGuardians(userId, familyId),
-    ]);
-    if (!family) return null;
-
-    const healthForms = new Map(
-      await Promise.all(
-        students.map(
-          async (student) =>
-            [student.id, await provider.getHealthForm(userId, student.id, season.id)] as const
-        )
-      )
-    );
-
-    const review = reviewProfile({ family, guardians, students, healthForms });
+    const loaded = await loadProfileReview(userId, familyId);
+    if (!loaded) return null;
+    const { review } = loaded;
     if (review.alerts.length === 0) return null;
 
     const suggested = review.suggested.slice(0, SUGGESTED_SHOWN);

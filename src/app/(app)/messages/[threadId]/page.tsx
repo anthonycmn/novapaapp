@@ -49,7 +49,8 @@ export default async function ThreadPage({
           ← All messages
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold">{view.thread.subject}</h1>
+          {/* break-words: the subject is parent-authored free text. */}
+          <h1 className="break-words text-2xl font-semibold">{view.thread.subject}</h1>
           {view.thread.status === "closed" && <Badge variant="secondary">Closed</Badge>}
         </div>
         <p className="text-muted-foreground">
@@ -64,10 +65,18 @@ export default async function ThreadPage({
         <CardContent className="p-4">
           {/* Staff opening a family thread through this route used to see
               the bubbles mirrored — their own replies drawn as the other
-              party's (Sep 5 2026 audit). The side follows the viewer. */}
+              party's (Sep 5 2026 audit). The side follows the viewer — and a
+              staff member reading THEIR OWN family's thread is the family
+              here, or a teacher-parent's messages mirror the same way. */}
           <MessageList
             messages={view.messages}
-            viewerSide={hasRoleAtLeast(user, "staff") ? "staff" : "family"}
+            viewerSide={
+              user.familyId === view.thread.familyId
+                ? "family"
+                : hasRoleAtLeast(user, "staff")
+                  ? "staff"
+                  : "family"
+            }
           />
         </CardContent>
       </Card>

@@ -118,15 +118,24 @@ export async function runEmailQueue(
 
   const delivery = getEmailDeliveryProvider();
 
+  // Opt-outs are honored at delivery — a family who unsubscribed after the
+  // send was scheduled still gets their wish. One read per CATEGORY, not per
+  // send: ten queued newsletters were issuing ten identical reads of
+  // email_preferences (Sep 6 2026 review).
+  const categories = [...new Set(due.map((send) => send.category))];
+  const optedOutByCategory = new Map(
+    await Promise.all(
+      categories.map(
+        async (category) => [category, await getOptedOutFamilies(category)] as const
+      )
+    )
+  );
+
   for (const send of due) {
     try {
-      // Opt-outs are honored at delivery, the same moment the audience is
-      // resolved — a family who unsubscribed after the send was scheduled
-      // still gets their wish.
-      const optedOut = await getOptedOutFamilies(send.category);
       const recipients = keepSubscribed(
         await provider.resolveAudience(actorId, send.audience),
-        optedOut
+        optedOutByCategory.get(send.category) ?? new Set<string>()
       );
       let delivered = 0;
 
@@ -142,7 +151,8 @@ export async function runEmailQueue(
           merged,
           { sendId: send.id, recipientId: recipient.id },
           origin,
-          send.category
+          send.category,
+          looksLikeHtml(send.body)
         );
         const outcome = await delivery.send({
           to: recipient.email,

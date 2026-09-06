@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { outgoingBody } from "@/lib/email/queue";
+import { looksLikeHtml, outgoingBody } from "@/lib/email/queue";
 import { getProvider } from "@/lib/api";
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
-import { getOptedOutFamilies, keepSubscribed } from "@/lib/email/opt-outs";
+import { resolveSubscribedAudience } from "@/lib/email/opt-outs";
 import type { EmailCategory } from "@/lib/api/types";
 import { corsHeaders, userFromBearer } from "@/lib/auth/portal-bridge";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
@@ -191,10 +191,7 @@ export async function POST(request: NextRequest) {
   const recipients =
     mode === "test"
       ? [user]
-      : keepSubscribed(
-          await provider.resolveAudience(user.id, audience),
-          await getOptedOutFamilies(send.category)
-        );
+      : await resolveSubscribedAudience(provider, user.id, audience, send.category);
 
   // {{show_title}} only has an answer when exactly one show was picked. With
   // two, there is no single right substitution and resolveMergeFields would
@@ -217,7 +214,8 @@ export async function POST(request: NextRequest) {
       resolvedBody,
       { sendId: send.id, recipientId: recipient.id },
       origin,
-      send.category
+      send.category,
+      looksLikeHtml(send.body)
     );
     const result = await delivery.send({
       to: recipient.email,

@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { OfferingTile } from "@/components/productions/offering-tile";
 import { classSchedule } from "@/lib/api/catalog/class-schedule";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 
 export const metadata = { title: "Classes" };
 
@@ -31,7 +32,7 @@ export default async function ClassesPage() {
 
   const mine = new Set(
     enrollments
-      .filter((enrollment) => enrollment.status !== "withdrawn")
+      .filter(enrollmentIsCurrent)
       .map((enrollment) => enrollment.classId)
       .filter(Boolean)
   );

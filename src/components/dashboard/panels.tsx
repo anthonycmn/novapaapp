@@ -371,13 +371,16 @@ export function StaffHighlight({
             </p>
           )}
           {featured.specialties.length > 0 && (
-            <p className="mt-1.5 flex flex-wrap gap-1">
+            /* div, not p: Badge renders a div, and a div inside a p is
+               invalid HTML — it failed hydration on every dashboard load
+               (Sep 6 2026 audit, caught live in the browser). */
+            <div className="mt-1.5 flex flex-wrap gap-1">
               {featured.specialties.slice(0, 3).map((specialty) => (
                 <Badge key={specialty} variant="secondary">
                   {specialty}
                 </Badge>
               ))}
-            </p>
+            </div>
           )}
         </div>
       </Link>

@@ -3,6 +3,7 @@ import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatEventTime } from "@/lib/format";
 import { describeAbsenceWindow } from "@/lib/absence-window";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { CalendarOff } from "lucide-react";
@@ -41,7 +42,7 @@ export default async function AbsencesPage() {
 
   /* Every child-and-show pair this household is actually registered for. */
   const options: AbsenceOption[] = enrollments
-    .filter((enrollment) => enrollment.status !== "withdrawn" && enrollment.productionId)
+    .filter((enrollment) => enrollmentIsCurrent(enrollment) && enrollment.productionId)
     .flatMap((enrollment) => {
       const student = studentById.get(enrollment.studentId);
       const production = productionById.get(enrollment.productionId!);

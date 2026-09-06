@@ -41,7 +41,9 @@ export function SlotForm({
     return (
       <form action={release} className="flex flex-col items-end gap-1">
         <input type="hidden" name="signupId" value={mySignupId} />
-        <span className="text-sm font-medium text-emerald-700">You are on this one</span>
+        <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+          You are on this one
+        </span>
         <Button type="submit" variant="ghost" size="sm" disabled={releasing}>
           {releasing ? "…" : "Give it back"}
         </Button>

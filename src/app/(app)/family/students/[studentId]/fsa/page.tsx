@@ -106,7 +106,8 @@ export default async function FsaPage({
       </div>
 
       {statement.eligible && (
-        <article className="fsa-sheet mx-auto max-w-[7.5in] rounded-lg border bg-white p-8 text-black shadow-sm">
+        /* p-4 below sm — same phone-width relief as the resume sheet. */
+        <article className="fsa-sheet mx-auto max-w-[7.5in] rounded-lg border bg-white p-4 text-black shadow-sm sm:p-8 print:p-8">
           <header className="border-b-2 border-black pb-3">
             <h2 className="text-xl font-bold">Dependent Care Statement</h2>
             <p className="text-sm">For Dependent Care Flexible Spending Account reimbursement</p>

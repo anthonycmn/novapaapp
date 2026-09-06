@@ -43,8 +43,14 @@ export function EnrollmentsCard({
   upcoming?: UpcomingPayment[] | null;
 }) {
   // Running enrollments only — a show that closed three weeks ago is show
-  // history, not a line item a family still owes attention to.
-  const active = enrollments.filter(enrollmentIsCurrent);
+  // history, not a line item a family still owes attention to. UNLESS money
+  // is still owed on it: a debt does not age out with the session, and
+  // filtering it away told an owing family "nothing outstanding"
+  // (Sep 6 2026 review).
+  const active = enrollments.filter(
+    (e) =>
+      enrollmentIsCurrent(e) || (e.status !== "withdrawn" && e.balanceCents > 0)
+  );
   const studentsById = new Map(students.map((s) => [s.id, s]));
   const productionsById = new Map(productions.map((p) => [p.id, p]));
   const classesById = new Map(classes.map((c) => [c.id, c]));

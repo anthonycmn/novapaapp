@@ -82,6 +82,8 @@ import type {
   ThreadWithMessages,
 } from "../messages/types";
 import { describeRecipient, topicFromRow } from "../messages/topics";
+import { getOptedOutFamilies, keepSubscribed } from "@/lib/email/opt-outs";
+import { isFeatureOpen } from "@/lib/feature-availability";
 import {
   offeringTopics,
   pickRecipient,
@@ -2670,7 +2672,12 @@ class SupabaseDataProvider {
         (allMatches ?? []).push(created);
         matchesCreated += 1;
 
-        // Tell the family there are new photos of their child.
+        // Tell the family there are new photos of their child — but only
+        // while /photos will actually show them. With the feature switched
+        // off, the push rings a phone, the tap lands on "not yet available",
+        // and the settings page hides the very toggle that could mute it
+        // (Sep 6 2026 review). Matching still runs; only the knock waits.
+        if (!isFeatureOpen("photos")) continue;
         const student = (consented ?? []).find((st) => st.id === result.studentId);
         if (!student) continue;
         const name = String(student.preferred_name ?? student.first_name);
@@ -3212,9 +3219,16 @@ class SupabaseDataProvider {
   ): Promise<EmailSend> {
     const actor = await this.actor(actorId);
     if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    // Opted-out families are not part of the audience, so they are not part
+    // of stats.total either — counting them made every newsletter read as a
+    // partial delivery failure on the dashboard (Sep 6 2026 review), and
+    // notified in-app the very families who asked not to hear about it.
     const recipients = input.testToSelf
       ? [actor]
-      : await this.audienceParents(input.audience as FeedAudience);
+      : keepSubscribed(
+          await this.audienceParents(input.audience as FeedAudience),
+          await getOptedOutFamilies(input.category)
+        );
 
     const { data, error } = await this.db
       .from("email_sends")
@@ -3401,7 +3415,20 @@ class SupabaseDataProvider {
   async getFamilyIdByCalendarToken(token: string): Promise<string | null> {
     const { data } = await this.db
       .from("family_calendar_tokens").select("family_id").eq("token", token).maybeSingle();
-    return data ? String(data.family_id) : null;
+    if (!data) return null;
+    // The stamp that means "a calendar app is really polling this" — the
+    // signal the stay-in-loop card reads, since a token ROW only means
+    // somebody once opened /schedule (0073). Best-effort: the feed must be
+    // served even if the bookkeeping write fails.
+    void this.db
+      .from("family_calendar_tokens")
+      .update({ last_fetched_at: new Date().toISOString() })
+      .eq("token", token)
+      .then(
+        () => undefined,
+        () => undefined
+      );
+    return String(data.family_id);
   }
 
   /* ── student materials ── */

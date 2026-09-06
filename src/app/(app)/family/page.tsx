@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Pencil } from "lucide-react";
-import { getProvider } from "@/lib/api";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
-import { reviewProfile } from "@/lib/profile-completeness";
+import { loadProfileReview } from "@/lib/profile-review";
 import { ProfileAlerts } from "@/components/family/profile-alerts";
 import { Avatar } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,41 +31,15 @@ export default async function FamilyPage() {
     );
   }
 
-  const provider = getProvider();
-  const season = await provider.getCurrentSeason();
-  const [family, students, guardians] = await Promise.all([
-    provider.getFamily(user.id, user.familyId),
-    provider.getStudentsForFamily(user.id, user.familyId),
-    provider.getGuardians(user.id, user.familyId),
-  ]);
-
-  if (!family) redirect("/login");
-
   /**
    * What is still missing, red first. The rules live in one tested module
-   * rather than being scattered through this page, because "is this profile
-   * complete" is asked here, on the dashboard and by the front office, and
-   * three copies of the answer would drift.
+   * and the data assembly in one loader (lib/profile-review), because "is
+   * this profile complete" is asked here, on the dashboard and on the edit
+   * page, and three copies of the answer would drift.
    */
-
-  // One health form per student for this season. Per-student rather than the
-  // staff-scoped status call, which is keyed by production and would answer a
-  // different question.
-  const healthForms = new Map(
-    await Promise.all(
-      students.map(
-        async (student) =>
-          [student.id, await provider.getHealthForm(user.id, student.id, season.id)] as const
-      )
-    )
-  );
-
-  const review = reviewProfile({
-    family,
-    guardians,
-    students,
-    healthForms,
-  });
+  const loaded = await loadProfileReview(user.id, user.familyId);
+  if (!loaded) redirect("/login");
+  const { family, students, guardians, review } = loaded;
 
   return (
     <div className="flex flex-col gap-4">

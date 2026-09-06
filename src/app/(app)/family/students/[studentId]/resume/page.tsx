@@ -96,7 +96,10 @@ export default async function ResumePage({
         <PrintButton label="Print resume" />
       </div>
 
-      <article className="resume-sheet mx-auto max-w-[7.5in] rounded-lg border bg-white p-8 text-black shadow-sm">
+      {/* p-4 below sm: an inch of paper margin inside a 375px screen left
+          ~280px for three-column credit rows (Sep 6 2026 audit). Print keeps
+          the full margin. */}
+      <article className="resume-sheet mx-auto max-w-[7.5in] rounded-lg border bg-white p-4 text-black shadow-sm sm:p-8 print:p-8">
         <header className="border-b-2 border-black pb-3 text-center">
           <h1 className="font-display text-3xl font-bold tracking-wide">{fullName}</h1>
           <p className="mt-1 text-sm">

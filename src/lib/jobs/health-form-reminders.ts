@@ -45,22 +45,34 @@ export async function runHealthFormReminders(): Promise<HealthFormReminderResult
 
   const { data: season } = await db
     .from("seasons")
-    .select("id")
+    .select("id, ends_on")
     .eq("is_current", true)
     .limit(1)
     .maybeSingle();
   const seasonId = (season as { id?: string } | null)?.id;
+  const seasonEndsOn = str((season as Row | null)?.ends_on);
   if (!seasonId) {
     return { familiesNeedingForms: 0, familiesNotified: 0, familiesSkippedRecent: 0, studentsBehind: 0 };
   }
 
   // Actively enrolled students, their family, and their current-season form.
+  // "Actively" needs the session dates, not just the status — nothing ever
+  // ends an enrollment (see lib/enrollment-current.ts: Dear Evan Hansen's 24
+  // rows sat 'enrolled' three weeks after closing), so status alone would
+  // chase a history-only family every 7 days forever for a child with no
+  // rehearsal to attend (Sep 6 2026 review). Same rule as
+  // enrollmentIsCurrent: no end date = current; ended = 3-day grace.
   const { data: enrolled } = await db
     .from("enrollments")
-    .select("student_id, students!inner(id, family_id, first_name, preferred_name)")
+    .select(
+      "student_id, session_ends_on, students!inner(id, family_id, first_name, preferred_name)"
+    )
     .eq("status", "enrolled");
+  const graceCutoff = new Date(Date.now() - 3 * 86400_000);
   const students = new Map<string, { familyId: string; name: string }>();
   for (const row of (enrolled ?? []) as Row[]) {
+    const endsOn = str(row.session_ends_on);
+    if (endsOn && new Date(endsOn) < graceCutoff) continue;
     const s = row.students as Row | null;
     const id = str(s?.id);
     const familyId = str(s?.family_id);
@@ -91,19 +103,31 @@ export async function runHealthFormReminders(): Promise<HealthFormReminderResult
 
   const today = new Date();
   const soon = new Date(today.getTime() + EXPIRY_WINDOW_DAYS * 86400_000);
-  const behindByFamily = new Map<string, { names: string[]; expiring: boolean }>();
+  const behindByFamily = new Map<string, { missing: string[]; expiring: string[] }>();
   for (const [studentId, info] of students) {
     const expiresOn = signed.get(studentId);
     const hasForm = signed.has(studentId);
+    /* A form that lives to the end of the season IS the compliant state —
+       saveHealthForm stamps expires_on = season end, so without this guard
+       every signed family would be nagged weekly to "re-sign" through the
+       season's last two weeks, and re-signing would never clear it
+       (Sep 6 2026 review). Only a form that dies before the season is worth
+       a knock. */
     const expiringOrExpired =
-      hasForm && expiresOn !== null && expiresOn !== undefined && new Date(expiresOn) <= soon;
+      hasForm &&
+      expiresOn != null &&
+      new Date(expiresOn) <= soon &&
+      (!seasonEndsOn || expiresOn < seasonEndsOn);
     if (hasForm && !expiringOrExpired) continue;
-    const entry = behindByFamily.get(info.familyId) ?? { names: [], expiring: false };
-    if (!entry.names.includes(info.name)) entry.names.push(info.name);
-    entry.expiring = entry.expiring || expiringOrExpired;
+    const entry = behindByFamily.get(info.familyId) ?? { missing: [], expiring: [] };
+    const bucket = hasForm ? entry.expiring : entry.missing;
+    if (!bucket.includes(info.name)) bucket.push(info.name);
     behindByFamily.set(info.familyId, entry);
   }
-  const studentsBehind = [...behindByFamily.values()].reduce((n, f) => n + f.names.length, 0);
+  const studentsBehind = [...behindByFamily.values()].reduce(
+    (n, f) => n + f.missing.length + f.expiring.length,
+    0
+  );
   if (behindByFamily.size === 0) {
     return { familiesNeedingForms: 0, familiesNotified: 0, familiesSkippedRecent: 0, studentsBehind: 0 };
   }
@@ -153,20 +177,35 @@ export async function runHealthFormReminders(): Promise<HealthFormReminderResult
       familiesSkippedRecent += 1;
       continue;
     }
-    const names =
-      entry.names.length === 1
-        ? entry.names[0]
-        : entry.names.slice(0, -1).join(", ") + " and " + entry.names[entry.names.length - 1];
+    /* Each child under the sentence that is true of THEM — a family-wide
+       "expires soon" over a child who never had a form told a parent the
+       wrong job was done (Sep 6 2026 review). Missing leads: it is the one
+       that keeps a child out of rehearsal. */
+    const list = (names: string[]) =>
+      names.length === 1
+        ? names[0]
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    const parts: string[] = [];
+    if (entry.missing.length > 0) {
+      parts.push(
+        `We need this season's health form for ${list(entry.missing)} before rehearsal. It takes about two minutes, and last season's answers are pre-filled where we have them.`
+      );
+    }
+    if (entry.expiring.length > 0) {
+      parts.push(
+        `${list(entry.expiring)}'s health form expires soon — two minutes to review and re-sign.`
+      );
+    }
+    const title =
+      entry.missing.length > 0
+        ? `Health form needed for ${list(entry.missing)}`
+        : "A health form is about to expire";
     for (const parentId of parents) {
       rows.push({
         user_id: parentId,
         type: "form_due",
-        title: entry.expiring
-          ? "A health form is about to expire"
-          : `Health form needed for ${names}`,
-        body: entry.expiring
-          ? `${names}'s health form expires soon. Two minutes to review and re-sign — we cannot take a child into rehearsal without a current one.`
-          : `We need this season's health form for ${names} before rehearsal. It takes about two minutes, and last season's answers are pre-filled where we have them.`,
+        title,
+        body: parts.join(" "),
         url: "/family/documents",
       });
     }

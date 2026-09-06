@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { LogOut } from "lucide-react";
 
 /**
@@ -12,22 +13,36 @@ import { LogOut } from "lucide-react";
  * kept ringing for an account nobody was signed into. Both are torn down
  * here, best-effort, before the action runs; a failure in either must never
  * block the sign-out itself.
+ *
+ * The form's action stays the SERVER action: React serializes it for plain
+ * form submission, so signing out works before hydration or with JS broken
+ * — on the same shared iPad this exists for. Wrapping the action in a
+ * client function lost that (Sep 6 2026 review); the teardown now rides
+ * onSubmit, which only exists once the page is interactive anyway.
  */
 export function SignOutButton({ action }: { action: () => Promise<void> }) {
-  async function handleSubmit() {
-    try {
-      navigator.serviceWorker?.controller?.postMessage({ type: "clear-shell-cache" });
-      const registration = await navigator.serviceWorker?.getRegistration();
-      const subscription = await registration?.pushManager.getSubscription();
-      await subscription?.unsubscribe();
-    } catch {
-      // Best-effort only — signing out still proceeds.
-    }
-    await action();
+  const tornDown = useRef(false);
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (tornDown.current) return; // second pass: let the server action run
+    event.preventDefault();
+    const form = event.currentTarget;
+    tornDown.current = true;
+    void (async () => {
+      try {
+        navigator.serviceWorker?.controller?.postMessage({ type: "clear-shell-cache" });
+        const registration = await navigator.serviceWorker?.getRegistration();
+        const subscription = await registration?.pushManager.getSubscription();
+        await subscription?.unsubscribe();
+      } catch {
+        // Best-effort only — signing out still proceeds.
+      }
+      form.requestSubmit();
+    })();
   }
 
   return (
-    <form action={handleSubmit}>
+    <form action={action} onSubmit={handleSubmit}>
       <button
         type="submit"
         title="Sign out"

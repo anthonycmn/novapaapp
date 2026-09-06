@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
-import { reviewProfile } from "@/lib/profile-completeness";
+import { loadProfileReview } from "@/lib/profile-review";
 import { EmergencyContactsEditor } from "@/components/family/emergency-contacts-editor";
 import { GuardiansEditor } from "@/components/family/guardians-editor";
 import { ProfileAlerts } from "@/components/family/profile-alerts";
@@ -18,34 +17,11 @@ export default async function EditFamilyPage() {
   if (!user) redirect("/login");
   if (!user.familyId) redirect("/family");
 
-  const provider = getProvider();
-  const season = await provider.getCurrentSeason();
-  const [family, guardians, students] = await Promise.all([
-    provider.getFamily(user.id, user.familyId),
-    provider.getGuardians(user.id, user.familyId),
-    provider.getStudentsForFamily(user.id, user.familyId),
-  ]);
-  if (!family) redirect("/family");
-
-
-  // One health form per student for this season. Per-student rather than the
-  // staff-scoped status call, which is keyed by production and would answer a
-  // different question.
-  const healthForms = new Map(
-    await Promise.all(
-      students.map(
-        async (student) =>
-          [student.id, await provider.getHealthForm(user.id, student.id, season.id)] as const
-      )
-    )
-  );
-
-  const review = reviewProfile({
-    family,
-    guardians,
-    students,
-    healthForms,
-  });
+  // One loader for the review data — shared with /family and the dashboard
+  // panel (lib/profile-review), so the three surfaces cannot drift.
+  const loaded = await loadProfileReview(user.id, user.familyId);
+  if (!loaded) redirect("/family");
+  const { family, guardians, students, review } = loaded;
 
   return (
     <>

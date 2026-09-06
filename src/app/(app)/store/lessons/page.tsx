@@ -80,8 +80,10 @@ export default async function LessonsPage() {
         coming. Cancelling frees the time for another family.
       </p>
 
+      {/* /store/buttons, not the orphan /store index the sidebar never
+          links — one canonical flow (Sep 6 2026 audit). */}
       <Link
-        href="/store"
+        href="/store/buttons"
         className="text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
       >
         Spirit buttons &amp; star pages →

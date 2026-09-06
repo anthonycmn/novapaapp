@@ -54,3 +54,27 @@ export function keepSubscribed<T extends { familyId?: string | null }>(
   if (optedOut.size === 0) return recipients;
   return recipients.filter((r) => !r.familyId || !optedOut.has(r.familyId));
 }
+
+/**
+ * The audience, minus the families who asked off the list — as one call.
+ *
+ * Every delivery path was hand-wiring resolveAudience + getOptedOutFamilies
+ * + keepSubscribed, which is how the next path forgets one of the three and
+ * a family who unsubscribed keeps getting newsletters. The two reads are
+ * independent, so they run together.
+ */
+export async function resolveSubscribedAudience<
+  R extends { familyId?: string | null },
+  A,
+>(
+  provider: { resolveAudience(actorId: string, audience: A): Promise<R[]> },
+  actorId: string,
+  audience: A,
+  category: string
+): Promise<R[]> {
+  const [recipients, optedOut] = await Promise.all([
+    provider.resolveAudience(actorId, audience),
+    getOptedOutFamilies(category),
+  ]);
+  return keepSubscribed(recipients, optedOut);
+}

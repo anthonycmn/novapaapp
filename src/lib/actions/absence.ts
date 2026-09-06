@@ -6,6 +6,7 @@ import { getProvider } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { describeAbsenceWindow } from "@/lib/absence-window";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { SubmissionState } from "./spirit-button";
 
@@ -108,7 +109,7 @@ export async function reportAbsenceAction(
     (enrollment) =>
       enrollment.studentId === parsed.data.studentId &&
       enrollment.productionId === parsed.data.productionId &&
-      enrollment.status !== "withdrawn"
+      enrollmentIsCurrent(enrollment)
   );
   if (!enrolled) {
     return {

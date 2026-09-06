@@ -20,7 +20,7 @@ export default async function AuditionsPage() {
   // Casting left this app on 26 Aug 2026 — it is run from the staff portal now.
   // A staff member here has no audition roster to be sent to, so they go home
   // rather than to a route that no longer exists.
-  if (!user.familyId) redirect("/");
+  if (!user.familyId) redirect("/dashboard");
 
   const provider = getProvider();
   const [students, productions] = await Promise.all([

@@ -29,7 +29,12 @@ export function encodeTrackingToken(ref: TrackingRef): string {
   return `${Buffer.from(payload).toString("base64url")}.${sign(payload)}`;
 }
 
-export function decodeTrackingToken(token: string): TrackingRef | null {
+/**
+ * Decode + verify, shared by both token families. One copy of the
+ * timing-safe comparison, so a fix to verification cannot land in one
+ * decoder and miss the other.
+ */
+function verifiedPayload(token: string): string | null {
   const [encoded, signature] = token.split(".");
   if (!encoded || !signature) return null;
 
@@ -44,6 +49,12 @@ export function decodeTrackingToken(token: string): TrackingRef | null {
   const a = Buffer.from(expected);
   const b = Buffer.from(signature);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  return payload;
+}
+
+export function decodeTrackingToken(token: string): TrackingRef | null {
+  const payload = verifiedPayload(token);
+  if (payload === null) return null;
 
   const [sendId, recipientId] = payload.split(":");
   if (!sendId || !recipientId) return null;
@@ -72,20 +83,8 @@ export function encodeUnsubscribeToken(ref: UnsubscribeRef): string {
 }
 
 export function decodeUnsubscribeToken(token: string): UnsubscribeRef | null {
-  const [encoded, signature] = token.split(".");
-  if (!encoded || !signature) return null;
-
-  let payload: string;
-  try {
-    payload = Buffer.from(encoded, "base64url").toString("utf8");
-  } catch {
-    return null;
-  }
-
-  const expected = sign(payload);
-  const a = Buffer.from(expected);
-  const b = Buffer.from(signature);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const payload = verifiedPayload(token);
+  if (payload === null) return null;
 
   const [kind, recipientId, category] = payload.split(":");
   if (kind !== "unsub" || !recipientId || !OPT_OUT_CATEGORIES.has(category ?? "")) return null;
@@ -109,7 +108,13 @@ export function instrumentEmailBody(
   body: string,
   ref: TrackingRef,
   origin: string,
-  category?: string
+  category?: string,
+  /* A plain-text send gets plain-text additions: no pixel (nothing renders
+     it), and the unsubscribe as a bare URL — the <a> version arrived as
+     literal markup in exactly the newsletters the link was added for
+     (Sep 6 2026 review). Defaults to HTML, the shape every pre-existing
+     caller assumed. */
+  asHtml: boolean = true
 ): string {
   const token = encodeTrackingToken(ref);
 
@@ -121,15 +126,23 @@ export function instrumentEmailBody(
     }
   );
 
-  const pixel = `\n\n<img src="${origin}/api/email/open/${token}" width="1" height="1" alt="" style="display:none">`;
+  const pixel = asHtml
+    ? `\n\n<img src="${origin}/api/email/open/${token}" width="1" height="1" alt="" style="display:none">`
+    : "";
 
-  const unsubscribe =
-    category && OPT_OUT_CATEGORIES.has(category)
+  const optOutable = Boolean(category && OPT_OUT_CATEGORIES.has(category));
+  const unsubscribeUrl = optOutable
+    ? `${origin}/unsubscribe/${encodeUnsubscribeToken({ recipientId: ref.recipientId, category: category! })}`
+    : null;
+  const unsubscribe = !unsubscribeUrl
+    ? ""
+    : asHtml
       ? `\n<p style="margin:16px 0 0;text-align:center;font-size:12px;color:#8a8a8a;">` +
         `Don't want these emails? ` +
-        `<a href="${origin}/unsubscribe/${encodeUnsubscribeToken({ recipientId: ref.recipientId, category })}" style="color:#8a8a8a;">Unsubscribe</a>.` +
+        `<a href="${unsubscribeUrl}" style="color:#8a8a8a;">Unsubscribe</a>.` +
         ` Safety and schedule messages always come through.</p>`
-      : "";
+      : `\n\n—\nDon't want these emails? Unsubscribe: ${unsubscribeUrl}\n` +
+        `Safety and schedule messages always come through.`;
 
   return withTrackedLinks + pixel + unsubscribe;
 }

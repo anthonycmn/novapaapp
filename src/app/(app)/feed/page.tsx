@@ -23,6 +23,15 @@ const CATEGORY_LABELS: Record<string, string> = {
   general: "News",
 };
 
+/** The site, not the whole address — a URL is a destination, not prose. */
+function linkLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 /** One-way community feed (#7): staff post, families react + ask privately. */
 export default async function FeedPage() {
   const user = await getSessionUser();
@@ -133,11 +142,16 @@ export default async function FeedPage() {
                 </div>
               </div>
 
-              <p className="whitespace-pre-line text-sm leading-relaxed">{post.body}</p>
+              {/* break-words: staff paste long URLs into posts. */}
+              <p className="whitespace-pre-line break-words text-sm leading-relaxed">
+                {post.body}
+              </p>
 
               {post.linkUrl && (
-                <ExternalLinkButton href={post.linkUrl} variant="subtle">
-                  {post.linkUrl}
+                <ExternalLinkButton href={post.linkUrl} variant="subtle" className="max-w-full">
+                  {/* The label is the site, not the whole URL — a raw link
+                      overflowed the card at phone width (Sep 6 2026 audit). */}
+                  <span className="truncate">{linkLabel(post.linkUrl)}</span>
                 </ExternalLinkButton>
               )}
 

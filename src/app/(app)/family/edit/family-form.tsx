@@ -54,8 +54,10 @@ export function FamilyForm({ family }: { family: Family }) {
         />
       </div>
 
-      <div className="grid grid-cols-6 gap-3">
-        <div className="col-span-3 flex flex-col gap-1.5">
+      {/* grid-cols-4, not 6: six columns gave State ~50px at 375px — two
+          visible characters of a 16px input (Sep 6 2026 audit). */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="col-span-2 flex flex-col gap-1.5">
           <Label htmlFor="city">City</Label>
           <Input id="city" name="city" defaultValue={family.city} required autoComplete="address-level2" />
           <FieldError message={state.errors?.city} />
@@ -65,7 +67,7 @@ export function FamilyForm({ family }: { family: Family }) {
           <Input id="state" name="state" defaultValue={family.state} required maxLength={2} />
           <FieldError message={state.errors?.state} />
         </div>
-        <div className="col-span-2 flex flex-col gap-1.5">
+        <div className="col-span-1 flex flex-col gap-1.5">
           <Label htmlFor="zip">ZIP</Label>
           <Input id="zip" name="zip" defaultValue={family.zip} required inputMode="numeric" autoComplete="postal-code" />
           <FieldError message={state.errors?.zip} />

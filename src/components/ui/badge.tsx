@@ -19,11 +19,17 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
+/**
+ * A span, not a div: badges get dropped into <p> tags all over the app
+ * (staff specialties, "changed" markers), and a div inside a p is invalid
+ * HTML — it was failing hydration on every dashboard load until the Sep 6
+ * 2026 audit caught it live. Inline-flex renders identically either way.
+ */
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

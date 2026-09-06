@@ -6,6 +6,7 @@ import type {
   StaffProfile,
   Student,
 } from "../types";
+import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 
 /**
  * Who actually teaches this family's children — pure, so the rules below are
@@ -38,10 +39,10 @@ export function staffForFamily(input: StaffForFamilyInput): StaffAssignment[] {
   const productionById = new Map(input.productions.map((p) => [p.id, p]));
   const classById = new Map(input.classes.map((c) => [c.id, c]));
 
-  // A withdrawn enrollment is not a room your child is in.
-  const active = input.enrollments.filter(
-    (enrollment) => enrollment.status !== "withdrawn"
-  );
+  // A withdrawn enrollment is not a room your child is in — and neither is
+  // a session that already ended (rows never end on their own; see
+  // lib/enrollment-current.ts).
+  const active = input.enrollments.filter(enrollmentIsCurrent);
 
   /** production/class id → the children of this family who are in it. */
   const studentsByOffering = new Map<string, Set<string>>();

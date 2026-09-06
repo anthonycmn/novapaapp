@@ -17,6 +17,7 @@ import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { isFeatureOpen } from "@/lib/feature-availability";
 import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { NeedsAttentionPanel } from "@/components/dashboard/needs-attention";
+import { PanelSkeleton } from "@/components/dashboard/panel-skeleton";
 import { StayInLoopCard } from "@/components/dashboard/stay-in-loop";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
@@ -125,9 +126,14 @@ export default async function DashboardPage() {
   ]);
 
   // Current means running: withdrawn rows and finished sessions both drop
-  // out, so a wrapped show stops reading "run under way" forever.
+  // out, so a wrapped show stops reading "run under way" forever. The
+  // BALANCE is different: money owed on a wrapped show is still owed, so it
+  // sums over everything not withdrawn (Sep 6 2026 review — the current-only
+  // sum showed "$0.00, nothing outstanding" over an unpaid closed show).
   const active = enrollments.filter(enrollmentIsCurrent);
-  const balanceCents = active.reduce((sum, e) => sum + e.balanceCents, 0);
+  const balanceCents = enrollments
+    .filter((e) => e.status !== "withdrawn")
+    .reduce((sum, e) => sum + e.balanceCents, 0);
   const firstName = user.displayName.split(" ")[0];
   const today = todayKey();
 
@@ -167,6 +173,30 @@ export default async function DashboardPage() {
   const nextShow = myShows.find((show) => show.days !== null && show.days >= 0);
   const showRunning = myShows.some((show) => show.days !== null && show.days < 0);
 
+  /* For a class-only family the show tile was permanent dead furniture —
+     "— / No show booked yet", forever (Sep 6 2026 audit; 22 of the catalog's
+     offerings are classes). With no show anywhere on the horizon, the tile
+     answers the question that family actually has: when they are next due
+     in the building. */
+  const nextEvent =
+    !nextShow && !showRunning
+      ? familyEvents
+          .filter((e) => e.endsAt >= nowIso)
+          .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0]
+      : undefined;
+  /* Calendar-day difference, not hours: daysUntil() would call a class at
+     7pm tonight "Tomorrow" when read in the morning. */
+  const nextEventDays = (() => {
+    if (!nextEvent) return null;
+    const starts = new Date(nextEvent.startsAt);
+    const now = new Date();
+    return Math.round(
+      (new Date(starts.getFullYear(), starts.getMonth(), starts.getDate()).getTime() -
+        new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) /
+        86_400_000
+    );
+  })();
+
   /*
    * The arrangeable half of the page.
    *
@@ -189,8 +219,33 @@ export default async function DashboardPage() {
             /* Streamed: the health-form lookups are per-child reads that must
                not hold up the page. Renders nothing when nothing is owed. */
             node: (
-              <Suspense fallback={null}>
+              <Suspense fallback={<PanelSkeleton title="Needs your attention" />}>
                 <NeedsAttentionPanel userId={user.id} familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+        ]
+      : []),
+    ...(user.familyId
+      ? [
+          {
+            def: {
+              key: "payments",
+              title: "Upcoming payments",
+              blurb: "What will be charged to your card, and on which day.",
+              /* Top zone, right under the alerts: money is what a parent came
+                 to check, and at phone width the right-hand stack rendered
+                 this panel sixteenth — below the store tiles and Meet the
+                 team (Sep 6 2026 audit). The stat row already pays for this
+                 same fetch, so the panel resolves with it. */
+              zone: "top" as const,
+            },
+            /* Streams in behind Suspense: the schedule is a live Stripe read
+               via the registration site (2–3s), and the dashboard must never
+               wait on it. No plan on file renders nothing. */
+            node: (
+              <Suspense fallback={<PanelSkeleton title="Upcoming payments" />}>
+                <UpcomingPaymentsPanel familyId={user.familyId} />
               </Suspense>
             ),
           },
@@ -278,26 +333,6 @@ export default async function DashboardPage() {
       },
       node: <RegisterPanel offerings={offerings} />,
     },
-    ...(user.familyId
-      ? [
-          {
-            def: {
-              key: "payments",
-              title: "Upcoming payments",
-              blurb: "What will be charged to your card, and on which day.",
-              zone: "right" as const,
-            },
-            /* Streams in behind Suspense: the schedule is a live Stripe read
-               via the registration site (2–3s), and the dashboard must never
-               wait on it. No plan on file renders nothing. */
-            node: (
-              <Suspense fallback={null}>
-                <UpcomingPaymentsPanel familyId={user.familyId} />
-              </Suspense>
-            ),
-          },
-        ]
-      : []),
     {
       def: {
         key: "store",
@@ -548,9 +583,17 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Two-up at phone width: one stat per row spent ~450px of a 375px
+          screen's first paint on four numbers (Sep 6 2026 audit). */}
+      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
         <StatTile
-          label={nextShow ? `${nextShow.production.title} opens` : "Next show"}
+          label={
+            nextShow
+              ? `${nextShow.production.title} opens`
+              : nextEvent
+                ? "Up next"
+                : "Next show"
+          }
           value={
             nextShow
               ? nextShow.days === 0
@@ -560,7 +603,13 @@ export default async function DashboardPage() {
                   : nextShow.days
               : showRunning
                 ? "Now"
-                : "—"
+                : nextEvent
+                  ? nextEventDays !== null && nextEventDays <= 0
+                    ? "Today"
+                    : nextEventDays === 1
+                      ? "Tomorrow"
+                      : (nextEventDays ?? "—")
+                  : "—"
           }
           hint={
             nextShow
@@ -569,10 +618,12 @@ export default async function DashboardPage() {
                 : "days away"
               : showRunning
                 ? "The run is under way"
-                : "No show booked yet"
+                : nextEvent
+                  ? nextEvent.title
+                  : "No show booked yet"
           }
           tone={nextShow && nextShow.days !== null && nextShow.days <= 7 ? "warn" : "default"}
-          href={nextShow ? `/productions/${nextShow.production.id}` : "/shows"}
+          href={nextShow ? `/productions/${nextShow.production.id}` : nextEvent ? "/schedule" : "/shows"}
         />
         {/*
          * Balances are owed to the registration system and paid there — that

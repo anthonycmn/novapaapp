@@ -11,16 +11,21 @@ import { SectionHeader } from "@/components/ui/section-header";
  * card does, once: it renders only while the family has no calendar
  * subscription, and disappears forever the moment they set one up. A parent
  * who wants it gone sooner can remove the tile from the dashboard.
+ *
+ * "Subscription" is a FETCHED feed (last_fetched_at, stamped by the ICS
+ * route, 0073) — not a token row, which getCalendarToken creates on any
+ * visit to /schedule. Testing the row killed the nudge for exactly the
+ * families it was built for (Sep 6 2026 review).
  */
 export async function StayInLoopCard({ familyId }: { familyId: string }) {
   if (!isSupabaseConfigured()) return null;
   try {
     const { data } = await getServiceClient()
       .from("family_calendar_tokens")
-      .select("family_id")
+      .select("family_id, last_fetched_at")
       .eq("family_id", familyId)
       .maybeSingle();
-    if (data) return null; // already subscribed — job done, card gone
+    if (data?.last_fetched_at) return null; // a calendar app is polling — job done, card gone
   } catch {
     return null;
   }

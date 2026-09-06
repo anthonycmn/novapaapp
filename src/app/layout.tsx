@@ -40,7 +40,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#08111f" },
+    // Match the page ground, not the brand navy — a #08111f status bar over
+    // a #f5f7fa page looked like a different app in light mode (Sep 6 2026
+    // audit). Values mirror --background in globals.css.
+    { media: "(prefers-color-scheme: light)", color: "#f5f7fa" },
     { media: "(prefers-color-scheme: dark)", color: "#08111f" },
   ],
   width: "device-width",

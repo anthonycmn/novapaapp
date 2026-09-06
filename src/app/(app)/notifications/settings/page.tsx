@@ -89,7 +89,9 @@ export default async function NotificationSettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
-          <form action={setQuietHoursAction} className="flex items-end gap-3">
+          {/* flex-wrap: two w-32 inputs plus the button overrun a 375px
+              screen; the button drops to its own row there. */}
+          <form action={setQuietHoursAction} className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="quietHoursStart">From</Label>
               <Input

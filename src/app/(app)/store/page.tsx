@@ -66,30 +66,30 @@ export default async function StorePage() {
         <NotYetAvailable feature="spiritButtons" />
       ) : templates.length === 0 ? (
         <Card>
-            <CardContent className="p-10 text-center text-sm text-muted-foreground">
-              No button designs are available right now. They go live when a show
-              is announced.
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle as="h2" className="text-base">
-                Design your button
-              </CardTitle>
-              <CardDescription>
-                The preview updates as you go — that&apos;s exactly what gets pressed.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ButtonDesigner
-                templates={templates}
-                productions={productions}
-                students={students}
-              />
-            </CardContent>
-          </Card>
-        )}
+          <CardContent className="p-10 text-center text-sm text-muted-foreground">
+            No button designs are available right now. They go live when a show
+            is announced.
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle as="h2" className="text-base">
+              Design your button
+            </CardTitle>
+            <CardDescription>
+              The preview updates as you go — that&apos;s exactly what gets pressed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ButtonDesigner
+              templates={templates}
+              productions={productions}
+              students={students}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Star pages — same switch, same reason. */}
       {!isFeatureOpen("starPages") ? (
