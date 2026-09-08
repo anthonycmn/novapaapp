@@ -151,6 +151,13 @@ import { runFromEvents, type ProductionRun } from "../productions/run";
 type Row = Record<string, unknown>;
 const s = (v: unknown) => (v == null ? undefined : String(v));
 
+/** The default chair for each rubric — hub 0075. */
+const EVALUATOR_ROLE_FOR: Record<Discipline, string> = {
+  acting: "director",
+  vocal: "vocal_director",
+  dance: "choreographer",
+};
+
 function mapUser(row: Row): User {
   return {
     id: String(row.id),
@@ -1314,6 +1321,7 @@ class SupabaseDataProvider {
       // DB stores the evaluator's profile id; the app only renders the name.
       evaluatorStaffId: String(row.evaluator_user_id ?? ""),
       evaluatorName: String(row.evaluator_name ?? ""),
+      evaluatorRole: s(row.evaluator_role),
       scores: (row.scores ?? {}) as Record<string, number>,
       notes: String(row.notes ?? ""),
       callbackNotes: String(row.callback_notes ?? ""),
@@ -1499,6 +1507,11 @@ class SupabaseDataProvider {
           student_id: input.studentId,
           production_id: input.productionId,
           discipline: input.discipline,
+          // Hub 0075: a rubric is keyed by the panel chair, not the
+          // discipline. This path has no chair to ask, so it takes the one
+          // that fills in that discipline by default; the staff portal's
+          // audition grid is where an Assistant Director's rubric is written.
+          evaluator_role: EVALUATOR_ROLE_FOR[input.discipline],
           evaluator_user_id: actor.id,
           evaluator_name: actor.displayName,
           scores: input.scores,
@@ -1507,7 +1520,7 @@ class SupabaseDataProvider {
           growth_notes: input.growthNotes ?? null,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "student_id,production_id,discipline" }
+        { onConflict: "student_id,production_id,evaluator_role" }
       )
       .select().single();
     if (error) throw new Error(`evaluation save failed: ${error.message}`);
