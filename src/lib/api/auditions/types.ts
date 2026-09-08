@@ -155,6 +155,15 @@ export interface AuditionProfile {
   /** Who filled it in — the parent, or a 13+ student themselves. */
   submittedByUserId: string;
   submittedByRole: "parent" | "student";
+  /**
+   * The receipt (hub 0074). Minted once when the row is first written and
+   * never changed by a later edit — it names the submission, not its latest
+   * version. Shown on the "submitted" page and in the email; the family
+   * quotes it if they ever ring the office about this audition.
+   */
+  confirmationCode?: string;
+  /** When the form first went through. updatedAt moves on every edit; this does not. */
+  submittedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

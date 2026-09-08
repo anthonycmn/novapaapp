@@ -1298,6 +1298,8 @@ class SupabaseDataProvider {
       acknowledgedNoGuaranteeAt: String(row.acknowledged_at ?? row.created_at),
       submittedByUserId: String(row.submitted_by_user_id ?? ""),
       submittedByRole: (row.submitted_by_role ?? "parent") as "parent" | "student",
+      confirmationCode: s(row.confirmation_code),
+      submittedAt: s(row.submitted_at),
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
     };

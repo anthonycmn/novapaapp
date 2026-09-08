@@ -1,4 +1,5 @@
 import { EXTENDED_CARE_DAY_CENTS } from "@/config/fees";
+import { makeConfirmationCode } from "@/lib/auditions/confirmation-code";
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
@@ -284,11 +285,23 @@ function buildStore(): Store {
   };
 }
 
-let store = buildStore();
+/*
+ * One store per PROCESS, not per module instance.
+ *
+ * `next dev` compiles each route (and the server-action layer) into its own
+ * module graph, so a plain module-level `let store` is a different object in
+ * the action that saves an audition and in the page that then reads it back —
+ * the parent submits, lands on the "submitted" page, and that page finds no
+ * submission (8 Sep 2026). Hanging the store off globalThis gives every graph
+ * the same object, which is what a database would have given them.
+ */
+const mockGlobal = globalThis as typeof globalThis & { __novapaMockStore?: Store };
+let store: Store = (mockGlobal.__novapaMockStore ??= buildStore());
 
 /** Test helper: restore pristine seed state. */
 export function resetMockStore() {
   store = buildStore();
+  mockGlobal.__novapaMockStore = store;
 }
 
 /* ── snapshot serialization (for cross-instance persistence) ────────────
@@ -315,6 +328,7 @@ export function restoreMockStore(json: string): void {
       : value
   ) as { store: Store; idCounter: number; lastNow: number };
   store = parsed.store;
+  mockGlobal.__novapaMockStore = store;
   // Snapshots written before newer features existed lack these fields.
   store.showScenes ??= deepClone(seed.showScenes);
   store.eventNotices ??= [];
@@ -3461,6 +3475,9 @@ export class MockDataProvider implements DataProvider {
       acknowledgedNoGuaranteeAt: nowIso(),
       submittedByUserId: actor.id,
       submittedByRole: actor.role === "student" ? "student" : "parent",
+      // The database mints these (hub 0074); the mock does the same by hand.
+      confirmationCode: makeConfirmationCode(),
+      submittedAt: nowIso(),
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };

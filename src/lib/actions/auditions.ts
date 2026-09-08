@@ -5,9 +5,10 @@ import { getProvider } from "@/lib/api";
 import type { Discipline, RoleTier } from "@/lib/api/auditions/types";
 import { RUBRIC_CRITERIA } from "@/lib/api/auditions/types";
 import { logActivity } from "@/lib/activity";
+import { auditionUrl, sendAuditionReceipt } from "@/lib/api/auditions/notify";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
-import { profileSchema } from "./audition-schema";
+import { profileSchema, type AuditionSubmitState } from "./audition-schema";
 
 function fail(error: unknown): FamilyFormState {
   return {
@@ -18,9 +19,9 @@ function fail(error: unknown): FamilyFormState {
 
 
 export async function submitAuditionProfileAction(
-  _prev: FamilyFormState,
+  _prev: AuditionSubmitState,
   formData: FormData
-): Promise<FamilyFormState> {
+): Promise<AuditionSubmitState> {
   const user = await getSessionUser();
   if (!user) return { ok: false, errors: { _form: "Not signed in" } };
 
@@ -52,8 +53,19 @@ export async function submitAuditionProfileAction(
     return { ok: false, errors };
   }
 
+  /*
+   * Whether this is the first time through or an edit decides two sentences:
+   * the page heading and the email subject. Read before the write, because
+   * after it there is always a row.
+   */
+  const before = await getProvider()
+    .getAuditionProfile(user.id, parsed.data.studentId, parsed.data.productionId)
+    .catch(() => null);
+  const isUpdate = Boolean(before);
+
+  let saved;
   try {
-    await getProvider().submitAuditionProfile(user.id, {
+    saved = await getProvider().submitAuditionProfile(user.id, {
       studentId: parsed.data.studentId,
       productionId: parsed.data.productionId,
       preferenceTier: parsed.data.preferenceTier as RoleTier,
@@ -75,19 +87,50 @@ export async function submitAuditionProfileAction(
   } catch (error) {
     return fail(error);
   }
-  const production = await getProvider()
-    .getProduction(parsed.data.productionId)
-    .catch(() => null);
+  const [production, students] = await Promise.all([
+    getProvider().getProduction(parsed.data.productionId).catch(() => null),
+    user.familyId
+      ? getProvider().getStudentsForFamily(user.id, user.familyId).catch(() => [])
+      : Promise.resolve([]),
+  ]);
+  const student = students.find((entry) => entry.id === parsed.data.studentId);
+  const studentName = student ? (student.preferredName ?? student.firstName) : "Your performer";
+
+  /*
+   * The receipt email — CJ, 8 Sep 2026: "send them an email that says your
+   * audition information has been submitted. Thank you. The staff will review
+   * it shortly." Best-effort: the row is saved and the code is on the next
+   * page whether or not the mail goes, and a mail outage must not turn a
+   * successful submission into a red box.
+   */
+  const emailed = saved.confirmationCode
+    ? await sendAuditionReceipt(user.email, {
+        studentName,
+        productionTitle: production?.title ?? "the show",
+        confirmationCode: saved.confirmationCode,
+        isUpdate,
+        auditionUrl: auditionUrl(parsed.data.productionId, parsed.data.studentId),
+      })
+    : false;
+
   await logActivity({
     user,
-    action: "audition.profile_submitted",
-    summary: `Submitted an audition profile${production ? ` — ${production.title}` : ""}`,
+    action: isUpdate ? "audition.profile_updated" : "audition.profile_submitted",
+    summary: `${isUpdate ? "Updated" : "Submitted"} an audition profile${production ? ` — ${production.title}` : ""}`,
     studentId: parsed.data.studentId,
-    detail: { productionId: parsed.data.productionId, preferenceTier: parsed.data.preferenceTier },
+    detail: {
+      productionId: parsed.data.productionId,
+      preferenceTier: parsed.data.preferenceTier,
+      confirmationCode: saved.confirmationCode ?? null,
+      receiptEmailed: emailed,
+    },
   });
   revalidatePath("/auditions");
   revalidatePath(`/auditions/${parsed.data.productionId}/${parsed.data.studentId}`);
-  return { ok: true };
+  return {
+    ok: true,
+    redirectTo: `/auditions/${parsed.data.productionId}/${parsed.data.studentId}/submitted${isUpdate ? "?updated=1" : ""}`,
+  };
 }
 
 export async function submitEvaluationAction(

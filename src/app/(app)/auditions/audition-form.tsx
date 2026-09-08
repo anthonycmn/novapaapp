@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { submitAuditionProfileAction } from "@/lib/actions/auditions";
-import type { FamilyFormState } from "@/lib/actions/family";
+import type { AuditionSubmitState } from "@/lib/actions/audition-schema";
 import {
   NO_GUARANTEE_TEXT,
   ROLE_KINDS,
@@ -19,7 +20,7 @@ import { FieldError } from "@/components/forms/field-error";
 import { OptionalTag } from "@/components/forms/optional-tag";
 import { UnsavedChangesGuard } from "@/components/forms/unsaved-changes-guard";
 
-const initial: FamilyFormState = { ok: false };
+const initial: AuditionSubmitState = { ok: false };
 
 /**
  * How an example reads — CJ, 4 Sep 2026: "make the fill in text as suggestions
@@ -71,8 +72,9 @@ export function AuditionForm({
   const [videoUrl, setVideoUrl] = useState(existing?.auditionVideoUrl ?? "");
   const [danceUrl, setDanceUrl] = useState(existing?.danceVideoUrl ?? "");
   const [resumeUrl, setResumeUrl] = useState(existing?.resumeUrl ?? "");
+  const router = useRouter();
   const [state, formAction, pending] = useActionState(
-    async (prev: FamilyFormState, formData: FormData) => {
+    async (prev: AuditionSubmitState, formData: FormData) => {
       const result = await submitAuditionProfileAction(prev, formData);
       if (result.ok) setDirty(false);
       return result;
@@ -80,9 +82,37 @@ export function AuditionForm({
     initial
   );
 
+  /*
+   * CJ, 8 Sep 2026: "show a loading symbol, and then go to a page that says
+   * your audition has been submitted."
+   *
+   * The action answers with where to go, and the form goes there. The overlay
+   * below stays up from the moment the button is pressed until the new page
+   * has replaced this one — `pending` covers the round trip, `state.redirectTo`
+   * covers the navigation — so there is no frame in which the form reappears,
+   * looking un-submitted, between the two.
+   */
+  useEffect(() => {
+    if (state.ok && state.redirectTo) router.push(state.redirectTo);
+  }, [state, router]);
+  const leaving = Boolean(state.ok && state.redirectTo);
+  const busy = pending || leaving;
+
   return (
     <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-6">
       <UnsavedChangesGuard dirty={dirty} />
+      {busy && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/85 backdrop-blur-sm"
+        >
+          <Loader2 aria-hidden className="size-10 animate-spin text-primary" />
+          <p className="text-sm font-medium">
+            {leaving ? "Submitted — one moment…" : `Sending ${studentName}'s audition…`}
+          </p>
+        </div>
+      )}
       <input type="hidden" name="studentId" value={studentId} />
       <input type="hidden" name="productionId" value={productionId} />
 
@@ -370,12 +400,16 @@ export function AuditionForm({
       <FieldError message={state.errors?._form} />
 
       <div className="flex items-center gap-3">
-        <Button type="submit" size="lg" disabled={pending}>
-          {pending ? "Saving…" : existing ? "Update audition" : "Submit audition"}
+        <Button type="submit" size="lg" disabled={busy}>
+          {busy && <Loader2 aria-hidden className="animate-spin" />}
+          {busy ? "Submitting…" : existing ? "Update audition" : "Submit audition"}
         </Button>
-        {state.ok && (
-          <p role="status" className="text-sm font-medium text-primary">
-            Saved ✓
+        {existing?.confirmationCode && !busy && (
+          <p className="text-xs text-muted-foreground">
+            Confirmation code{" "}
+            <span className="font-mono font-medium text-foreground">
+              {existing.confirmationCode}
+            </span>
           </p>
         )}
       </div>
