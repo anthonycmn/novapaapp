@@ -1,4 +1,22 @@
 import { z } from "zod";
+import type { FamilyFormState } from "./family";
+
+/**
+ * What the submit action hands back to the form.
+ *
+ * A successful submit no longer stays on the form with a "Saved ✓" — CJ, 8 Sep
+ * 2026: show a loading symbol, then go to a page that says the audition has
+ * been submitted, with a confirmation code. The action says where; the form
+ * takes the family there once the answer arrives, so the spinner it put up is
+ * still on screen for the whole trip.
+ *
+ * Here rather than in actions/auditions.ts for the same reason the schema
+ * below is: a "use server" module may export only async functions.
+ */
+export type AuditionSubmitState = FamilyFormState & {
+  /** Set on success: the page to land on. */
+  redirectTo?: string;
+};
 
 /**
  * What an audition submission must contain.

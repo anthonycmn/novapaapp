@@ -110,7 +110,13 @@ export default async function AuditionsPage() {
                       : "Submitted — you can still change anything until auditions begin"
                     : "Not started"
                 }
-                meta={existing?.songTitle ? `Song: ${existing.songTitle}` : undefined}
+                meta={
+                  existing?.confirmationCode
+                    ? `Confirmation ${existing.confirmationCode}`
+                    : existing?.songTitle
+                      ? `Song: ${existing.songTitle}`
+                      : undefined
+                }
                 badge={existing ? undefined : "To do"}
               />
             );
