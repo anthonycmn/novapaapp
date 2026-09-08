@@ -451,6 +451,13 @@ export interface AuditionEvaluation {
   discipline: Discipline;
   evaluatorStaffId: string;
   evaluatorName: string;
+  /**
+   * The chair on the panel this rubric came from (hub 0075): director,
+   * assistant_director, vocal_director or choreographer. Two acting rubrics
+   * for one child — the Director's and the Assistant Director's — are two
+   * evaluations, told apart by this.
+   */
+  evaluatorRole?: string;
   /** criterion key → 1–5. */
   scores: Record<string, number>;
   /** Private evaluator notes, released to the family only on request. */
