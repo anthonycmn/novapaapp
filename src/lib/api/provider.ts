@@ -27,6 +27,7 @@ import type {
   NotificationPrefs,
   NotificationType,
   PickupRequest,
+  PostAttachment,
   PostQuestion,
   Production,
   Program,
@@ -233,6 +234,7 @@ export interface DataProvider {
       isPinned?: boolean;
       imageUrls?: string[];
       linkUrl?: string;
+      attachments?: PostAttachment[];
     }
   ): Promise<FeedPost>;
   reactToPost(actorId: string, postId: string, kind: ReactionKind): Promise<FeedPost>;

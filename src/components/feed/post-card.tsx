@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ExternalLinkButton } from "@/components/external-link-button";
 import { Reactions } from "@/app/(app)/feed/reactions";
 import { QuestionBox } from "@/app/(app)/feed/question-box";
+import { PostAttachments } from "@/components/feed/post-attachments";
 
 export const CATEGORY_LABELS: Record<string, string> = {
   casting: "Casting",
@@ -60,6 +61,8 @@ export function FeedPostCard({
             {post.linkUrl}
           </ExternalLinkButton>
         )}
+
+        <PostAttachments attachments={post.attachments} />
 
         {/* Show-week posts carry a ticket link — that's when families are
             inviting relatives. */}

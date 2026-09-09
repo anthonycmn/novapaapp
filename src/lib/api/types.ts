@@ -454,6 +454,22 @@ export interface FeedAudience {
   familyIds?: string[];
 }
 
+/**
+ * Something a post carries besides words — hub 0076. A FILE is one we host in
+ * the public-read feed-attachments bucket; a LINK is wherever staff pasted
+ * from (Google Slides, Canva, an unlisted YouTube video). Both portals render
+ * the same list with the same words, and both write it: the staff portal from
+ * its dashboard composer, this app from /feed/new.
+ */
+export interface PostAttachment {
+  kind: "file" | "link";
+  /** What the parent sees on the button. */
+  name: string;
+  url: string;
+  mime?: string;
+  sizeBytes?: number;
+}
+
 export interface FeedPost {
   id: string;
   authorStaffId: string;
@@ -463,6 +479,7 @@ export interface FeedPost {
   imageUrls: string[];
   videoEmbedUrl?: string;
   linkUrl?: string;
+  attachments: PostAttachment[];
   category: FeedCategory;
   audience: FeedAudience;
   isPinned: boolean;

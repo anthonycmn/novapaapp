@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldError } from "@/components/forms/field-error";
 import { UnsavedChangesGuard } from "@/components/forms/unsaved-changes-guard";
+import { AttachmentsPicker } from "@/components/feed/attachments-picker";
 
 const initialState: FamilyFormState = { ok: false };
 
@@ -92,6 +93,13 @@ export function PostForm({ productions }: { productions: Production[] }) {
         <Input id="linkUrl" name="linkUrl" type="url" placeholder="https://…" />
         <FieldError message={state.errors?.linkUrl} />
       </div>
+
+      {/* The slideshow, the costume guide, the PDF calendar — CJ, 9 Sep 2026:
+          "attach things to feed posts so parents can click them and read
+          them." Files go straight to storage as they are picked; the form
+          carries the list (hub 0076). */}
+      <AttachmentsPicker onDirty={() => setDirty(true)} />
+      <FieldError message={state.errors?.attachments} />
 
       <label className="flex min-h-11 items-center gap-2 text-sm">
         <input type="checkbox" name="isPinned" className="size-4 accent-[var(--primary)]" />
