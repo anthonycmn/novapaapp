@@ -49,6 +49,34 @@ describe("feed targeting (#7)", () => {
     ).rejects.toThrow(AccessDeniedError);
   });
 
+  it("a post carries its attachments to the families who see it (hub 0076)", async () => {
+    const attachments = [
+      {
+        kind: "file" as const,
+        name: "Frozen Parent Night.pdf",
+        url: "https://example.supabase.co/storage/v1/object/public/fh-feed-attachments/feed/2026/1.pdf",
+        mime: "application/pdf",
+        sizeBytes: 2_411_000,
+      },
+      { kind: "link" as const, name: "Parent Night slides", url: "https://docs.google.com/presentation/d/x" },
+    ];
+    await provider.createFeedPost("user-dana", {
+      body: "Slides from tonight",
+      category: "general",
+      audience: {},
+      attachments,
+    });
+    const feed = await provider.getFeedForUser("user-sofia");
+    const post = feed.find((p) => p.body === "Slides from tonight");
+    expect(post?.attachments).toEqual(attachments);
+
+    // A post written without any has an empty list, never undefined — both
+    // renderers map over it.
+    await provider.createFeedPost("user-dana", { body: "Plain words", category: "general", audience: {} });
+    const plain = (await provider.getFeedForUser("user-sofia")).find((p) => p.body === "Plain words");
+    expect(plain?.attachments).toEqual([]);
+  });
+
   it("pinned posts sort first", async () => {
     const feed = await provider.getFeedForUser("user-sofia");
     expect(feed[0].isPinned).toBe(true);

@@ -38,6 +38,7 @@ import type {
   NotificationPrefs,
   PickupRequest,
   ShowHistoryEntry,
+  PostAttachment,
   PostQuestion,
   ReactionKind,
   Family,
@@ -4858,6 +4859,7 @@ class SupabaseDataProvider {
       imageUrls: (row.image_urls ?? []) as string[],
       videoEmbedUrl: s(row.video_embed_url),
       linkUrl: s(row.link_url),
+      attachments: (row.attachments ?? []) as PostAttachment[],
       category: row.category as FeedCategory,
       audience: (row.audience ?? {}) as FeedAudience,
       isPinned: Boolean(row.is_pinned),
@@ -4958,6 +4960,7 @@ class SupabaseDataProvider {
       isPinned?: boolean;
       imageUrls?: string[];
       linkUrl?: string;
+      attachments?: PostAttachment[];
     }
   ): Promise<FeedPost> {
     const actor = await this.actor(actorId);
@@ -4971,6 +4974,7 @@ class SupabaseDataProvider {
         body: input.body,
         image_urls: input.imageUrls ?? [],
         link_url: input.linkUrl ?? null,
+        attachments: input.attachments ?? [],
         category: input.category,
         audience: input.audience,
         is_pinned: input.isPinned ?? false,

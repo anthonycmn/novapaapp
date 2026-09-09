@@ -5,7 +5,7 @@ import {
   UPLOAD_LIMITS,
   type StorageBucket,
 } from "@/lib/api/storage";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 
 /**
  * Mint a one-shot URL the browser can upload a file to directly.
@@ -43,6 +43,16 @@ const FAMILY_BUCKETS: StorageBucket[] = [
  */
 const FAMILY_SCOPED: StorageBucket[] = ["family-documents"];
 
+/**
+ * Buckets only staff may write to, scoped to nobody in particular.
+ *
+ * A feed attachment (hub 0076) belongs to a post that does not exist yet when
+ * the file is picked, so there is no family or student to hang the path off.
+ * The scope is a fixed folder and the gate is the role: a parent asking for a
+ * URL here gets a 403, the same answer feed_write would give them.
+ */
+const STAFF_BUCKETS: StorageBucket[] = ["feed-attachments"];
+
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) {
@@ -63,8 +73,11 @@ export async function POST(request: Request) {
   }
 
   const bucket = body.bucket as StorageBucket | undefined;
-  if (!bucket || !FAMILY_BUCKETS.includes(bucket)) {
+  if (!bucket || !(FAMILY_BUCKETS.includes(bucket) || STAFF_BUCKETS.includes(bucket))) {
     return NextResponse.json({ error: "Unknown upload type" }, { status: 400 });
+  }
+  if (STAFF_BUCKETS.includes(bucket) && !hasRoleAtLeast(user, "staff")) {
+    return NextResponse.json({ error: "Staff only" }, { status: 403 });
   }
 
   const limits = UPLOAD_LIMITS[bucket];
@@ -105,7 +118,10 @@ export async function POST(request: Request) {
    * exactly the check that stops one family writing into another's folder.
    */
   let scope: string;
-  if (FAMILY_SCOPED.includes(bucket)) {
+  if (STAFF_BUCKETS.includes(bucket)) {
+    // The year, so the folder stays browsable when there are hundreds.
+    scope = `feed/${new Date().getUTCFullYear()}`;
+  } else if (FAMILY_SCOPED.includes(bucket)) {
     if (!user.familyId) {
       return NextResponse.json({ error: "No household on this account" }, { status: 403 });
     }
@@ -138,6 +154,8 @@ export async function POST(request: Request) {
    */
   const extension = safeExtension(body.fileName, body.contentType);
   const path = `${scope}/${bucket}-${Date.now()}${extension}`;
+  // `attachments` on the post: the original name is what the parent sees on
+  // the button, so the path can stay boring.
 
   try {
     const signed = await getStorageProvider().createSignedUpload(bucket, path);
@@ -164,6 +182,17 @@ function safeExtension(fileName: unknown, contentType: string): string {
     "video/x-m4v": ".m4v",
     "video/mpeg": ".mpeg",
     "application/pdf": ".pdf",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+    "application/vnd.ms-powerpoint": ".ppt",
+    "application/vnd.apple.keynote": ".key",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/msword": ".doc",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.ms-excel": ".xls",
+    "text/plain": ".txt",
+    "text/csv": ".csv",
+    "image/gif": ".gif",
+    "image/heic": ".heic",
     "image/jpeg": ".jpg",
     "image/png": ".png",
     "image/webp": ".webp",

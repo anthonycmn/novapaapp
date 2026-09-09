@@ -15,7 +15,20 @@ export type StorageBucket =
   | "family-documents"
   | "staff-photos"
   | "button-photos"
-  | "reference-photos";
+  | "reference-photos"
+  | "feed-attachments";
+
+/**
+ * Buckets whose objects are served at the public address, no signature.
+ *
+ * Exactly one, and on purpose (hub 0076): a feed attachment is written for
+ * every family at once and has to open from a push notification, an email,
+ * the staff portal and this app without any of them minting a URL that dies
+ * in an hour. Everything else stays private and goes through a signed URL.
+ */
+export const PUBLIC_BUCKETS: ReadonlySet<StorageBucket> = new Set<StorageBucket>([
+  "feed-attachments",
+]);
 
 export interface StoredFile {
   url: string;
@@ -152,9 +165,10 @@ class SupabaseStorageProvider implements StorageProvider {
       throw new Error(`Storage upload failed (${response.status}): ${await response.text()}`);
     }
 
-    // Buckets are private; the app serves files through signed URLs.
+    // Private buckets serve through signed URLs; the public one at its
+    // public address.
     return {
-      url: `${this.url}/storage/v1/object/${this.physical(bucket)}/${path}`,
+      url: this.publicUrlFor(bucket, path),
       path,
       bucket,
       sizeBytes: bytes.length,
@@ -190,12 +204,13 @@ class SupabaseStorageProvider implements StorageProvider {
       // Supabase returns a path-with-token relative to /storage/v1.
       uploadUrl: `${this.url}/storage/v1${data.url.startsWith("/") ? "" : "/"}${data.url}`,
       path,
-      publicUrl: `${this.url}/storage/v1/object/${physical}/${path}`,
+      publicUrl: this.publicUrlFor(bucket, path),
     };
   }
 
   publicUrlFor(bucket: StorageBucket, path: string): string {
-    return `${this.url}/storage/v1/object/${this.physical(bucket)}/${path}`;
+    const segment = PUBLIC_BUCKETS.has(bucket) ? "object/public" : "object";
+    return `${this.url}/storage/v1/${segment}/${this.physical(bucket)}/${path}`;
   }
 
   async remove(bucket: StorageBucket, path: string): Promise<void> {
@@ -286,6 +301,34 @@ export const UPLOAD_LIMITS: Record<
     maxBytes: 12 * 1024 * 1024,
     contentTypes: ["image/jpeg", "image/png", "image/webp"],
     label: "reference photo",
+  },
+  /*
+   * What a feed post carries besides words (hub 0076): the parent-night
+   * slideshow, the costume guide, the PDF calendar. Slides, PDFs, Office
+   * documents and pictures; no video, because an unlisted YouTube link is the
+   * org's stated preference and a phone video would eat the limit in one
+   * file. The same list the bucket itself enforces.
+   */
+  "feed-attachments": {
+    maxBytes: 50 * 1024 * 1024,
+    contentTypes: [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.apple.keynote",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-excel",
+      "text/plain",
+      "text/csv",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "image/heic",
+    ],
+    label: "attachment",
   },
 };
 

@@ -37,6 +37,7 @@ import type {
   NotificationPrefs,
   NotificationType,
   PickupRequest,
+  PostAttachment,
   PostQuestion,
   Production,
   Program,
@@ -839,6 +840,7 @@ export class MockDataProvider implements DataProvider {
       isPinned?: boolean;
       imageUrls?: string[];
       linkUrl?: string;
+      attachments?: PostAttachment[];
     }
   ): Promise<FeedPost> {
     const actor = getActor(actorId);
@@ -851,6 +853,7 @@ export class MockDataProvider implements DataProvider {
       body: input.body,
       imageUrls: input.imageUrls ?? [],
       linkUrl: input.linkUrl,
+      attachments: input.attachments ?? [],
       category: input.category,
       audience: input.audience,
       isPinned: input.isPinned ?? false,

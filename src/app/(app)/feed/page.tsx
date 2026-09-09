@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Reactions } from "./reactions";
 import { QuestionBox } from "./question-box";
 import { isFeatureOpen } from "@/lib/feature-availability";
+import { PostAttachments } from "@/components/feed/post-attachments";
 
 export const metadata = { title: "News" };
 
@@ -154,6 +155,9 @@ export default async function FeedPage() {
                   <span className="truncate">{linkLabel(post.linkUrl)}</span>
                 </ExternalLinkButton>
               )}
+
+              {/* The slideshow, the costume guide — tap to read (hub 0076). */}
+              <PostAttachments attachments={post.attachments} />
 
               {/* Show-week posts carry a ticket link — that's when families
                   are inviting relatives (#12). */}
