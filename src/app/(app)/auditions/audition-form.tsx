@@ -4,12 +4,13 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { submitAuditionProfileAction } from "@/lib/actions/auditions";
-import type { AuditionSubmitState } from "@/lib/actions/audition-schema";
+import { NO_TIER_PICKED, type AuditionSubmitState } from "@/lib/actions/audition-schema";
 import {
   NO_GUARANTEE_TEXT,
   ROLE_KINDS,
   ROLE_TIERS,
   type AuditionProfile,
+  type RoleTier,
 } from "@/lib/api/auditions/types";
 import { VIDEO_PREFERENCE } from "@/lib/link-sharing";
 import { SharingNote } from "@/components/forms/sharing-note";
@@ -66,12 +67,25 @@ export function AuditionForm({
   /*
    * The three links are controlled, only so the reminder under each one can
    * react to what was pasted. Everything else on this form stays uncontrolled
-   * and submits by name, which is why this is three useStates and not a
+   * and submits by name, which is why this is separate useStates and not a
    * form-state object.
    */
   const [videoUrl, setVideoUrl] = useState(existing?.auditionVideoUrl ?? "");
   const [danceUrl, setDanceUrl] = useState(existing?.danceVideoUrl ?? "");
   const [resumeUrl, setResumeUrl] = useState(existing?.resumeUrl ?? "");
+  /*
+   * The hoped-for tiers are held in state for a different reason: this is the
+   * one answer on the page the form itself has to check.
+   *
+   * The radio it replaced carried `required`, so an empty answer never left
+   * the browser. Checkboxes have no group equivalent — `required` on a box
+   * demands that box — so the check is the onSubmit below, and it matters that
+   * it happens here: React 19 resets a form's fields once an action settles,
+   * which would put the boxes back to the last saved answer underneath a
+   * message telling the family to tick something.
+   */
+  const [tiers, setTiers] = useState<RoleTier[]>(existing?.preferenceTiers ?? []);
+  const [tierMissing, setTierMissing] = useState(false);
   const router = useRouter();
   const [state, formAction, pending] = useActionState(
     async (prev: AuditionSubmitState, formData: FormData) => {
@@ -99,7 +113,17 @@ export function AuditionForm({
   const busy = pending || leaving;
 
   return (
-    <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-6">
+    <form
+      action={formAction}
+      onChange={() => setDirty(true)}
+      onSubmit={(event) => {
+        if (tiers.length === 0) {
+          event.preventDefault();
+          setTierMissing(true);
+        }
+      }}
+      className="flex flex-col gap-6"
+    >
       <UnsavedChangesGuard dirty={dirty} />
       {busy && (
         <div
@@ -144,21 +168,45 @@ export function AuditionForm({
         ))}
       </fieldset>
 
+      {/*
+        Boxes, not a radio — Yin, a parent, 8 Sep 2026: "it would be great to
+        enable multi-selection for 'And how big a part are they hoping for?'
+        question as many kids are open to multiple types of roles!"
+
+        One choice forced a child who would love a lead AND would be perfectly
+        happy in the ensemble to say only one of those, and the one they said
+        read to the panel as the whole answer. A set says the true thing: here
+        is everything they would be glad to be cast as.
+
+        Unlike the question above it, this one still wants at least one answer
+        — see the note on preferenceTiers in actions/audition-schema.ts.
+      */}
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">
           And how big a part are they hoping for?
         </legend>
+        <p className="text-xs text-muted-foreground">
+          Tick every size of part they&apos;d be happy with — plenty of
+          performers are glad of more than one.
+        </p>
         {ROLE_TIERS.map((tier) => (
           <label
             key={tier.value}
             className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 has-[:checked]:border-primary has-[:checked]:bg-accent"
           >
             <input
-              type="radio"
-              name="preferenceTier"
+              type="checkbox"
+              name="preferenceTiers"
               value={tier.value}
-              defaultChecked={existing?.preferenceTier === tier.value}
-              required
+              checked={tiers.includes(tier.value)}
+              onChange={(event) => {
+                setTierMissing(false);
+                setTiers((current) =>
+                  event.target.checked
+                    ? [...current, tier.value]
+                    : current.filter((value) => value !== tier.value)
+                );
+              }}
               className="mt-1 size-4 accent-[var(--primary)]"
             />
             <span>
@@ -167,7 +215,9 @@ export function AuditionForm({
             </span>
           </label>
         ))}
-        <FieldError message={state.errors?.preferenceTier} />
+        <FieldError
+          message={tierMissing ? NO_TIER_PICKED : state.errors?.preferenceTiers}
+        />
       </fieldset>
 
       {/*

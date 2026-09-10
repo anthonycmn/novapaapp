@@ -73,6 +73,24 @@ export const ROLE_TIERS: Array<{
 ];
 
 /**
+ * Biggest part first. Only an ordering — it ranks nothing about the performer.
+ *
+ * The same order the database keeps (hub 0078), so a set of tiers reads
+ * identically whether it came back from Postgres or from the mock.
+ */
+const TIER_ORDER: Record<RoleTier, number> = {
+  lead: 1,
+  supporting: 2,
+  featured: 3,
+  ensemble: 4,
+};
+
+/** Dedupe and sort a set of hoped-for tiers, biggest first. */
+export function orderRoleTiers(tiers: readonly RoleTier[]): RoleTier[] {
+  return [...new Set(tiers)].sort((a, b) => TIER_ORDER[a] - TIER_ORDER[b]);
+}
+
+/**
  * The sentence every audition form shows and every family must acknowledge.
  * Word it once, here, so the form and the confirmation record agree.
  */
@@ -115,8 +133,15 @@ export interface AuditionProfile {
   id: string;
   studentId: string;
   productionId: string;
-  /** The tier the family/student is hoping for. */
-  preferenceTier: RoleTier;
+  /**
+   * Every size of part the family/student would be happy with — biggest first.
+   * Never empty.
+   *
+   * A set rather than one answer since 9 Sep 2026 (hub 0078): plenty of
+   * children would love a lead and would be perfectly happy in the ensemble,
+   * and made to pick one they picked whichever felt safer to say out loud.
+   */
+  preferenceTiers: RoleTier[];
   /** Free-text previous roles (in addition to tracked show history). */
   previousRoles: string;
   /** What they hope to get out of the experience. */

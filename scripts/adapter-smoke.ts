@@ -253,20 +253,20 @@ async function main() {
   const profile = await p.submitAuditionProfile(sofia.id, {
     studentId: ava.id,
     productionId: frozenId,
-    preferenceTier: "lead",
+    preferenceTiers: ["lead"],
     previousRoles: "Young Anna (2025)",
     hopes: "A named role this year",
     acknowledgedNoGuarantee: true,
   });
   check(
     "audition profile submitted by parent",
-    profile.preferenceTier === "lead" && profile.submittedByRole === "parent"
+    profile.preferenceTiers.includes("lead") && profile.submittedByRole === "parent"
   );
 
   let profileDenied = false;
   try {
     await p.submitAuditionProfile(minh.id, {
-      studentId: ava.id, productionId: frozenId, preferenceTier: "ensemble",
+      studentId: ava.id, productionId: frozenId, preferenceTiers: ["ensemble"],
       previousRoles: "", hopes: "", acknowledgedNoGuarantee: true,
     });
   } catch (error) {
@@ -300,7 +300,7 @@ async function main() {
   const avaRow = auditionRoster.find((r) => r.student.id === ava.id)!;
   check(
     "audition roster joins profile + evaluations",
-    auditionRoster.length === 4 && avaRow.profile?.preferenceTier === "lead" &&
+    auditionRoster.length === 4 && avaRow.profile?.preferenceTiers[0] === "lead" &&
       avaRow.evaluations.length === 1
   );
 

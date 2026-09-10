@@ -19,7 +19,7 @@ const provider = new MockDataProvider();
 const submission = {
   studentId: "stu-ava",
   productionId: "prod-frozen",
-  preferenceTier: "lead" as const,
+  preferenceTiers: ["lead" as const],
   previousRoles: "Young Anna (2025)",
   hopes: "Confidence and new friends",
   acknowledgedNoGuarantee: true,
@@ -45,7 +45,7 @@ describe("confirmation code", () => {
 
     const edited = await provider.submitAuditionProfile("user-sofia", {
       ...submission,
-      preferenceTier: "ensemble",
+      preferenceTiers: ["ensemble"],
     });
     expect(edited.confirmationCode).toBe(first.confirmationCode);
     expect(edited.submittedAt).toBe(first.submittedAt);

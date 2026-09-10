@@ -114,6 +114,7 @@ import {
   CONFIRMATION_REMINDER_MS,
   RECOMMENDATION_THRESHOLD,
   RUBRIC_CRITERIA,
+  orderRoleTiers,
   type AuditionEvaluation,
   type AuditionProfile,
   type CastingBoard,
@@ -3384,7 +3385,8 @@ export class MockDataProvider implements DataProvider {
     input: {
       studentId: string;
       productionId: string;
-      preferenceTier: RoleTier;
+      /** Every size of part they'd be happy with. At least one. */
+      preferenceTiers: RoleTier[];
       previousRoles: string;
       hopes: string;
       /** What to consider them for. Independent — none of them is valid. */
@@ -3435,7 +3437,7 @@ export class MockDataProvider implements DataProvider {
       (p) => p.studentId === input.studentId && p.productionId === input.productionId
     );
     if (existing) {
-      existing.preferenceTier = input.preferenceTier;
+      existing.preferenceTiers = orderRoleTiers(input.preferenceTiers);
       existing.previousRoles = input.previousRoles;
       existing.hopes = input.hopes;
       existing.wantsSpeaking = input.wantsSpeaking ?? false;
@@ -3463,7 +3465,7 @@ export class MockDataProvider implements DataProvider {
       id: nextId("aud"),
       studentId: input.studentId,
       productionId: input.productionId,
-      preferenceTier: input.preferenceTier,
+      preferenceTiers: orderRoleTiers(input.preferenceTiers),
       previousRoles: input.previousRoles,
       hopes: input.hopes,
       wantsSpeaking: input.wantsSpeaking ?? false,

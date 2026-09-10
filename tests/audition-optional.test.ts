@@ -21,7 +21,7 @@ import { ROLE_TIERS } from "@/lib/api/auditions/types";
 const bareMinimum = {
   studentId: "student-1",
   productionId: "production-1",
-  preferenceTier: "ensemble" as const,
+  preferenceTiers: ["ensemble" as const],
   wantsSpeaking: false,
   wantsSinging: false,
   wantsDance: false,
@@ -51,10 +51,21 @@ describe("a family who fills in only what is required", () => {
   it("can submit whichever role size they pick", () => {
     for (const tier of ROLE_TIERS) {
       expect(
-        profileSchema.safeParse({ ...bareMinimum, preferenceTier: tier.value }).success,
+        profileSchema.safeParse({ ...bareMinimum, preferenceTiers: [tier.value] }).success,
         `${tier.label} was refused`
       ).toBe(true);
     }
+  });
+
+  // Yin, 8 Sep 2026 — the whole point of hub 0078: a child who would take a
+  // lead and would be just as glad of the ensemble may now say both.
+  it("can pick several role sizes at once", () => {
+    expect(
+      profileSchema.safeParse({
+        ...bareMinimum,
+        preferenceTiers: ROLE_TIERS.map((tier) => tier.value),
+      }).success
+    ).toBe(true);
   });
 
   it("can submit having ticked none of the role kinds", () => {
@@ -82,8 +93,12 @@ describe("each optional field, left empty on its own", () => {
 
 describe("the two things that are genuinely required", () => {
   it("still refuses without a role size", () => {
-    const { preferenceTier: _omitted, ...withoutTier } = bareMinimum;
+    const { preferenceTiers: _omitted, ...withoutTier } = bareMinimum;
     expect(profileSchema.safeParse(withoutTier).success).toBe(false);
+    // And an empty set is the same as no answer, not "they don't mind".
+    expect(
+      profileSchema.safeParse({ ...bareMinimum, preferenceTiers: [] }).success
+    ).toBe(false);
   });
 
   it("still refuses without the acknowledgement", () => {

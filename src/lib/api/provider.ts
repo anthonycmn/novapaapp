@@ -726,7 +726,8 @@ export interface DataProvider {
     input: {
       studentId: string;
       productionId: string;
-      preferenceTier: RoleTier;
+      /** Every size of part they'd be happy with. At least one. */
+      preferenceTiers: RoleTier[];
       previousRoles: string;
       hopes: string;
       /** What to consider them for. Independent — none of them is valid. */

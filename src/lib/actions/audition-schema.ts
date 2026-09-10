@@ -19,6 +19,13 @@ export type AuditionSubmitState = FamilyFormState & {
 };
 
 /**
+ * Said once, because it is said twice: the form refuses an empty answer before
+ * it posts, and the schema refuses it again if anything gets past the browser.
+ */
+export const NO_TIER_PICKED =
+  "Please tick at least one — every size of part they'd be happy with.";
+
+/**
  * What an audition submission must contain.
  *
  * ITS OWN FILE, and not for tidiness. actions/auditions.ts carries "use server",
@@ -34,7 +41,18 @@ export type AuditionSubmitState = FamilyFormState & {
 export const profileSchema = z.object({
   studentId: z.string().min(1),
   productionId: z.string().min(1),
-  preferenceTier: z.enum(["ensemble", "featured", "supporting", "lead"]),
+  /*
+   * A set, not one answer — Yin, a parent, 8 Sep 2026: "many kids are open to
+   * multiple types of roles."
+   *
+   * Still at least one. The question is what we should consider them for, and
+   * an empty answer to that is not a preference, it is a form that did not
+   * post — quite different from the tick-none-if-you-like question above it,
+   * where "none of these in particular" is a real thing to say.
+   */
+  preferenceTiers: z
+    .array(z.enum(["ensemble", "featured", "supporting", "lead"]))
+    .min(1, { message: NO_TIER_PICKED }),
   previousRoles: z.string().max(2000),
   hopes: z.string().max(2000),
   wantsSpeaking: z.boolean(),

@@ -65,6 +65,7 @@ import {
   CONFIRMATION_REMINDER_MS,
   RECOMMENDATION_THRESHOLD,
   RUBRIC_CRITERIA,
+  orderRoleTiers,
   type AuditionEvaluation,
   type AuditionProfile,
   type CastingBoard,
@@ -1290,7 +1291,11 @@ class SupabaseDataProvider {
       id: String(row.id),
       studentId: String(row.student_id),
       productionId: String(row.production_id),
-      preferenceTier: row.preference_tier as RoleTier,
+      // The database keeps the set ordered and never empty (hub 0078); the
+      // coalesce is only for a row written before that migration landed.
+      preferenceTiers: ((row.preference_tiers as RoleTier[] | null) ?? [
+        row.preference_tier as RoleTier,
+      ]),
       previousRoles: String(row.previous_roles ?? ""),
       hopes: String(row.hopes ?? ""),
       wantsSpeaking: Boolean(row.wants_speaking),
@@ -1337,7 +1342,8 @@ class SupabaseDataProvider {
     input: {
       studentId: string;
       productionId: string;
-      preferenceTier: RoleTier;
+      /** Every size of part they'd be happy with. At least one. */
+      preferenceTiers: RoleTier[];
       previousRoles: string;
       hopes: string;
       /** What to consider them for. Independent — none of them is valid. */
@@ -1395,7 +1401,7 @@ class SupabaseDataProvider {
         {
           student_id: input.studentId,
           production_id: input.productionId,
-          preference_tier: input.preferenceTier,
+          preference_tiers: orderRoleTiers(input.preferenceTiers),
           previous_roles: input.previousRoles,
           hopes: input.hopes,
           wants_speaking: input.wantsSpeaking ?? false,

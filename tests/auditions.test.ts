@@ -39,7 +39,7 @@ describe("audition profile", () => {
       provider.submitAuditionProfile("user-sofia", {
         studentId: "stu-ava",
         productionId: "prod-frozen",
-        preferenceTier: "lead",
+        preferenceTiers: ["lead"],
         previousRoles: "Young Anna (2025)",
         hopes: "Confidence and new friends",
         acknowledgedNoGuarantee: false,
@@ -51,7 +51,7 @@ describe("audition profile", () => {
     const profile = await provider.submitAuditionProfile("user-sofia", {
       studentId: "stu-ava",
       productionId: "prod-frozen",
-      preferenceTier: "lead",
+      preferenceTiers: ["lead"],
       previousRoles: "Young Anna (2025)",
       hopes: "Confidence and new friends",
       acknowledgedNoGuarantee: true,
@@ -64,7 +64,7 @@ describe("audition profile", () => {
     const profile = await provider.submitAuditionProfile("user-chidi", {
       studentId: "stu-chidi",
       productionId: "prod-frozen",
-      preferenceTier: "supporting",
+      preferenceTiers: ["supporting"],
       previousRoles: "Sebastian (2024)",
       hopes: "A named part with a solo",
       acknowledgedNoGuarantee: true,
@@ -76,7 +76,7 @@ describe("audition profile", () => {
     const input = {
       studentId: "stu-ava",
       productionId: "prod-frozen",
-      preferenceTier: "lead" as const,
+      preferenceTiers: ["lead" as const],
       previousRoles: "",
       hopes: "",
       acknowledgedNoGuarantee: true,
@@ -95,7 +95,7 @@ describe("audition profile", () => {
       provider.submitAuditionProfile("user-ngozi", {
         studentId: "stu-amara",
         productionId: "prod-frozen",
-        preferenceTier: "ensemble",
+        preferenceTiers: ["ensemble"],
         previousRoles: "",
         hopes: "",
         acknowledgedNoGuarantee: true,
@@ -107,7 +107,7 @@ describe("audition profile", () => {
     const input = {
       studentId: "stu-ava",
       productionId: "prod-frozen",
-      preferenceTier: "lead" as const,
+      preferenceTiers: ["lead" as const],
       previousRoles: "",
       hopes: "First hopes",
       acknowledgedNoGuarantee: true,
@@ -621,7 +621,7 @@ describe("audition material is per show", () => {
   const base = {
     studentId: "stu-ava",
     productionId: "prod-frozen",
-    preferenceTier: "lead" as const,
+    preferenceTiers: ["lead" as const],
     previousRoles: "",
     hopes: "",
     acknowledgedNoGuarantee: true as const,

@@ -28,7 +28,8 @@ export async function submitAuditionProfileAction(
   const parsed = profileSchema.safeParse({
     studentId: formData.get("studentId"),
     productionId: formData.get("productionId"),
-    preferenceTier: formData.get("preferenceTier"),
+    // getAll: the tier question posts one value per box ticked (hub 0078).
+    preferenceTiers: formData.getAll("preferenceTiers").map(String),
     previousRoles: String(formData.get("previousRoles") ?? ""),
     hopes: String(formData.get("hopes") ?? ""),
     wantsSpeaking: formData.get("wantsSpeaking") === "on",
@@ -68,7 +69,7 @@ export async function submitAuditionProfileAction(
     saved = await getProvider().submitAuditionProfile(user.id, {
       studentId: parsed.data.studentId,
       productionId: parsed.data.productionId,
-      preferenceTier: parsed.data.preferenceTier as RoleTier,
+      preferenceTiers: parsed.data.preferenceTiers as RoleTier[],
       previousRoles: parsed.data.previousRoles,
       hopes: parsed.data.hopes,
       wantsSpeaking: parsed.data.wantsSpeaking,
@@ -120,7 +121,7 @@ export async function submitAuditionProfileAction(
     studentId: parsed.data.studentId,
     detail: {
       productionId: parsed.data.productionId,
-      preferenceTier: parsed.data.preferenceTier,
+      preferenceTiers: parsed.data.preferenceTiers,
       confirmationCode: saved.confirmationCode ?? null,
       receiptEmailed: emailed,
     },
