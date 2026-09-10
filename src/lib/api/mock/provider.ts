@@ -9,6 +9,8 @@ import {
   type OfferingContact,
 } from "../messages/offering-topics";
 import { runFromEvents, type ProductionRun } from "../productions/run";
+import type { BugEnvironment } from "@/lib/bug-report/environment";
+import type { BugReport, BugReportStatus } from "@/lib/bug-report/types";
 import { parseLayout, type DashboardLayout } from "@/lib/dashboard-layout";
 import type {
   AbsenceReport,
@@ -201,6 +203,7 @@ interface Store {
   products: Product[];
   showRoles: ShowRole[];
   auditionProfiles: AuditionProfile[];
+  bugReports: BugReport[];
   auditionEvaluations: AuditionEvaluation[];
   castingBoards: Map<string, CastingBoard>;
   castingConfirmations: CastingConfirmation[];
@@ -277,6 +280,7 @@ function buildStore(): Store {
     products: deepClone(seed.products),
     showRoles: deepClone(seed.showRoles),
     auditionProfiles: [],
+    bugReports: [],
     auditionEvaluations: [],
     castingBoards: new Map(),
     castingConfirmations: [],
@@ -4753,5 +4757,65 @@ export class MockDataProvider implements DataProvider {
   /** Scripts are numbered by staff against live shows; nothing to mock. */
   async getMyScripts(): Promise<LoanedScript[]> {
     return [];
+  }
+
+  /* ── bug reports ──────────────────────────────────────────────────── */
+
+  async submitBugReport(
+    actorId: string,
+    input: {
+      pagePath: string;
+      whatHappened: string;
+      whatExpected?: string;
+      environment: BugEnvironment;
+      emailed: boolean;
+    }
+  ): Promise<BugReport> {
+    const actor = getActor(actorId);
+    const report: BugReport = {
+      id: nextId("bug"),
+      createdAt: nowIso(),
+      reporterUserId: actor.id,
+      reporterName: actor.displayName,
+      reporterEmail: actor.email,
+      reporterRole: actor.role,
+      pagePath: input.pagePath,
+      whatHappened: input.whatHappened,
+      whatExpected: input.whatExpected || undefined,
+      environment: input.environment,
+      status: "new",
+      emailed: input.emailed,
+    };
+    store.bugReports.push(report);
+    return deepClone(report);
+  }
+
+  async getBugReports(actorId: string): Promise<BugReport[]> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) {
+      throw new AccessDeniedError("Only staff can read bug reports");
+    }
+    return deepClone(
+      [...store.bugReports].sort(
+        (a, b) =>
+          Number(a.status === "handled") - Number(b.status === "handled") ||
+          b.createdAt.localeCompare(a.createdAt)
+      )
+    );
+  }
+
+  async setBugReportStatus(
+    actorId: string,
+    reportId: string,
+    status: BugReportStatus
+  ): Promise<void> {
+    const actor = getActor(actorId);
+    if (!isStaffish(actor)) {
+      throw new AccessDeniedError("Only staff can work bug reports");
+    }
+    const report = store.bugReports.find((r) => r.id === reportId);
+    if (!report) return;
+    report.status = status;
+    report.handledAt = status === "handled" ? nowIso() : undefined;
   }
 }

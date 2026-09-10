@@ -42,6 +42,13 @@ export default async function AdminPage() {
   const pendingPickups = pickupRequests.filter((r) => r.status === "pending").length;
   const newOrders = orders.filter((o) => o.status === "new").length;
   const missingForms = healthStatus.filter((row) => !row.form).length;
+  /*
+   * Best-effort: a provider that has not learned about bug reports must not
+   * take the whole admin dashboard down with it.
+   */
+  const openBugs = (await provider.getBugReports(user.id).catch(() => [])).filter(
+    (report) => report.status === "new"
+  ).length;
   const lastSync = syncRuns[0];
 
   const queue = [
@@ -49,6 +56,7 @@ export default async function AdminPage() {
     { label: "Pick-up requests", count: pendingPickups, href: "/admin/pickup" },
     { label: "New button orders", count: newOrders, href: "/admin/store" },
     { label: "Missing health forms", count: missingForms, href: "/admin/health" },
+    { label: "Open bug reports", count: openBugs, href: "/admin/bugs" },
     ...(isAdmin
       ? [{ label: "Flagged reviews", count: flaggedReviews.length, href: "/admin/reviews" }]
       : []),
@@ -102,6 +110,7 @@ export default async function AdminPage() {
           { href: "/admin/registration", title: "🔄 Registration sync", description: "Sync health and resync" },
           { href: "/admin/store", title: "🎟️ Button orders", description: "Queue, manifest, print sheet" },
           { href: "/admin/photos", title: "📸 Photo ingestion", description: "Galleries and matching" },
+          { href: "/admin/bugs", title: "🐛 Bug reports", description: "What families found broken" },
           ...(isAdmin
             ? [{ href: "/admin/reviews", title: "⭐ All feedback", description: "Reviews, trends, follow-up" }]
             : [{ href: "/staff/feedback", title: "⭐ My feedback", description: "What families said about your work" }]),

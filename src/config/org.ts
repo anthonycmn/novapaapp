@@ -75,6 +75,14 @@ export const org = {
 
   supportEmail: "info@novapa.org",
 
+  /*
+   * Where a bug report goes, and only there — CJ, 10 Sep 2026: "cj@ gets the
+   * reports only no screen shot." Deliberately not supportEmail: a bug report
+   * is a note to the person who will fix it, not a message into the office
+   * queue where it would sit behind twenty questions about tuition.
+   */
+  bugReportEmail: "cj@novapa.org",
+
   /**
    * Details printed on Dependent Care FSA statements. A family's FSA
    * administrator will reject a claim without the provider's taxpayer ID,

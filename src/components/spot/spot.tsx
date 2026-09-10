@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ExternalLink, MessageCircleQuestion, Send, X } from "lucide-react";
+import { ArrowRight, Bug, ExternalLink, MessageCircleQuestion, Send, X } from "lucide-react";
 import { askSpot, SPOT_SUGGESTIONS } from "@/lib/spot/match";
 import type { SpotAnswer } from "@/lib/spot/knowledge";
+import { BugReportForm } from "./bug-report-form";
 import { cn } from "@/lib/utils";
 
 /**
@@ -29,6 +30,17 @@ interface Turn {
 
 export function Spot() {
   const [open, setOpen] = useState(false);
+  /*
+   * Two things live in this panel now — Yin, a parent, 8 Sep 2026: "you can
+   * create a 'help' button. When user clicks it, it expands to options like
+   * 'ask spot', 'bug report', 'send feedback'."
+   *
+   * A mode rather than a second floating button: one corner, one door. Spot is
+   * where somebody already goes when the portal has not done what they meant,
+   * and "how do I do this" and "this is broken" are the same impulse ten
+   * seconds apart.
+   */
+  const [mode, setMode] = useState<"ask" | "report">("ask");
   const [query, setQuery] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const panelId = useId();
@@ -64,7 +76,14 @@ export function Spot() {
     <>
       <button
         type="button"
-        onClick={() => setOpen((current) => !current)}
+        onClick={() =>
+          setOpen((current) => {
+            // Closing puts it back to Spot: the next person to open this is
+            // asking a question until they say otherwise.
+            if (current) setMode("ask");
+            return !current;
+          })
+        }
         aria-expanded={open}
         aria-controls={panelId}
         className={cn(
@@ -90,120 +109,141 @@ export function Spot() {
           className="fixed bottom-20 right-4 z-40 flex max-h-[70vh] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-lg border bg-card shadow-xl sm:bottom-[5.5rem]"
         >
           <div className="gold-band border-b px-4 py-2.5">
-            <p className="text-[13px] font-semibold">Spot</p>
+            <p className="text-[13px] font-semibold">
+              {mode === "ask" ? "Spot" : "Report a bug"}
+            </p>
             <p className="text-[11.5px] opacity-80">
-              I can point you at the right page. I don&apos;t know anything
-              about your child specifically.
+              {mode === "ask"
+                ? "I can point you at the right page. I don't know anything about your child specifically."
+                : "Goes straight to CJ, who reads them himself."}
             </p>
           </div>
 
-          <div className="flex-1 space-y-3 overflow-y-auto p-3">
-            {turns.length === 0 && (
-              <div className="space-y-2">
-                <p className="text-[12.5px] text-muted-foreground">
-                  What are you looking for?
-                </p>
-                {SPOT_SUGGESTIONS.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => ask(suggestion)}
-                    className="block w-full rounded-md border px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-muted"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {turns.map((turn, index) => (
-              <div key={index} className="space-y-2">
-                <p className="ml-auto w-fit max-w-[85%] rounded-lg bg-muted px-3 py-1.5 text-[12.5px]">
-                  {turn.question}
-                </p>
-
-                {turn.answers.length === 0 ? (
-                  /* The honest answer. Spot does not guess, and the handoff is
-                     to the message form, which routes to a real person. */
-                  <div className="rounded-lg border p-3">
-                    <p className="text-[12.5px]">
-                      I don&apos;t know that one — I&apos;d rather say so than
-                      guess. The office will know.
+          {mode === "report" ? (
+            <BugReportForm onDone={() => setMode("ask")} />
+          ) : (
+            <>
+              <div className="flex-1 space-y-3 overflow-y-auto p-3">
+                {turns.length === 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[12.5px] text-muted-foreground">
+                      What are you looking for?
                     </p>
-                    <Link
-                      href="/messages/new"
-                      onClick={() => setOpen(false)}
-                      className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Message the office <ArrowRight aria-hidden size={13} />
-                    </Link>
+                    {SPOT_SUGGESTIONS.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => ask(suggestion)}
+                        className="block w-full rounded-md border px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-muted"
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
                   </div>
-                ) : (
-                  turn.answers.map((answer) => (
-                    <div key={answer.id} className="rounded-lg border p-3">
-                      <p className="text-[12.5px] font-semibold">{answer.title}</p>
-                      <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">
-                        {answer.body}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                        {answer.links.map((link) =>
-                          link.external ? (
-                            <a
-                              key={link.href}
-                              href={link.href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[12.5px] font-medium text-primary underline-offset-4 hover:underline"
-                            >
-                              {link.label}
-                              <ExternalLink aria-hidden size={11} />
-                              <span className="sr-only">(opens in a new tab)</span>
-                            </a>
-                          ) : (
-                            <Link
-                              key={link.href}
-                              href={link.href}
-                              onClick={() => setOpen(false)}
-                              className="inline-flex items-center gap-1 text-[12.5px] font-medium text-primary underline-offset-4 hover:underline"
-                            >
-                              {link.label}
-                              <ArrowRight aria-hidden size={12} />
-                            </Link>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  ))
                 )}
-              </div>
-            ))}
-            <div ref={endRef} />
-          </div>
 
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              ask(query);
-            }}
-            className="flex items-center gap-2 border-t p-2"
-          >
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Ask about anything in the portal…"
-              aria-label="Ask Spot a question"
-              className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-[13px]"
-            />
-            <button
-              type="submit"
-              aria-label="Ask"
-              disabled={!query.trim()}
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
-            >
-              <Send aria-hidden size={15} />
-            </button>
-          </form>
+                {turns.map((turn, index) => (
+                  <div key={index} className="space-y-2">
+                    <p className="ml-auto w-fit max-w-[85%] rounded-lg bg-muted px-3 py-1.5 text-[12.5px]">
+                      {turn.question}
+                    </p>
+
+                    {turn.answers.length === 0 ? (
+                      /* The honest answer. Spot does not guess, and the handoff is
+                         to the message form, which routes to a real person. */
+                      <div className="rounded-lg border p-3">
+                        <p className="text-[12.5px]">
+                          I don&apos;t know that one — I&apos;d rather say so than
+                          guess. The office will know.
+                        </p>
+                        <Link
+                          href="/messages/new"
+                          onClick={() => setOpen(false)}
+                          className="mt-2 inline-flex items-center gap-1 text-[12.5px] font-medium text-primary underline-offset-4 hover:underline"
+                        >
+                          Message the office <ArrowRight aria-hidden size={13} />
+                        </Link>
+                      </div>
+                    ) : (
+                      turn.answers.map((answer) => (
+                        <div key={answer.id} className="rounded-lg border p-3">
+                          <p className="text-[12.5px] font-semibold">{answer.title}</p>
+                          <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">
+                            {answer.body}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                            {answer.links.map((link) =>
+                              link.external ? (
+                                <a
+                                  key={link.href}
+                                  href={link.href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-[12.5px] font-medium text-primary underline-offset-4 hover:underline"
+                                >
+                                  {link.label}
+                                  <ExternalLink aria-hidden size={11} />
+                                  <span className="sr-only">(opens in a new tab)</span>
+                                </a>
+                              ) : (
+                                <Link
+                                  key={link.href}
+                                  href={link.href}
+                                  onClick={() => setOpen(false)}
+                                  className="inline-flex items-center gap-1 text-[12.5px] font-medium text-primary underline-offset-4 hover:underline"
+                                >
+                                  {link.label}
+                                  <ArrowRight aria-hidden size={12} />
+                                </Link>
+                              )
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ))}
+                <div ref={endRef} />
+              </div>
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  ask(query);
+                }}
+                className="flex items-center gap-2 border-t p-2"
+              >
+                <input
+                  ref={inputRef}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Ask about anything in the portal…"
+                  aria-label="Ask Spot a question"
+                  className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-[13px]"
+                />
+                <button
+                  type="submit"
+                  aria-label="Ask"
+                  disabled={!query.trim()}
+                  className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+                >
+                  <Send aria-hidden size={15} />
+                </button>
+              </form>
+
+              {/* The way in. A row at the foot of the help panel rather than a
+                  second thing floating over the page: somebody the portal has
+                  just failed is already reaching for this corner. */}
+              <button
+                type="button"
+                onClick={() => setMode("report")}
+                className="flex items-center justify-center gap-1.5 border-t px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Bug aria-hidden size={13} />
+                Something looks broken? Report it
+              </button>
+            </>
+          )}
         </div>
       )}
     </>

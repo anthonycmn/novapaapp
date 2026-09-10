@@ -61,6 +61,8 @@ import {
   type LessonBooking,
   type LessonSlot,
 } from "../lessons/types";
+import type { BugEnvironment } from "@/lib/bug-report/environment";
+import type { BugReport, BugReportStatus } from "@/lib/bug-report/types";
 import { nullIfBlank, optionalText } from "../optional-text";
 import {
   CONFIRMATION_REMINDER_MS,
@@ -6309,6 +6311,86 @@ class SupabaseDataProvider {
         status: r.status as "on_loan" | "returned",
         updatedAt: r.updated_at as string,
       }));
+  }
+
+  /* ── bug reports (hub 0081) ──────────────────────────────────────────── */
+
+  private mapBugReport(row: Row): BugReport {
+    return {
+      id: String(row.id),
+      createdAt: String(row.created_at),
+      reporterUserId: s(row.reporter_user_id),
+      reporterName: String(row.reporter_name ?? "Somebody"),
+      reporterEmail: String(row.reporter_email ?? ""),
+      reporterRole: String(row.reporter_role ?? "parent"),
+      pagePath: String(row.page_path ?? "/"),
+      whatHappened: String(row.what_happened ?? ""),
+      whatExpected: s(row.what_expected),
+      environment: (row.environment ?? {}) as BugEnvironment,
+      status: (row.status ?? "new") as BugReportStatus,
+      handledAt: s(row.handled_at),
+      emailed: Boolean(row.emailed),
+    };
+  }
+
+  async submitBugReport(
+    actorId: string,
+    input: {
+      pagePath: string;
+      whatHappened: string;
+      whatExpected?: string;
+      environment: BugEnvironment;
+      emailed: boolean;
+    }
+  ): Promise<BugReport> {
+    const actor = await this.actor(actorId);
+    const { data, error } = await this.db
+      .from("bug_reports")
+      .insert({
+        reporter_user_id: actor.id,
+        reporter_name: actor.displayName,
+        reporter_email: actor.email,
+        reporter_role: actor.role,
+        page_path: input.pagePath,
+        what_happened: input.whatHappened,
+        what_expected: input.whatExpected || null,
+        environment: input.environment,
+        emailed: input.emailed,
+      })
+      .select().single();
+    if (error) throw new Error(`bug report save failed: ${error.message}`);
+    return this.mapBugReport(data);
+  }
+
+  async getBugReports(actorId: string): Promise<BugReport[]> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) {
+      throw new AccessDeniedError("Only staff can read bug reports");
+    }
+    const { data } = await this.db
+      .from("bug_reports").select("*")
+      // Open ones first, then newest — the order CJ reads them in.
+      .order("status", { ascending: true })
+      .order("created_at", { ascending: false });
+    return (data ?? []).map((row) => this.mapBugReport(row));
+  }
+
+  async setBugReportStatus(
+    actorId: string,
+    reportId: string,
+    status: BugReportStatus
+  ): Promise<void> {
+    const actor = await this.actor(actorId);
+    if (!this.isStaffish(actor)) {
+      throw new AccessDeniedError("Only staff can work bug reports");
+    }
+    await this.db
+      .from("bug_reports")
+      .update({
+        status,
+        handled_at: status === "handled" ? new Date().toISOString() : null,
+      })
+      .eq("id", reportId);
   }
 }
 

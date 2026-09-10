@@ -1,3 +1,5 @@
+import type { BugEnvironment } from "@/lib/bug-report/environment";
+import type { BugReport, BugReportStatus } from "@/lib/bug-report/types";
 import type { DashboardLayout } from "@/lib/dashboard-layout";
 import type {
   CastPerformance,
@@ -991,6 +993,30 @@ export interface DataProvider {
       customization: Customization;
     }
   ): Promise<CartItem[]>;
+
+  /* bug reports (hub 0081) */
+  /**
+   * File one. Everything about it comes from the reporter's own browser, and
+   * `emailed` records whether the mail to CJ actually went — the row is the
+   * backstop when it did not.
+   */
+  submitBugReport(
+    actorId: string,
+    input: {
+      pagePath: string;
+      whatHappened: string;
+      whatExpected?: string;
+      environment: BugEnvironment;
+      emailed: boolean;
+    }
+  ): Promise<BugReport>;
+  /** Staff only. Newest first, open ones above handled ones. */
+  getBugReports(actorId: string): Promise<BugReport[]>;
+  setBugReportStatus(
+    actorId: string,
+    reportId: string,
+    status: BugReportStatus
+  ): Promise<void>;
 }
 
 /** Thrown by adapters when the actor is not allowed to see/do something. */

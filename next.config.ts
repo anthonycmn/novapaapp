@@ -31,6 +31,17 @@ const nextConfig: NextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '4mb' },
   },
+  /*
+   * Which build a bug report came from.
+   *
+   * Netlify sets COMMIT_REF at build time; nothing sets it locally, so a
+   * report typed on a dev server says "dev" and is not mistaken for one from
+   * production. Seven characters, because that is what anybody types into
+   * `git show`.
+   */
+  env: {
+    NEXT_PUBLIC_BUILD_ID: (process.env.COMMIT_REF ?? "dev").slice(0, 7),
+  },
   reactStrictMode: true,
   images: {
     remotePatterns: [
