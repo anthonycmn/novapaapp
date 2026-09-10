@@ -533,6 +533,17 @@ export class MockDataProvider implements DataProvider {
     assertFamilyWrite(actor, student.familyId);
     // familyId is immutable through this path.
     delete patch.familyId;
+    /*
+     * Blank means cleared, and cleared is absent — the same rule the Supabase
+     * provider applies on the way into Postgres, so a mock-mode profile cannot
+     * hold the empty preferred name that lost Azalea Wong her name on screen
+     * (lib/api/optional-text.ts).
+     */
+    for (const [key, value] of Object.entries(patch)) {
+      if (typeof value === "string" && value.trim() === "") {
+        (patch as Record<string, unknown>)[key] = undefined;
+      }
+    }
     Object.assign(student, patch, { id: studentId, updatedAt: nowIso() });
     return deepClone(student);
   }

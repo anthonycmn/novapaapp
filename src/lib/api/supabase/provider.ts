@@ -61,6 +61,7 @@ import {
   type LessonBooking,
   type LessonSlot,
 } from "../lessons/types";
+import { nullIfBlank, optionalText } from "../optional-text";
 import {
   CONFIRMATION_REMINDER_MS,
   RECOMMENDATION_THRESHOLD,
@@ -151,7 +152,11 @@ import { runFromEvents, type ProductionRun } from "../productions/run";
 /* ── row → domain mappers ────────────────────────────────────────────── */
 
 type Row = Record<string, unknown>;
-const s = (v: unknown) => (v == null ? undefined : String(v));
+/*
+ * Optional text, blank included — see lib/api/optional-text.ts for the child
+ * whose name went missing because "" is not null.
+ */
+const s = optionalText;
 
 /** The default chair for each rubric — hub 0075. */
 const EVALUATOR_ROLE_FOR: Record<Discipline, string> = {
@@ -3556,8 +3561,15 @@ class SupabaseDataProvider {
       ["auditionSongUrl", "audition_song_url"], ["auditionAudioUrl", "audition_audio_url"],
       ["hasLogin", "has_login"],
     ];
+    /*
+     * nullIfBlank: an emptied box still clears the value, but it clears it to
+     * NULL. Storing "" there is what put 27 children one `??` away from having
+     * no name on screen — see lib/api/optional-text.ts. First name, last name,
+     * date of birth and grade never arrive blank; the profile schema refuses
+     * them before this runs.
+     */
     for (const [key, col] of map) {
-      if (patch[key] !== undefined) row[col] = patch[key];
+      if (patch[key] !== undefined) row[col] = nullIfBlank(patch[key]);
     }
     if (patch.consents) {
       row.consent_photo_use = patch.consents.photoUse;
