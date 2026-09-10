@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { getProvider } from "@/lib/api";
+import { emailDeliveryStatus } from "@/lib/api/email";
 import { getPaymentProvider } from "@/lib/api/payments";
 import { getRegistrationProvider } from "@/lib/api/registration";
 import { getFaceMatchProvider } from "@/lib/api/photos/face-provider";
@@ -63,10 +64,20 @@ export default async function AdminPage() {
   ];
   const totalWaiting = queue.reduce((sum, item) => sum + item.count, 0);
 
+  /*
+   * Email, checked properly rather than by the presence of a key.
+   *
+   * "Mock" in the list below was the only sign that no family had been emailed
+   * since the receipt shipped, and a grey word in a list of five is not a sign
+   * — Isabel Sok found it before we did, on 10 Sep 2026, by not receiving her
+   * daughter's audition receipt. It gets a banner now.
+   */
+  const email = emailDeliveryStatus();
+
   // Which integrations are live vs running on mocks.
   const integrations = [
     { name: "Registration sync", ok: getRegistrationProvider().isConfigured(), href: "/admin/registration" },
-    { name: "Email delivery", ok: Boolean(process.env.RESEND_API_KEY) },
+    { name: "Email delivery", ok: email.ok },
     { name: "Payments", ok: getPaymentProvider().isConfigured() },
     { name: "SmugMug galleries", ok: getSmugMugProvider().isConfigured(), href: "/admin/photos" },
     { name: "Face matching", ok: getFaceMatchProvider().isConfigured(), href: "/admin/photos" },
@@ -76,6 +87,24 @@ export default async function AdminPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Staff tools</h1>
+
+      {!email.ok && (
+        <Card className="border-destructive">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base text-destructive">
+              <AlertTriangle aria-hidden className="size-5" />
+              No email is reaching families
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-sm">
+            <p>{email.reason}</p>
+            <p className="mt-2 text-muted-foreground">
+              Everything else works — audition receipts still show a confirmation code on
+              screen, and every send is still recorded. Only the mail is missing.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className={totalWaiting > 0 ? "border-gold/50" : undefined}>
         <CardHeader className="pb-2">

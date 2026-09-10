@@ -28,13 +28,15 @@ export default async function AuditionSubmittedPage({
   searchParams,
 }: {
   params: Promise<{ productionId: string; studentId: string }>;
-  searchParams: Promise<{ updated?: string }>;
+  searchParams: Promise<{ updated?: string; emailed?: string }>;
 }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!user.familyId) redirect("/auditions");
   const [{ productionId, studentId }, query] = await Promise.all([params, searchParams]);
   const isUpdate = query.updated === "1";
+  // Set by the action when Resend refused or is not configured.
+  const emailFailed = query.emailed === "0";
 
   const provider = getProvider();
   const [students, production, profile] = await Promise.all([
@@ -88,11 +90,19 @@ export default async function AuditionSubmittedPage({
 
           <p className="flex items-start gap-2 text-left text-sm text-muted-foreground">
             <Mail aria-hidden className="mt-0.5 size-4 shrink-0" />
-            <span>
-              We&apos;ve emailed a copy of this, with the code, to{" "}
-              <strong className="text-foreground">{user.email}</strong>. Keep it with your
-              records — if you ever need to ask about this audition, quote the code.
-            </span>
+            {emailFailed ? (
+              <span>
+                We could not email you a copy just now — that is a fault at our end, and
+                your audition is safely in. Please keep the code above; it is the whole
+                receipt, and quoting it is all we need if you ask us about this audition.
+              </span>
+            ) : (
+              <span>
+                We&apos;ve emailed a copy of this, with the code, to{" "}
+                <strong className="text-foreground">{user.email}</strong>. Keep it with your
+                records — if you ever need to ask about this audition, quote the code.
+              </span>
+            )}
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-2 pt-2">

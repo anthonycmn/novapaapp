@@ -128,9 +128,22 @@ export async function submitAuditionProfileAction(
   });
   revalidatePath("/auditions");
   revalidatePath(`/auditions/${parsed.data.productionId}/${parsed.data.studentId}`);
+  /*
+   * The page is told whether the mail went, because it says so out loud —
+   * Isabel Sok, 10 Sep 2026: "no confirmation email has been sent after
+   * submission (I have a confirmation # but no email was sent)." She was
+   * reading a sentence that promised one. A receipt page that cannot be sure
+   * should say what it is sure of: the code on the screen.
+   */
+  const params = new URLSearchParams();
+  if (isUpdate) params.set("updated", "1");
+  if (!emailed) params.set("emailed", "0");
+  const query = params.toString();
   return {
     ok: true,
-    redirectTo: `/auditions/${parsed.data.productionId}/${parsed.data.studentId}/submitted${isUpdate ? "?updated=1" : ""}`,
+    redirectTo:
+      `/auditions/${parsed.data.productionId}/${parsed.data.studentId}/submitted` +
+      (query ? `?${query}` : ""),
   };
 }
 
