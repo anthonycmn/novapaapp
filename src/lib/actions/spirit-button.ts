@@ -15,10 +15,12 @@ export type SubmissionState = FamilyFormState & { message?: string };
 /**
  * A family submits a spirit button design.
  *
- * Deliberately NOT a purchase. Tony, 16 Aug 2026: "Make the star pages and
- * spirit buttons form live - but don't allow them to purchase quite yet." So
- * the design is saved to the family's own cart — which has never taken a
- * payment — and the front office is told there is one waiting.
+ * The design goes into the family's cart and, as of 11 Sep 2026 (CJ: "make
+ * sure spirit buttons sales work now"), the cart CHECKS OUT for real — the
+ * 16 Aug "don't allow them to purchase quite yet" hold is lifted. The front
+ * office is still told a design exists, so a cart that never checks out can
+ * be chased; payment itself lands through checkoutAction and the Stripe
+ * webhook like every other order.
  */
 export async function submitSpiritButtonAction(
   productionTitle: string,
@@ -59,13 +61,17 @@ export async function submitSpiritButtonAction(
       `Submitted by ${user.displayName}${user.family ? ` (${user.family.name})` : ""}`,
       `Reply to:  ${user.email}`,
       "",
-      "Not paid — the store does not take payment yet. The uploaded photo is on",
-      `the design in the family's cart in the ${org.shortName} portal.`,
+      "Not paid yet — the design is in the family's cart, and they were sent",
+      `to checkout. The order shows in the ${org.shortName} portal once Stripe`,
+      "confirms the payment; if no order follows, this is a cart to chase.",
     ],
   });
 
   return {
     ok: true,
-    message: submissionMessage(outcome, "We'll be in touch about payment."),
+    message: submissionMessage(
+      outcome,
+      "Check out when you're ready — nothing is charged until then."
+    ),
   };
 }

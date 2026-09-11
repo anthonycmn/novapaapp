@@ -54,9 +54,11 @@ const FIXED_STYLE: ButtonStyle = "ribbon";
  * person found) the plain photo fills the button the way it always did, and
  * the parent is told in one quiet line.
  *
- * There is no payment here on purpose (Tony, 16 Aug 2026: "don't allow them to
- * purchase quite yet"). Submitting saves the design and tells the front office;
- * money is a conversation for later, and the button says so.
+ * Buttons are ON SALE as of 11 Sep 2026 (CJ: "make sure spirit buttons sales
+ * work now" — the 16 Aug "don't allow them to purchase quite yet" hold is
+ * lifted). Submitting puts the design in the family's cart and walks them to
+ * checkout; the front office is still notified, and the order goes paid when
+ * Stripe's webhook says so.
  */
 export function SpiritButtonForm({
   template,
@@ -182,17 +184,25 @@ export function SpiritButtonForm({
     return (
       <div className="rounded-lg border border-primary/30 bg-card p-6 text-center shadow-[var(--shadow-card)]">
         <Check aria-hidden className="mx-auto size-7 text-primary" />
-        <h2 className="mt-2 text-[17px] font-semibold">Design submitted</h2>
+        <h2 className="mt-2 text-[17px] font-semibold">It&apos;s in your cart</h2>
         <p className="mx-auto mt-1 max-w-md text-[13px] text-muted-foreground">
           {state.message ??
-            "Your design is saved and the front office has it. Nothing has been charged."}
+            "Your button is designed and waiting in your cart. Nothing is charged until you check out."}
         </p>
-        <a
-          href={`/store/buttons?show=${production.id}`}
-          className="mt-4 inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Design another
-        </a>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <a
+            href="/store/cart"
+            className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Go to checkout
+          </a>
+          <a
+            href={`/store/buttons?show=${production.id}`}
+            className="inline-flex items-center rounded-md border px-3 py-1.5 text-[13px] font-medium transition-colors hover:bg-muted"
+          >
+            Design another
+          </a>
+        </div>
       </div>
     );
   }
@@ -364,12 +374,12 @@ export function SpiritButtonForm({
         <FieldError message={state.errors?._form} />
 
         <Button type="submit" disabled={pending || !photo || cutting || !artwork || blocked}>
-          {pending ? "Submitting…" : "Submit this design"}
+          {pending ? "Adding…" : "Add to cart"}
         </Button>
         <p className="text-[12px] leading-relaxed text-muted-foreground">
-          Submitting sends your design to the {`NOVA PA`} team — it does not
-          charge you. We are not taking payment online yet, so the front office
-          will confirm the total with you.
+          Adding to the cart does not charge you — you&apos;ll see the total
+          and pay by card at checkout. The preview above is exactly what gets
+          printed.
         </p>
       </div>
     </form>
