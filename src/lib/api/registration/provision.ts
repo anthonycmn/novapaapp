@@ -24,7 +24,7 @@ import { getServiceClient, getWebsiteReadClient } from "../supabase/client";
  * belongs to is a human call; the guard turns a silent duplicate into a
  * visible one-line task.
  *
- * Idempotent: linked website families are skipped, students are deduped by
+ * Idempotent: linked website families only gain new students, deduped by
  * name within their family, profiles are only attached where an auth account
  * already exists. Never creates or modifies auth users.
  */
@@ -98,8 +98,14 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
     if (data.users.length < 1000) break;
   }
 
-  const linkedExternalIds = new Set(
-    links.filter((l) => l.source === "website").map((l) => String(l.external_id))
+  // A linked family still gets its NEW campers provisioned. Until Sep 11 2026
+  // a linked family was skipped whole, so a sibling added at a later checkout
+  // never became a student: Olivia Zapata was bought a Day Camp Pack on Sep 7
+  // alongside her already-enrolled sister and existed in no roster.
+  const linkedFamilyByExternalId = new Map(
+    links
+      .filter((l) => l.source === "website")
+      .map((l) => [String(l.external_id), String(l.family_id)] as const)
   );
   // One website link per hub family (the table's primary key). Two parents
   // can check out under two emails for one household; the second becomes a
@@ -153,14 +159,21 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
     const email = str(wf.email)?.toLowerCase();
     if (!externalId || !email) continue;
     if (wf.is_test === true) continue;
-    if (linkedExternalIds.has(externalId)) continue;
 
     const parentName = str(wf.parent_name);
     const campers = campersByFamily.get(externalId) ?? [];
-    let familyId = hubFamilyByGuardianEmail.get(email);
-    const isNewFamily = !familyId;
+    const alreadyLinked = linkedFamilyByExternalId.get(externalId);
+    let familyId: string;
+    const matched = alreadyLinked ?? hubFamilyByGuardianEmail.get(email);
+    const isNewFamily = !matched;
 
-    if (!familyId) {
+    if (matched) {
+      familyId = matched;
+      // Already linked: family, link, guardian and profile all exist and only
+      // the students loop below has work to do. Matched by guardian email:
+      // the family exists but this website account is new to it.
+      if (!alreadyLinked) result.linkedToExisting++;
+    } else {
       // The collision guard — see the module comment.
       const collided = campers.find((c) => {
         const name = str(c.name);
@@ -173,8 +186,6 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
       familyId = randomUUID();
       newFamilies.push({ id: familyId, name: familyNameFor(parentName, email) });
       result.familiesCreated++;
-    } else {
-      result.linkedToExisting++;
     }
 
     if (!familiesWithWebsiteLink.has(familyId)) {
