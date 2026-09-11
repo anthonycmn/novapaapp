@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { org } from "@/config/org";
 import { signUpWithEmail } from "@/lib/auth/actions";
 import { getSessionUser } from "@/lib/auth/session";
+import { PasswordField } from "@/components/auth/password-field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -83,15 +84,7 @@ export default async function SignupPage({
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="password">Choose a password</Label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="new-password"
-                  required
-                  minLength={8}
-                />
+                <PasswordField id="password" name="password" label="Choose a password" />
                 {error === "weak-password" && (
                   <p role="alert" className="text-sm text-destructive">
                     Passwords need at least 8 characters.

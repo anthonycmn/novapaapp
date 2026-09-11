@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { PasswordField } from "@/components/auth/password-field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 /**
@@ -21,6 +20,10 @@ import { cn } from "@/lib/utils";
  * The app's own signed cookie is deliberately not involved. Once the password
  * is saved we sign this throwaway session out and send them to /login, so the
  * session they end up with is minted by the normal path in actions.ts.
+ *
+ * One box, in the clear, no confirm, no native validation bubble: see
+ * PasswordField for the parent who reached this form four times on her phone
+ * and never got past it (8–9 Sep 2026).
  */
 
 type Status = "checking" | "ready" | "saving" | "invalid" | "done";
@@ -86,14 +89,9 @@ export function ResetPasswordForm() {
     if (!client) return;
     const form = new FormData(event.currentTarget);
     const password = String(form.get("password") ?? "");
-    const confirm = String(form.get("confirm") ?? "");
 
     if (password.length < 8) {
       setError("Passwords need at least 8 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Those two passwords do not match.");
       return;
     }
 
@@ -102,6 +100,14 @@ export function ResetPasswordForm() {
     const { error: updateError } = await client.auth.updateUser({ password });
     if (updateError) {
       setStatus("ready");
+      // Supabase refuses a password identical to the current one. That is not
+      // a failure to fix — it means the one they typed already works.
+      if (/different from the old password/i.test(updateError.message)) {
+        setError(
+          "That is already the password on your account — you can sign in with it right now."
+        );
+        return;
+      }
       setError(
         "We couldn't save that password. Your link may have expired — request a new one below."
       );
@@ -169,32 +175,14 @@ export function ResetPasswordForm() {
         <CardTitle as="h2">Choose a new password</CardTitle>
         <CardDescription>
           Pick something you&apos;ll remember — you&apos;ll use it every time
-          you open the portal.
+          you open the portal. It stays visible while you type so you can
+          check it; tap Hide if someone is looking over your shoulder.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">New password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="confirm">Confirm password</Label>
-            <Input
-              id="confirm"
-              name="confirm"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-            />
+            <PasswordField id="password" name="password" label="New password" />
             {error && (
               <p role="alert" className="text-sm text-destructive">
                 {error}
@@ -204,6 +192,13 @@ export function ResetPasswordForm() {
           <Button type="submit" className="w-full" disabled={status === "saving"}>
             {status === "saving" ? "Saving…" : "Save password"}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            Stuck? Write to{" "}
+            <a href="mailto:info@novapa.org" className="underline underline-offset-4">
+              info@novapa.org
+            </a>{" "}
+            and we&apos;ll send you a link that signs you straight in.
+          </p>
         </form>
       </CardContent>
     </Card>

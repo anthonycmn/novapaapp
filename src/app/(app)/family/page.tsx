@@ -149,6 +149,24 @@ export default async function FamilyPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Sign-in</CardTitle>
+          <CardDescription>
+            You open the portal with {user.email}. The password can be changed
+            here any time — no email link needed.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Link
+            href="/family/password"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Change your password
+          </Link>
+        </CardContent>
+      </Card>
     </div>
   );
 }

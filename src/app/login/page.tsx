@@ -124,6 +124,13 @@ export default async function LoginPage({
                     or contact the office and we&apos;ll connect you.
                   </p>
                 )}
+                {error === "link-expired" && (
+                  <p role="alert" className="text-sm text-destructive">
+                    That sign-in link has already been used or has expired.
+                    Reset your password below, or write to {org.supportEmail}{" "}
+                    and we&apos;ll send a fresh one.
+                  </p>
+                )}
                 {error === "impersonation-expired" && (
                   <p role="alert" className="text-sm text-destructive">
                     Your stand-in session ended. Sign in with your own account

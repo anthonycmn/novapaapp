@@ -203,6 +203,76 @@ export async function signInWithEmail(formData: FormData): Promise<void> {
   redirect("/dashboard");
 }
 
+/**
+ * Sign in with a one-time link the office issued (lib/auth/login-links).
+ *
+ * Reached by the button on /welcome/<token>, never by loading that page, so
+ * whatever fetched the URL out of the inbox first did not spend it. Spent
+ * first, acted on second: spendLoginLink stamps and checks in one statement.
+ */
+export async function signInWithLoginLink(formData: FormData): Promise<void> {
+  if (!isSupabaseMode()) redirect("/login");
+  const token = String(formData.get("token") ?? "");
+  const { spendLoginLink } = await import("./login-links");
+  const spent = token ? await spendLoginLink(token) : null;
+  if (!spent) redirect("/login?error=link-expired");
+
+  const linked = await ensureParentProfile(spent.userId, spent.email);
+  if (!linked) {
+    redirect(`/login?error=no-family&email=${encodeURIComponent(spent.email)}`);
+  }
+  const signedIn = await getProvider().getUserById(spent.userId).catch(() => null);
+  const family =
+    signedIn?.familyId
+      ? await getProvider().getFamily(signedIn.id, signedIn.familyId).catch(() => null)
+      : null;
+  await logActivity({
+    user: signedIn ? { ...signedIn, family: family ?? undefined } : null,
+    actorEmail: spent.email,
+    action: "auth.signed_in_by_link",
+    summary: "Signed in with a link from the office",
+  });
+
+  const jar = await cookies();
+  jar.set(sessionCookieName, signSession(spent.userId), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+  });
+  // The link is spent. Offer a password now, while they are in, so the next
+  // visit does not need the office again.
+  redirect("/family/password?welcome=1");
+}
+
+/**
+ * Choose a password from inside the portal (/family/password).
+ *
+ * Admin-set through the service role rather than through a recovery session,
+ * so no email, no token and no browser-side Supabase client are involved. A
+ * Chief standing in for the family may not do this for them.
+ */
+export async function setPassword(formData: FormData): Promise<void> {
+  const user = await getSessionUser();
+  if (!user) redirect("/login?next=/family/password");
+  const welcome = formData.get("welcome") ? "&welcome=1" : "";
+  if (!isSupabaseMode()) redirect(`/family/password?saved=1`);
+
+  const { currentImpersonation } = await import("./impersonation");
+  if (await currentImpersonation()) redirect("/family/password");
+
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 8) redirect(`/family/password?error=short${welcome}`);
+
+  const { getServiceClient } = await import("@/lib/api/supabase/client");
+  const { error } = await getServiceClient().auth.admin.updateUserById(user.id, { password });
+  if (error) redirect(`/family/password?error=failed${welcome}`);
+
+  await logActivity({ user, action: "auth.password_set", summary: "Chose a new password" });
+  redirect("/family/password?saved=1");
+}
+
 export async function signOut(): Promise<void> {
   const user = await getSessionUser().catch(() => null);
   await logActivity({ user, action: "auth.signed_out", summary: "Signed out" });
