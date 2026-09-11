@@ -146,14 +146,22 @@ export function BookingForm({
   }
 
   if (sessionsLeft === 0) {
+    // The punch card stays visible with nothing left to schedule — three
+    // ringed punches IS the answer to "did my lessons book?", and hiding the
+    // card at exactly that moment would un-answer it.
     return (
-      <div className="flex flex-col items-start gap-2 rounded-lg border bg-card p-4">
+      <div className="flex flex-col items-stretch gap-3 rounded-lg border bg-card p-4">
+        {punch && <PunchCard punch={punch} />}
         <p className="flex items-center gap-2 font-medium">
           <Ticket className="size-4" />
-          You have no lessons left to schedule
+          {punch && punch.scheduled > 0
+            ? "Every lesson on your card is scheduled"
+            : "You have no lessons left to schedule"}
         </p>
         <p className="text-sm text-muted-foreground">
-          Buy a package above and your punch card appears here, ready to book.
+          {punch && punch.scheduled > 0
+            ? "They are on your family schedule, and your coach has them too. Buy another package above when you are ready for more."
+            : "Buy a package above and your punch card appears here, ready to book."}
         </p>
       </div>
     );
