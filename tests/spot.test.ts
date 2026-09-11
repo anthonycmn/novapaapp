@@ -34,6 +34,8 @@ describe("finding the right page", () => {
     ["I want to order a spirit button", "store"],
     ["stop sending me so many notifications", "notifications"],
     ["how do I add this to my google calendar", "subscribe-calendar"],
+    ["show me around", "tour"],
+    ["I'm lost, how does this work", "tour"],
   ])("%s → %s", (query, expected) => {
     expect(topAnswerFor(query)).toBe(expected);
   });

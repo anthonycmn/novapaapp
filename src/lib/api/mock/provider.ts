@@ -12,6 +12,7 @@ import { runFromEvents, type ProductionRun } from "../productions/run";
 import type { BugEnvironment } from "@/lib/bug-report/environment";
 import type { BugReport, BugReportStatus } from "@/lib/bug-report/types";
 import { parseLayout, type DashboardLayout } from "@/lib/dashboard-layout";
+import type { TourOutcome } from "@/lib/tour";
 import type {
   AbsenceReport,
   AppNotification,
@@ -167,6 +168,7 @@ interface Store {
   notificationPrefs: Map<string, NotificationPrefs>;
   /** userId → how they arranged their dashboard (0060). */
   dashboardLayouts: Map<string, DashboardLayout>;
+  tourSeen: Map<string, { version: number; outcome: TourOutcome }>;
   emailTemplates: EmailTemplate[];
   emailSends: EmailSend[];
   events: CalendarEvent[];
@@ -245,6 +247,7 @@ function buildStore(): Store {
     notifications: [],
     notificationPrefs: new Map(),
     dashboardLayouts: new Map(),
+    tourSeen: new Map(),
     emailTemplates: deepClone(seed.emailTemplates),
     emailSends: [],
     events: deepClone(seed.events),
@@ -1025,6 +1028,18 @@ export class MockDataProvider implements DataProvider {
     // Parsed on the way in, same as the Supabase adapter: whatever arrives,
     // what is kept is a layout.
     store.dashboardLayouts.set(actorId, parseLayout(layout));
+  }
+
+  /* ── the portal tour (0083) ─────────────────────────────────────────── */
+
+  async getTourSeenVersion(actorId: string): Promise<number | null> {
+    getActor(actorId);
+    return store.tourSeen.get(actorId)?.version ?? null;
+  }
+
+  async markTourSeen(actorId: string, version: number, outcome: TourOutcome): Promise<void> {
+    getActor(actorId);
+    store.tourSeen.set(actorId, { version, outcome });
   }
 
   async markAllNotificationsRead(

@@ -291,4 +291,17 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
     keywords: ["feedback", "review", "rate", "rating", "survey", "opinion", "suggestion"],
     phrases: ["leave feedback", "tell you what i think"],
   },
+  {
+    id: "tour",
+    title: "Let me show you around",
+    body: "The tour walks through the dashboard, your calendar, the menu, your family profile, the store and where to find help — about a minute. It also lives at the bottom of the menu, under Show me around.",
+    links: [{ label: "Show me around", href: "/dashboard?tour=1" }],
+    // "start", "new" and "around" are deliberately absent: they appear in
+    // questions about everything else ("when does the new class start").
+    keywords: [
+      "tour", "tutorial", "lost", "navigate", "guide", "walkthrough",
+      "overview", "intro", "introduction",
+    ],
+    phrases: ["show me around", "how does this work", "where is everything", "getting started", "how do i use"],
+  },
 ];

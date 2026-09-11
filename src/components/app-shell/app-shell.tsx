@@ -7,6 +7,7 @@ import { Bell, Menu } from "lucide-react";
 import { Wordmark } from "@/components/brand/logo";
 import { Sidebar } from "@/components/app-shell/sidebar";
 import type { NavAlerts } from "@/lib/nav-alerts";
+import { TOUR_MENU_EVENT } from "@/components/tour/portal-tour";
 
 /**
  * The staff portal's shell, for families: a fixed sidebar from `lg` up, and
@@ -46,6 +47,17 @@ export function AppShell({
   // Any navigation closes the drawer — otherwise it stays over the page you
   // just asked for.
   useEffect(() => setOpen(false), [pathname]);
+
+  // The tour (0083) asks for the drawer when a step is about the menu and a
+  // phone is what it is running on; the drawer is this component's to open.
+  useEffect(() => {
+    const onTour = (event: Event) => {
+      const wanted = (event as CustomEvent<{ open: boolean }>).detail?.open;
+      if (typeof wanted === "boolean") setOpen(wanted);
+    };
+    window.addEventListener(TOUR_MENU_EVENT, onTour);
+    return () => window.removeEventListener(TOUR_MENU_EVENT, onTour);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -100,6 +112,7 @@ export function AppShell({
             onClick={() => setOpen(true)}
             aria-label={hiddenAlerts ? "Menu (items need your attention)" : "Menu"}
             aria-expanded={open}
+            data-tour="menu-button"
             className="relative inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <Menu aria-hidden size={18} />
@@ -118,6 +131,7 @@ export function AppShell({
           <Link
             href="/notifications"
             aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+            data-tour="bell"
             className="relative ml-auto inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <Bell aria-hidden size={18} />

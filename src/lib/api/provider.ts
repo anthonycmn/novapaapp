@@ -1,6 +1,7 @@
 import type { BugEnvironment } from "@/lib/bug-report/environment";
 import type { BugReport, BugReportStatus } from "@/lib/bug-report/types";
 import type { DashboardLayout } from "@/lib/dashboard-layout";
+import type { TourOutcome } from "@/lib/tour";
 import type {
   CastPerformance,
   AbsenceReport,
@@ -280,6 +281,13 @@ export interface DataProvider {
    */
   getDashboardLayout(actorId: string): Promise<DashboardLayout>;
   saveDashboardLayout(actorId: string, layout: DashboardLayout): Promise<void>;
+  /* the portal tour (0083) */
+  /**
+   * The tour version this person was last shown, or null if never. Per
+   * account, not per browser: see lib/tour.ts for why.
+   */
+  getTourSeenVersion(actorId: string): Promise<number | null>;
+  markTourSeen(actorId: string, version: number, outcome: TourOutcome): Promise<void>;
 
   getNotificationPrefs(actorId: string): Promise<NotificationPrefs>;
   updateNotificationPrefs(

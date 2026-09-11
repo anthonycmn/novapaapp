@@ -40,6 +40,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { SectionHeader } from "@/components/ui/section-header";
 import { StatTile } from "@/components/ui/stat-tile";
+import { PortalTour } from "@/components/tour/portal-tour";
+import { TOUR_VERSION, tourSteps } from "@/lib/tour";
 
 export const metadata = { title: "Dashboard" };
 
@@ -79,10 +81,15 @@ export const metadata = { title: "Dashboard" };
  * decides where it goes, so no arrangement of a saved layout can reach anything
  * this page did not already fetch for the person reading it.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   const provider = getProvider();
+  const { tour: tourParam } = await searchParams;
 
   const isStaff = hasRoleAtLeast(user, "staff");
   let students: Student[] = [];
@@ -105,6 +112,7 @@ export default async function DashboardPage() {
     familyEvents,
     callResponses,
     layout,
+    tourSeenVersion,
   ] = await Promise.all([
     provider.getProductions(),
     provider.getProductionRuns(),
@@ -123,7 +131,12 @@ export default async function DashboardPage() {
     // the place you told them.
     provider.getMyCallResponses(user.id),
     provider.getDashboardLayout(user.id),
+    /* Has this account been shown around yet (0083)? Families only: the
+       tour is written for a parent, and a staff login with no family would
+       be pointed at panels it does not have. */
+    user.familyId ? provider.getTourSeenVersion(user.id) : Promise.resolve(TOUR_VERSION),
   ]);
+  const tourDue = (tourSeenVersion ?? 0) < TOUR_VERSION;
 
   // Current means running: withdrawn rows and finished sessions both drop
   // out, so a wrapped show stops reading "run under way" forever. The
@@ -259,7 +272,7 @@ export default async function DashboardPage() {
         zone: "left",
       },
       node: (
-        <Card pad={false}>
+        <Card pad={false} data-tour="week">
           <WeekCalendar
             events={familyEvents}
             responses={callResponses}
@@ -345,7 +358,7 @@ export default async function DashboardPage() {
          looking at, and a menu heading two clicks away is where an impulse goes
          to die. */
       node: (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2" data-tour="store">
           <Link
             href="/store/buttons"
             className="gold-hover flex items-start gap-3 rounded-lg border bg-card p-4 shadow-[var(--shadow-card)] transition-colors"
@@ -576,6 +589,7 @@ export default async function DashboardPage() {
         right={
           <Link
             href="/schedule"
+            data-tour="full-calendar"
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             Full calendar <ArrowRight aria-hidden size={14} />
@@ -585,7 +599,7 @@ export default async function DashboardPage() {
 
       {/* Two-up at phone width: one stat per row spent ~450px of a 375px
           screen's first paint on four numbers (Sep 6 2026 audit). */}
-      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4" data-tour="stats">
         <StatTile
           label={
             nextShow
@@ -674,6 +688,21 @@ export default async function DashboardPage() {
       </div>
 
       <DashboardArranger tiles={tiles} saved={layout} />
+
+      {/* The tour (0083): opens once per account on this page, and again
+          whenever ?tour=1 asks for it — the menu's "Show me around". The
+          dashboard is where it runs because the dashboard is what it points at. */}
+      {user.familyId && (
+        <PortalTour
+          steps={tourSteps({
+            firstName,
+            starPagesOpen: isFeatureOpen("starPages"),
+            spiritButtonsOpen: isFeatureOpen("spiritButtons"),
+          })}
+          autoStart={tourDue}
+          replay={tourParam === "1"}
+        />
+      )}
     </>
   );
 }

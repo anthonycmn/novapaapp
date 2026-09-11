@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Ticket } from "lucide-react";
+import { Compass, LayoutDashboard, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { FAMILY_SECTIONS, groupSections } from "@/config/navigation";
 import { Wordmark } from "@/components/brand/logo";
@@ -21,6 +21,11 @@ import type { NavAlerts } from "@/lib/nav-alerts";
  * shifts by a pixel when a row becomes active. (Both rules lifted straight
  * from the staff portal's Layout.tsx, deliberately.)
  */
+/** "Your family" → "your-family", for a data-tour mark. */
+function slug(group: string): string {
+  return group.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+}
+
 export function Sidebar({
   displayName,
   roleLabel,
@@ -64,6 +69,7 @@ export function Sidebar({
   return (
     <nav
       aria-label="Primary"
+      data-tour="sidebar"
       className="flex h-full w-60 shrink-0 flex-col border-r bg-card"
     >
       <div className="flex items-center border-b px-3 py-3">
@@ -87,7 +93,9 @@ export function Sidebar({
         </Link>
 
         {groups.map(([group, sections]) => (
-          <div key={group} className="mt-3">
+          /* data-tour marks are how the tour (lib/tour.ts) finds a group or
+             a row to point at: "nav-group-your-family", "nav-schedule". */
+          <div key={group} className="mt-3" data-tour={`nav-group-${slug(group)}`}>
             <div className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-gold">
               {group}
             </div>
@@ -102,6 +110,7 @@ export function Sidebar({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={onNavigate}
+                    data-tour={`nav-${slug(label)}`}
                     className="mb-0.5 flex items-center gap-2.5 rounded-md border border-transparent px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                   >
                     <Icon aria-hidden size={15} className="shrink-0" />
@@ -120,6 +129,7 @@ export function Sidebar({
                   onClick={onNavigate}
                   aria-current={active ? "page" : undefined}
                   aria-label={count > 0 ? `${label} (${count} needing attention)` : undefined}
+                  data-tour={`nav${href.replace(/\//g, "-")}`}
                   className={cn(
                     "mb-0.5 flex items-center gap-2.5 rounded-md border px-2 py-1.5 text-[13px] transition-colors",
                     active
@@ -164,6 +174,16 @@ export function Sidebar({
           <span className="flex-1 truncate">Buy tickets</span>
           <span className="sr-only">(opens in a new tab)</span>
         </a>
+        {/* Replays the tour (0083). ?tour=1 opens it whatever the record says,
+            so a parent who skipped it on day one can come back to it. */}
+        <Link
+          href="/dashboard?tour=1"
+          onClick={onNavigate}
+          className="mb-1 flex items-center gap-2.5 rounded-md border border-transparent px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Compass aria-hidden size={15} className="shrink-0" />
+          <span className="flex-1 truncate">Show me around</span>
+        </Link>
 
         <div className="flex items-center justify-between px-2 pb-1.5">
           <span className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-gold">

@@ -4,15 +4,45 @@
     {
       "name": "parent-portal-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "parent-portal-mock",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "set NEXT_PUBLIC_DATA_MODE=mock&& set NEXT_DIST_DIR=.next-mock&& npm run dev"
+      ],
       "port": 3000,
       "autoPort": true
     },
     {
       "name": "staff-portal-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "C:/Users/Tony/Desktop/STAFF PORTAL", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "C:/Users/Tony/Desktop/STAFF PORTAL",
+        "run",
+        "dev"
+      ],
       "port": 5173
+    },
+    {
+      "name": "website-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8787",
+        "--directory",
+        "C:/Users/Tony/AppData/Local/Temp/claude/C--Users-Tony-Desktop-NoVAPA-App/55df5269-9f5b-48d7-8c81-a1189e7dc9c7/scratchpad/web"
+      ],
+      "port": 8787
     }
   ]
 }

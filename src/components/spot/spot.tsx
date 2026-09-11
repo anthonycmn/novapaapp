@@ -86,6 +86,7 @@ export function Spot() {
         }
         aria-expanded={open}
         aria-controls={panelId}
+        data-tour="spot"
         className={cn(
           "fixed bottom-4 right-4 z-40 inline-flex items-center gap-2 rounded-full border px-4 py-2.5",
           "bg-card shadow-lg transition-colors gold-band gold-hover sm:bottom-6"

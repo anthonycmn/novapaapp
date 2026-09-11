@@ -6,6 +6,7 @@ import {
   type DashboardLayout,
 } from "@/lib/dashboard-layout";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { TourOutcome } from "@/lib/tour";
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { BUTTON_PRICES_CENTS } from "../types";
 import { priceFor, type Customization, type Product } from "../store/catalog";
@@ -568,6 +569,35 @@ class SupabaseDataProvider {
       { onConflict: "user_id" }
     );
     if (error) throw new Error(`dashboard layout save failed: ${error.message}`);
+  }
+
+  /* ── the portal tour (0083) ────────────────────────────────────────── */
+
+  async getTourSeenVersion(actorId: string): Promise<number | null> {
+    await this.actor(actorId);
+    const { data, error } = await this.db
+      .from("portal_tours")
+      .select("version")
+      .eq("user_id", actorId)
+      .maybeSingle();
+    /*
+     * Same shape as the layout above: a dashboard that cannot read this row
+     * still has to draw. But the failure leans the OTHER way — "never seen"
+     * would start the tour on every visit until the table turned up, so an
+     * error reads as "seen the current version" and the tour stays put. A
+     * parent can always replay it from the menu.
+     */
+    if (error) return Number.MAX_SAFE_INTEGER;
+    return data?.version ?? null;
+  }
+
+  async markTourSeen(actorId: string, version: number, outcome: TourOutcome): Promise<void> {
+    await this.actor(actorId);
+    const { error } = await this.db.from("portal_tours").upsert(
+      { user_id: actorId, version, outcome, completed_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+    if (error) throw new Error(`tour save failed: ${error.message}`);
   }
 
   async getNotifications(

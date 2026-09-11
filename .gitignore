@@ -47,3 +47,4 @@ coverage/
 
 # MediaPipe wasm runtime, copied from node_modules at build time
 /public/mediapipe/
+.next-mock
