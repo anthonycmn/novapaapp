@@ -24,6 +24,23 @@ import { cn } from "@/lib/utils";
  * One box, in the clear, no confirm, no native validation bubble: see
  * PasswordField for the parent who reached this form four times on her phone
  * and never got past it (8–9 Sep 2026).
+ *
+ * TWO KINDS OF LINK arrive here, and the difference is why the second exists.
+ *
+ * The stock Supabase link points at Supabase's own /verify endpoint, which
+ * spends the one-time token on the GET and bounces here with a session in the
+ * hash. Frank Watson, 10 Sep 2026: "2 minutes later she gets the email and
+ * clicks the link to reset password then it errors and says the link is
+ * expired." Two minutes is not the token's lifetime; it is how long Microsoft
+ * takes to open every link in an inbox on the family's behalf. Safe Links did
+ * the GET, Supabase spent the token, and the human got the leftovers. Anybody
+ * on Outlook or Microsoft 365 — half of Northern Virginia — hits this.
+ *
+ * So the email template now links HERE, carrying `token_hash` in the query
+ * instead of a spent session in the hash. Loading this page does nothing. The
+ * token is exchanged by verifyOtp when the parent presses Save, and a scanner
+ * that fetched the URL first got a form. Same idea as /welcome, and for the
+ * same family.
  */
 
 type Status = "checking" | "ready" | "saving" | "invalid" | "done";
@@ -32,6 +49,8 @@ export function ResetPasswordForm() {
   const [status, setStatus] = useState<Status>("checking");
   const [error, setError] = useState<string | null>(null);
   const [client, setClient] = useState<SupabaseClient | null>(null);
+  /** The unspent token from a scanner-proof link. Null on the stock link. */
+  const [tokenHash, setTokenHash] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient(
@@ -46,6 +65,17 @@ export function ResetPasswordForm() {
       }
     );
     setClient(supabase);
+
+    // The scanner-proof link: nothing to check yet, and nothing to spend.
+    // The token is verified when they press Save, not before.
+    const query = new URLSearchParams(window.location.search);
+    const unspent = query.get("token_hash");
+    if (unspent && query.get("type") === "recovery") {
+      setTokenHash(unspent);
+      setStatus("ready");
+      window.history.replaceState(null, "", window.location.pathname);
+      return;
+    }
 
     // An expired or already-used link comes back with the failure in the hash
     // rather than a token, so check that before waiting on a session.
@@ -97,6 +127,21 @@ export function ResetPasswordForm() {
 
     setError(null);
     setStatus("saving");
+
+    // Now, and only now, spend the token. Whatever opened this page first did
+    // not reach this line.
+    if (tokenHash) {
+      const { error: verifyError } = await client.auth.verifyOtp({
+        type: "recovery",
+        token_hash: tokenHash,
+      });
+      if (verifyError) {
+        setStatus("invalid");
+        return;
+      }
+      setTokenHash(null);
+    }
+
     const { error: updateError } = await client.auth.updateUser({ password });
     if (updateError) {
       setStatus("ready");
