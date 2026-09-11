@@ -3,7 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Quote, Video } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getCoachBySlug } from "@/lib/api/coaching/coaches";
-import { getCoachingSummary, getSlotGrid } from "@/lib/api/coaching/booking";
+import {
+  getCoachScheduleLines,
+  getCoachingSummary,
+  getSlotGrid,
+} from "@/lib/api/coaching/booking";
 import { getCoachingShop } from "@/lib/api/coaching/shop";
 import { getPaymentProvider } from "@/lib/api/payments";
 import { getSessionUser } from "@/lib/auth/session";
@@ -32,10 +36,15 @@ export default async function CoachPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ bought?: string; type?: string; error?: string }>;
+  searchParams: Promise<{
+    bought?: string;
+    type?: string;
+    error?: string;
+    student?: string;
+  }>;
 }) {
   const { slug } = await params;
-  const { bought, type, error } = await searchParams;
+  const { bought, type, error, student } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
@@ -44,14 +53,22 @@ export default async function CoachPage({
   const coach = await getCoachBySlug(slug, profiles);
   if (!coach) notFound();
 
-  const [summary, slots, students, offers] = await Promise.all([
+  const [summary, slots, students, offers, scheduleLines] = await Promise.all([
     user.familyId ? getCoachingSummary(user.familyId) : Promise.resolve(null),
     getSlotGrid(coach),
     user.familyId
       ? provider.getStudentsForFamily(user.id, user.familyId)
       : Promise.resolve([]),
     user.familyId ? getCoachingShop() : Promise.resolve([]),
+    getCoachScheduleLines([coach.staffId]),
   ]);
+
+  // The child chosen on the coaches page rides along in the URL; anything
+  // that is not one of this family's own students is simply ignored.
+  const initialStudentId = students.some((s) => s.id === student)
+    ? student
+    : undefined;
+  const schedule = scheduleLines[coach.staffId] ?? [];
 
   const purchased = (summary?.packages ?? []).reduce(
     (total, pkg) => total + (Number(pkg.purchased) || 0),
@@ -95,6 +112,17 @@ export default async function CoachPage({
           )}
         </div>
       </div>
+
+      {/* The schedule stays in sight on the coach's own page too — the same
+          lines the chooser card showed, so nothing changes underfoot. */}
+      {schedule.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Schedule:</span>
+          {schedule.map((line) => (
+            <span key={line}>{line}</span>
+          ))}
+        </p>
+      )}
 
       {profile.specialties.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
@@ -165,10 +193,11 @@ export default async function CoachPage({
           {sessionsLeft === 0 && (
             <BuySessions
               offers={offers}
-              students={students.map((student) => ({
-                id: student.id,
-                name: student.preferredName || student.firstName,
+              students={students.map((s) => ({
+                id: s.id,
+                name: s.preferredName || s.firstName,
               }))}
+              initialStudentId={initialStudentId}
               error={error}
               paymentsConfigured={getPaymentProvider().isConfigured()}
               lessonTypes={coach.disciplines}
@@ -180,10 +209,11 @@ export default async function CoachPage({
             coachStaffId={coach.staffId}
             coachName={coach.name}
             sessionMinutes={coach.sessionMinutes}
-            students={students.map((student) => ({
-              id: student.id,
-              name: student.preferredName || student.firstName,
+            students={students.map((s) => ({
+              id: s.id,
+              name: s.preferredName || s.firstName,
             }))}
+            initialStudentId={initialStudentId}
             slots={slots}
             sessionsLeft={sessionsLeft}
             lessonTypes={coach.disciplines}

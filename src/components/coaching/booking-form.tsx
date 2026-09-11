@@ -91,6 +91,7 @@ export function BookingForm({
   sessionsLeft,
   lessonTypes,
   initialType,
+  initialStudentId,
   punch,
 }: {
   coachStaffId: string;
@@ -103,13 +104,19 @@ export function BookingForm({
   lessonTypes: string[];
   /** Preselected lesson type, e.g. carried through checkout's return URL. */
   initialType?: string;
+  /** The child chosen on the coaches page, carried in from its URL. */
+  initialStudentId?: string;
   punch: PunchCounts | null;
 }) {
   const [state, formAction, pending] = useActionState<CoachingFormState, FormData>(
     bookCoachingAction,
     initialState
   );
-  const [studentId, setStudentId] = useState(students[0]?.id ?? "");
+  const [studentId, setStudentId] = useState(
+    initialStudentId && students.some((s) => s.id === initialStudentId)
+      ? initialStudentId
+      : (students[0]?.id ?? "")
+  );
   const [chosen, setChosen] = useState("");
   const [sessionType, setSessionType] = useState(
     initialType && lessonTypes.includes(initialType)

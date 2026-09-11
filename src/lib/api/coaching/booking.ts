@@ -140,6 +140,72 @@ export async function getSlotGrid(coach: Coach, now = new Date()): Promise<SlotO
   }
 }
 
+const WEEKDAY_NAMES = [
+  "Sundays",
+  "Mondays",
+  "Tuesdays",
+  "Wednesdays",
+  "Thursdays",
+  "Fridays",
+  "Saturdays",
+];
+
+/** "17:00:00" → "5:00 PM". */
+function wallClock(hhmm: string): string {
+  const match = /^(\d{1,2}):(\d{2})/.exec(hhmm ?? "");
+  if (!match) return hhmm;
+  const hours = Number(match[1]);
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const twelve = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelve}:${match[2]} ${suffix}`;
+}
+
+/**
+ * Each coach's weekly hours as sentences — "Fridays 5:00 PM–10:00 PM" — for
+ * the page where a family CHOOSES a coach. Tony, 11 Sep 2026: "they choose
+ * the coach with their schedule listed." The schedule belongs at the moment
+ * of choosing, not behind the choice.
+ */
+export async function getCoachScheduleLines(
+  staffIds: string[]
+): Promise<Record<string, string[]>> {
+  const empty: Record<string, string[]> = {};
+  if (!isSupabaseConfigured() || staffIds.length === 0) return empty;
+  try {
+    const { data, error } = await getPortalReadClient()
+      .from("v_coaching_availability_public")
+      .select("staff_id, weekday, starts_at, ends_at")
+      .in("staff_id", staffIds);
+    if (error) throw error;
+
+    const byCoach: Record<string, { weekday: number; line: string }[]> = {};
+    for (const row of data ?? []) {
+      const r = row as {
+        staff_id: string;
+        weekday: number;
+        starts_at: string;
+        ends_at: string;
+      };
+      const name = WEEKDAY_NAMES[Number(r.weekday)] ?? "";
+      if (!name) continue;
+      (byCoach[r.staff_id] ??= []).push({
+        weekday: Number(r.weekday),
+        line: `${name} ${wallClock(r.starts_at)}–${wallClock(r.ends_at)}`,
+      });
+    }
+    const lines: Record<string, string[]> = {};
+    for (const [staffId, entries] of Object.entries(byCoach)) {
+      lines[staffId] = entries
+        // Monday first, the way a family reads a week.
+        .sort((a, b) => ((a.weekday + 6) % 7) - ((b.weekday + 6) % 7))
+        .map((entry) => entry.line);
+    }
+    return lines;
+  } catch {
+    return empty;
+  }
+}
+
 export type BookingResult =
   | { ok: true; sessionId: string }
   | { ok: false; error: string; needsSessions?: boolean };

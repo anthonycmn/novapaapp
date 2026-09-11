@@ -28,6 +28,7 @@ export function BuySessions({
   paymentsConfigured,
   lessonTypes = [],
   returnTo,
+  initialStudentId,
 }: {
   offers: CoachingPackageOffer[];
   students: BookableStudent[];
@@ -42,8 +43,14 @@ export function BuySessions({
   lessonTypes?: string[];
   /** Path to land back on after Stripe — a coach's own page, usually. */
   returnTo?: string;
+  /** The child chosen on the coaches page, carried in from its URL. */
+  initialStudentId?: string;
 }) {
-  const [studentId, setStudentId] = useState(students[0]?.id ?? "");
+  const [studentId, setStudentId] = useState(
+    initialStudentId && students.some((s) => s.id === initialStudentId)
+      ? initialStudentId
+      : (students[0]?.id ?? "")
+  );
   const [chosen, setChosen] = useState("");
   const [lessonType, setLessonType] = useState(lessonTypes[0] ?? "");
 
