@@ -7,7 +7,7 @@
  *  - Never cache API/auth routes.
  * Phase 3 adds calendar payload caching; Phase 2 adds push handlers.
  */
-const VERSION = "v9";
+const VERSION = "v10";
 const SHELL_CACHE = `shell-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const OFFLINE_URL = "/offline";
@@ -59,23 +59,41 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     /*
-     * NAVIGATIONS ARE NOT INTERCEPTED. AT ALL. (11 Sep 2026.)
-     *
-     * v7 cloned every streamed page mid-flight to cache it, and pages froze
-     * on their loading skeleton with the content already downloaded. v8 kept
-     * a plain fetch() passthrough and pages STILL froze: React's streamed
-     * HTML plus a respondWith proxy is enough to strand the inline scripts
-     * that reveal each finished section. Six days of "the portal is slow,
-     * reload it" traced back to this handler.
-     *
-     * So page loads now go straight to the network, browser-native, and the
-     * worker keeps to the jobs that need no proxying: push notifications and
-     * static assets. The offline page cache went with it — a nicety that is
-     * not worth breaking every page for. If offline pages come back, they
-     * come back as a separate cache.add() fetch, never as a tee of the
-     * response a parent is reading, and get verified against a streamed
-     * route before shipping.
+     * This handler stands acquitted (11 Sep 2026). v9 removed it on the
+     * theory that proxying/teeing streamed pages froze them on their
+     * loading skeleton. The real cause was React itself: streamed sections
+     * are revealed through a requestAnimationFrame-gated batch ($RV), and a
+     * HIDDEN tab never fires rAF — so background tabs and automation panes
+     * sit on "Loading…" with the whole page already in the document. A tab
+     * a person is actually looking at reveals instantly, worker or no
+     * worker. Proved by stalling identically with the worker unregistered
+     * and caches cleared. So the offline cache — schedules and the health
+     * roster in a theater basement — comes back.
      */
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Cache successful navigations so the schedule and emergency
+          // roster stay readable offline.
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(SHELL_CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(request);
+          if (cached) return cached;
+          // Fall back to a cached critical route's shell, then the offline page.
+          for (const route of OFFLINE_CRITICAL) {
+            if (url.pathname === route) {
+              const routeCached = await caches.match(route);
+              if (routeCached) return routeCached;
+            }
+          }
+          return caches.match(OFFLINE_URL);
+        })
+    );
     return;
   }
 
