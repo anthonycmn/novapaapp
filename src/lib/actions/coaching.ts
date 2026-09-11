@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
+  bookCoachingSeries,
   bookCoachingSession,
   cancelCoachingSession,
 } from "@/lib/api/coaching/booking";
@@ -54,17 +55,42 @@ export async function bookCoachingAction(
     return { ok: false, error: "Pick a performer and a time." };
   }
 
-  const result = await bookCoachingSession({
-    familyId: user.familyId,
-    studentId,
-    coachStaffId,
-    startsAt,
-    notes: String(formData.get("notes") ?? ""),
-  });
+  const sessionType = String(formData.get("sessionType") ?? "").trim() || undefined;
+  const notes = String(formData.get("notes") ?? "");
+
+  /*
+   * weeks > 1 books a standing weekly slot — same day, same time — through
+   * the series function (0275), all-or-nothing. The count is clamped here
+   * only for sanity; the database re-checks balance, availability and
+   * clashes for every occurrence and refuses the lot if any week fails.
+   */
+  const weeks = Math.max(1, Math.min(20, Number(formData.get("weeks")) || 1));
+
+  const result =
+    weeks > 1
+      ? await bookCoachingSeries({
+          familyId: user.familyId,
+          studentId,
+          coachStaffId,
+          startsAt,
+          count: weeks,
+          sessionType,
+          notes,
+        })
+      : await bookCoachingSession({
+          familyId: user.familyId,
+          studentId,
+          coachStaffId,
+          startsAt,
+          sessionType,
+          notes,
+        });
 
   if (!result.ok) {
     return { ok: false, error: result.error, needsSessions: result.needsSessions };
   }
+
+  const firstSessionId = "sessionId" in result ? result.sessionId : result.sessionIds[0];
 
   /*
    * Told, after the fact and never instead of it.
@@ -81,12 +107,17 @@ export async function bookCoachingAction(
   await logActivity({
     user,
     action: "coaching.booked",
-    summary: "Booked a coaching session",
+    summary:
+      weeks > 1
+        ? `Booked a weekly coaching slot — ${weeks} lessons`
+        : "Booked a coaching session",
     studentId,
-    detail: { coachStaffId, startsAt, sessionId: result.sessionId },
+    detail: { coachStaffId, startsAt, sessionId: firstSessionId, weeks, sessionType },
   });
 
-  await notifyCoachingBooked(result.sessionId);
+  // One email for the whole series: the coach's calendar already carries every
+  // occurrence, and ten identical emails about one decision is noise.
+  await notifyCoachingBooked(firstSessionId);
 
   revalidatePath("/coaches");
   revalidatePath("/schedule");
@@ -143,12 +174,27 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
 
   const menuId = String(formData.get("menuId") ?? "");
   const studentId = String(formData.get("studentId") ?? "");
+
+  /*
+   * Where to land after Stripe. Only a coaching page is accepted — this is a
+   * form field, and a form field that becomes a redirect target is an open
+   * redirect unless it is pinned to a shape we own.
+   */
+  const returnToRaw = String(formData.get("returnTo") ?? "");
+  const returnTo = /^\/coaches(\/[a-z0-9-]+)?$/.test(returnToRaw)
+    ? returnToRaw
+    : "/coaches";
+  const boughtType = String(formData.get("sessionType") ?? "").trim();
+  const typeParam = /^[a-z ]{1,40}$/i.test(boughtType)
+    ? `&type=${encodeURIComponent(boughtType)}`
+    : "";
+
   if (!menuId || !studentId) {
-    redirect("/coaches?error=" + encodeURIComponent("Pick a performer and a package."));
+    redirect(`${returnTo}?error=` + encodeURIComponent("Pick a performer and a package."));
   }
 
   const blocked = livePaymentsBlockedBecause();
-  if (blocked) redirect(`/coaches?error=${encodeURIComponent(blocked)}`);
+  if (blocked) redirect(`${returnTo}?error=${encodeURIComponent(blocked)}`);
 
   /*
    * COACHING WILL NOT SELL THROUGH THE MOCK PROCESSOR, and this is the one
@@ -167,7 +213,7 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
    */
   if (!getPaymentProvider().isConfigured()) {
     redirect(
-      "/coaches?error=" +
+      `${returnTo}?error=` +
         encodeURIComponent(
           "Card payments aren't switched on yet, so coaching can't be bought here. Please message the office."
         )
@@ -179,7 +225,7 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
     purchase = await startCoachingPurchase(user.familyId, studentId, menuId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    redirect(`/coaches?error=${encodeURIComponent(message)}`);
+    redirect(`${returnTo}?error=${encodeURIComponent(message)}`);
   }
 
   await logActivity({
@@ -222,14 +268,14 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
           quantity: 1,
         },
       ],
-      successUrl: `${origin}/coaches?bought=${purchase.reference}`,
-      cancelUrl: `${origin}/coaches`,
+      successUrl: `${origin}${returnTo}?bought=${purchase.reference}${typeParam}`,
+      cancelUrl: `${origin}${returnTo}`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("buyCoachingAction: checkout refused", message);
     redirect(
-      `/coaches?error=${encodeURIComponent(
+      `${returnTo}?error=${encodeURIComponent(
         `The card processor refused to start this checkout. Nothing was charged. Please tell the office what it said: ${message.slice(0, 300)}`
       )}`
     );

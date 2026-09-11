@@ -145,7 +145,10 @@ export type BookingResult =
  * than an apology. Everything else is already a sentence written for a parent
  * in 0153, so it is passed through unchanged.
  */
-function describe(error: { code?: string; message?: string }): BookingResult {
+function describe(error: {
+  code?: string;
+  message?: string;
+}): { ok: false; error: string; needsSessions?: boolean } {
   const message = (error.message ?? "").replace(/^.*?:\s*/, "").trim();
   return {
     ok: false,
@@ -160,6 +163,8 @@ export async function bookCoachingSession(input: {
   coachStaffId: string;
   startsAt: string;
   notes?: string;
+  /** Which kind of lesson — validated in 0275 against the coach's disciplines. */
+  sessionType?: string;
 }): Promise<BookingResult> {
   if (!isSupabaseConfigured()) {
     return { ok: false, error: "Booking is not available just now." };
@@ -171,9 +176,58 @@ export async function bookCoachingSession(input: {
       p_coach_staff_id: input.coachStaffId,
       p_starts_at: input.startsAt,
       p_notes: input.notes ?? null,
+      p_session_type: input.sessionType ?? null,
     });
     if (error) return describe(error);
     return { ok: true, sessionId: String(data) };
+  } catch (error) {
+    return describe(error as { code?: string; message?: string });
+  }
+}
+
+export type SeriesResult =
+  | { ok: true; sessionIds: string[]; count: number }
+  | { ok: false; error: string; needsSessions?: boolean };
+
+/**
+ * The same slot, week after week — the punch card's standing appointment.
+ *
+ * All-or-nothing in the portal (0275): if week four clashes, nothing books
+ * and the refusal names the clash, so a family never ends up holding half a
+ * series. Wall-clock weekly in Eastern time, so the November changeover does
+ * not shift the lesson an hour.
+ */
+export async function bookCoachingSeries(input: {
+  familyId: string;
+  studentId: string;
+  coachStaffId: string;
+  startsAt: string;
+  count: number;
+  sessionType?: string;
+  notes?: string;
+}): Promise<SeriesResult> {
+  if (!isSupabaseConfigured()) {
+    return { ok: false, error: "Booking is not available just now." };
+  }
+  try {
+    const { data, error } = await getPortalRpcClient().rpc(
+      "family_book_coaching_series",
+      {
+        p_family_id: input.familyId,
+        p_student_id: input.studentId,
+        p_coach_staff_id: input.coachStaffId,
+        p_starts_at: input.startsAt,
+        p_count: input.count,
+        p_session_type: input.sessionType ?? null,
+        p_notes: input.notes ?? null,
+      }
+    );
+    if (error) return describe(error);
+    const payload = (data ?? {}) as { sessionIds?: unknown; count?: unknown };
+    const ids = Array.isArray(payload.sessionIds)
+      ? (payload.sessionIds as unknown[]).map(String)
+      : [];
+    return { ok: true, sessionIds: ids, count: Number(payload.count) || ids.length };
   } catch (error) {
     return describe(error as { code?: string; message?: string });
   }

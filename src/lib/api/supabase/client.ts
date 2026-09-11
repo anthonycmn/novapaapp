@@ -99,6 +99,8 @@ let portalRpcClient: SupabaseClient | null = null;
  * functions and no others:
  *
  *   staff_portal.family_book_coaching             — book one session (0153)
+ *   staff_portal.family_book_coaching_series      — the same slot, weekly,
+ *                                                   all-or-nothing (0275)
  *   staff_portal.family_cancel_coaching           — cancel their own (0153)
  *   staff_portal.family_coaching_summary          — balance and diary (0153)
  *   staff_portal.family_start_coaching_purchase   — reserve a purchase (0154)

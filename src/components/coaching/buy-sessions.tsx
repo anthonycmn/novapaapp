@@ -26,15 +26,26 @@ export function BuySessions({
   students,
   error,
   paymentsConfigured,
+  lessonTypes = [],
+  returnTo,
 }: {
   offers: CoachingPackageOffer[];
   students: BookableStudent[];
   error?: string;
   /** False when no Stripe key is set — see the guard in buyCoachingAction. */
   paymentsConfigured: boolean;
+  /**
+   * The kinds of lesson on offer where the card sits on one coach's page.
+   * The choice rides through checkout in the return URL and preselects the
+   * scheduling form — a package itself is sessions, not a kind.
+   */
+  lessonTypes?: string[];
+  /** Path to land back on after Stripe — a coach's own page, usually. */
+  returnTo?: string;
 }) {
   const [studentId, setStudentId] = useState(students[0]?.id ?? "");
   const [chosen, setChosen] = useState("");
+  const [lessonType, setLessonType] = useState(lessonTypes[0] ?? "");
 
   if (offers.length === 0 || students.length === 0) return null;
 
@@ -87,6 +98,28 @@ export function BuySessions({
           )}
 
           <input type="hidden" name="menuId" value={chosen} />
+          {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
+
+          {lessonTypes.length > 1 && (
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">What kind of lesson?</span>
+              <select
+                name="sessionType"
+                value={lessonType}
+                onChange={(event) => setLessonType(event.target.value)}
+                className="rounded-md border bg-background px-3 py-2"
+              >
+                {lessonTypes.map((type) => (
+                  <option key={type} value={type}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {lessonTypes.length === 1 && (
+            <input type="hidden" name="sessionType" value={lessonTypes[0]} />
+          )}
 
           <fieldset className="flex flex-col gap-1.5">
             <legend className="sr-only">Choose a package</legend>

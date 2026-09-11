@@ -4,27 +4,38 @@ import { ArrowLeft, Quote, Video } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getCoachBySlug } from "@/lib/api/coaching/coaches";
 import { getCoachingSummary, getOpenSlots } from "@/lib/api/coaching/booking";
+import { getCoachingShop } from "@/lib/api/coaching/shop";
+import { getPaymentProvider } from "@/lib/api/payments";
 import { getSessionUser } from "@/lib/auth/session";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { BookingForm } from "@/components/coaching/booking-form";
+import { BuySessions } from "@/components/coaching/buy-sessions";
 
 export const metadata = { title: "Coaching" };
 
 /**
- * One coach, and the hour you can book with them.
+ * One coach: who they are, buying lessons with them, and keeping the slot.
  *
  * The bio and the booking sit on the same page on purpose. A parent deciding
  * who coaches their child is answering "is this the right person" and "can
  * they do Thursday" at the same time, and splitting those across two screens
  * makes them answer the first one twice.
+ *
+ * The whole journey lives here now — Tony, 11 Sep 2026: choose the child,
+ * choose the coach, choose the kind of lesson, choose the quantity, pay, and
+ * come straight back to schedule. Stripe's success URL returns to THIS page
+ * with ?bought=, so the parent lands on the punch card they just filled.
  */
 export default async function CoachPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ bought?: string; type?: string; error?: string }>;
 }) {
   const { slug } = await params;
+  const { bought, type, error } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
@@ -33,13 +44,30 @@ export default async function CoachPage({
   const coach = await getCoachBySlug(slug, profiles);
   if (!coach) notFound();
 
-  const [summary, slots, students] = await Promise.all([
+  const [summary, slots, students, offers] = await Promise.all([
     user.familyId ? getCoachingSummary(user.familyId) : Promise.resolve(null),
     getOpenSlots(coach),
     user.familyId
       ? provider.getStudentsForFamily(user.id, user.familyId)
       : Promise.resolve([]),
+    user.familyId ? getCoachingShop() : Promise.resolve([]),
   ]);
+
+  const purchased = (summary?.packages ?? []).reduce(
+    (total, pkg) => total + (Number(pkg.purchased) || 0),
+    0
+  );
+  const sessionsLeft = summary?.sessionsLeft ?? 0;
+  const scheduled = summary?.upcoming.length ?? 0;
+  const punch =
+    purchased > 0
+      ? {
+          purchased,
+          completed: Math.max(0, purchased - sessionsLeft - scheduled),
+          scheduled,
+          remaining: sessionsLeft,
+        }
+      : null;
 
   const { profile } = coach;
 
@@ -108,7 +136,7 @@ export default async function CoachPage({
         </a>
       )}
 
-      <h2 className="mt-2 text-lg font-semibold">Book a session</h2>
+      <h2 className="mt-2 text-lg font-semibold">Book lessons</h2>
       {!user.familyId ? (
         <p className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
           Coaching is booked from a family account.
@@ -119,17 +147,50 @@ export default async function CoachPage({
           office and we will suggest another coach.
         </p>
       ) : (
-        <BookingForm
-          coachStaffId={coach.staffId}
-          coachName={coach.name}
-          sessionMinutes={coach.sessionMinutes}
-          students={students.map((student) => ({
-            id: student.id,
-            name: student.preferredName || student.firstName,
-          }))}
-          slots={slots}
-          sessionsLeft={summary?.sessionsLeft ?? 0}
-        />
+        <>
+          {bought && sessionsLeft === 0 && (
+            <p className="rounded-lg border bg-card p-4 text-sm">
+              Payment received — your lessons are on their way onto your punch
+              card. This usually takes a few seconds; refresh if they have not
+              appeared.
+            </p>
+          )}
+          {bought && sessionsLeft > 0 && (
+            <p className="rounded-lg border bg-card p-4 text-sm font-medium">
+              Payment received. Now pick the weekly time your lessons will
+              keep — same day, same time, week after week.
+            </p>
+          )}
+
+          {sessionsLeft === 0 && (
+            <BuySessions
+              offers={offers}
+              students={students.map((student) => ({
+                id: student.id,
+                name: student.preferredName || student.firstName,
+              }))}
+              error={error}
+              paymentsConfigured={getPaymentProvider().isConfigured()}
+              lessonTypes={coach.disciplines}
+              returnTo={`/coaches/${slug}`}
+            />
+          )}
+
+          <BookingForm
+            coachStaffId={coach.staffId}
+            coachName={coach.name}
+            sessionMinutes={coach.sessionMinutes}
+            students={students.map((student) => ({
+              id: student.id,
+              name: student.preferredName || student.firstName,
+            }))}
+            slots={slots}
+            sessionsLeft={sessionsLeft}
+            lessonTypes={coach.disciplines}
+            initialType={type}
+            punch={punch}
+          />
+        </>
       )}
     </div>
   );
