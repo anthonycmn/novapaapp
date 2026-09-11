@@ -78,20 +78,33 @@ function easternDatePlus(now: Date, days: number): string {
   return shifted.toISOString().slice(0, 10);
 }
 
+/** One offered start: the instant, and whether somebody already holds it. */
+export interface SlotOffer {
+  slot: string;
+  taken: boolean;
+}
+
 /**
- * Every bookable start for one coach, soonest first, as ISO instants.
+ * Every start in a coach's windows, soonest first — the taken ones included.
+ *
+ * Starts are HOURLY by default, not every session length. Tony, 11 Sep 2026:
+ * a 50-minute lesson on the hour leaves ten minutes of transition before the
+ * next student, where back-to-back 50s would stack 3:00 / 3:50 / 4:40 with no
+ * breath between. And a taken hour stays on the page marked taken, because a
+ * grid with holes in it reads as "this coach barely works" rather than "this
+ * coach is booked".
  *
  * `now` is passed in rather than read, so a test can stand on a Tuesday in
  * November without waiting for one.
  */
-export function generateSlots(
+export function generateSlotGrid(
   windows: AvailabilityWindow[],
   busy: BusyInterval[],
   rules: SlotRules,
   now: Date
-): string[] {
+): SlotOffer[] {
   const session = Math.max(1, Math.trunc(rules.sessionMinutes || 50));
-  const step = Math.max(1, Math.trunc(rules.stepMinutes ?? session));
+  const step = Math.max(1, Math.trunc(rules.stepMinutes ?? 60));
   const earliest = now.getTime() + Math.max(0, rules.noticeHours) * 60 * MINUTE;
   const latest = now.getTime() + Math.max(0, rules.horizonDays) * 24 * 60 * MINUTE;
 
@@ -117,7 +130,7 @@ export function generateSlots(
   }
   if (byWeekday.size === 0) return [];
 
-  const slots: string[] = [];
+  const offers: SlotOffer[] = [];
   const seen = new Set<string>();
 
   // Start at "yesterday" in Eastern so a window running late on the day the
@@ -141,19 +154,39 @@ export function generateSlots(
         if (Number.isNaN(ms) || ms < earliest || ms > latest) continue;
 
         const end = ms + session * MINUTE;
-        if (taken.some(([from, to]) => ms < to && from < end)) continue;
+        const isTaken = taken.some(([from, to]) => ms < to && from < end);
 
         const iso = instant.toISOString();
         // A repeated window, or the hour that repeats when the clocks go back,
         // must not offer the same instant twice.
         if (seen.has(iso)) continue;
         seen.add(iso);
-        slots.push(iso);
+        offers.push({ slot: iso, taken: isTaken });
       }
     }
   }
 
-  return slots.sort();
+  return offers.sort((a, b) => a.slot.localeCompare(b.slot));
+}
+
+/**
+ * The bookable starts alone, stepping one session apart — the original shape,
+ * kept for anything that only wants times a parent may actually press.
+ */
+export function generateSlots(
+  windows: AvailabilityWindow[],
+  busy: BusyInterval[],
+  rules: SlotRules,
+  now: Date
+): string[] {
+  return generateSlotGrid(
+    windows,
+    busy,
+    { ...rules, stepMinutes: rules.stepMinutes ?? rules.sessionMinutes },
+    now
+  )
+    .filter((offer) => !offer.taken)
+    .map((offer) => offer.slot);
 }
 
 /** "Mon 4:00 PM", in the only timezone this organization books in. */
@@ -178,5 +211,23 @@ export function slotsByDay(slots: string[]): Array<{ date: string; label: string
         "EEEE d MMMM"
       ),
       slots: list,
+    }));
+}
+
+/** The same grouping for the grid, taken chips riding along. */
+export function offersByDay(
+  offers: SlotOffer[]
+): Array<{ date: string; label: string; offers: SlotOffer[] }> {
+  const days = new Map<string, SlotOffer[]>();
+  for (const offer of offers) {
+    const date = formatInTimeZone(new Date(offer.slot), COACHING_TIME_ZONE, "yyyy-MM-dd");
+    days.set(date, [...(days.get(date) ?? []), offer]);
+  }
+  return [...days.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, list]) => ({
+      date,
+      label: formatInTimeZone(new Date(`${date}T12:00:00Z`), "UTC", "EEEE d MMMM"),
+      offers: list,
     }));
 }

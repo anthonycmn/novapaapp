@@ -5,9 +5,10 @@ import {
   isSupabaseConfigured,
 } from "../supabase/client";
 import {
-  generateSlots,
+  generateSlotGrid,
   type AvailabilityWindow,
   type BusyInterval,
+  type SlotOffer,
 } from "./slots";
 import type { Coach } from "./assemble";
 
@@ -92,8 +93,12 @@ export async function getCoachingSummary(
   }
 }
 
-/** The times a family may actually press, for one coach. */
-export async function getOpenSlots(coach: Coach, now = new Date()): Promise<string[]> {
+/**
+ * The hourly grid a family sees for one coach — taken hours included, marked.
+ * Hourly rather than every 50 minutes, so each lesson leaves transition time
+ * before the next student.
+ */
+export async function getSlotGrid(coach: Coach, now = new Date()): Promise<SlotOffer[]> {
   if (!isSupabaseConfigured()) return [];
   try {
     const portal = getPortalReadClient();
@@ -120,7 +125,7 @@ export async function getOpenSlots(coach: Coach, now = new Date()): Promise<stri
       durationMin: Number((row as { duration_min: unknown }).duration_min) || 60,
     }));
 
-    return generateSlots(
+    return generateSlotGrid(
       windows,
       taken,
       {

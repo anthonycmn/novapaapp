@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Quote, Video } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { getCoachBySlug } from "@/lib/api/coaching/coaches";
-import { getCoachingSummary, getOpenSlots } from "@/lib/api/coaching/booking";
+import { getCoachingSummary, getSlotGrid } from "@/lib/api/coaching/booking";
 import { getCoachingShop } from "@/lib/api/coaching/shop";
 import { getPaymentProvider } from "@/lib/api/payments";
 import { getSessionUser } from "@/lib/auth/session";
@@ -46,7 +46,7 @@ export default async function CoachPage({
 
   const [summary, slots, students, offers] = await Promise.all([
     user.familyId ? getCoachingSummary(user.familyId) : Promise.resolve(null),
-    getOpenSlots(coach),
+    getSlotGrid(coach),
     user.familyId
       ? provider.getStudentsForFamily(user.id, user.familyId)
       : Promise.resolve([]),

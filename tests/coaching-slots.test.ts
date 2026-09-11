@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatInTimeZone } from "date-fns-tz";
 import {
+  generateSlotGrid,
   generateSlots,
   slotsByDay,
   type AvailabilityWindow,
@@ -190,5 +191,38 @@ describe("a nine-to-six window", () => {
       generateSlots(nineToSix, [], { ...rules, sessionMinutes: 30 }, wed)
     );
     expect(times[times.length - 1]).toBe("2026-08-10 17:30");
+  });
+});
+
+describe("generateSlotGrid", () => {
+  const gridTimes = (offers: { slot: string; taken: boolean }[]) =>
+    offers
+      .filter((o) => easternTime(o.slot).startsWith("2026-08-10"))
+      .map((o) => `${easternTime(o.slot)}${o.taken ? " X" : ""}`);
+
+  it("steps hourly by default, leaving transition time after a 50-minute lesson", () => {
+    // Same five-hour Monday window as above, but on the hour: 3, 4, 5, 6, 7.
+    // 19:10 no longer exists; 20:00 would run past the close.
+    expect(gridTimes(generateSlotGrid(mondays, [], rules, wed))).toEqual([
+      "2026-08-10 15:00",
+      "2026-08-10 16:00",
+      "2026-08-10 17:00",
+      "2026-08-10 18:00",
+      "2026-08-10 19:00",
+    ]);
+  });
+
+  it("keeps a taken hour on the grid, marked, instead of hiding it", () => {
+    const busy: BusyInterval[] = [
+      // 4pm Eastern on that Monday, 50 minutes.
+      { startsAt: "2026-08-10T20:00:00.000Z", durationMin: 50 },
+    ];
+    expect(gridTimes(generateSlotGrid(mondays, busy, rules, wed))).toEqual([
+      "2026-08-10 15:00",
+      "2026-08-10 16:00 X",
+      "2026-08-10 17:00",
+      "2026-08-10 18:00",
+      "2026-08-10 19:00",
+    ]);
   });
 });

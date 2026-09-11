@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { CalendarPlus, Check, Ticket } from "lucide-react";
 import { bookCoachingAction, type CoachingFormState } from "@/lib/actions/coaching";
-import { formatSlot, slotsByDay } from "@/lib/api/coaching/slots";
+import { formatSlot, offersByDay, type SlotOffer } from "@/lib/api/coaching/slots";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FieldError } from "@/components/forms/field-error";
@@ -97,7 +97,7 @@ export function BookingForm({
   coachName: string;
   sessionMinutes: number;
   students: BookableStudent[];
-  slots: string[];
+  slots: SlotOffer[];
   sessionsLeft: number;
   /** The kinds of lesson this coach offers, from their roster row. */
   lessonTypes: string[];
@@ -126,7 +126,7 @@ export function BookingForm({
   for (let n = minWeeks; n <= maxWeeks; n += 1) weekChoices.push(n);
   const [weeks, setWeeks] = useState(maxWeeks);
 
-  const days = slotsByDay(slots);
+  const days = offersByDay(slots);
 
   if (students.length === 0) {
     return (
@@ -179,7 +179,8 @@ export function BookingForm({
       {punch && <PunchCard punch={punch} />}
 
       <p className="text-sm text-muted-foreground">
-        Each lesson is {sessionMinutes} minutes.
+        Each lesson is {sessionMinutes} minutes, on the hour — the rest of the
+        hour is turnaround time. A crossed-out hour is already taken.
         {sessionsLeft >= 3 &&
           " Lessons hold the same day and time each week, so pick the slot your week can keep."}
       </p>
@@ -258,8 +259,23 @@ export function BookingForm({
               {day.label}
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {day.slots.map((slot) => {
+              {day.offers.map(({ slot, taken }) => {
                 const selected = slot === chosen;
+                const time = formatSlot(slot).split(", ")[1];
+                if (taken) {
+                  // Taken hours stay visible with an ✕ — a grid with holes in
+                  // it reads as "this coach barely works", not "booked up".
+                  return (
+                    <span
+                      key={slot}
+                      aria-label={`${time} — already taken`}
+                      className="inline-flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-sm text-muted-foreground/70 line-through"
+                    >
+                      <span aria-hidden>✕</span>
+                      {time}
+                    </span>
+                  );
+                }
                 return (
                   <button
                     key={slot}
@@ -272,7 +288,7 @@ export function BookingForm({
                         : "hover:bg-accent"
                     }`}
                   >
-                    {formatSlot(slot).split(", ")[1]}
+                    {time}
                   </button>
                 );
               })}
