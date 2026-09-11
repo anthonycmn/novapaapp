@@ -36,6 +36,14 @@ export const org = {
   ticketsUrl: "https://novapa.booktix.com",
 
   /**
+   * The registration system's account page: payment plans, the card on file,
+   * past payments, Day Camp Pack dates, ticket redemption. Money stays over
+   * there; the website nav stopped pointing at it on 11 Sep 2026 when "Parent
+   * Portal" replaced "Login", so this is now the way a family reaches it.
+   */
+  paymentsUrl: "https://novapa.org/register/account.html",
+
+  /**
    * Where a family reads all of this. The same default the coaching notifier
    * uses, so a link in an email and a link in a notification go to one place.
    */

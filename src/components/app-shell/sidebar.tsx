@@ -91,7 +91,25 @@ export function Sidebar({
             <div className="mb-1 px-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-gold">
               {group}
             </div>
-            {sections.map(({ href, label, Icon }) => {
+            {sections.map(({ href, label, Icon, external }) => {
+              if (external) {
+                /* Same row as "Buy tickets" below: a plain link, a new tab,
+                   and no active state, because it is not a page of ours. */
+                return (
+                  <a
+                    key={href}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={onNavigate}
+                    className="mb-0.5 flex items-center gap-2.5 rounded-md border border-transparent px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  >
+                    <Icon aria-hidden size={15} className="shrink-0" />
+                    <span className="flex-1 truncate">{label}</span>
+                    <span className="sr-only">(opens in a new tab)</span>
+                  </a>
+                );
+              }
               const active = isActive(href);
               /* 0 for almost every row, almost always. */
               const count = navAlerts?.[href] ?? 0;

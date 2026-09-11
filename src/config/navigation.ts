@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CalendarOff,
   Contact,
+  CreditCard,
   FileSignature,
   GraduationCap,
   Images,
@@ -22,6 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { org } from "@/config/org";
 
 /**
  * The single source of truth for app sections. The sidebar, the mobile
@@ -41,6 +43,12 @@ export interface NavSection {
   description: string;
   /** Sidebar grouping, mirroring the staff portal's grouped nav. */
   group: string;
+  /**
+   * Lives outside this app. Rendered as a plain link in a new tab rather
+   * than a Next route, and never marked active. The one so far is the
+   * registration system's account page.
+   */
+  external?: boolean;
 }
 
 /*
@@ -67,6 +75,12 @@ export const FAMILY_SECTIONS: NavSection[] = [
   { href: "/photos", Icon: Images, label: "Photos", description: "Galleries, and photos of your child", group: "On stage" },
   { href: "/family", Icon: Users, label: "Family profile", description: "Guardians, address, emergency contacts", group: "Your family" },
   { href: "/family/documents", Icon: FileSignature, label: "Document vault", description: "Waivers, forms, and receipts", group: "Your family" },
+  // CJ, 11 Sep 2026: "Add a Payments & receipts link inside the parent
+  // portal." Money never moved here — payment plans, the card on file and
+  // past payments stay in the registration system — and the website's nav
+  // now sends parents to this portal instead of that page, so this is how
+  // they get back to it.
+  { href: org.paymentsUrl, Icon: CreditCard, label: "Payments & receipts", description: "Payment plans, card on file, and past payments", group: "Your family", external: true },
   { href: "/family/pickup", Icon: TrafficCone, label: "Pickup & drop-off", description: "Request an early pickup or a late drop-off", group: "Your family" },
   { href: "/family/absences", Icon: CalendarOff, label: "Report an absence", description: "A rehearsal or performance your child will miss", group: "Your family" },
   // Sheets are built per show in the staff portal and appear here the moment

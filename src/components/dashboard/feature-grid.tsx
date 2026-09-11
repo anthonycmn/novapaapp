@@ -10,21 +10,33 @@ import { SectionHeader } from "@/components/ui/section-header";
 function Grid({ items }: { items: NavSection[] }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-      {items.map(({ href, label, description, Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className="flex items-start gap-2.5 rounded-md border bg-card px-3 py-2.5 transition-colors hover:bg-muted"
-        >
-          <Icon aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
-          <span className="min-w-0">
-            <span className="block text-[13px] font-medium leading-tight">{label}</span>
-            <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
-              {description}
+      {items.map(({ href, label, description, Icon, external }) => {
+        const body = (
+          <>
+            <Icon aria-hidden size={15} className="mt-0.5 shrink-0 text-gold" />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium leading-tight">
+                {label}
+                {external && <span className="sr-only"> (opens in a new tab)</span>}
+              </span>
+              <span className="mt-0.5 block text-[12px] leading-snug text-muted-foreground">
+                {description}
+              </span>
             </span>
-          </span>
-        </Link>
-      ))}
+          </>
+        );
+        const className =
+          "flex items-start gap-2.5 rounded-md border bg-card px-3 py-2.5 transition-colors hover:bg-muted";
+        return external ? (
+          <a key={href} href={href} target="_blank" rel="noopener noreferrer" className={className}>
+            {body}
+          </a>
+        ) : (
+          <Link key={href} href={href} className={className}>
+            {body}
+          </Link>
+        );
+      })}
     </div>
   );
 }
