@@ -90,7 +90,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         this.selectAll("campers", "id, family_id, name, birthdate"),
         this.selectAll(
           "order_items",
-          "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, created_at)"
+          "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, installments_paid_cents, created_at)"
         ),
         this.selectAll(
           "legacy_enrollments",
@@ -183,9 +183,14 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
 
       // Installment plans carry the outstanding balance at the ORDER level;
       // split it (and the amount paid) across items by price share.
+      // `amount_today_cents` is only the checkout charge. The installments a
+      // Stripe schedule collects afterwards land in `installments_paid_cents`
+      // (reg-webhook on invoice.paid); leaving them out is how Alida Perez saw
+      // a $364.87 balance for a week after she had paid it (Sep 11 2026).
       const orderTotal = orderItemTotal.get(str(order.id) ?? "") || 0;
       const share = orderTotal > 0 ? num(row.unit_price_cents) / orderTotal : 0;
-      const orderBalance = Math.max(0, num(order.total_cents) - num(order.amount_today_cents));
+      const orderPaid = num(order.amount_today_cents) + num(order.installments_paid_cents);
+      const orderBalance = Math.max(0, num(order.total_cents) - orderPaid);
 
       enrollments.push({
         externalId: id,
@@ -199,7 +204,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         sessionEndsOn: session?.endsOn,
         status,
         balanceCents: Math.round(orderBalance * share),
-        amountPaidCents: Math.round(num(order.amount_today_cents) * share),
+        amountPaidCents: Math.round(orderPaid * share),
         enrolledAt: str(order.created_at) ?? new Date().toISOString(),
       });
     }
