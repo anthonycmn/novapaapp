@@ -1,39 +1,38 @@
 <!--
-  The "Reset Password" email — Supabase dashboard → Authentication → Email
-  Templates → Reset Password. Paste the body below into the template box; the
-  subject can stay "Reset Your Password".
+  The "Reset password" email — Supabase dashboard → Authentication → Emails →
+  Reset password. ONE template serves three apps (website, staff portal, this
+  portal), so it branches on where the reset was asked from. Only the body
+  between the dashes below is pasted; this comment stays here.
 
-  WHY THIS EXISTS. The stock template links to {{ .ConfirmationURL }}, which is
-  Supabase's own /verify endpoint: it spends the one-time token on the GET and
-  redirects to our page with a session in the URL hash. Microsoft opens every
-  link in an inbox before the person does (Safe Links, Outlook, Microsoft 365),
-  so for those families the token is gone by the time they tap — Frank Watson,
-  10 Sep 2026: "2 minutes later she gets the email and clicks the link to reset
-  password then it errors and says the link is expired."
+  WHY A CODE, 11 Sep 2026. The reset link used to go through
+  novapa.org/auth-continue, an interstitial where a button press does the
+  verify, on the theory that mail scanners fetch links but do not run
+  JavaScript. The Watsons' provider does both: 213.159.10.29 pressed the button
+  on three of Kelly Watson's reset emails in one evening, about a minute after
+  each landed, and each of her own taps a few minutes later got "expired". A
+  link a bot can press is not a credential. Six digits a person reads off one
+  screen and types into another cannot be pressed.
 
-  This template links to OUR page instead, carrying the unspent {{ .TokenHash }}
-  in the query. {{ .RedirectTo }} is the redirectTo the app passes to
-  resetPasswordForEmail — https://portal.novapa.org/reset-password — so the
-  same template serves a preview deploy without editing, and it does not
-  depend on the project's Site URL, which three apps share.
+  So for the parent portal the email carries {{ .Token }} and nothing to click;
+  the page they asked from (portal.novapa.org/forgot-password) takes the code.
+  The other two apps keep the interstitial link, byte for byte as it was, until
+  they grow a code box of their own.
 
-  Loading the page does nothing. The token is exchanged when the parent
-  presses Save (src/app/reset-password/reset-form.tsx, verifyOtp), so a
-  scanner that fetched the link first got a form and not a session.
-
-  The page still accepts the stock link too, so nothing breaks if this is not
-  pasted — it just keeps failing for Outlook families until it is.
+  The branch keys on .RedirectTo, which is the redirectTo the app passes to
+  resetPasswordForEmail — exactly "https://portal.novapa.org/reset-password"
+  in production. A preview deploy passes its own URL and gets the link branch,
+  which is harmless.
 -->
+----------------------------------------------------------------------
 <h2>Reset your password</h2>
-
-<p>Someone — hopefully you — asked to reset the password for the NOVA PA Parent Portal.</p>
-
-<p>
-  <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&amp;type=recovery">
-    Choose a new password
-  </a>
-</p>
-
-<p>The link is good for one hour and works once. If you didn't ask for this, you can ignore it — nothing changes until a new password is saved.</p>
-
-<p>NOVA PA · portal.novapa.org</p>
+{{ if eq .RedirectTo "https://portal.novapa.org/reset-password" }}
+<p>Your code for the NOVA PA Parent Portal is:</p>
+<p style="font-size:28px;letter-spacing:6px;font-weight:700;margin:16px 0">{{ .Token }}</p>
+<p>Type it on the page where you asked for it, together with your new password. The code works once and expires in an hour.</p>
+<p>There is no link in this email on purpose: some email systems open links before you can, and that was locking families out.</p>
+{{ else }}
+<p>We received a request to reset your password. Follow the link below to choose a new one.</p>
+<p><a href="https://novapa.org/auth-continue?token_hash={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo }}">Reset password</a></p>
+{{ end }}
+<p>If you didn't request this, you can safely ignore this email.</p>
+----------------------------------------------------------------------

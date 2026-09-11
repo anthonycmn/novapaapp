@@ -126,9 +126,59 @@ export async function requestPasswordReset(formData: FormData): Promise<void> {
   await logActivity({
     actorEmail: email,
     action: "auth.password_reset_requested",
-    summary: "Asked for a password reset link",
+    summary: "Asked for a password reset code",
   });
   redirect(`/forgot-password?sent=1&email=${encodeURIComponent(email)}`);
+}
+
+/**
+ * Finish a reset with the six-digit code from the email (lib/auth/reset-code).
+ *
+ * The recovery email for this app carries a code and no link — see the
+ * template's `if eq .RedirectTo` branch — because the Watsons' mail scanner
+ * presses buttons. verifyOtp proves the person holds the code; the password is
+ * then set through the service role, the same way /family/password does it, so
+ * no recovery session ever has to survive a round trip to a browser.
+ *
+ * The request is never told whether the address exists. A wrong code and an
+ * unknown email get the same sentence.
+ */
+export async function resetPasswordWithCode(formData: FormData): Promise<void> {
+  if (!isSupabaseMode()) redirect("/login");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const { normalizeResetCode } = await import("./reset-code");
+  const code = normalizeResetCode(String(formData.get("code") ?? ""));
+  const password = String(formData.get("password") ?? "");
+  const back = `/forgot-password?sent=1&email=${encodeURIComponent(email)}`;
+
+  if (!email) redirect("/forgot-password?error=missing-email");
+  if (!code) redirect(`${back}&error=code`);
+  if (password.length < 8) redirect(`${back}&error=short`);
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const anon = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+  const { data, error } = await anon.auth.verifyOtp({ email, token: code, type: "recovery" });
+  if (error || !data.user) redirect(`${back}&error=code`);
+
+  const { getServiceClient } = await import("@/lib/api/supabase/client");
+  const { error: setError } = await getServiceClient().auth.admin.updateUserById(
+    data.user.id,
+    { password }
+  );
+  if (setError) redirect(`${back}&error=failed`);
+
+  // The recovery session verifyOtp minted is never used again.
+  await anon.auth.signOut().catch(() => undefined);
+  await logActivity({
+    actorEmail: email,
+    action: "auth.password_reset",
+    summary: "Chose a new password with a reset code",
+  });
+  redirect("/login?reset=1");
 }
 
 export async function signInWithEmail(formData: FormData): Promise<void> {
