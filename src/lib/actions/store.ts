@@ -261,21 +261,34 @@ export async function checkoutAction(): Promise<void> {
     detail: { reference: order.reference },
   });
 
-  const checkout = await payments.createCheckout({
-    orderReference: order.reference,
-    customerEmail: user.email,
-    lines: cart.map((item) => ({
-      // Buttons get a descriptive line; catalog products already carry a
-      // display name that includes the chosen option.
-      name: isButtonLine(item)
-        ? describeButton(item.studentName, item.role, item.size)
-        : item.displayName,
-      unitAmountCents: item.unitPriceCents,
-      quantity: item.quantity,
-    })),
-    successUrl: `${origin}/store/orders?placed=${order.reference}`,
-    cancelUrl: `${origin}/store/cart`,
-  });
+  // Guarded the same way as buyCoachingAction, 11 Sep 2026: a Stripe refusal
+  // must come back as a sentence on the cart, not the generic crash page.
+  let checkout;
+  try {
+    checkout = await payments.createCheckout({
+      orderReference: order.reference,
+      customerEmail: user.email,
+      lines: cart.map((item) => ({
+        // Buttons get a descriptive line; catalog products already carry a
+        // display name that includes the chosen option.
+        name: isButtonLine(item)
+          ? describeButton(item.studentName, item.role, item.size)
+          : item.displayName,
+        unitAmountCents: item.unitPriceCents,
+        quantity: item.quantity,
+      })),
+      successUrl: `${origin}/store/orders?placed=${order.reference}`,
+      cancelUrl: `${origin}/store/cart`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("checkoutAction: checkout refused", message);
+    redirect(
+      `/store/cart?error=${encodeURIComponent(
+        `The card processor refused to start this checkout. Nothing was charged. Please tell the office what it said: ${message.slice(0, 300)}`
+      )}`
+    );
+  }
 
   // With the mock processor no real payment happens, so mark it paid here.
   // Stripe orders are marked paid by the webhook instead.

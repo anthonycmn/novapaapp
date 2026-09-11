@@ -197,22 +197,43 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
     headerList.get("origin") ??
     `https://${headerList.get("host") ?? "localhost:3000"}`;
 
-  const checkout = await getPaymentProvider().createCheckout({
-    orderReference: purchase.reference,
-    customerEmail: user.email,
-    lines: [
-      {
-        name: purchase.service,
-        description: `${purchase.sessions} coaching session${
-          purchase.sessions === 1 ? "" : "s"
-        } for ${purchase.studentName}`,
-        unitAmountCents: purchase.amountCents,
-        quantity: 1,
-      },
-    ],
-    successUrl: `${origin}/coaches?bought=${purchase.reference}`,
-    cancelUrl: `${origin}/coaches`,
-  });
+  /*
+   * A Stripe refusal must land as a sentence on the page, not as a crash.
+   *
+   * On 11 Sep 2026 this call threw unguarded and a parent pressing "Continue
+   * to payment" got the generic something-went-wrong page — a dead end that
+   * looks like a broken portal and says nothing anybody can act on. The
+   * refusal text names the actual problem (a key without checkout permission,
+   * a rolled key, a malformed line item), which is exactly what the office
+   * needs to hear quoted back.
+   */
+  let checkout;
+  try {
+    checkout = await getPaymentProvider().createCheckout({
+      orderReference: purchase.reference,
+      customerEmail: user.email,
+      lines: [
+        {
+          name: purchase.service,
+          description: `${purchase.sessions} coaching session${
+            purchase.sessions === 1 ? "" : "s"
+          } for ${purchase.studentName}`,
+          unitAmountCents: purchase.amountCents,
+          quantity: 1,
+        },
+      ],
+      successUrl: `${origin}/coaches?bought=${purchase.reference}`,
+      cancelUrl: `${origin}/coaches`,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("buyCoachingAction: checkout refused", message);
+    redirect(
+      `/coaches?error=${encodeURIComponent(
+        `The card processor refused to start this checkout. Nothing was charged. Please tell the office what it said: ${message.slice(0, 300)}`
+      )}`
+    );
+  }
 
   // With the mock processor no real money moves, so the balance is credited
   // here. A real Stripe purchase is credited by the webhook instead, once
