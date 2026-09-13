@@ -289,6 +289,72 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
   const coachingIds = input.coachingActivityIds ?? new Set<number>();
 
   /*
+   * WHAT THE SOURCE RETRACTS, THE HUB WITHDRAWS.
+   *
+   * Until 13 Sep 2026 this plan only ever created and updated. A row whose
+   * source later pointed somewhere else — or nowhere — lived on for ever: ten
+   * July "Disney Adventures Camp" campers were filed on the Oct 12 day camp
+   * because their legacy rows once carried that activity_id, and when the
+   * staff portal cleared the id the hub kept the ten enrollments. Families
+   * could open the portal and see a July camper booked into October.
+   *
+   * So: an existing synced enrollment whose external_id is still in the
+   * snapshot but now resolves to a DIFFERENT target, or to none, is marked
+   * withdrawn (the sync never deletes; a human deletes) and reported as a
+   * conflict naming both. "To none" is only trusted when the old target was
+   * matched BY ID and the source no longer carries that id — a row that
+   * matched by name and stops matching because somebody renamed a show is
+   * an unknown_offering for a human, not a withdrawal.
+   */
+  const existingByExternalId = new Map<string, Enrollment>();
+  for (const enrollment of input.enrollments) {
+    const externalId = input.enrollmentExternalIds?.get(enrollment.id);
+    if (externalId) existingByExternalId.set(externalId, enrollment);
+  }
+  const activityIdOfProduction = new Map<string, number>();
+  for (const production of input.productions) {
+    if (production.registrationActivityId != null) {
+      activityIdOfProduction.set(production.id, production.registrationActivityId);
+    }
+  }
+  const activityIdOfClass = new Map<string, number>();
+  for (const offering of input.classes) {
+    if (offering.registrationActivityId != null) {
+      activityIdOfClass.set(offering.id, offering.registrationActivityId);
+    }
+  }
+  const targetOf = (enrollment: Enrollment): string =>
+    enrollment.productionId ??
+    enrollment.classId ??
+    (enrollment.coachingActivityId != null ? `coaching:${enrollment.coachingActivityId}` : "");
+  const withdrawn = new Set<string>();
+  const retract = (
+    external: RegistrationSnapshot["enrollments"][number],
+    newTarget: string | undefined,
+    newLabel: string
+  ): void => {
+    const old = existingByExternalId.get(external.externalId);
+    if (!old || old.status === "withdrawn" || withdrawn.has(old.id)) return;
+    const oldTarget = targetOf(old);
+    if (newTarget) {
+      if (oldTarget === newTarget) return;
+    } else {
+      const oldActivityId =
+        (old.productionId ? activityIdOfProduction.get(old.productionId) : undefined) ??
+        (old.classId ? activityIdOfClass.get(old.classId) : undefined);
+      if (oldActivityId == null || external.offeringActivityId === oldActivityId) return;
+    }
+    withdrawn.add(old.id);
+    plan.updates.push({ enrollmentId: old.id, status: "withdrawn" });
+    plan.counts.enrollmentsUpdated += 1;
+    plan.issues.push({
+      kind: "conflict",
+      externalId: external.externalId,
+      message: `Registration ${external.externalId} used to be enrollment ${old.id} (${oldTarget}) and now points at ${newLabel}. The old enrollment was withdrawn; delete it once you have checked.`,
+    });
+  };
+
+  /*
    * (student, target) pairs already planned as creates THIS run.
    *
    * existingByKey only guards against rows that were in the database before
@@ -306,6 +372,24 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
     const offeringKey = normalize(external.offeringName);
     const activityId = external.offeringActivityId;
+
+    /*
+     * A LEGACY ROW CAN NEVER LAND ON A DAY CAMP.
+     *
+     * Every day camp went on sale in August 2026 and sells only through
+     * order_items. A Sawyer-era row pointing at one is a mislink by
+     * definition — it is how the Disney campers ended up on Oct 12 — so it
+     * is reported, never placed, and anything it placed before is withdrawn.
+     */
+    if (external.externalId.startsWith("legacy:") && external.offeringKind === "day_camp") {
+      plan.issues.push({
+        kind: "unknown_offering",
+        externalId: external.externalId,
+        message: `"${external.offeringName}" is a day camp, and ${external.externalId} is a legacy (Sawyer-era) registration. Day camps went on sale in August 2026 and sell only through the website's order_items, so a legacy row pointing at one is a mislink. Nothing was placed; clear the row's activity_id in the registration system.`,
+      });
+      retract(external, undefined, "a day camp it cannot have been for");
+      continue;
+    }
     const productionId =
       (activityId != null ? productionByActivityId.get(activityId) : undefined) ??
       productionByName.get(offeringKey);
@@ -337,6 +421,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
             ? `"${external.offeringName}" is coaching, but the staff portal's coaching catalog doesn't list it. Add it there (staff_portal.coaching_service_menu) and it will map on the next sync.`
             : `"${external.offeringName}" doesn't match any production or class in the app. Add it, or map it manually.`,
       });
+      retract(external, undefined, `nothing ("${external.offeringName}")`);
       continue;
     }
 
@@ -349,6 +434,9 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
     const targetKey =
       productionId ?? classId ?? `coaching:${coachingActivityId}`;
+    // The source moved this registration to another target: the old row is
+    // withdrawn below and the new one is created or adopted as usual.
+    retract(external, targetKey, targetKey);
     const existing = existingByKey.get(`${studentId}::${targetKey}`);
 
     if (!existing && plannedKeys.has(`${studentId}::${targetKey}`)) continue;
