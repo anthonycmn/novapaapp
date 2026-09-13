@@ -132,7 +132,7 @@ export async function requestPasswordReset(formData: FormData): Promise<void> {
 }
 
 /**
- * Finish a reset with the six-digit code from the email (lib/auth/reset-code).
+ * Finish a reset with the code from the email (lib/auth/reset-code).
  *
  * The recovery email for this app carries a code and no link — see the
  * template's `if eq .RedirectTo` branch — because the Watsons' mail scanner

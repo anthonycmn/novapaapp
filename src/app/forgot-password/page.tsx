@@ -48,8 +48,9 @@ export default async function ForgotPasswordPage({
          * headless browser a minute after it lands, and presses the buttons it
          * finds. It spent three of Kelly's reset links in one evening, through
          * the interstitial page built to stop exactly that. A link a bot can
-         * press is not a credential. Six digits a person reads off one screen
-         * and types into another cannot be pressed.
+         * press is not a credential. A number a person reads off one screen
+         * and types into another cannot be pressed. (How many digits is
+         * Supabase's setting, not ours — eight today; never say "six" here.)
          *
          * So the page they asked from is the page they finish on. The email
          * carries the code and nothing to click.
@@ -58,8 +59,8 @@ export default async function ForgotPasswordPage({
           <CardHeader>
             <CardTitle as="h2">Check your email for a code 📬</CardTitle>
             <CardDescription>
-              If <strong>{email}</strong> has an account with us, a six-digit
-              code is on its way. Type it below with the password you&apos;d
+              If <strong>{email}</strong> has an account with us, a code is
+              on its way. Type it below with the password you&apos;d
               like. The code is good for an hour and works once.
             </CardDescription>
           </CardHeader>
@@ -74,9 +75,9 @@ export default async function ForgotPasswordPage({
                   inputMode="numeric"
                   autoComplete="one-time-code"
                   pattern="[0-9 ]*"
-                  maxLength={8}
+                  maxLength={14}
                   required
-                  placeholder="123456"
+                  placeholder="12345678"
                   className="text-center text-xl tracking-[0.4em]"
                 />
                 {error === "code" && (
@@ -146,7 +147,7 @@ export default async function ForgotPasswordPage({
             <CardDescription>
               {existing
                 ? "We already have an account on that email from your registration — you just need a password on it. Send yourself a code below and pick one."
-                : "Enter the email on your family account and we'll send you a six-digit code to choose a new password."}
+                : "Enter the email on your family account and we'll send you a code to choose a new password."}
             </CardDescription>
           </CardHeader>
           <CardContent>
