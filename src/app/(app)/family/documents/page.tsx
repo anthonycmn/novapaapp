@@ -100,8 +100,15 @@ export default async function DocumentsPage() {
                 <CardContent className="flex items-center gap-3 p-4">
                   <FileText aria-hidden className="size-5 shrink-0 text-muted-foreground" />
                   <div className="min-w-0 flex-1">
+                    {/* Through the signing door, never the bucket address: the
+                        bucket is private, so the stored URL is a 400 to a
+                        parent's browser. A data: URL (mock mode) opens as is. */}
                     <a
-                      href={document.fileUrl}
+                      href={
+                        document.fileUrl.startsWith("data:")
+                          ? document.fileUrl
+                          : `/api/documents/file?id=${document.id}&open=1`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="truncate font-medium text-primary underline-offset-4 hover:underline"

@@ -64,6 +64,39 @@ export function getWebsiteReadClient(): SupabaseClient {
   return websiteReadClient;
 }
 
+let websiteAnonClient: SupabaseClient | null = null;
+
+/**
+ * The website's `public` schema AS A PARENT ON THE WEBSITE SEES IT — the anon
+ * key, nothing more. Used by the day-camp punch card for exactly two calls:
+ *
+ *   public.catalog_list          the sessions and their spots left
+ *   public.acquire_hold_guest    a 30-minute hold before a $0 credit booking
+ *
+ * `getWebsiteReadClient()` above holds the SERVICE-ROLE key and must never be
+ * used to call a write RPC. A hold acquired as anon is judged by exactly the
+ * rules a parent on novapa.org is judged by — capacity, bookable, the gate —
+ * which is the point: the portal gets no shortcut past the checkout's own
+ * checks. (acquire_hold_guest releases the email's other active holds; a
+ * parent with the website open in another tab loses that cart, as they would
+ * by starting over there. Documented, accepted.)
+ */
+export function getWebsiteAnonClient(): SupabaseClient {
+  if (websiteAnonClient) return websiteAnonClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase is not configured: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required."
+    );
+  }
+  websiteAnonClient = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    db: { schema: "public" },
+  });
+  return websiteAnonClient;
+}
+
 let portalReadClient: SupabaseClient | null = null;
 
 /**

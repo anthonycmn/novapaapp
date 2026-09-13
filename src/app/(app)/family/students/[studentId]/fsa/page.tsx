@@ -162,7 +162,12 @@ export default async function FsaPage({
                 <tbody>
                   {statement.lineItems.map((item, index) => (
                     <tr key={index} className="border-b border-black/10">
-                      <td className="py-1.5">{item.description}</td>
+                      <td className="py-1.5">
+                        {item.description}
+                        {item.note && (
+                          <span className="block text-[11px] italic text-black/60">{item.note}</span>
+                        )}
+                      </td>
                       <td className="py-1.5">{formatDate(`${item.startDate}T12:00:00Z`)}</td>
                       <td className="py-1.5">{formatDate(`${item.endDate}T12:00:00Z`)}</td>
                       <td className="py-1.5 text-right tabular-nums">

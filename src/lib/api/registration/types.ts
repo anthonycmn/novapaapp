@@ -40,6 +40,12 @@ export interface ExternalEnrollment {
    * and resolves against the staff portal's catalog instead; see reconcile.
    */
   offeringCategory?: string;
+  /**
+   * The website's `activities.offering_kind` — "day_camp", "class", "show"…
+   * Finer than the category: a day camp and a summer camp are both "camp",
+   * and only one of them can ever have a Sawyer-era registration.
+   */
+  offeringKind?: string;
   /** The website's `activities.id`, the key both systems agree on. */
   offeringActivityId?: number;
   /**

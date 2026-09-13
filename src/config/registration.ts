@@ -40,6 +40,33 @@ export const registration = {
   activityUrl: (activityId: number | string) =>
     `${SITE}/register/?activity=${activityId}`,
 
+  /**
+   * The punch card's two doors into the registration system (13 Sep 2026).
+   *
+   * `regPayUrl` is the checkout's own server endpoint. The portal calls it
+   * server-to-server with `confirm_free: true` to spend a Day Camp credit —
+   * the exact request the website's pay step sends for a $0 cart, so the
+   * order, the credit deduction and the roster row are all the registration
+   * system's own work. `checkoutUrl` builds the address a family is sent to
+   * when money is involved: the days in ?activity=, the child in ?kid=, and
+   * back=portal so the confirmation page offers a way home. Stripe stays on
+   * the website; the portal never sees a card.
+   *
+   * Both may be overridden by environment for a preview against a staging
+   * checkout. In mock mode nothing here is called at all.
+   */
+  regPayUrl: process.env.REGISTRATION_PAY_URL ?? "https://novapa.org/api/reg-pay",
+  regPayTimeoutMs: 15_000,
+  checkoutUrl: (opts: { activityIds: number[]; email: string; kid: string }) => {
+    const base = process.env.REGISTRATION_CHECKOUT_URL ?? "https://novapa.org/register/";
+    const q = new URLSearchParams();
+    q.set("activity", opts.activityIds.join(","));
+    q.set("pe", opts.email);
+    q.set("kid", opts.kid);
+    q.set("back", "portal");
+    return `${base}?${q.toString()}`;
+  },
+
   /** Public marketing pages, for browsing rather than buying. */
   classesUrl: `${SITE}/classes`,
   coachingUrl: `${SITE}/coaching`,

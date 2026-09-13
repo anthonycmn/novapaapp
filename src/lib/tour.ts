@@ -116,6 +116,14 @@ export function tourSteps(opts: {
       link: { label: "Go to Shows", href: "/shows" },
     },
     {
+      key: "day-camps",
+      title: "Day camp punch card",
+      body: "Every day camp on the calendar, in one list. Credits from a Day Camp Pack are spent here with one tap, days already bought are marked as booked, and days you'd like to add go in a cart that tells you when five of them become the $349 pack price.",
+      anchors: ["nav-day-camps", "nav-group-on-stage"],
+      menu: true,
+      link: { label: "Open the punch card", href: "/day-camps" },
+    },
+    {
       key: "family",
       title: "Your family profile",
       body: "Guardians, address and emergency contacts live under Family profile — please keep them current, it's who we call. The Document vault holds waivers, forms and receipts. Report an absence and Pickup & drop-off are how you tell us before the day, and Message the office reaches a named person privately.",

@@ -62,6 +62,13 @@ export interface FsaLineItem {
    * Honest and imprecise, which is the right way round on a claim form.
    */
   datesApproximate?: boolean;
+  /**
+   * A sentence under the program name, when the amount needs one. A day
+   * booked with a Day Camp Pack credit is $0 on its own line because the
+   * money is on the pack's line; the note says so, so the form reads as one
+   * payment for several days of care rather than a week of free camp.
+   */
+  note?: string;
 }
 
 export interface FsaStatement {

@@ -16,8 +16,12 @@ export interface RegistrationProvider {
   /** Whether this adapter has the credentials/config it needs to run. */
   isConfigured(): boolean;
 
-  /** Pull the current state. Throws on transport/auth failure. */
-  fetchSnapshot(): Promise<RegistrationSnapshot>;
+  /**
+   * Pull the current state. Throws on transport/auth failure. Adapters may
+   * honor `familyExternalId` to answer for one account only (the website one
+   * does); the others ignore it and answer whole.
+   */
+  fetchSnapshot(opts?: { familyExternalId?: string }): Promise<RegistrationSnapshot>;
 }
 
 export class RegistrationUnavailableError extends Error {

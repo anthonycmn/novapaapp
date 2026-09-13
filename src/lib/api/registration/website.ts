@@ -56,6 +56,11 @@ export async function fetchCoachingActivityIds(): Promise<Set<number>> {
 
 type Row = Record<string, unknown>;
 
+/** See fetchSnapshot: narrow the read to one website family. */
+export interface SnapshotOptions {
+  familyExternalId?: string;
+}
+
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim() ? v.trim() : undefined;
 const num = (v: unknown): number =>
@@ -79,24 +84,39 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
     );
   }
 
-  async fetchSnapshot(): Promise<RegistrationSnapshot> {
+  async fetchSnapshot(opts: SnapshotOptions = {}): Promise<RegistrationSnapshot> {
     if (!this.isConfigured()) {
       throw new RegistrationUnavailableError("Supabase is not configured", this.source);
     }
 
+    /*
+     * ONE FAMILY, WHEN ASKED. The punch card books a $0 day through the
+     * website's checkout and then wants the hub enrollment to exist before the
+     * page re-renders, not fifteen minutes later when the scheduled sync next
+     * runs. A snapshot narrowed to that family — its account, its campers, its
+     * orders — goes through the same reconcile as the full one and creates the
+     * same row the job would have; the job then finds it by (student, target)
+     * and does nothing. Legacy rows are left out of a narrowed snapshot: they
+     * cannot be day camps (see reconcile), and the job still covers them.
+     */
+    const only = opts.familyExternalId;
     const [familyRows, camperRows, itemRows, legacyRows, activityRows, showTitles] =
       await Promise.all([
-        this.selectAll("families", "id, email, parent_name, is_test"),
-        this.selectAll("campers", "id, family_id, name, birthdate"),
-        this.selectAll(
-          "order_items",
-          "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, installments_paid_cents, created_at)"
-        ),
-        this.selectAll(
-          "legacy_enrollments",
-          "id, email, camper_name, activity_text, activity_id, show, paid_cents, imported_at"
-        ),
-        this.selectAll("activities", "id, name, category, age_range, class_times"),
+        this.selectAll("families", "id, email, parent_name, is_test", only ? { id: only } : undefined),
+        this.selectAll("campers", "id, family_id, name, birthdate", only ? { family_id: only } : undefined),
+        only
+          ? this.selectFamilyOrderItems(only)
+          : this.selectAll(
+              "order_items",
+              "id, show, band, camper_name, unit_price_cents, activity_id, order:orders(id, email, status, total_cents, amount_today_cents, installments_paid_cents, created_at)"
+            ),
+        only
+          ? Promise.resolve([] as Row[])
+          : this.selectAll(
+              "legacy_enrollments",
+              "id, email, camper_name, activity_text, activity_id, show, paid_cents, imported_at"
+            ),
+        this.selectAll("activities", "id, name, category, age_range, class_times, offering_kind"),
         fetchShowTitleMap(),
       ]);
     const activities = buildActivityMap(activityRows);
@@ -199,6 +219,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         accountExternalId: familyId,
         offeringName,
         offeringCategory,
+        offeringKind: activity?.offeringKind,
         offeringActivityId: activityId,
         sessionStartsOn: session?.startsOn,
         sessionEndsOn: session?.endsOn,
@@ -260,6 +281,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         offeringName,
         offeringCategory:
           activity?.category ?? categoryForShowCode(str(row.show)),
+        offeringKind: activity?.offeringKind,
         offeringActivityId: activityId,
         sessionStartsOn: activity?.session?.startsOn,
         sessionEndsOn: activity?.session?.endsOn,
@@ -281,16 +303,58 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
     };
   }
 
+  /**
+   * A narrowed snapshot's order lines: every order under the family's own
+   * address or its cc alias, with the same embedded order columns the full
+   * read carries. `orders!inner` makes the email filter bite on the embedded
+   * row rather than being ignored.
+   */
+  private async selectFamilyOrderItems(familyExternalId: string): Promise<Row[]> {
+    const db = getWebsiteReadClient();
+    const { data: fam, error: famErr } = await db
+      .from("families")
+      .select("email, cc_email")
+      .eq("id", familyExternalId)
+      .maybeSingle();
+    if (famErr) {
+      throw new RegistrationUnavailableError(
+        `Reading the family from the website database failed: ${famErr.message}`,
+        this.source
+      );
+    }
+    const emails = [str((fam as Row | null)?.email), str((fam as Row | null)?.cc_email)]
+      .filter((e): e is string => Boolean(e))
+      .map((e) => e.toLowerCase().replace(/[,()]/g, ""));
+    if (!emails.length) return [];
+    const { data, error } = await db
+      .from("order_items")
+      .select(
+        "id, show, band, camper_name, unit_price_cents, activity_id, order:orders!inner(id, email, status, total_cents, amount_today_cents, installments_paid_cents, created_at)"
+      )
+      .or(emails.map((e) => `email.ilike.${e}`).join(","), { referencedTable: "order" })
+      .range(0, 999);
+    if (error) {
+      throw new RegistrationUnavailableError(
+        `Reading order_items from the website database failed: ${error.message}`,
+        this.source
+      );
+    }
+    return (data ?? []) as unknown as Row[];
+  }
+
   /** SELECT with pagination — PostgREST caps a single response at 1000 rows. */
-  private async selectAll(table: string, columns: string): Promise<Row[]> {
+  private async selectAll(
+    table: string,
+    columns: string,
+    eq?: Record<string, string>
+  ): Promise<Row[]> {
     const db = getWebsiteReadClient();
     const all: Row[] = [];
     const page = 1000;
     for (let from = 0; ; from += page) {
-      const { data, error } = await db
-        .from(table)
-        .select(columns)
-        .range(from, from + page - 1);
+      let query = db.from(table).select(columns);
+      for (const [column, value] of Object.entries(eq ?? {})) query = query.eq(column, value);
+      const { data, error } = await query.range(from, from + page - 1);
       if (error) {
         throw new RegistrationUnavailableError(
           `Reading ${table} from the website database failed: ${error.message}`,
@@ -314,6 +378,8 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
 export interface ActivityInfo {
   name: string;
   category?: string;
+  /** `activities.offering_kind` — 'day_camp' is the one reconcile acts on. */
+  offeringKind?: string;
   ageRange?: string;
   /** When this session runs, parsed from the catalog's display strings. */
   session?: SessionDates;
@@ -329,6 +395,7 @@ export function buildActivityMap(rows: Row[]): Map<number, ActivityInfo> {
       map.set(id, {
         name,
         category: str(row.category),
+        offeringKind: str(row.offering_kind),
         ageRange: str(row.age_range),
         session: sessionDatesFromClassTimes(row.class_times) ?? undefined,
       });

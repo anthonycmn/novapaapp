@@ -67,8 +67,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Could not sign" }, { status: 502, headers: corsHeaders() });
   }
 
-  return NextResponse.json(
-    { url: `${url}/storage/v1${signed.signedURL}`, name: doc.name },
-    { headers: corsHeaders() }
-  );
+  const signedUrl = `${url}/storage/v1${signed.signedURL}`;
+
+  // `open=1` is the vault page's link: a browser wants the file, not JSON
+  // about it. The staff portal keeps the JSON contract below.
+  if (request.nextUrl.searchParams.get("open")) {
+    return NextResponse.redirect(signedUrl, { status: 302 });
+  }
+
+  return NextResponse.json({ url: signedUrl, name: doc.name }, { headers: corsHeaders() });
 }
