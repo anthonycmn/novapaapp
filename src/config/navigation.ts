@@ -18,6 +18,7 @@ import {
   ShoppingBag,
   Star,
   Theater,
+  Ticket,
   TrafficCone,
   UserPen,
   Users,
@@ -72,6 +73,12 @@ export const FAMILY_SECTIONS: NavSection[] = [
   // to find a Tuesday dance class; the labels match the staff portal's own.
   { href: "/shows", Icon: Theater, label: "Shows", description: "Your show, its calls, and tickets", group: "On stage" },
   { href: "/classes", Icon: BookOpen, label: "Classes", description: "When your class meets, and its updates", group: "On stage" },
+  // CJ, 13 Sep 2026: "I want a DAY CAMP PUNCHCARD line in the navigation
+  // with all of the dates listed, and then they can assign their credits based
+  // on what they bought to the days." Every date, the credits to spend on
+  // them, and the days already bought — locked, because "if they purchased a
+  // specific day, show that and do not let them change".
+  { href: "/day-camps", Icon: Ticket, label: "Day camp punch card", description: "Your camp days, credits to spend, and dates to add", group: "On stage" },
   { href: "/photos", Icon: Images, label: "Photos", description: "Galleries, and photos of your child", group: "On stage" },
   { href: "/family", Icon: Users, label: "Family profile", description: "Guardians, address, emergency contacts", group: "Your family" },
   { href: "/family/documents", Icon: FileSignature, label: "Document vault", description: "Waivers, forms, and receipts", group: "Your family" },

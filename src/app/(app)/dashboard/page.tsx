@@ -20,6 +20,7 @@ import { NeedsAttentionPanel } from "@/components/dashboard/needs-attention";
 import { PanelSkeleton } from "@/components/dashboard/panel-skeleton";
 import { StayInLoopCard } from "@/components/dashboard/stay-in-loop";
 import { MobileNumberCard } from "@/components/dashboard/mobile-number-card";
+import { PunchCardCard } from "@/components/dashboard/punch-card-card";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
@@ -310,6 +311,21 @@ export default async function DashboardPage({
             node: (
               <Suspense fallback={null}>
                 <StayInLoopCard familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+          {
+            def: {
+              key: "punch-card",
+              title: "Day camp punch card",
+              blurb: "Credits to spend and the next booked day, per child.",
+              zone: "right" as const,
+            },
+            /* Only while a child has credits or a day coming up; the loader is
+               the page's own, cached, so the two can't disagree. */
+            node: (
+              <Suspense fallback={null}>
+                <PunchCardCard familyId={user.familyId} />
               </Suspense>
             ),
           },
