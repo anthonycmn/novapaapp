@@ -19,6 +19,7 @@ import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { NeedsAttentionPanel } from "@/components/dashboard/needs-attention";
 import { PanelSkeleton } from "@/components/dashboard/panel-skeleton";
 import { StayInLoopCard } from "@/components/dashboard/stay-in-loop";
+import { MobileNumberCard } from "@/components/dashboard/mobile-number-card";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
@@ -309,6 +310,21 @@ export default async function DashboardPage({
             node: (
               <Suspense fallback={null}>
                 <StayInLoopCard familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+          {
+            def: {
+              key: "mobile-number",
+              title: "Add a mobile number",
+              blurb: "Shown until someone on the family has a phone on file.",
+              zone: "right" as const,
+            },
+            /* Checkout no longer asks for a phone (CJ, Sep 13 2026); this is
+               where it gets collected instead. Gone as soon as one is saved. */
+            node: (
+              <Suspense fallback={null}>
+                <MobileNumberCard familyId={user.familyId} />
               </Suspense>
             ),
           },
