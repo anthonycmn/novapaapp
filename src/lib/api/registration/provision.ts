@@ -25,8 +25,8 @@ import { getServiceClient, getWebsiteReadClient } from "../supabase/client";
  * visible one-line task.
  *
  * Idempotent: linked website families only gain new students, deduped by
- * name within their family, profiles are only attached where an auth account
- * already exists. Never creates or modifies auth users.
+ * camper id and then by name within their family; profiles are only attached
+ * where an auth account already exists. Never creates or modifies auth users.
  */
 
 type Row = Record<string, unknown>;
@@ -85,7 +85,7 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
       selectAll(hub, "registration_account_links", "family_id, source, external_id"),
       selectAll(hub, "guardians", "family_id, email"),
       selectAll(hub, "profiles", "id, email"),
-      selectAll(hub, "students", "id, family_id, first_name, last_name"),
+      selectAll(hub, "students", "id, family_id, first_name, last_name, camper_id"),
     ]);
 
   const authByEmail = new Map<string, string>();
@@ -124,12 +124,20 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
   );
   const studentKeysByFamily = new Map<string, Set<string>>();
   const allStudentKeys = new Set<string>();
+  // students.camper_id is unique (0059: a student IS the camper). A camper
+  // whose id already sits on a hub student is the same child however either
+  // side has since been renamed — "Ruthie" on the website, "Ruth" in the hub —
+  // and inserting it again fails the whole run on students_camper_id_key,
+  // which is what stopped every sync from Sep 13 2026 until this guard.
+  const claimedCamperIds = new Set<string>();
   for (const s of students) {
     const key = normalize(`${s.first_name} ${s.last_name}`);
     const set = studentKeysByFamily.get(String(s.family_id)) ?? new Set<string>();
     set.add(key);
     studentKeysByFamily.set(String(s.family_id), set);
     allStudentKeys.add(key);
+    const camperId = str(s.camper_id);
+    if (camperId) claimedCamperIds.add(camperId);
   }
 
   const campersByFamily = new Map<string, Row[]>();
@@ -232,11 +240,14 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
     for (const camper of campers) {
       const name = str(camper.name);
       if (!name) continue;
+      const camperId = str(camper.id);
+      if (camperId && claimedCamperIds.has(camperId)) continue;
       const { first, last } = splitName(name);
       const dedupeKey = normalize(`${first} ${last}`);
       if (existingKeys.has(dedupeKey)) continue;
       existingKeys.add(dedupeKey);
       allStudentKeys.add(dedupeKey);
+      if (camperId) claimedCamperIds.add(camperId);
 
       let dob = str(camper.birthdate);
       if (!dob && typeof camper.age === "number" && Number.isFinite(camper.age)) {
@@ -255,7 +266,7 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
         last_name: last,
         date_of_birth: dob,
         has_login: false,
-        camper_id: str(camper.id) ?? null,
+        camper_id: camperId ?? null,
       });
       result.studentsCreated++;
     }
