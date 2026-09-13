@@ -1,3 +1,4 @@
+import { DAY_CAMP_PACKS, isDayCampPack } from "@/config/day-camps";
 import type { Enrollment, Family, Guardian, Student } from "../types";
 import type { ClassOffering, Production } from "../types";
 import type { FsaLineItem, FsaStatement } from "./types";
@@ -82,12 +83,60 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
     isFsaEligibleFee(enrollment.offeringCategory)
   );
 
+  /*
+   * DAY CAMP PACKS (13 Sep 2026). A family that buys a Day Camp Pack pays
+   * once — $349 for five credits — and each day they spend a credit on is a
+   * $0 order line. Both are "camp" and both belong on the statement, but read
+   * naively the form showed a $349 program with no dates and a week of camp
+   * at $0.00. So: the pack line takes its dates from the days its credits
+   * were spent on (the care actually provided), and each credited day says
+   * it was paid for by the pack. The total is unchanged — the money is
+   * counted once, on the pack — and nothing is claimed for a credit not yet
+   * used, because no care has happened.
+   */
+  const packActivityId = (enrollment: Enrollment): number | undefined => {
+    const production = enrollment.productionId ? productionById.get(enrollment.productionId) : undefined;
+    const id = production?.registrationActivityId;
+    return id != null && isDayCampPack(id) ? id : undefined;
+  };
+  const hasPack = campEnrollments.some((enrollment) => packActivityId(enrollment) != null);
+  const creditedDays = hasPack
+    ? campEnrollments.filter(
+        (enrollment) =>
+          packActivityId(enrollment) == null &&
+          enrollment.amountPaidCents === 0 &&
+          Boolean(enrollment.sessionStartsOn)
+      )
+    : [];
+  const creditedDates = creditedDays
+    .map((enrollment) => enrollment.sessionStartsOn as string)
+    .sort();
+
   const lineItems: FsaLineItem[] = campEnrollments
     .map((enrollment) => {
       const offering = enrollment.classId ? classById.get(enrollment.classId) : undefined;
       const production = enrollment.productionId
         ? productionById.get(enrollment.productionId)
         : undefined;
+
+      const packId = packActivityId(enrollment);
+      if (packId != null) {
+        const pack = DAY_CAMP_PACKS[packId];
+        const paid = input.paidByEnrollmentId?.[enrollment.id] ?? enrollment.amountPaidCents;
+        const used = creditedDates.length;
+        return {
+          description: `${production?.title ?? pack.name} — ${pack.credits} day camp credits`,
+          startDate: creditedDates[0] ?? input.periodStart,
+          endDate: creditedDates[creditedDates.length - 1] ?? input.periodEnd,
+          amountCents: paid ?? 0,
+          amountUnknown: paid === undefined,
+          datesApproximate: used === 0,
+          note:
+            used === 0
+              ? "No credits have been used on a camp day yet; the dates above are the plan year."
+              : `Paid once for ${used} day${used === 1 ? "" : "s"} of camp listed below.`,
+        } satisfies FsaLineItem;
+      }
 
       const description = offering?.name ?? production?.title ?? "Program";
       /*
@@ -119,6 +168,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
       const paid =
         input.paidByEnrollmentId?.[enrollment.id] ?? enrollment.amountPaidCents;
 
+      const credited = creditedDays.includes(enrollment);
       return {
         description,
         startDate,
@@ -127,6 +177,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
         /** True when no payment record exists — reported, not silently zeroed. */
         amountUnknown: paid === undefined,
         datesApproximate,
+        note: credited ? "Paid with a Day Camp Pack credit — the amount is on the pack's line." : undefined,
       };
     });
 

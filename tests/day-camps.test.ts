@@ -392,3 +392,79 @@ describe("reconcile and day camps", () => {
     expect(plan.updates).toEqual([]);
   });
 });
+
+/* ── the FSA statement ────────────────────────────────────────────────── */
+
+describe("Dependent Care FSA statement and the punch card", () => {
+  const student: Student = {
+    id: "stu-eva", familyId: "fam-1", firstName: "Eva", lastName: "Pruitt", dateOfBirth: "2016-02-14",
+    grade: "5", consents: { photoUse: false, faceMatching: false, directoryVisible: false },
+    resumeCredits: [], hasLogin: false, createdAt: "", updatedAt: "",
+  };
+  const productions: Production[] = [
+    { id: "prod-pack", programId: "p", title: "Day Camp Pack", seasonId: "s", venue: "", registrationActivityId: 990010 },
+    { id: "prod-nov2", programId: "p", title: "Improv Olympics", seasonId: "s", venue: "", registrationActivityId: 991108 },
+    { id: "prod-nov3", programId: "p", title: "Campaign Trail: The Musical", seasonId: "s", venue: "", registrationActivityId: 1962622 },
+  ];
+  const enrollment = (id: string, productionId: string, paid: number, on?: string): Enrollment => ({
+    id, studentId: "stu-eva", productionId, status: "enrolled", balanceCents: 0, source: "registration_portal",
+    offeringCategory: "camp", amountPaidCents: paid, sessionStartsOn: on, sessionEndsOn: on, createdAt: "",
+  });
+  const base = {
+    student,
+    family: { id: "fam-1", name: "Pruitt", createdAt: "", updatedAt: "" } as never,
+    guardians: [{ id: "g", familyId: "fam-1", fullName: "Ginny Pruitt", email: "g@example.com", relationship: "", isPrimary: true } as never],
+    classes: [],
+    productions,
+    periodStart: "2026-01-01",
+    periodEnd: "2026-12-31",
+  };
+
+  it("puts the pack's money on the pack line, dated by the days its credits bought", async () => {
+    const { buildFsaStatement } = await import("@/lib/api/documents/fsa");
+    const statement = buildFsaStatement({
+      ...base,
+      enrollments: [
+        enrollment("e-pack", "prod-pack", 34900),
+        enrollment("e-nov2", "prod-nov2", 0, "2026-11-02"),
+        enrollment("e-nov3", "prod-nov3", 0, "2026-11-03"),
+      ],
+    });
+    expect(statement.eligible).toBe(true);
+    expect(statement.totalCents).toBe(34900);
+    const pack = statement.lineItems.find((l) => l.description.startsWith("Day Camp Pack"))!;
+    expect(pack).toMatchObject({ startDate: "2026-11-02", endDate: "2026-11-03", amountCents: 34900, datesApproximate: false });
+    expect(pack.note).toMatch(/2 days of camp/);
+    const day = statement.lineItems.find((l) => l.description === "Improv Olympics")!;
+    expect(day.amountCents).toBe(0);
+    expect(day.note).toMatch(/Day Camp Pack credit/);
+    expect(statement.unpricedCount).toBe(0);
+  });
+
+  it("a pack with no credits used yet is dated by the plan year and says so", async () => {
+    const { buildFsaStatement } = await import("@/lib/api/documents/fsa");
+    const statement = buildFsaStatement({ ...base, enrollments: [enrollment("e-pack", "prod-pack", 34900)] });
+    const pack = statement.lineItems[0];
+    expect(pack).toMatchObject({ startDate: "2026-01-01", endDate: "2026-12-31", datesApproximate: true });
+    expect(pack.note).toMatch(/No credits have been used/);
+  });
+
+  it("a day paid for outright is a normal dated line", async () => {
+    const { buildFsaStatement } = await import("@/lib/api/documents/fsa");
+    const statement = buildFsaStatement({ ...base, enrollments: [enrollment("e-nov2", "prod-nov2", 7900, "2026-11-02")] });
+    expect(statement.lineItems[0]).toMatchObject({ amountCents: 7900, startDate: "2026-11-02", datesApproximate: false });
+    expect(statement.lineItems[0].note).toBeUndefined();
+    expect(statement.eligible).toBe(true);
+  });
+
+  it("a thirteen-year-old with day camps is not eligible", async () => {
+    const { buildFsaStatement } = await import("@/lib/api/documents/fsa");
+    const statement = buildFsaStatement({
+      ...base,
+      student: { ...student, dateOfBirth: "2013-04-30" },
+      enrollments: [enrollment("e-nov2", "prod-nov2", 7900, "2026-11-02")],
+    });
+    expect(statement.eligible).toBe(false);
+    expect(statement.ineligibleReason).toMatch(/under 13/);
+  });
+});
