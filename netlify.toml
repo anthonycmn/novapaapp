@@ -20,6 +20,11 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
+# After a production deploy is live, a test parent resets a password and signs
+# in on it, and the office is emailed if they cannot (netlify/plugins/reset-smoke).
+[[plugins]]
+  package = "./netlify/plugins/reset-smoke"
+
 # Security headers. The app handles children's data, so these are not
 # optional niceties.
 [[headers]]

@@ -1,6 +1,7 @@
 import "server-only";
 import { getServiceClient, isSupabaseConfigured } from "@/lib/api/supabase/client";
 import { currentImpersonation } from "@/lib/auth/impersonation";
+import { SMOKE_PARENT_EMAIL } from "@/lib/jobs/reset-smoke-fixture";
 
 /**
  * The play-by-play (hub 0065): one line per thing a family did, written by
@@ -48,6 +49,11 @@ export async function logActivity(input: {
   // Mock mode has no service client and no Chief to read it.
   if ((process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") !== "supabase") return;
   if (!isSupabaseConfigured()) return;
+  // The sign-in check (lib/jobs/reset-smoke) resets a password and signs in
+  // as portal-test@novapa.org after every deploy and every six hours. It is
+  // not a family, and the Chief's play-by-play is for families.
+  const actorEmail = (input.user?.email ?? input.actorEmail ?? "").toLowerCase();
+  if (actorEmail === SMOKE_PARENT_EMAIL) return;
 
   try {
     // A Chief in the family's shoes (hub 0063) is stamped on the line, so it
