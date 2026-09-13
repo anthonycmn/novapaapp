@@ -12,8 +12,8 @@ describe("who keepsake submissions go to", () => {
     expect(SUBMISSION_RECIPIENTS.map((r) => r.email).sort()).toEqual([
       "cj@novapa.org",
       "jen@novapa.org",
-      "katie.h@novapa.org",
       "katie@novapa.org",
+      "katieh@novapa.org",
       "todd@novapa.org",
     ]);
   });
@@ -59,8 +59,8 @@ describe("who hears an arrival", () => {
     // Rivers and KDH." Two people who can walk to a door — an alert copied to
     // all five is an alert nobody owns.
     expect(ARRIVAL_RECIPIENTS.map((r) => r.email).sort()).toEqual([
-      "katie.h@novapa.org",
       "katie@novapa.org",
+      "katieh@novapa.org",
     ]);
   });
 
@@ -92,8 +92,8 @@ describe("who hears a pickup or a drop-off", () => {
     ];
     const merged = mergeRecipients(ARRIVAL_RECIPIENTS, admins);
     expect(merged.map((r) => r.email).sort()).toEqual([
-      "katie.h@novapa.org",
       "katie@novapa.org",
+      "katieh@novapa.org",
       "zoe@novapa.org",
     ]);
   });

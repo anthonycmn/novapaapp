@@ -32,9 +32,10 @@ export const SUBMISSION_RECIPIENTS: SubmissionRecipient[] = [
   { portalName: "Tony Cimino-Johnson", name: "CJ", email: "cj@novapa.org" },
   { portalName: "Todd Cimino-Johnson", name: "Todd", email: "todd@novapa.org" },
   { portalName: "Katie Rivers", name: "Katie Rivers", email: "katie@novapa.org" },
-  // Tony, 17 Aug 2026, correcting the address he gave earlier that morning:
-  // katie.h@ with the dot, not katieh@.
-  { portalName: "Katie Hamburger", name: "Katie Hamburger", email: "katie.h@novapa.org" },
+  // Tony, 13 Sep 2026: "change katie.h@ to katieh@ everywhere" — no dot,
+  // matching her staff portal login and staff record. (17 Aug he had said
+  // the dotted one; this supersedes it.)
+  { portalName: "Katie Hamburger", name: "Katie Hamburger", email: "katieh@novapa.org" },
 ];
 
 /** Guard: an org address is the only thing we will ever send a family's photo to. */
