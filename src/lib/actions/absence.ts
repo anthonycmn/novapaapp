@@ -11,11 +11,19 @@ import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { SubmissionState } from "./spirit-button";
 
 /**
- * A family telling us a child will miss a rehearsal or a performance.
+ * A family telling us a child will miss a rehearsal, a performance — or,
+ * since 0084, a class.
  *
  * Tony, 18 Aug 2026: "Allow for parents to submit absences in their dashboard
  * for their shows, and then the director and the show director each receive
  * that information."
+ *
+ * CJ, 13 Sep 2026: "Why aren't absences being recorded. I want them to be
+ * across the entire system." They were being recorded — for shows. A child in
+ * Tuesday dance had no way to say they would miss Tuesday. The form now
+ * offers every show AND every class the household is in, and a class absence
+ * goes to the office and to the class's teacher by the same route a message
+ * about the class would take (offering:/classes/<id>).
  *
  * Two audiences, resolved two different ways and both deliberately:
  *
@@ -55,7 +63,10 @@ const optionalTime = z
 const absenceSchema = z
   .object({
     studentId: z.string().min(1, "Choose a student"),
-    productionId: z.string().min(1, "Choose which show"),
+    // One or the other. The form posts whichever half of the pair was picked;
+    // the refine below is what says "at least one".
+    productionId: z.string().trim().optional(),
+    classId: z.string().trim().optional(),
     missedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose the date missed"),
     startsAtTime: optionalTime,
     endsAtTime: optionalTime,
@@ -72,7 +83,11 @@ const absenceSchema = z
       message: "The end time must be after the start",
       path: ["endsAtTime"],
     }
-  );
+  )
+  .refine((data) => Boolean(data.productionId || data.classId), {
+    message: "Choose which show or class",
+    path: ["productionId"],
+  });
 
 export async function reportAbsenceAction(
   _prev: SubmissionState,
@@ -83,7 +98,8 @@ export async function reportAbsenceAction(
 
   const parsed = absenceSchema.safeParse({
     studentId: formData.get("studentId"),
-    productionId: formData.get("productionId"),
+    productionId: formData.get("productionId") ?? "",
+    classId: formData.get("classId") ?? "",
     missedOn: formData.get("missedOn"),
     startsAtTime: formData.get("startsAtTime") ?? "",
     endsAtTime: formData.get("endsAtTime") ?? "",
@@ -100,36 +116,50 @@ export async function reportAbsenceAction(
   const provider = getProvider();
 
   /*
-   * The child has to actually be in the show. Both ids come off the wire, and
-   * an absence filed against somebody else's production would land in a
-   * director's inbox about a child who was never coming.
+   * The child has to actually be in the show or the class. Both ids come off
+   * the wire, and an absence filed against somebody else's offering would
+   * land in a director's inbox about a child who was never coming.
    */
+  const productionId = parsed.data.productionId || undefined;
+  const classId = productionId ? undefined : parsed.data.classId || undefined;
   const enrollments = await provider.getEnrollmentsForFamily(user.id, user.familyId);
   const enrolled = enrollments.some(
     (enrollment) =>
       enrollment.studentId === parsed.data.studentId &&
-      enrollment.productionId === parsed.data.productionId &&
+      (productionId
+        ? enrollment.productionId === productionId
+        : enrollment.classId === classId) &&
       enrollmentIsCurrent(enrollment)
   );
   if (!enrolled) {
     return {
       ok: false,
-      errors: { productionId: "That student isn't registered for that show" },
+      errors: {
+        productionId: productionId
+          ? "That student isn't registered for that show"
+          : "That student isn't registered for that class",
+      },
     };
   }
 
-  const [student, production] = await Promise.all([
+  const [student, production, classes] = await Promise.all([
     provider.getStudent(user.id, parsed.data.studentId),
-    provider.getProduction(parsed.data.productionId),
+    productionId ? provider.getProduction(productionId) : Promise.resolve(undefined),
+    classId ? provider.getClasses() : Promise.resolve([]),
   ]);
   const childName = student
     ? `${student.preferredName ?? student.firstName} ${student.lastName}`
     : "A student";
-  const showTitle = production?.title ?? "their show";
+  const klass = classId ? classes.find((c) => c.id === classId) : undefined;
+  const showTitle = productionId
+    ? (production?.title ?? "their show")
+    : (klass?.name ?? "their class");
+  const isClass = Boolean(classId);
 
   const report = await provider.createAbsenceReport(user.id, {
     studentId: parsed.data.studentId,
-    productionId: parsed.data.productionId,
+    productionId,
+    classId,
     offeringTitle: showTitle,
     startsOn: parsed.data.missedOn,
     endsOn: parsed.data.missedOn,
@@ -139,13 +169,15 @@ export async function reportAbsenceAction(
     reportedByName: user.displayName,
   });
 
-  /* Who runs this show, by the same route a message about it would take. */
+  /* Who runs this show or class, by the same route a message about it would
+     take — the class's teacher for a class, the director for a show. */
   const topics = await provider
     .listMessageTopicsForFamily(user.id, user.familyId)
     .catch(() => []);
-  const showTopic = topics.find(
-    (topic) => topic.routeId === `offering:/productions/${parsed.data.productionId}`
-  );
+  const routeId = productionId
+    ? `offering:/productions/${productionId}`
+    : `offering:/classes/${classId}`;
+  const showTopic = topics.find((topic) => topic.routeId === routeId);
 
   const dates = describeAbsenceWindow({
     startsOn: parsed.data.missedOn,
@@ -177,7 +209,7 @@ export async function reportAbsenceAction(
       : [],
     lines: [
       parsed.data.startsAtTime || parsed.data.endsAtTime
-        ? `${childName} will miss part of a ${showTitle} call.`
+        ? `${childName} will miss part of ${isClass ? "" : "a "}${showTitle}${isClass ? "" : " call"}.`
         : `${childName} will miss ${showTitle}.`,
       "",
       `When:   ${dates}`,
@@ -187,8 +219,8 @@ export async function reportAbsenceAction(
       `Reply to: ${user.email}`,
       "",
       showTopic?.recipientEmail
-        ? `The show's ${showTopic.recipientTitle ?? "director"}, ${showTopic.recipientName}, was copied.`
-        : "We could not identify a director with an org mailbox for this show, so only the office was told.",
+        ? `The ${isClass ? "class's" : "show's"} ${showTopic.recipientTitle ?? (isClass ? "teacher" : "director")}, ${showTopic.recipientName}, was copied.`
+        : `We could not identify a ${isClass ? "teacher" : "director"} with an org mailbox for this ${isClass ? "class" : "show"}, so only the office was told.`,
     ],
   });
 

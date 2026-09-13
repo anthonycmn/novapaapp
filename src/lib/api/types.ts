@@ -676,6 +676,8 @@ export interface AbsenceReport {
   studentId: string;
   /** The show. Null once a production is retired; the title still reads. */
   productionId?: string;
+  /** Or the class (0084) — an absence names one or the other. */
+  classId?: string;
   offeringTitle: string;
   /** Single date or an inclusive range. */
   startsOn: string;

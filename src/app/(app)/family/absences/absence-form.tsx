@@ -14,9 +14,13 @@ const initialState: SubmissionState = { ok: false };
 export interface AbsenceOption {
   studentId: string;
   studentName: string;
-  productionId: string;
-  productionTitle: string;
+  /** A show or a class (0084) — the form posts the matching id. */
+  offeringKind: "production" | "class";
+  offeringId: string;
+  offeringTitle: string;
 }
+
+const keyOf = (o: AbsenceOption) => `${o.studentId}|${o.offeringKind}:${o.offeringId}`;
 
 /**
  * Telling us a child will miss part of a show.
@@ -38,22 +42,24 @@ export interface AbsenceOption {
  * before this form changed still read correctly.
  */
 export function AbsenceForm({ options }: { options: AbsenceOption[] }) {
-  const [pair, setPair] = useState(
-    options.length > 0 ? `${options[0].studentId}|${options[0].productionId}` : ""
-  );
+  const [pair, setPair] = useState(options.length > 0 ? keyOf(options[0]) : "");
   const [missedOn, setMissedOn] = useState("");
   const [startsAtTime, setStartsAtTime] = useState("");
   const [state, formAction, pending] = useActionState(reportAbsenceAction, initialState);
 
-  const [studentId, productionId] = pair.split("|");
+  const picked = options.find((o) => keyOf(o) === pair);
+  const studentId = picked?.studentId ?? "";
+  const productionId = picked?.offeringKind === "production" ? picked.offeringId : "";
+  const classId = picked?.offeringKind === "class" ? picked.offeringId : "";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <input type="hidden" name="studentId" value={studentId ?? ""} />
-      <input type="hidden" name="productionId" value={productionId ?? ""} />
+      <input type="hidden" name="studentId" value={studentId} />
+      <input type="hidden" name="productionId" value={productionId} />
+      <input type="hidden" name="classId" value={classId} />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="absence-who">Who, and which show</Label>
+        <Label htmlFor="absence-who">Who, and which show or class</Label>
         <select
           id="absence-who"
           value={pair}
@@ -61,11 +67,8 @@ export function AbsenceForm({ options }: { options: AbsenceOption[] }) {
           className="min-h-11 rounded-md border bg-background px-3 text-sm"
         >
           {options.map((option) => (
-            <option
-              key={`${option.studentId}|${option.productionId}`}
-              value={`${option.studentId}|${option.productionId}`}
-            >
-              {option.studentName} — {option.productionTitle}
+            <option key={keyOf(option)} value={keyOf(option)}>
+              {option.studentName} — {option.offeringTitle}
             </option>
           ))}
         </select>
@@ -112,8 +115,8 @@ export function AbsenceForm({ options }: { options: AbsenceOption[] }) {
         <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 dark:border-amber-600/60 dark:bg-secondary dark:text-amber-100">
           <strong className="font-semibold">Only mark the times you will not be present.</strong>{" "}
           Arriving at 8.00 for a 7.00 call? That is 7.00 to 8.00. Leaving an
-          hour early? Put the last hour. Missing the whole call, leave both
-          blank.
+          hour early? Put the last hour. Missing the whole call or class, leave
+          both blank.
         </p>
       </div>
 
