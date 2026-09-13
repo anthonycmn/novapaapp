@@ -109,9 +109,14 @@ export const org = {
     legalName: "CJ Creative, LLC d/b/a Northern Virginia Performing Arts",
     /**
      * Employer Identification Number, formatted 12-3456789.
-     * Given by Tony, 17 Aug 2026.
+     *
+     * 47-4903843 was given by Tony on 17 Aug 2026 and was wrong. CJ, 13 Sep
+     * 2026, when the summer 2026 FSA letters went out: "99 is the right one
+     * for the 2026 summer camp" — the number Todd sent him as "CJ Creative
+     * LLC 99-1421341" on 6 Jan 2026 and the one families were told all year.
+     * (47-2022414 is the boosters' EIN for the 2025 camp, never ours.)
      */
-    ein: "47-4903843",
+    ein: "99-1421341",
     // Settled 15 Aug 2026: four addresses were in circulation across the
     // portal, the workbook, the website and outbound email. CJ ruled on this
     // one, and it now matches the staff portal's documents and contracts.
