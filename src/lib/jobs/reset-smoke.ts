@@ -157,7 +157,9 @@ export async function runResetSmoke(options: {
           `POST code → ${response.status} ${to || "(no Location)"} — expected 303 to /login?reset=1`
         );
       }
-      return `303 → ${new URL(to).pathname}?reset=1`;
+      // Next answers a server action's redirect() with a RELATIVE Location
+      // (`/login?reset=1`); curl resolves that silently, `new URL(to)` throws.
+      return `303 → ${new URL(to, base).pathname}?reset=1`;
     });
 
     await step("the login page takes the new password", async () => {
