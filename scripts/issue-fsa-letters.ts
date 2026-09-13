@@ -71,12 +71,10 @@ const SESSIONS = {
 } as const;
 
 /**
- * The EIN on these letters, and only these. CJ, 13 Sep 2026, asked which of
- * the two numbers in circulation goes on the summer 2026 letters and chose
- * this one — the number he gave parents for "the 2026 Summer Camp" in
- * January and February, and the one Todd sent him as "CJ Creative LLC
- * 99-1421341" on 6 Jan 2026. org.tax.ein still reads 47-4903843 and prints on
- * the in-app FSA page; reconciling the two is CJ's call, not this script's.
+ * The EIN on the letters. Pinned here rather than read from org.tax so a
+ * re-run for a hold-back family prints the same number the other 242 got.
+ * CJ, 13 Sep 2026: "99 is the right one for the 2026 summer camp" — org.tax.ein
+ * now agrees.
  */
 const EIN = "99-1421341";
 
