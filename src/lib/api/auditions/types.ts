@@ -495,8 +495,97 @@ export interface AuditionEvaluation {
    * feedback — this is the constructive half.
    */
   growthNotes?: string;
+  /**
+   * "Classes we recommend to help you improve" (hub 0085) — the classes the
+   * evaluator ticked, each carried as it was on the day so the family reads
+   * a name, a weekday and a time without a second lookup. The activity id is
+   * what makes it a Register button.
+   */
+  recommendedClasses: RecommendedClass[];
+  /** The kinds of private lesson ticked, from RECOMMENDED_LESSONS. */
+  recommendedLessons: RecommendedLesson[];
   createdAt: string;
   updatedAt: string;
+}
+
+/* ── what to take next ──────────────────────────────────────────────────── */
+
+/**
+ * One class on a rubric's "classes we recommend" list.
+ *
+ * CJ, 14 Sep 2026: "include the day of the week and the time that that class
+ * meets, so when parents receive it they can see if it fits into their
+ * schedule." Hence weekday and times ride on the row itself: the staff
+ * portal writes them from its class table at the moment of ticking, and the
+ * family app renders them as written. `activityId` is the registration
+ * catalogue row the class is sold under — null for a class that is not on
+ * sale, which the family side shows without a button.
+ *
+ * Shared with the staff portal (novapa-staff-portal, src/lib/rubric.ts):
+ * both write and read this shape, so change it in both places.
+ */
+export interface RecommendedClass {
+  /** The staff portal's class id — the key the picker de-duplicates on. */
+  classId: string;
+  /** public.activities.id, when the class is listed for sale. */
+  activityId: number | null;
+  name: string;
+  ages: string | null;
+  /** 0 = Sunday … 6 = Saturday. */
+  dayOfWeek: number;
+  /** "18:00" — studio-local (Eastern). */
+  startsAt: string;
+  /** "18:55" — studio-local (Eastern). */
+  endsAt: string;
+}
+
+export type RecommendedLesson = "voice" | "acting" | "musical_theatre" | "dance";
+
+/**
+ * The four kinds of private lesson a rubric can recommend, in CJ's order.
+ * Shared verbatim with the staff portal (src/lib/rubric.ts) — the hub 0085
+ * check constraint pins the values, so a fifth kind is a migration, not an
+ * edit here.
+ */
+export const RECOMMENDED_LESSONS: Array<{ value: RecommendedLesson; label: string }> = [
+  { value: "voice", label: "Voice lessons" },
+  { value: "acting", label: "Private acting lessons" },
+  { value: "musical_theatre", label: "Private musical theatre lessons" },
+  { value: "dance", label: "Private dance lessons" },
+];
+
+/**
+ * Read a stored recommended_classes value back into rows the page can trust.
+ * The column is jsonb written by two apps; a row missing a name or a weekday
+ * is dropped rather than rendered as "undefined on undefined".
+ */
+export function recommendedClassesFrom(value: unknown): RecommendedClass[] {
+  if (!Array.isArray(value)) return [];
+  const out: RecommendedClass[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const r = item as Record<string, unknown>;
+    const name = typeof r.name === "string" ? r.name.trim() : "";
+    const dayOfWeek = Number(r.dayOfWeek);
+    if (!name || !Number.isInteger(dayOfWeek) || dayOfWeek < 0 || dayOfWeek > 6) continue;
+    const activityId = Number(r.activityId);
+    out.push({
+      classId: typeof r.classId === "string" ? r.classId : "",
+      activityId: Number.isFinite(activityId) && activityId > 0 ? activityId : null,
+      name,
+      ages: typeof r.ages === "string" && r.ages.trim() ? r.ages.trim() : null,
+      dayOfWeek,
+      startsAt: typeof r.startsAt === "string" ? r.startsAt : "",
+      endsAt: typeof r.endsAt === "string" ? r.endsAt : "",
+    });
+  }
+  return out;
+}
+
+export function recommendedLessonsFrom(value: unknown): RecommendedLesson[] {
+  if (!Array.isArray(value)) return [];
+  const known = new Set(RECOMMENDED_LESSONS.map((l) => l.value));
+  return value.filter((v): v is RecommendedLesson => known.has(v as RecommendedLesson));
 }
 
 /* ── show roles & the casting board ─────────────────────────────────────── */

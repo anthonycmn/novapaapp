@@ -124,6 +124,8 @@ import {
   type CastingConfirmation,
   type Discipline,
   type GrowthRecommendation,
+  type RecommendedClass,
+  type RecommendedLesson,
   type RoleTier,
   type ShowRole,
   type ShowScene,
@@ -3574,6 +3576,8 @@ export class MockDataProvider implements DataProvider {
       notes: string;
       callbackNotes: string;
       growthNotes?: string;
+      recommendedClasses?: RecommendedClass[];
+      recommendedLessons?: RecommendedLesson[];
     }
   ): Promise<AuditionEvaluation> {
     const actor = getActor(actorId);
@@ -3599,6 +3603,8 @@ export class MockDataProvider implements DataProvider {
       existing.notes = input.notes;
       existing.callbackNotes = input.callbackNotes;
       existing.growthNotes = input.growthNotes;
+      existing.recommendedClasses = [...(input.recommendedClasses ?? [])];
+      existing.recommendedLessons = [...(input.recommendedLessons ?? [])];
       existing.evaluatorStaffId = actor.staffId ?? actor.id;
       existing.evaluatorName = actor.displayName;
       existing.updatedAt = nowIso();
@@ -3616,6 +3622,8 @@ export class MockDataProvider implements DataProvider {
       notes: input.notes,
       callbackNotes: input.callbackNotes,
       growthNotes: input.growthNotes,
+      recommendedClasses: [...(input.recommendedClasses ?? [])],
+      recommendedLessons: [...(input.recommendedLessons ?? [])],
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };

@@ -76,6 +76,10 @@ import {
   type CastingConfirmation,
   type Discipline,
   type GrowthRecommendation,
+  type RecommendedClass,
+  type RecommendedLesson,
+  recommendedClassesFrom,
+  recommendedLessonsFrom,
   type RoleTier,
   type ShowRole,
   type ShowScene,
@@ -1369,6 +1373,8 @@ class SupabaseDataProvider {
       notes: String(row.notes ?? ""),
       callbackNotes: String(row.callback_notes ?? ""),
       growthNotes: s(row.growth_notes),
+      recommendedClasses: recommendedClassesFrom(row.recommended_classes),
+      recommendedLessons: recommendedLessonsFrom(row.recommended_lessons),
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
     };
@@ -1530,6 +1536,8 @@ class SupabaseDataProvider {
       notes: string;
       callbackNotes: string;
       growthNotes?: string;
+      recommendedClasses?: RecommendedClass[];
+      recommendedLessons?: RecommendedLesson[];
     }
   ): Promise<AuditionEvaluation> {
     const actor = await this.actor(actorId);
@@ -1562,6 +1570,8 @@ class SupabaseDataProvider {
           notes: input.notes,
           callback_notes: input.callbackNotes,
           growth_notes: input.growthNotes ?? null,
+          recommended_classes: input.recommendedClasses ?? [],
+          recommended_lessons: input.recommendedLessons ?? [],
           updated_at: new Date().toISOString(),
         },
         { onConflict: "student_id,production_id,evaluator_role" }

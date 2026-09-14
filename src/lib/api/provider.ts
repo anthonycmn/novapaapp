@@ -84,6 +84,8 @@ import type {
   CastingConfirmation,
   Discipline,
   GrowthRecommendation,
+  RecommendedClass,
+  RecommendedLesson,
   RoleTier,
   ShowRole,
   ShowScene,
@@ -794,6 +796,9 @@ export interface DataProvider {
       notes: string;
       callbackNotes: string;
       growthNotes?: string;
+      /** Hub 0085 — the "classes we recommend" ticks. */
+      recommendedClasses?: RecommendedClass[];
+      recommendedLessons?: RecommendedLesson[];
     }
   ): Promise<AuditionEvaluation>;
 

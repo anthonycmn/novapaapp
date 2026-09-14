@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { ConfirmForm } from "./confirm-form";
+import { RecommendedNext } from "./recommended-next";
 
 export const metadata = { title: "Casting" };
 
@@ -222,6 +223,13 @@ export default async function CastingPage() {
                             </div>
                           );
                         })}
+
+                        {/* What the panel ticked (hub 0085): the classes, with
+                            the day and time each meets, and the lessons. */}
+                        <RecommendedNext
+                          evaluations={feedback}
+                          studentFirstName={studentName.split(" ")[0]}
+                        />
 
                         {recommendations.length > 0 && (
                           <div className="rounded-lg bg-accent p-4">
