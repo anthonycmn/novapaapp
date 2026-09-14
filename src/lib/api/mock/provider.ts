@@ -3989,6 +3989,7 @@ export class MockDataProvider implements DataProvider {
       roleName: string;
       productionTitle: string;
       studentName: string;
+      studentRegisteredName: string;
     }>
   > {
     const actor = getActor(actorId);
@@ -4009,6 +4010,7 @@ export class MockDataProvider implements DataProvider {
           studentName: student
             ? `${student.preferredName ?? student.firstName} ${student.lastName}`
             : "",
+          studentRegisteredName: student ? `${student.firstName} ${student.lastName}` : "",
         };
       });
   }

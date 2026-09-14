@@ -45,6 +45,7 @@ export default async function CastingPage() {
             roleName,
             productionTitle,
             studentName,
+            studentRegisteredName,
             performances,
           }) => {
             const feedbackReleased = Boolean(confirmation.feedbackRequestedAt);
@@ -229,6 +230,7 @@ export default async function CastingPage() {
                         <RecommendedNext
                           evaluations={feedback}
                           studentFirstName={studentName.split(" ")[0]}
+                          checkout={{ email: user.email, kid: studentRegisteredName }}
                         />
 
                         {recommendations.length > 0 && (

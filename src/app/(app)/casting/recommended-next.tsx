@@ -22,6 +22,13 @@ import { registration } from "@/config/registration";
  * when the rubric was saved — and a Register button when the class is on
  * sale at registration.
  *
+ * CJ, 14 Sep 2026: "have them link directly to the class so that parents
+ * can buy them directly from the rubric." So the button is the checkout
+ * hand-off the punch card already uses (registration.checkoutUrl): the
+ * class in ?activity=, the child named in ?kid=, the family's email in
+ * ?pe=, back=portal for the way home. A signed-in family lands on the pay
+ * step with the child already ticked; the registration site keeps Stripe.
+ *
  * Lessons are a kind, not a listing (no voice, musical theatre or dance
  * lesson is a catalogue row a family can buy today), so the four lines share
  * one door: the coaching page, where the office arranges the rest.
@@ -29,9 +36,12 @@ import { registration } from "@/config/registration";
 export function RecommendedNext({
   evaluations,
   studentFirstName,
+  checkout,
 }: {
   evaluations: AuditionEvaluation[];
   studentFirstName: string;
+  /** Who is buying, for whom — what the checkout hand-off carries. */
+  checkout: { email: string; kid: string };
 }) {
   const classes = mergeClasses(evaluations);
   const lessons = mergeLessons(evaluations);
@@ -66,12 +76,12 @@ export function RecommendedNext({
               </div>
               {cls.activityId ? (
                 <a
-                  href={registration.activityUrl(cls.activityId)}
+                  href={registerHref(cls.activityId, checkout)}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex h-9 shrink-0 items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground hover:opacity-90"
                 >
-                  Register
+                  Register {studentFirstName}
                 </a>
               ) : (
                 <span className="shrink-0 text-xs text-muted-foreground">
@@ -109,6 +119,21 @@ export function RecommendedNext({
       )}
     </div>
   );
+}
+
+/**
+ * The link under a Register button: straight to checkout with the child
+ * named, when we know who is buying; the plain class page otherwise (a
+ * missing email or name would only make the checkout ask for it).
+ */
+export function registerHref(
+  activityId: number,
+  checkout: { email: string; kid: string }
+): string {
+  const email = checkout.email.trim();
+  const kid = checkout.kid.trim();
+  if (!email || !kid) return registration.activityUrl(activityId);
+  return registration.checkoutUrl({ activityIds: [activityId], email, kid });
 }
 
 /** "Mondays, 6:00–6:55 pm" */

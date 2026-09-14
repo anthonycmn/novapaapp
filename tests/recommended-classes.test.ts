@@ -4,7 +4,7 @@ import {
   recommendedLessonsFrom,
   type AuditionEvaluation,
 } from "@/lib/api/auditions/types";
-import { meets } from "@/app/(app)/casting/recommended-next";
+import { meets, registerHref } from "@/app/(app)/casting/recommended-next";
 
 /**
  * "Classes we recommend to help you improve" (hub 0085): what the staff
@@ -70,5 +70,24 @@ describe("the day and time a parent reads", () => {
     expect(meets({ ...tuesday, dayOfWeek: 1, startsAt: "09:30:00", endsAt: "10:15:00" })).toBe(
       "Mondays, 9:30 am–10:15 am"
     );
+  });
+});
+
+describe("the Register button", () => {
+  it("hands the family straight to checkout with the child named", () => {
+    const href = registerHref(1960925, { email: "parent@example.com", kid: "Ryley Smith" });
+    const url = new URL(href);
+    expect(url.pathname).toBe("/register/");
+    expect(url.searchParams.get("activity")).toBe("1960925");
+    expect(url.searchParams.get("kid")).toBe("Ryley Smith");
+    expect(url.searchParams.get("pe")).toBe("parent@example.com");
+    expect(url.searchParams.get("back")).toBe("portal");
+  });
+
+  it("falls back to the class page when it does not know who is buying", () => {
+    const href = registerHref(1960925, { email: "", kid: "Ryley Smith" });
+    const url = new URL(href);
+    expect(url.searchParams.get("activity")).toBe("1960925");
+    expect(url.searchParams.get("kid")).toBeNull();
   });
 });

@@ -1057,6 +1057,7 @@ class SupabaseDataProvider {
         studentName: student
           ? `${student.preferred_name ?? student.first_name} ${student.last_name}`
           : "",
+        studentRegisteredName: student ? `${student.first_name} ${student.last_name}` : "",
       };
     });
   }
