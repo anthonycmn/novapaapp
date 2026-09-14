@@ -5,9 +5,7 @@ import { getProvider } from "@/lib/api";
 import { DISCIPLINES, RUBRIC_CRITERIA } from "@/lib/api/auditions/types";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
-import { requestFeedbackAction } from "@/lib/actions/auditions";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { ConfirmForm } from "./confirm-form";
@@ -152,19 +150,15 @@ export default async function CastingPage() {
                   )}
 
                   <div className="border-t pt-4">
+                    {/* Hub 0086 — CJ, 14 Sep 2026: the team releases the
+                        rubrics; a family no longer opens that door itself. */}
                     {!feedbackReleased ? (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-sm text-muted-foreground">
-                          Want to know how the audition went? Request the
-                          creative team&apos;s feedback — the same rubric the
-                          director, vocal director, and choreographer used.
-                        </p>
-                        <form action={requestFeedbackAction.bind(null, confirmation.id)}>
-                          <Button type="submit" variant="outline">
-                            Request audition feedback
-                          </Button>
-                        </form>
-                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Audition feedback — the same rubric the director, vocal director, and
+                        choreographer used, with the classes they recommend — is released by the
+                        creative team once every rubric is in. You&apos;ll get a notification the
+                        moment it&apos;s ready.
+                      </p>
                     ) : feedback.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         Feedback requested ✓ — nothing has been submitted by

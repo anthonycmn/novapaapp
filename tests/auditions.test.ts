@@ -391,8 +391,31 @@ describe("feedback release & recommendations", () => {
     return confirmations.find((c) => c.confirmation.studentId === "stu-ava")!;
   }
 
+  it("a family cannot release the rubrics to themselves (hub 0086)", async () => {
+    const mine = await fullPipeline();
+    expect(await provider.requestAuditionFeedback("user-sofia", mine.confirmation.id)).toEqual([]);
+    // Plain staff cannot either — releasing is CJ's or Katie H's.
+    await expect(
+      provider.requestAuditionFeedback("user-marcus", mine.confirmation.id)
+    ).rejects.toThrow(AccessDeniedError);
+  });
+
+  it("only CJ or Katie H can submit a cast list or publish understudies (hub 0086)", async () => {
+    await castEveryone();
+    await expect(provider.submitCasting("user-marcus", "prod-frozen")).rejects.toThrow(
+      /Only CJ or Katie H/
+    );
+    await provider.submitCasting("user-dana", "prod-frozen");
+    await expect(provider.publishUnderstudies("user-marcus", "prod-frozen")).rejects.toThrow(
+      /Only CJ or Katie H/
+    );
+  });
+
   it("releases the rubric and notes — but NEVER the callback notes", async () => {
     const mine = await fullPipeline();
+    // Released by the office (Dana stands in for CJ / Katie H in the mock)…
+    await provider.requestAuditionFeedback("user-dana", mine.confirmation.id);
+    // …and then read by the family.
     const released = await provider.requestAuditionFeedback(
       "user-sofia",
       mine.confirmation.id
@@ -434,6 +457,7 @@ describe("feedback release & recommendations", () => {
     // The checkout hand-off names the child as registered, not by preferred name.
     expect(mine.studentRegisteredName).toMatch(/^\S+ Martinez$/);
 
+    await provider.requestAuditionFeedback("user-dana", mine.confirmation.id);
     const released = await provider.requestAuditionFeedback("user-sofia", mine.confirmation.id);
     const dance = released.find((e) => e.discipline === "dance")!;
     expect(dance.recommendedClasses).toEqual([tuesdayDance]);
