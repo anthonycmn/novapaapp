@@ -84,6 +84,8 @@ import type {
   CastingConfirmation,
   Discipline,
   GrowthRecommendation,
+  RecommendedClass,
+  RecommendedLesson,
   RoleTier,
   ShowRole,
   ShowScene,
@@ -794,6 +796,9 @@ export interface DataProvider {
       notes: string;
       callbackNotes: string;
       growthNotes?: string;
+      /** Hub 0085 — the "classes we recommend" ticks. */
+      recommendedClasses?: RecommendedClass[];
+      recommendedLessons?: RecommendedLesson[];
     }
   ): Promise<AuditionEvaluation>;
 
@@ -837,6 +842,13 @@ export interface DataProvider {
       roleName: string;
       productionTitle: string;
       studentName: string;
+      /**
+       * First and last name as registered — never the preferred name. The
+       * registration checkout matches ?kid= against the camper's name on the
+       * family's account, and that is the legal one (hub 0085: the Register
+       * button on a recommended class hands the family straight to paying).
+       */
+      studentRegisteredName: string;
       /**
        * The nights this child plays this part, when the part is shared with
        * somebody else. Absent or empty means the whole run — which is the
