@@ -294,15 +294,3 @@ export async function respondToCastingAction(
   return { ok: true };
 }
 
-export async function requestFeedbackAction(confirmationId: string): Promise<void> {
-  const user = await getSessionUser();
-  if (!user) return;
-  await getProvider().requestAuditionFeedback(user.id, confirmationId);
-  await logActivity({
-    user,
-    action: "casting.feedback_requested",
-    summary: "Requested audition feedback",
-    detail: { confirmationId },
-  });
-  revalidatePath("/casting");
-}

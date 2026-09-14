@@ -385,6 +385,16 @@ function isAdmin(actor: User): boolean {
   return actor.role === "admin" || actor.role === "super_admin";
 }
 
+/**
+ * Hub 0086 / staff 0311: who may publish a cast list or release feedback.
+ * Live, a named-person flag on the staff portal's allowlist (CJ and Katie H).
+ * The mock has no allowlist, so its admins stand in for the two names and a
+ * plain staff member is refused — which is the distinction the tests need.
+ */
+function canReleaseCasting(actor: User): boolean {
+  return isAdmin(actor);
+}
+
 /** Family news, or office work — a row with no audience is family (0056). */
 function inAudience(
   notification: AppNotification,
@@ -3725,7 +3735,9 @@ export class MockDataProvider implements DataProvider {
     productionId: string
   ): Promise<{ assignmentsCreated: number; familiesNotified: number }> {
     const actor = getActor(actorId);
-    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    if (!canReleaseCasting(actor)) {
+      throw new AccessDeniedError("Only CJ or Katie H can submit a cast list");
+    }
 
     const board = this.boardFor(productionId);
     if (board.status === "submitted") {
@@ -3909,7 +3921,9 @@ export class MockDataProvider implements DataProvider {
     productionId: string
   ): Promise<{ published: number; holes: number }> {
     const actor = getActor(actorId);
-    if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    if (!canReleaseCasting(actor)) {
+      throw new AccessDeniedError("Only CJ or Katie H can publish understudies");
+    }
     const board = this.boardFor(productionId);
     if (board.status !== "submitted") {
       throw new Error("Cast the show first");
@@ -4066,7 +4080,9 @@ export class MockDataProvider implements DataProvider {
     confirmationId: string
   ): Promise<AuditionEvaluation[]> {
     const confirmation = this.confirmationForFamily(actorId, confirmationId);
+    // Hub 0086: a family reads released feedback; only CJ or Katie H release it.
     if (!confirmation.feedbackRequestedAt) {
+      if (!canReleaseCasting(getActor(actorId))) return [];
       confirmation.feedbackRequestedAt = nowIso();
     }
     const assignment = store.casting.find((c) => c.id === confirmation.assignmentId);

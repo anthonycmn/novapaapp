@@ -317,6 +317,21 @@ class SupabaseDataProvider {
     return user.role === "staff" || user.role === "admin" || user.role === "super_admin";
   }
 
+  /**
+   * May this person submit a cast list, publish understudies or release
+   * audition feedback? Hub 0086 / staff 0311 — CJ, 14 Sep 2026: "a stop gap
+   * for CJ and Katie H — we have to be the one to release the rubrics and
+   * press the cast list submit button." The database holds the names (a flag
+   * on the staff portal's allowlist); this asks it for the actor, because the
+   * server acts with the service role and auth.uid() would be nobody.
+   */
+  private async canReleaseCasting(user: User): Promise<boolean> {
+    if (!this.isStaffish(user)) return false;
+    const { data, error } = await this.db.rpc("can_release_casting", { p_user: user.id });
+    if (error) throw new Error(`can_release_casting failed: ${error.message}`);
+    return Boolean(data);
+  }
+
   private assertFamilyAccess(user: User, familyId: string): void {
     if (this.isStaffish(user)) return;
     if (user.familyId !== familyId) {
@@ -1240,7 +1255,9 @@ class SupabaseDataProvider {
     productionId: string
   ): Promise<{ assignmentsCreated: number; familiesNotified: number }> {
     const actor = await this.actor(actorId);
-    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    if (!(await this.canReleaseCasting(actor))) {
+      throw new AccessDeniedError("Only CJ or Katie H can submit a cast list");
+    }
 
     const board = await this.boardFor(productionId);
     if (board.status === "submitted") {
@@ -1594,7 +1611,11 @@ class SupabaseDataProvider {
       this.assertFamilyAccess(actor, String(confirmation.family_id));
     }
 
+    // Hub 0086: the family no longer opens this door themselves. Feedback is
+    // released by CJ or Katie H (portal_release_feedback, or this path for
+    // one child); until then a family reads nothing, not "not yet scored".
     if (!confirmation.feedback_requested_at) {
+      if (!(await this.canReleaseCasting(actor))) return [];
       await this.db
         .from("casting_confirmations")
         .update({ feedback_requested_at: new Date().toISOString() })
@@ -1744,7 +1765,9 @@ class SupabaseDataProvider {
     productionId: string
   ): Promise<{ published: number; holes: number }> {
     const actor = await this.actor(actorId);
-    if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
+    if (!(await this.canReleaseCasting(actor))) {
+      throw new AccessDeniedError("Only CJ or Katie H can publish understudies");
+    }
     const board = await this.boardFor(productionId);
     if (board.status !== "submitted") throw new Error("Cast the show first");
     if (board.understudiesPublishedAt) {
