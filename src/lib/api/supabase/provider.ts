@@ -49,6 +49,7 @@ import type {
   Student,
   User,
   Production,
+  ProductionMaterial,
   CallResponseRecord,
   LoanedScript,
   VolunteerSheet,
@@ -529,29 +530,37 @@ class SupabaseDataProvider {
 
   async getProduction(productionId: string): Promise<Production | null> {
     /*
-     * Two reads, because the rehearsal folders are not the hub's to keep.
+     * Two reads, because the rehearsal materials are not the hub's to keep.
      *
-     * v_production_media (hub 0051) joins straight through to
-     * staff_portal.productions, so the click tracks a Director pasted onto
-     * the show ten minutes ago are the ones this page draws. A missing media
-     * row is normal — most shows have no folders, and every show had none
-     * until this week — so it is a null, never an error.
+     * v_production_materials (hub 0087) joins straight through to
+     * staff_portal.production_materials, so the guide vocals a Director
+     * pasted onto the show ten minutes ago are the ones this page draws, and
+     * a row marked staff-only never arrives — the view filters it, not this
+     * code. No rows is normal: most shows have no materials yet, so it is an
+     * empty list, never an error.
      */
-    const [{ data, error }, { data: media }] = await Promise.all([
+    const [{ data, error }, { data: materials }] = await Promise.all([
       this.db.from("productions").select("*").eq("id", productionId).maybeSingle(),
       this.db
-        .from("v_production_media")
-        .select("*")
+        .from("v_production_materials")
+        .select("id, label, url, kind, note, sort_order")
         .eq("production_id", productionId)
-        .maybeSingle(),
+        .order("sort_order"),
     ]);
     if (error) throw new Error(`productions lookup failed: ${error.message}`);
     if (!data) return null;
     return {
       ...mapProduction(data),
-      clickTracksUrl: s(media?.click_tracks_url),
-      choreographyUrl: s(media?.choreography_url),
-      stagingUrl: s(media?.staging_url),
+      materials: (materials ?? []).map((m) => ({
+        id: String(m.id),
+        label: String(m.label),
+        url: String(m.url),
+        kind: (["audio", "video", "document"].includes(String(m.kind))
+          ? String(m.kind)
+          : "other") as ProductionMaterial["kind"],
+        note: s(m.note),
+        sortOrder: Number(m.sort_order ?? 0),
+      })),
     };
   }
 

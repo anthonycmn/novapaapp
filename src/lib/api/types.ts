@@ -165,6 +165,18 @@ export interface ClassOffering {
   registrationActivityId?: number;
 }
 
+/** One link on a show page (hub 0087). `kind` picks the icon and the verb. */
+export type ProductionMaterialKind = "audio" | "video" | "document" | "other";
+export interface ProductionMaterial {
+  id: string;
+  label: string;
+  url: string;
+  kind: ProductionMaterialKind;
+  /** One line under the link — "a printed copy comes in person." */
+  note?: string;
+  sortOrder: number;
+}
+
 export interface Production {
   id: string;
   programId: string;
@@ -180,16 +192,17 @@ export interface Production {
   /** Curriculum & materials link, synced from the staff portal's plan. */
   curriculumUrl?: string;
   /**
-   * The three rehearsal folders, read through to the staff portal's own
-   * columns by family_hub.v_production_media (hub 0051). Nothing is mirrored:
-   * a Director pasting a Drive link onto their show in the staff portal is
-   * what a family sees on the next load. Undefined means nobody has filled
-   * that one in, and the tile is simply not drawn — a parent has no way to
-   * fix an empty folder, so telling them it is empty is only noise.
+   * What a performer rehearses from at home — guide vocals, performance
+   * tracks, the script, choreography and staging videos — read through to
+   * the staff portal's production_materials by family_hub.v_production_materials
+   * (hub 0087, the successor of 0051's three fixed folders). Nothing is
+   * mirrored: a Director pasting a link onto their show in the staff portal
+   * is what a family sees on the next load. Staff-only material is filtered
+   * out in the view, never here. Absent or empty draws nothing — a parent
+   * has no way to fill a gap, so telling them about it is only noise. Only
+   * getProduction() loads it; a list of shows does not carry it.
    */
-  clickTracksUrl?: string;
-  choreographyUrl?: string;
-  stagingUrl?: string;
+  materials?: ProductionMaterial[];
   /**
    * The registration listing this production is sold as
    * (`public.activities.id`). See ClassOffering.registrationActivityId.
