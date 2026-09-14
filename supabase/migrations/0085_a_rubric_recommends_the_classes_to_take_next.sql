@@ -80,4 +80,8 @@ select e.id,
 
 revoke all on family_hub.family_evaluation_view from public;
 revoke all on family_hub.family_evaluation_view from anon;
+-- Default privileges hand authenticated INSERT/UPDATE/DELETE on every new
+-- object in this schema, and CREATE OR REPLACE counts as new. The view is
+-- not updatable anyway, but a family should hold SELECT and nothing else.
+revoke all on family_hub.family_evaluation_view from authenticated;
 grant select on family_hub.family_evaluation_view to authenticated;

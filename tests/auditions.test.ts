@@ -405,6 +405,54 @@ describe("feedback release & recommendations", () => {
     expect(JSON.stringify(released)).not.toContain("STAFF ONLY");
   });
 
+  it("carries the classes the panel ticked to the family, with the day and time (hub 0085)", async () => {
+    const tuesdayDance = {
+      classId: "c-mtd",
+      activityId: 1960925,
+      name: "Musical Theatre Dance",
+      ages: "13-17",
+      dayOfWeek: 2,
+      startsAt: "19:00",
+      endsAt: "19:50",
+    };
+    // The choreographer ticks a class and two lesson kinds on her rubric.
+    await provider.submitEvaluation("user-dana", {
+      studentId: "stu-ava",
+      productionId: "prod-frozen",
+      discipline: "dance",
+      scores: goodScores.dance,
+      notes: "Strong movement and dancing.",
+      callbackNotes: "STAFF ONLY",
+      recommendedClasses: [tuesdayDance],
+      recommendedLessons: ["voice", "dance"],
+    });
+    await castEveryone();
+    await provider.submitCasting("user-dana", "prod-frozen");
+    const mine = (await provider.getMyCastingConfirmations("user-sofia")).find(
+      (c) => c.confirmation.studentId === "stu-ava"
+    )!;
+    // The checkout hand-off names the child as registered, not by preferred name.
+    expect(mine.studentRegisteredName).toMatch(/^\S+ Martinez$/);
+
+    const released = await provider.requestAuditionFeedback("user-sofia", mine.confirmation.id);
+    const dance = released.find((e) => e.discipline === "dance")!;
+    expect(dance.recommendedClasses).toEqual([tuesdayDance]);
+    expect(dance.recommendedLessons).toEqual(["voice", "dance"]);
+    expect(dance.callbackNotes).toBe("");
+
+    // Re-saving the rubric with nothing ticked clears it — a tick is not forever.
+    await provider.submitEvaluation("user-dana", {
+      studentId: "stu-ava",
+      productionId: "prod-frozen",
+      discipline: "dance",
+      scores: goodScores.dance,
+      notes: "Strong movement and dancing.",
+      callbackNotes: "STAFF ONLY",
+    });
+    const again = await provider.requestAuditionFeedback("user-sofia", mine.confirmation.id);
+    expect(again.find((e) => e.discipline === "dance")!.recommendedClasses).toEqual([]);
+  });
+
   it("another family cannot request your child's feedback", async () => {
     const mine = await fullPipeline();
     await expect(
