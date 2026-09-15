@@ -18,6 +18,10 @@
 -- from the Scene & Staging Track, exactly as Sweeney's rows do: the text is
 -- what a parent reads, the ids are what the filter matches.
 --
+-- REPLAY 0088 AFTER THIS. It adds the MTI casting-page columns and the roles
+-- the workbook does not have (Guards, Townspeople 5-6, Hidden Folk 5-6);
+-- the delete below takes them with it.
+--
 -- Re-runnable: each cast's rows are deleted and rewritten, so a corrected
 -- workbook can be replayed. Nothing here touches casting_assignments — who
 -- plays what is still the Director's to publish.
