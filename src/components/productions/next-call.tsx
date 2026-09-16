@@ -13,6 +13,7 @@ import type { CalendarEvent } from "@/lib/api/types";
 import { formatEventTime } from "@/lib/format";
 import { CallResponse, type CallAnswer } from "@/components/dashboard/call-response";
 import type { RailStudent } from "@/components/productions/schedule-rail";
+import { RunSheet, RunSheetHeading } from "@/components/calendar/run-sheet";
 
 /**
  * The one thing a parent opens a show page to find out: where do I take my
@@ -105,9 +106,19 @@ export function NextCall({
           )}
         </div>
 
-        {/* Who is called and what the room works — from the show calendar,
-            so this box and Google always say the same thing. */}
-        {event.calledNote && (
+        {/* The staff portal's run sheet — the rooms, times and cast a
+            director reads — when it has one for this call. Otherwise the
+            calendar's own two lines. CJ, 16 Sep 2026: staff is the authority. */}
+        {event.run && event.run.length > 0 && (
+          <div className="mt-2">
+            <RunSheetHeading />
+            <RunSheet
+              run={event.run}
+              people={(students ?? []).map((kid) => ({ name: kid.name, roleIds: kid.roleIds }))}
+            />
+          </div>
+        )}
+        {!(event.run && event.run.length > 0) && event.calledNote && (
           <p className="mt-2 flex items-start gap-2 text-[13px] text-muted-foreground">
             <Users aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
             <span>
@@ -115,7 +126,7 @@ export function NextCall({
             </span>
           </p>
         )}
-        {event.worksNote && (
+        {!(event.run && event.run.length > 0) && event.worksNote && (
           <p className="mt-1 flex items-start gap-2 text-[13px] text-muted-foreground">
             <ListMusic aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
             <span>

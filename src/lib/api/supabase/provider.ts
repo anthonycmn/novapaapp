@@ -50,6 +50,7 @@ import type {
   User,
   Production,
   ProductionMaterial,
+  RunBlock,
   CallResponseRecord,
   LoanedScript,
   VolunteerSheet,
@@ -717,6 +718,7 @@ class SupabaseDataProvider {
       sceneIds: (row.scene_ids ?? undefined) as string[] | undefined,
       calledNote: s(row.called_note),
       worksNote: s(row.works_note),
+      run: Array.isArray(row.run) && row.run.length > 0 ? (row.run as RunBlock[]) : undefined,
       details: s(row.details),
       changedAt: s(row.changed_at),
       changeNote: s(row.change_note),
@@ -805,9 +807,23 @@ class SupabaseDataProvider {
             if (!called) continue;
           }
         }
+        const person = {
+          name: student.preferredName ?? student.firstName,
+          roleIds: row.production_id
+            ? [...heldRoleIds(student.id, String(row.production_id))]
+            : [],
+        };
         const existing = byEvent.get(String(row.id));
-        if (existing) existing.studentIds.push(student.id);
-        else byEvent.set(String(row.id), { ...this.mapEvent(row), studentIds: [student.id] });
+        if (existing) {
+          existing.studentIds.push(student.id);
+          existing.people?.push(person);
+        } else {
+          byEvent.set(String(row.id), {
+            ...this.mapEvent(row),
+            studentIds: [student.id],
+            people: [person],
+          });
+        }
       }
     }
 

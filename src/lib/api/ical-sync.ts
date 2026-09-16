@@ -10,9 +10,12 @@ import {
 } from "@/lib/ical/map";
 import {
   callsForEvent,
-  overlayFor,
+  callsForUid,
+  runSheetFor,
+  uniqueCalls,
   type EventWindow,
   type PortalCall,
+  type RunBlock,
 } from "@/lib/ical/portal-calls";
 import { getPortalReadClient, getServiceClient } from "@/lib/api/supabase/client";
 
@@ -48,7 +51,11 @@ export interface IcalSyncResult {
 type Row = Record<string, unknown>;
 
 /** A parsed VEVENT plus the roles its call sheet resolved to. */
-type FeedRow = ReturnType<typeof rowFor> & { role_ids?: string[] | null };
+type FeedRow = ReturnType<typeof rowFor> & {
+  role_ids?: string[] | null;
+  /** The staff portal's run sheet for the event — see 0089 and portal-calls.ts. */
+  run?: RunBlock[] | null;
+};
 
 function sameInstant(a: unknown, b: string): boolean {
   return Date.parse(String(a)) === Date.parse(b);
@@ -146,7 +153,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
         const { data } = await portal
           .from("curriculum_calls")
           .select(
-            "call_date, starts_at, ends_at, call_type, room, staff_leading, act_scene, material, called, calendar_status"
+            "id, call_date, starts_at, ends_at, call_type, room, staff_leading, act_scene, material, called, called_label, calendar_status, calendar_uid, sort_order"
           )
           .eq("production_id", portalProductionId)
           .order("call_date");
@@ -170,15 +177,12 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     /*
-     * Did the calendar itself state who is called? A labelled call sheet
-     * ("CALLED — 11 of 12: …") is CJ speaking directly, and nothing below is
-     * allowed to shrink it — the 3 Sep call said eleven names while the
-     * curriculum still held the old workbook's seven, and families were shown
-     * the seven.
+     * The calendar's own account first: a labelled call sheet ("CALLED — 11
+     * of 12: …") when the description has one, the free-form block lines
+     * otherwise. This is what a show with no staff-portal curriculum gets,
+     * and the fallback for any event the staff page has no block for. The
+     * staff run sheet below replaces it wherever it exists.
      */
-    const calendarStatedCast = Boolean(row.called_note);
-    // Format A first — a labelled call sheet says exactly what it means. Only
-    // when there is none do we read the free-form block lines.
     if (!row.called_note || !row.works_note) {
       const sheet = blockSheetFrom(
         events[i].description ?? "",
@@ -219,26 +223,54 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     }
 
     /*
-     * The portal has the last word on who is called and what is worked —
-     * EXCEPT against a cast list the calendar states in so many words.
+     * THE STAFF PORTAL IS THE AUTHORITY — CJ, 16 Sep 2026: "I need them to
+     * have the same calendar, run pages, etc . . . . and I want the staff
+     * page to be the authority."
      *
-     * It splits this event into the rooms it is actually run as, and staff
-     * correct it by hand — so when a cast changes on the staff side, this is
-     * the line that carries it to families. It overrides rather than merges:
-     * two accounts of who is called, stitched together, would be a third
-     * account that neither side agreed to.
+     * The staff page turns this event into the rooms it is actually run as —
+     * "Run the day" — and staff correct those rows by hand. Whenever it has a
+     * block for this event, the family sees that run sheet, verbatim, and its
+     * cast is the union of the blocks' casts: no more stitching the calendar's
+     * own CALLED line together with the portal's, and no more a Google
+     * description outranking a correction made on the staff side. (The staff
+     * sync already reads the calendar's labelled cast list into its rows, so
+     * what CJ writes in Google still reaches families — by way of the page
+     * staff are looking at, rather than around it.)
      *
-     * The exception is CJ's rule of 5 Sep 2026: what he writes in the Google
-     * calendar must reach families exactly. A description carrying its own
-     * labelled CALLED list keeps it; the portal still contributes the room
-     * detail of what is worked.
+     * Ownership is by identity first: the staff row is bound to the Google
+     * UID that this row carries as external_ref. The clock-window rule covers
+     * the rows that never bind (lunch, written inside the surrounding event)
+     * — and every row, on the rare event nothing has bound to yet.
      */
     if (portalCalls.length > 0) {
-      const overlay = overlayFor(
-        callsForEvent(portalCalls, row.starts_at, row.ends_at, undefined, dayWindows)
+      const bound = callsForUid(portalCalls, events[i].uid);
+      const loose = bound.length > 0 ? portalCalls.filter((call) => !call.calendar_uid) : portalCalls;
+      const owned = uniqueCalls([
+        ...bound,
+        ...callsForEvent(loose, row.starts_at, row.ends_at, undefined, dayWindows),
+      ]);
+      const run = runSheetFor(owned, (names) =>
+        roleIdsFromCalledNote(names.join(" · "), roles ?? [], feed.roleAliases)
       );
-      if (overlay.calledNote && !calendarStatedCast) row.called_note = overlay.calledNote;
-      if (overlay.worksNote) row.works_note = overlay.worksNote;
+      if (run.length > 0) {
+        row.run = run;
+        const called: string[] = [];
+        const works: string[] = [];
+        for (const block of run) {
+          for (const name of block.called) if (!called.includes(name)) called.push(name);
+          // "Pages 40 - 48 — Review Vocals", or whichever half exists. The
+          // room and the leader stay out of the one-liner; they are on the
+          // block itself.
+          const part = [block.pages, block.what ?? block.title].filter(Boolean).join(" — ");
+          if (part && !works.includes(part)) works.push(part);
+        }
+        if (called.length > 0) row.called_note = called.join(" · ");
+        if (works.length > 0) row.works_note = works.join(" · ");
+      } else {
+        row.run = null;
+      }
+    } else {
+      row.run = null;
     }
 
     row.role_ids = roleIdsFromCalledNote(row.called_note, roles ?? [], feed.roleAliases);
@@ -246,7 +278,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
 
   const { data: existing, error: readError } = await hub
     .from("calendar_events")
-    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time, called_note, works_note, details, role_ids")
+    .select("id, external_ref, title, type, starts_at, ends_at, location, call_time, called_note, works_note, details, role_ids, run")
     .eq("external_source", feed.key)
     .eq("production_id", feed.productionId);
   if (readError) throw new Error(`${feed.key}: events read failed: ${readError.message}`);
@@ -277,6 +309,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
       !sameIdSet(current.role_ids, row.role_ids ?? null) ||
       String(current.works_note ?? "") !== String(row.works_note ?? "") ||
       String(current.details ?? "") !== String(row.details ?? "") ||
+      JSON.stringify(current.run ?? null) !== JSON.stringify(row.run ?? null) ||
       !sameNullableInstant(current.call_time, row.call_time);
     if (!changed) continue;
 

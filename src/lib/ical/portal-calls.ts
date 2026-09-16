@@ -29,6 +29,9 @@ import { org } from "@/config/org";
  */
 
 export interface PortalCall {
+  /** The staff portal's row id; carried onto the run block so a family and a
+   *  director can point at the same line. */
+  id?: string;
   call_date: string;
   /** "09:00:00" — a wall clock in the org's timezone, no date attached. */
   starts_at: string | null;
@@ -41,7 +44,18 @@ export interface PortalCall {
   material: string | null;
   /** Character keys — the same words the family calendar filters on. */
   called: string[] | null;
+  /** The staff portal's own cast-list wording ("Leads only"), when it has one. */
+  called_label?: string | null;
   calendar_status: string | null;
+  /**
+   * The Google event this row is bound to (staff_portal.curriculum_calls.
+   * calendar_uid) — the same UID the family calendar keeps in external_ref.
+   * When both sides know it, the block belongs to that event by identity and
+   * the clock-window heuristic below is only for the rows that never bound
+   * (lunch, Labor Day). Null on an unbound row.
+   */
+  calendar_uid?: string | null;
+  sort_order?: number | null;
 }
 
 /** What the portal has to say about one event. */
@@ -187,3 +201,110 @@ export function overlayFor(calls: PortalCall[]): PortalOverlay {
     worksNote: works.length > 0 ? works.join(" · ") : null,
   };
 }
+
+/**
+ * One room block of the staff portal's "Run the day", as a family reads it.
+ *
+ * What a director sees on the staff page, minus the staff-only notes: when,
+ * where, who leads, what is worked (with the page range when the sheet gives
+ * one) and who is called. `roleIds` is the cast resolved to this show's
+ * family-hub roles at sync time, so a child's row can be marked without the
+ * two portals' spellings ever having to agree in the browser.
+ */
+export interface RunBlock {
+  id: string | null;
+  /** "09:00", wall clock in the org's timezone; null when the row states none. */
+  start: string | null;
+  end: string | null;
+  room: string | null;
+  leader: string | null;
+  /** The block's heading — the staff page's call_type ("Music call", "LUNCH"). */
+  title: string | null;
+  /** The staff page's second line: act_scene ("Pages 94 - 99") — material. */
+  pages: string | null;
+  what: string | null;
+  /** Character keys, the same short names the staff page's chips show. */
+  called: string[];
+  calledLabel: string | null;
+  roleIds: string[] | null;
+}
+
+/**
+ * Which of a show's calls belong to this event BY IDENTITY.
+ *
+ * The staff portal binds every call it can to the Google event's UID, and the
+ * family calendar keeps that same UID in external_ref — so the two can agree
+ * on ownership exactly, without guessing from the clock. The clock rule in
+ * callsForEvent is still needed for the rows that never bind (lunch is
+ * described inside the surrounding event, not an event of its own), so the
+ * caller takes the union: bound rows by UID, unbound rows by window.
+ */
+export function callsForUid(calls: PortalCall[], uid: string): PortalCall[] {
+  if (!uid) return [];
+  return calls.filter(
+    (call) => call.calendar_uid === uid && call.calendar_status !== "cancelled"
+  );
+}
+
+/** Deduplicate by row id (or by the row itself when it has none). */
+export function uniqueCalls(calls: PortalCall[]): PortalCall[] {
+  const seen = new Set<string>();
+  const out: PortalCall[] = [];
+  for (const call of calls) {
+    const key = call.id ?? `${call.call_date}|${call.starts_at}|${call.material}|${call.room}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(call);
+  }
+  return out;
+}
+
+/**
+ * The run sheet for one event, in the order the day is run: by start time,
+ * then the staff portal's own ordering, so two rooms that open at nine keep
+ * the order the director put them in.
+ *
+ * Each block is the staff page's row, field for field: its heading is the
+ * call_type, its second line "act_scene — material", its chips the character
+ * KEYS ("Mrs. Lovett", "Toby") — the short names the staff page shows and the
+ * ones the family-hub role aliases were written against. `roleIdsFor`
+ * resolves those keys to this show's family-hub role ids, or null when it
+ * cannot — null is "show this to everyone", the same meaning it has on the
+ * event.
+ */
+export function runSheetFor(
+  calls: PortalCall[],
+  roleIdsFor: (names: string[]) => string[] | null = () => null
+): RunBlock[] {
+  const ordered = [...calls].sort((a, b) => {
+    const at = a.starts_at ?? "";
+    const bt = b.starts_at ?? "";
+    if (at !== bt) return at.localeCompare(bt);
+    return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+  });
+  return ordered.map((call) => {
+    const called: string[] = [];
+    for (const key of call.called ?? []) {
+      const name = String(key).trim();
+      if (name && !called.includes(name)) called.push(name);
+    }
+    const title = (call.call_type ?? call.material ?? "").trim() || null;
+    const material = (call.material ?? "").trim() || null;
+    return {
+      id: call.id ?? null,
+      start: hhmm(call.starts_at),
+      end: hhmm(call.ends_at),
+      room: (call.room ?? "").trim() || null,
+      leader: (call.staff_leading ?? "").trim() || null,
+      title,
+      pages: (call.act_scene ?? "").trim() || null,
+      // A created call's material IS its type (the staff sync writes both
+      // from the same label); saying it twice tells nobody anything.
+      what: material && material !== title ? material : null,
+      called,
+      calledLabel: (call.called_label ?? "").trim() || null,
+      roleIds: called.length > 0 ? roleIdsFor(called) : null,
+    };
+  });
+}
+

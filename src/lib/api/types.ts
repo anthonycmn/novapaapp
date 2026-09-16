@@ -389,6 +389,26 @@ export type EventType =
   | "photo_call"
   | "other";
 
+/** One room block of a call's run sheet — see CalendarEvent.run. */
+export interface RunBlock {
+  id: string | null;
+  /** "09:00", wall clock in the org's timezone; null when the row states none. */
+  start: string | null;
+  end: string | null;
+  room: string | null;
+  leader: string | null;
+  /** The block's heading — the staff page's call_type ("Music call", "LUNCH"). */
+  title: string | null;
+  /** The staff page's second line: act_scene ("Pages 94 - 99") — material. */
+  pages: string | null;
+  what: string | null;
+  /** Character keys, the same short names the staff page's chips show. */
+  called: string[];
+  calledLabel: string | null;
+  /** The cast resolved to this show's roles at sync time; null = everyone. */
+  roleIds: string[] | null;
+}
+
 export interface CalendarEvent {
   id: string;
   type: EventType;
@@ -428,6 +448,15 @@ export interface CalendarEvent {
   calledNote?: string;
   /** What this call works: its scene and music lines. */
   worksNote?: string;
+  /**
+   * The staff portal's "Run the day" for this event: one block per room, in
+   * order — when, where, who leads, what is worked, who is called. Written by
+   * the iCal sync from staff_portal.curriculum_calls (0089), so a family and
+   * a director read the same sheet. When present it is the authority and the
+   * two notes above are its one-line summary. Absent when the staff portal
+   * keeps no curriculum for the show.
+   */
+  run?: RunBlock[];
   /**
    * The show calendar event's own description, flattened to text lines
    * ("---" line = a divider the calendar drew). The full plan in the
@@ -713,6 +742,12 @@ export interface AbsenceReport {
 export interface FamilyCalendarEvent extends CalendarEvent {
   /** Which of the family's students this event applies to. */
   studentIds: string[];
+  /**
+   * The same students with the show roles they hold, so a run sheet can mark
+   * the block each child is in (RunBlock.roleIds) on any surface — the
+   * dashboard and the schedule page never load the cast list themselves.
+   */
+  people?: { name: string; roleIds: string[] }[];
   /** True when this event overlaps another sibling's event. */
   conflictsWith?: string[];
 }

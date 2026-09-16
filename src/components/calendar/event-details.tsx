@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, FileText, ListMusic, Users } from "lucide-react";
 import type { CalendarEvent } from "@/lib/api/types";
+import { RunSheet, RunSheetHeading, type RunPerson } from "@/components/calendar/run-sheet";
 
 /**
  * What is actually happening at this rehearsal, wherever a family meets it.
@@ -20,12 +21,28 @@ import type { CalendarEvent } from "@/lib/api/types";
 export function EventNotes({
   event,
   compact = false,
+  people,
 }: {
-  event: Pick<CalendarEvent, "calledNote" | "worksNote" | "details">;
+  event: Pick<CalendarEvent, "calledNote" | "worksNote" | "details" | "run">;
   /** Tighter type for the dashboard's smaller rows. */
   compact?: boolean;
+  /** This family's performers, so the run sheet can mark their blocks. */
+  people?: RunPerson[];
 }) {
   const text = compact ? "text-[12px]" : "text-sm";
+  /*
+   * The staff portal's run sheet, when it has one, IS the answer — the same
+   * rooms, times and cast a director is reading. The two one-liners below
+   * are its summary and only stand on their own when there is no sheet.
+   */
+  if (event.run && event.run.length > 0) {
+    return (
+      <div>
+        <RunSheetHeading compact={compact} />
+        <RunSheet run={event.run} people={people} compact={compact} />
+      </div>
+    );
+  }
   return (
     <>
       {event.calledNote && (
