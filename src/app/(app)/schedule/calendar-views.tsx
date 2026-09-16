@@ -182,7 +182,7 @@ function EventCard({
             )}
             {/* What is happening at this rehearsal — who is called, what is
                 worked, and the director's full plan behind the fold. */}
-            <EventNotes event={event} />
+            <EventNotes event={event} people={event.people} />
             {event.details && <EventDetails details={event.details} />}
             {event.contactName && (
               <p className="text-sm text-muted-foreground">

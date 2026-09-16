@@ -275,7 +275,7 @@ function EventRow({
       {/* What is happening at rehearsal — the thing parents kept saying
           they could not see from here. Who is called, what is worked; the
           full plan follows below, outside the link. */}
-      <EventNotes event={event} compact />
+      <EventNotes event={event} compact people={event.people} />
 
       {showChildren && (
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">

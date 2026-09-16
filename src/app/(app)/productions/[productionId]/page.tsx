@@ -195,13 +195,23 @@ export default async function ProductionPage({
    * events they are called to; here it is keyed for the rail, alongside the
    * family's standing answers so every row shows its own record.
    */
-  const railStudents = students.map((student) => ({
-    id: student.id,
-    name: student.preferredName ?? student.firstName,
-    roleNames: myRoles
-      .filter((role) => role.studentId === student.id)
-      .map((role) => role.characterName),
-  }));
+  // Role NAMES for the row, role IDS for matching the run sheet's blocks —
+  // the sheet resolved its cast to show_roles ids at sync time, so the match
+  // never depends on two portals spelling a character the same way.
+  const roleIdByName = new Map(roles.map((role) => [role.name.toLowerCase(), role.id]));
+  const railStudents = students.map((student) => {
+    const own = myRoles.filter((role) => role.studentId === student.id);
+    return {
+      id: student.id,
+      name: student.preferredName ?? student.firstName,
+      roleNames: own.map((role) => role.characterName),
+      roleIds: own
+        .map((role) =>
+          roleIdByName.get(role.characterName.replace(/\s*\(understudy\)$/i, "").toLowerCase())
+        )
+        .filter((id): id is string => Boolean(id)),
+    };
+  });
   const calledStudentsByEvent = Object.fromEntries(
     familyEvents
       .filter((event) => event.productionId === production.id)

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { callsForEvent, overlayFor, type PortalCall } from "@/lib/ical/portal-calls";
+import {
+  callsForEvent,
+  callsForUid,
+  overlayFor,
+  runSheetFor,
+  uniqueCalls,
+  type PortalCall,
+} from "@/lib/ical/portal-calls";
 
 /**
  * The bridge from the staff portal's curriculum to the family calendar. The
@@ -174,3 +181,67 @@ describe("what families are told", () => {
     expect(overlay.worksNote).not.toContain("Colton");
   });
 });
+
+/**
+ * The run sheet — CJ, 16 Sep 2026: "I need them to have the same calendar,
+ * run pages, etc . . . . and I want the staff page to be the authority." A
+ * family reads the same room blocks a director does, in the same order.
+ */
+describe("the run sheet is the staff portal's", () => {
+  it("keeps every room, in the order the day is run", () => {
+    const run = runSheetFor([
+      call({ id: "b", starts_at: "10:30:00", ends_at: "12:00:00", material: "Blocking", sort_order: 2 }),
+      call({ id: "a", starts_at: "09:00:00", ends_at: "10:30:00", sort_order: 1 }),
+      call({ id: "c", starts_at: "09:00:00", ends_at: "10:30:00", material: "Movement", room: "Room B", sort_order: 3 }),
+    ]);
+    expect(run.map((block) => block.id)).toEqual(["a", "c", "b"]);
+    expect(run[0]).toMatchObject({
+      start: "09:00",
+      end: "10:30",
+      room: "Room A",
+      leader: "Colton",
+      title: "Blocking",
+      pages: "Pages 40 - 48",
+      what: "Review Vocals and then Stage",
+      called: ["Beggar Woman", "Mrs. Lovett", "Sweeney Todd"],
+    });
+  });
+
+  it("shows the same short names the staff page's chips show, once each", () => {
+    const run = runSheetFor([call({ called: ["Mrs. Lovett", "Sweeney Todd", "Sweeney Todd"] })]);
+    expect(run[0].called).toEqual(["Mrs. Lovett", "Sweeney Todd"]);
+  });
+
+  it("resolves the cast to roles once, at sync time", () => {
+    const run = runSheetFor([call({})], (called) => called.map((name) => `role:${name}`));
+    expect(run[0].roleIds).toEqual(["role:Beggar Woman", "role:Mrs. Lovett", "role:Sweeney Todd"]);
+    // A block calling nobody is not resolved to nobody: null means everyone.
+    expect(runSheetFor([call({ called: [] })], () => ["x"])[0].roleIds).toBeNull();
+  });
+
+  /** The staff sync writes a created call's type and material from one label. */
+  it("does not say the same label twice", () => {
+    const run = runSheetFor([call({ material: "Act II Sequence", call_type: "Act II Sequence" })]);
+    expect(run[0].title).toBe("Act II Sequence");
+    expect(run[0].what).toBeNull();
+  });
+});
+
+describe("a bound call belongs to its event by identity", () => {
+  it("finds the rows bound to the Google UID, skipping cancelled ones", () => {
+    const rows = [
+      call({ id: "1", calendar_uid: "abc@google.com" }),
+      call({ id: "2", calendar_uid: "abc@google.com", calendar_status: "cancelled" }),
+      call({ id: "3", calendar_uid: "other@google.com" }),
+      call({ id: "4", calendar_uid: null }),
+    ];
+    expect(callsForUid(rows, "abc@google.com").map((c) => c.id)).toEqual(["1"]);
+    expect(callsForUid(rows, "")).toEqual([]);
+  });
+
+  it("takes each row once when identity and the clock both claim it", () => {
+    const row = call({ id: "1", calendar_uid: "abc@google.com" });
+    expect(uniqueCalls([row, row, call({ id: "2" })]).map((c) => c.id)).toEqual(["1", "2"]);
+  });
+});
+

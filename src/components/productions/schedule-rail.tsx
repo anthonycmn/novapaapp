@@ -21,6 +21,7 @@ import { org } from "@/config/org";
 import { Card } from "@/components/ui/card";
 import { CallResponse, type CallAnswer } from "@/components/dashboard/call-response";
 import { EventDetails } from "@/components/calendar/event-details";
+import { RunSheet, RunSheetHeading } from "@/components/calendar/run-sheet";
 
 /** One of this family's performers, for the per-child rows on each call. */
 export interface RailStudent {
@@ -28,6 +29,8 @@ export interface RailStudent {
   name: string;
   /** Their published role(s) in THIS show — "Johanna", "Ensemble of London". */
   roleNames: string[];
+  /** The same roles as show_roles ids, for matching a run-sheet block. */
+  roleIds: string[];
 }
 
 /**
@@ -303,10 +306,28 @@ export function ScheduleRail({
                           </p>
                         )}
 
+                        {/* The staff portal's run sheet for this call, when it
+                            has one — the same rooms, times and cast a director
+                            reads, with this family's children marked. CJ, 16
+                            Sep 2026: the staff page is the authority. */}
+                        {event.run && event.run.length > 0 && (
+                          <div className="mt-1">
+                            <RunSheetHeading />
+                            <RunSheet
+                              run={event.run}
+                              people={(students ?? []).map((kid) => ({
+                                name: kid.name,
+                                roleIds: kid.roleIds,
+                              }))}
+                            />
+                          </div>
+                        )}
+
                         {/* Who is called. The question a parent opens this page
                             with is "is my child needed on Thursday", and until
-                            now the page could not answer it. */}
-                        {(() => {
+                            now the page could not answer it. Only when there is
+                            no run sheet: the sheet already says it per room. */}
+                        {!(event.run && event.run.length > 0) && (() => {
                           const called =
                             event.calledNote ??
                             (event.sceneIds ?? [])
@@ -327,7 +348,7 @@ export function ScheduleRail({
 
                         {/* What the call works, so a family can tell whether
                             tonight is their child's material. */}
-                        {event.worksNote && (
+                        {!(event.run && event.run.length > 0) && event.worksNote && (
                           <p className="mt-0.5 flex items-start gap-1.5 text-[12px] leading-snug text-muted-foreground">
                             <ListMusic aria-hidden size={12} className="mt-0.5 shrink-0" />
                             <span>
