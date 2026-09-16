@@ -22,10 +22,21 @@ export interface RunPerson {
   roleIds: string[];
 }
 
-/** "9:00" from "09:00" — a family does not read a leading zero. */
-function clock(hhmm: string): string {
-  const [h, m] = hhmm.split(":");
-  return `${String(Number(h))}:${m}`;
+/** "7:00" and "PM" from "19:00" — the clock a family reads, not the sheet's. */
+function clock(hhmm: string): { time: string; meridiem: "AM" | "PM" } {
+  const [h, m] = hhmm.split(":").map(Number);
+  const meridiem = h >= 12 ? "PM" : "AM";
+  return { time: `${h % 12 || 12}:${String(m).padStart(2, "0")}`, meridiem };
+}
+
+/** "9:00 – 10:30 AM", "11:00 AM – 12:30 PM", or just "7:00 PM". */
+function span(start: string, end: string | null): string {
+  const a = clock(start);
+  if (!end) return `${a.time} ${a.meridiem}`;
+  const b = clock(end);
+  return a.meridiem === b.meridiem
+    ? `${a.time} – ${b.time} ${b.meridiem}`
+    : `${a.time} ${a.meridiem} – ${b.time} ${b.meridiem}`;
 }
 
 export function RunSheet({
@@ -46,20 +57,15 @@ export function RunSheet({
   return (
     <ol className={`mt-1 flex flex-col ${compact ? "gap-1" : "gap-1.5"}`}>
       {run.map((block, index) => {
-        const inBlock = people.filter(
-          (person) =>
-            // A block that resolved to no role is for everyone — the same
-            // rule the event itself follows.
-            block.roleIds === null ||
-            person.roleIds.some((id) => block.roleIds?.includes(id))
-        );
-        const mine = people.length > 0 && inBlock.length > 0;
-        const when =
-          block.start && block.end
-            ? `${clock(block.start)} – ${clock(block.end)}`
-            : block.start
-              ? clock(block.start)
-              : null;
+        // Only a block that names a cast can name this child. A block that
+        // resolved to nobody (lunch, "cast not set") is shown to everyone,
+        // like the event itself, but marking every such block with the
+        // child's name would make the mark mean nothing.
+        const inBlock = block.roleIds
+          ? people.filter((person) => person.roleIds.some((id) => block.roleIds!.includes(id)))
+          : [];
+        const mine = inBlock.length > 0;
+        const when = block.start ? span(block.start, block.end) : null;
         return (
           <li
             key={block.id ?? index}
