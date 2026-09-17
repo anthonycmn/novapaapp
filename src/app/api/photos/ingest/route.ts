@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProvider } from "@/lib/api";
 import { corsHeaders, userFromBearer } from "@/lib/auth/portal-bridge";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { jobActorId } from "@/lib/jobs/actor";
 import { smugMugStatus } from "@/lib/api/photos/smugmug";
 import { runIngestAndMatch, isMatchingRunning } from "@/lib/jobs/photo-matching";
 
@@ -54,14 +54,17 @@ export async function POST(request: NextRequest) {
     if (!secret || presented !== secret) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders() });
     }
-    const systemUser = await getProvider().getUserByEmail("dana@example.com");
-    if (!systemUser) {
+    // The same dead seed address the casting reminders carried
+    // (dana@example.com, no such profile): the unattended ingest had
+    // answered 503 on every run. jobActorId() is the shared fix.
+    const systemActor = await jobActorId();
+    if (!systemActor) {
       return NextResponse.json(
-        { error: "No job account configured" },
+        { error: "No job account: no super_admin profile, and JOB_ACTOR_EMAIL is unset." },
         { status: 503, headers: corsHeaders() }
       );
     }
-    actorId = systemUser.id;
+    actorId = systemActor;
   }
 
   const result = await runIngestAndMatch(actorId!);
