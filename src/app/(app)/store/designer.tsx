@@ -133,7 +133,7 @@ export function ButtonDesigner({
           ref={fileRef}
           id="photo"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
           onChange={onPickFile}
           className="sr-only"
         />

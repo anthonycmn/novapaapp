@@ -279,7 +279,7 @@ export function SpiritButtonForm({
             ref={fileRef}
             id="photo"
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={onPickFile}
             className="sr-only"
           />
