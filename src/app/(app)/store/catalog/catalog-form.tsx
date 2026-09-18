@@ -120,7 +120,7 @@ export function CatalogItemForm({
             ref={fileRef}
             id={`photo-${product.id}`}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             onChange={onPick}
             className="sr-only"
           />

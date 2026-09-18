@@ -136,7 +136,7 @@ export function TemplateForm({
               ref={fileRef}
               id={`background-${production.id}`}
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               onChange={onPickFile}
               className="sr-only"
             />

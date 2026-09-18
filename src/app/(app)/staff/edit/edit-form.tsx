@@ -76,7 +76,7 @@ export function StaffEditForm({ profile }: { profile: StaffProfile }) {
             ref={fileRef}
             id="staff-photo"
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             onChange={onPick}
             className="sr-only"
           />

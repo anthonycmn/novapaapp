@@ -103,7 +103,7 @@ function GuardianRow({ guardian }: { guardian: Guardian }) {
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={onPickFile}
             className="sr-only"
             aria-label={`Photo of ${guardian.fullName || "this parent"}`}
