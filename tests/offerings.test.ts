@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   groupOfferings,
+  isSuppressedFromSignup,
   kindOf,
   offeringFromRow,
+  SUPPRESSED_FROM_SIGNUP,
   type OpenOffering,
 } from "@/lib/api/catalog/offerings";
 
@@ -134,5 +136,41 @@ describe("grouping them for a dashboard", () => {
 
   it("says nothing at all when nothing is open", () => {
     expect(groupOfferings([])).toEqual([]);
+  });
+});
+
+describe("what the office has pulled off the sign-up card", () => {
+  /*
+   * CJ, 18 Sep 2026: "don't advertise any of Frozen programs anymore for sign
+   * ups." All three Frozen rows were active, bookable and not hidden when he
+   * said it, so the catalogue flags alone would still have offered them.
+   */
+  it("offers no Frozen programme, whatever the catalogue says", () => {
+    for (const name of [
+      "Broadway Bound | Frozen, Kids",
+      "Broadway Bound Junior | Frozen, Jr.",
+      "Broadway Bound Teens | Frozen, Jr",
+      "A Day at the Theatre - \"A Frozen Adventure\"",
+    ]) {
+      expect(
+        offeringFromRow(row({ name, active: true, bookable: true, hidden: false })),
+        `${name} is still being advertised`
+      ).toBeNull();
+    }
+  });
+
+  it("matches however the catalogue capitalises it", () => {
+    expect(isSuppressedFromSignup("FROZEN, JR.")).toBe(true);
+    expect(isSuppressedFromSignup("frozen kids")).toBe(true);
+  });
+
+  it("leaves everything else alone", () => {
+    expect(isSuppressedFromSignup("Sweeney Todd - Teen Conservatory")).toBe(false);
+    expect(isSuppressedFromSignup("Musical Theatre Acting")).toBe(false);
+    expect(offeringFromRow(row({ name: "Hadestown - Teen Conservatory" }))).not.toBeNull();
+  });
+
+  it("is a list the office can empty to put them back", () => {
+    expect(SUPPRESSED_FROM_SIGNUP.length).toBeGreaterThan(0);
   });
 });

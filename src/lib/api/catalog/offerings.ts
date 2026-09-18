@@ -60,6 +60,24 @@ export function kindOf(category: unknown): OfferingKind | null {
   }
 }
 
+/*
+ * Offerings the office has taken off the portal's own sign-up card, whatever
+ * the catalog still says about them. CJ, 18 Sep 2026: "don't advertise any of
+ * Frozen programs anymore for sign ups."
+ *
+ * Three Frozen rows were bookable that morning (Kids, Junior and Teens), and
+ * Junior had been selling past its cast size. This suppresses them HERE ONLY:
+ * the catalog stays the source of truth, the office can still take a booking,
+ * and the public site is not this app's to change. Empty the list to put them
+ * back.
+ */
+export const SUPPRESSED_FROM_SIGNUP: RegExp[] = [/frozen/i];
+
+/** Has the office pulled this offering off the portal's sign-up card? */
+export function isSuppressedFromSignup(name: string): boolean {
+  return SUPPRESSED_FROM_SIGNUP.some((pattern) => pattern.test(name));
+}
+
 /**
  * One catalog row as something a family can act on.
  *
@@ -85,6 +103,9 @@ export function offeringFromRow(row: Record<string, unknown>): OpenOffering | nu
 
   const name = str(row.name);
   if (!name) return null;
+
+  // Pulled by the office, not by the catalog. See SUPPRESSED_FROM_SIGNUP.
+  if (isSuppressedFromSignup(name)) return null;
 
   const openSpots = num(row.open_spots);
   // Sold out is not "open". The catalog leaves the row active because there
