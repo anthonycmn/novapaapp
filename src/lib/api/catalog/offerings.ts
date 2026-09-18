@@ -21,7 +21,11 @@ export interface OpenOffering {
   /** "5 – 9 yrs", as the catalog writes it. */
   ageRange?: string;
   priceCents?: number;
-  /** Places left, when the catalog tracks them. */
+  /**
+   * Places left: capacity minus sold minus booked offline minus active
+   * unexpired holds, as catalog_list() computes it. Undefined when the
+   * offering has no capacity, which is most coaching.
+   */
   openSpots?: number;
   /** Where a family goes to book it. */
   registerUrl: string;
@@ -81,11 +85,14 @@ export function isSuppressedFromSignup(name: string): boolean {
 /**
  * One catalog row as something a family can act on.
  *
- * Returns null for anything unbookable. The three flags are the catalog's
- * own: `active` (still on sale), `bookable` (can be bought at all), `hidden`
- * (deliberately off the public site). A row failing any of them is one the
- * office has decided nobody should be buying, and this app does not get a
- * second opinion.
+ * The row is one that `public.catalog_list()` returned. That function has
+ * already dropped anything inactive or hidden and has already worked out both
+ * `bookable` (which it widens to include the registration window) and
+ * `remaining`. A row failing either is one the office has decided nobody
+ * should be buying, and this app does not get a second opinion.
+ *
+ * `active` and `hidden` are still honoured when a caller hands over a raw
+ * `activities` row, so a direct read cannot quietly lose those two checks.
  *
  * Note what is NOT used: `pdp_url`. It is a relative path into the org's old
  * Sawyer account, which knows nothing about the balances or enrollments in this
@@ -93,7 +100,9 @@ export function isSuppressedFromSignup(name: string): boolean {
  * id instead, which is what the public site's own Register buttons use.
  */
 export function offeringFromRow(row: Record<string, unknown>): OpenOffering | null {
-  if (!row.active || !row.bookable || row.hidden) return null;
+  // catalog_list() has filtered these two already and so does not return them.
+  if (row.active === false || row.hidden === true) return null;
+  if (!row.bookable) return null;
 
   const activityId = Number(row.id);
   if (!Number.isFinite(activityId) || activityId <= 0) return null;
@@ -107,9 +116,17 @@ export function offeringFromRow(row: Record<string, unknown>): OpenOffering | nu
   // Pulled by the office, not by the catalog. See SUPPRESSED_FROM_SIGNUP.
   if (isSuppressedFromSignup(name)) return null;
 
-  const openSpots = num(row.open_spots);
-  // Sold out is not "open". The catalog leaves the row active because there
-  // is a waitlist, but a family reading "register" should not find a full week.
+  /*
+   * Sold out is not "open". The catalog leaves the row active because there is
+   * a waitlist, but a family reading "register" should not find a full week.
+   *
+   * This reads `remaining`, never `open_spots`. open_spots is hand maintained
+   * and was wrong on nearly half the catalog on 18 Sep 2026, including a 663
+   * on a production with one seat left. `remaining` is the checkout's own
+   * arithmetic: capacity - sold - booked_offline - held, clamped at zero, and
+   * null when the offering has no capacity to run out of.
+   */
+  const openSpots = num(row.remaining);
   if (openSpots !== undefined && openSpots <= 0) return null;
 
   return {

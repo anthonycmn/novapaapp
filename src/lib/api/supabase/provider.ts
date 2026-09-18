@@ -512,17 +512,28 @@ class SupabaseDataProvider {
    */
   async listOpenOfferings(): Promise<OpenOffering[]> {
     try {
-      const { data, error } = await getWebsiteReadClient()
-        .from("activities")
-        .select("id, category, name, age_range, price_cents, open_spots, active, bookable, hidden")
-        .eq("active", true)
-        .eq("bookable", true)
-        .eq("hidden", false)
-        .range(0, 4999);
+      /*
+       * catalog_list() rather than a select on activities, because the seat
+       * count is the checkout's to compute and this app kept getting it wrong.
+       *
+       * Reading the table directly meant trusting activities.open_spots, and
+       * that column is maintained by hand: on 18 Sep 2026 it was correct on 54
+       * of 102 sellable rows, 29 rows claimed more places than the offering had
+       * seats, and it read 663 for a Frozen Jr production that had one. A
+       * family was being offered a show that was selling past its cast size.
+       *
+       * The function is what the public site's own Register buttons read. It
+       * returns `remaining` as capacity - sold - booked_offline - active
+       * unexpired holds, clamped at zero and null when the offering has no
+       * capacity, and its `bookable` also honours registration_opens_at and
+       * registration_closes_at, which the old select ignored entirely. Two
+       * readers, one answer, and no second opinion from this app.
+       */
+      const { data, error } = await getWebsiteReadClient().rpc("catalog_list");
       if (error) throw new Error(error.message);
       return (data ?? [])
-        .map((row) => offeringFromRow(row as Record<string, unknown>))
-        .filter((offering): offering is OpenOffering => offering !== null);
+        .map((row: unknown) => offeringFromRow(row as Record<string, unknown>))
+        .filter((offering: OpenOffering | null): offering is OpenOffering => offering !== null);
     } catch (error) {
       console.error("[catalog] could not read what's open:", error);
       return [];
