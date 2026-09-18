@@ -30,6 +30,28 @@ export interface EmailDeliveryProvider {
   send(email: OutgoingEmail): Promise<{ id: string; ok: boolean }>;
 }
 
+/**
+ * Headers that tell a mailbox's auto-responder to stay quiet (RFC 3834).
+ *
+ * 18 Sep 2026: every email to cj@novapa.org since the 16th showed in Resend as
+ * "Bounced — Transient / General", no diagnostic. Nothing was wrong with the
+ * mailbox; each message was sitting in it. CJ's Gmail vacation responder was
+ * replying to the envelope sender, which for Resend is a per-message Amazon SES
+ * address (…-000000@send.portal.novapa.org). SES reads anything that lands
+ * there as a bounce, an out-of-office is not a delivery report it can parse,
+ * so "General" — and because the address is new every time, Gmail's
+ * once-per-sender throttle never applied. Two days of health-form and casting
+ * notifications wore a bounce they had not earned.
+ *
+ * Gmail honors `Precedence: bulk`; `Auto-Submitted` is the standard the RFC
+ * names. Every message this adapter sends is machine-generated, so both apply
+ * to all of them. Neither changes how the mail is filed or filtered.
+ */
+export const AUTO_RESPONDER_SUPPRESSION_HEADERS: Readonly<Record<string, string>> = {
+  Precedence: "bulk",
+  "Auto-Submitted": "auto-generated",
+};
+
 class MockEmailProvider implements EmailDeliveryProvider {
   public sent: OutgoingEmail[] = [];
 
@@ -86,6 +108,7 @@ class ResendEmailProvider implements EmailDeliveryProvider {
         text: email.text,
         ...(email.html ? { html: email.html } : {}),
         reply_to: email.replyTo ?? org.supportEmail,
+        headers: AUTO_RESPONDER_SUPPRESSION_HEADERS,
         tags: [{ name: "category", value: email.category }],
       }),
     });
