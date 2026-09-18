@@ -7,6 +7,7 @@ import { getProvider } from "@/lib/api";
 import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
+import { HEALTH_FORM_RECIPIENTS } from "@/config/submission-recipients";
 import { notifySubmission, submissionMessage } from "./notify-submission";
 import type { FamilyFormState } from "./family";
 import type { SubmissionState } from "./spirit-button";
@@ -121,6 +122,8 @@ export async function saveHealthFormAction(
   const outcome = await notifySubmission({
     subject: `Health form signed — ${childName}`,
     category: "health_form_submitted",
+    // Tony, 18 Sep 2026: not CJ, not Todd — see HEALTH_FORM_RECIPIENTS.
+    only: HEALTH_FORM_RECIPIENTS.map((recipient) => recipient.email),
     lines: [
       `${childName}'s health form has been signed and is on file.`,
       "",

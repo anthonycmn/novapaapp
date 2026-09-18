@@ -60,6 +60,22 @@ export const ARRIVAL_RECIPIENTS: SubmissionRecipient[] = SUBMISSION_RECIPIENTS.f
 );
 
 /**
+ * Who gets told a family signed a health form.
+ *
+ * Tony, 18 Sep 2026: "STOP SENDING HEALTH FORM NOTIFICATIONS TO TODD@NOVAPA.ORG
+ * AND CJ@NOVAPA.ORG." Every signed form was mailing all five names; the two
+ * who run the company do not need a note per child. Expressed as who is
+ * EXCLUDED so a name added to the submission list later hears about health
+ * forms by default, the way it always did.
+ */
+export const HEALTH_FORM_EXCLUDED_NAMES = ["Tony Cimino-Johnson", "Todd Cimino-Johnson"] as const;
+
+export const HEALTH_FORM_RECIPIENTS: SubmissionRecipient[] = SUBMISSION_RECIPIENTS.filter(
+  (recipient) =>
+    !(HEALTH_FORM_EXCLUDED_NAMES as readonly string[]).includes(recipient.portalName)
+);
+
+/**
  * Fold several recipient lists into one, first mention winning.
  *
  * Pickup notifications go to a named list AND to whoever currently holds admin
