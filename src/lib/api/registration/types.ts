@@ -82,6 +82,9 @@ export interface SyncIssue {
     | "unmatched_participant"
     | "unknown_offering"
     | "conflict"
+    // The source says this registration is child A's, and an enrollment
+    // already carries it for child B. Hub 0091 era: reported, never retried.
+    | "wrong_child"
     | "parse_error";
   message: string;
   externalId?: string;
