@@ -441,6 +441,33 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
     if (!existing && plannedKeys.has(`${studentId}::${targetKey}`)) continue;
 
+    // The external id is unique across enrollments (enrollments_external_idx on
+    // external_source, external_id). If another row already holds this one, the
+    // registration is on a different student than the source says: a sibling,
+    // usually, from a Sawyer era row matched by name. Creating would throw
+    // 23505 on every run, which is exactly what it did, 192 times in 24 hours
+    // through 18 Sep 2026, on legacy:778 and legacy:790: Kai Stuermann's
+    // Sweeney Todd and Hadestown registrations, both sitting on his sister
+    // Vanessa. The insert can never win, and while it keeps failing the run
+    // reports "partial" forever, so a real problem in the issue list has
+    // nowhere to show. Say it instead, and name both children.
+    const heldElsewhere = existingByExternalId.get(external.externalId);
+    if (!existing && heldElsewhere && heldElsewhere.studentId !== studentId) {
+      const heldBy = input.students.find((s) => s.id === heldElsewhere.studentId);
+      const shouldBe = input.students.find((s) => s.id === studentId);
+      plan.issues.push({
+        kind: "wrong_child",
+        externalId: external.externalId,
+        message:
+          `Registration ${external.externalId} ("${external.offeringName}") is for ` +
+          `${shouldBe ? `${shouldBe.firstName} ${shouldBe.lastName}` : "another student"}, ` +
+          `but enrollment ${heldElsewhere.id} already carries that registration for ` +
+          `${heldBy ? `${heldBy.firstName} ${heldBy.lastName}` : "a different student"}. ` +
+          `Nobody's roster changed. Move the enrollment to the right child, or delete it and let the next sync place it.`,
+      });
+      continue;
+    }
+
     if (!existing) {
       plannedKeys.add(`${studentId}::${targetKey}`);
       plan.creates.push({
