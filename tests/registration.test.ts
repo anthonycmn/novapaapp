@@ -4,7 +4,7 @@ import { AccessDeniedError } from "@/lib/api/provider";
 import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
 import { MockRegistrationProvider } from "@/lib/api/registration/mock";
 import { mapSnapshot } from "@/lib/api/registration/custom";
-import { reconcile } from "@/lib/api/registration/reconcile";
+import { reconcile, syncStatusFor } from "@/lib/api/registration/reconcile";
 import { resolveLegacyOfferingName } from "@/lib/api/registration/website";
 import * as seed from "@/lib/api/mock/seed-data";
 
@@ -681,6 +681,77 @@ describe("one child stated twice in one snapshot", () => {
     expect(plan.counts.enrollmentsCreated).toBe(1);
     // First line item wins — the order row, which carries the money.
     expect(plan.creates[0].externalId).toBe("order_item:1");
+  });
+});
+
+describe("the legacy set is a count, not a to-do list", () => {
+  // Sep 4 to Sep 20 2026: every run read "partial, 562 issues" on the
+  // strength of 556 Sawyer-era rows naming completed 2026 summer programs,
+  // and the one real unknown_offering among them (a paying family's class
+  // order with no class row in the app) went unnoticed for two days.
+  const snapshotWith = (enrollments: Array<{ externalId: string; offeringName: string }>) => ({
+    source: "website" as const,
+    fetchedAt: "2026-09-20T12:00:00.000Z",
+    accounts: [
+      { externalId: "a1", source: "website" as const, guardianName: "Sofia Martinez", email: "sofia@example.com" },
+    ],
+    participants: [
+      { externalId: "p1", accountExternalId: "a1", firstName: "Ava", lastName: "Martinez", dateOfBirth: "2015-03-12" },
+    ],
+    enrollments: enrollments.map(({ externalId, offeringName }) => ({
+      externalId,
+      source: "website" as const,
+      participantExternalId: "p1",
+      accountExternalId: "a1",
+      offeringName,
+      offeringCategory: "camp",
+      offeringActivityId: undefined,
+      status: "enrolled" as const,
+      balanceCents: 0,
+      amountPaidCents: 0,
+      enrolledAt: "2026-09-01T00:00:00.000Z",
+    })),
+  });
+
+  it("rolls every unmapped legacy row into one issue that does not make the run partial", () => {
+    const plan = reconcile({
+      ...reconcileInput(
+        snapshotWith([
+          { externalId: "legacy:1", offeringName: "\"Annie, Jr.\" - Broadway Bound Stagelighters | Grades 5 - 10" },
+          { externalId: "legacy:2", offeringName: "\"Annie, Jr.\" - Broadway Bound Stagelighters | Grades 5 - 10" },
+          { externalId: "legacy:3", offeringName: "Broadway Bound Grades 4 - 9: Dream | July 24th at 7pm Performance" },
+        ])
+      ),
+      enrollments: [],
+    });
+    expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
+    const bucket = plan.issues.filter((i) => i.kind === "legacy_unmapped");
+    expect(bucket).toHaveLength(1);
+    expect(bucket[0].count).toBe(3);
+    expect(bucket[0].message).toContain("3 Sawyer-era registrations name 2 programs");
+    expect(bucket[0].message).toContain("Stagelighters | Grades 5 - 10 (2)");
+    expect(syncStatusFor(plan.issues)).toBe("success");
+  });
+
+  it("still reports a web order that resolves to nothing, and that alone makes the run partial", () => {
+    const plan = reconcile({
+      ...reconcileInput(
+        snapshotWith([
+          { externalId: "legacy:1", offeringName: "Broadway Bound Youth PM | July 24th at 5pm Performance" },
+          { externalId: "order_item:207e1d5a", offeringName: "Musical Theatre Acting (9 - 12 yrs)" },
+        ])
+      ),
+      enrollments: [],
+    });
+    const unknown = plan.issues.filter((i) => i.kind === "unknown_offering");
+    expect(unknown).toHaveLength(1);
+    expect(unknown[0].externalId).toBe("order_item:207e1d5a");
+    expect(syncStatusFor(plan.issues)).toBe("partial");
+  });
+
+  it("reports nothing at all when there are no legacy rows to bucket", () => {
+    const plan = reconcile({ ...reconcileInput(snapshotWith([])), enrollments: [] });
+    expect(plan.issues.filter((i) => i.kind === "legacy_unmapped")).toHaveLength(0);
   });
 });
 

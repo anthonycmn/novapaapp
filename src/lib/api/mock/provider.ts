@@ -64,7 +64,7 @@ import type {
   RegistrationSource,
   SyncRun,
 } from "../registration/types";
-import { reconcile } from "../registration/reconcile";
+import { reconcile, syncStatusFor } from "../registration/reconcile";
 import type {
   ConsentEvent,
   FaceEmbedding,
@@ -1805,7 +1805,7 @@ export class MockDataProvider implements DataProvider {
       source: snapshot.source,
       startedAt,
       finishedAt: nowIso(),
-      status: plan.issues.length > 0 ? "partial" : "success",
+      status: syncStatusFor(plan.issues),
       trigger,
       counts: plan.counts,
       issues: plan.issues,

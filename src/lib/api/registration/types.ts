@@ -82,9 +82,19 @@ export interface SyncIssue {
     | "unmatched_participant"
     | "unknown_offering"
     | "conflict"
-    | "parse_error";
+    | "parse_error"
+    /**
+     * One issue per run standing in for every Sawyer-era row that names a
+     * program the app does not carry (completed 2026 summer programs, the
+     * NYC trip, free-text Sawyer prose). Never backfilled (Jason, Aug 14
+     * 2026), so it is a count for the record, not work for a person, and it
+     * does not make the run "partial". See syncStatusFor in reconcile.ts.
+     */
+    | "legacy_unmapped";
   message: string;
   externalId?: string;
+  /** legacy_unmapped only: how many rows this one issue stands for. */
+  count?: number;
 }
 
 export interface SyncRun {
