@@ -465,6 +465,11 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
    * "reported above" without ever being reported: two DC Unifieds comps sat
    * on no roster for weeks and no run ever said so. Now each such child is
    * named once.
+   *
+   * Website line items only. A Sawyer-era row whose child name matches no
+   * camper is the same completed-program history the legacy bucket above
+   * stands for (122 of them on the first run that looked, Sep 20 2026), not
+   * a child a person can add to an account today.
    */
   const knownParticipants = new Set(snapshot.participants.map((p) => p.externalId));
   const orphanedParticipants = new Set<string>();
@@ -473,6 +478,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     const studentId = studentByParticipantId.get(external.participantExternalId);
     if (!studentId) {
       if (
+        !external.externalId.startsWith("legacy:") &&
         !knownParticipants.has(external.participantExternalId) &&
         !orphanedParticipants.has(external.participantExternalId)
       ) {

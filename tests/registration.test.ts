@@ -212,6 +212,14 @@ describe("reconciliation (pure)", () => {
     expect(orphan[0].message).toContain("no camper record");
   });
 
+  it("leaves a Sawyer-era line item with no camper to the legacy count", () => {
+    const snapshot = camperSnapshot({ externalId: "camper-ava", firstName: "Ava", lastName: "Martinez" });
+    snapshot.enrollments[0].externalId = "legacy:834";
+    snapshot.enrollments[0].participantExternalId = "unmatched:web-martinez:someone else";
+    const plan = reconcile(reconcileInput(snapshot));
+    expect(plan.issues.filter((i) => i.kind === "unmatched_participant")).toHaveLength(0);
+  });
+
   /* ── coaching: the staff portal's, resolved through its catalog ────────── */
 
   const coachingSnapshot = (activityId: number | undefined) => ({
