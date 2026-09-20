@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   groupOfferings,
+  isSuppressedFromSignup,
   kindOf,
   offeringFromRow,
+  SUPPRESSED_FROM_SIGNUP,
   type OpenOffering,
 } from "@/lib/api/catalog/offerings";
 
@@ -13,18 +15,25 @@ import {
  * says nothing.
  */
 
-/** A row exactly as public.activities returns one. */
+/**
+ * A row exactly as public.catalog_list() returns one.
+ *
+ * The function filters on active and hidden itself, so its rows carry neither.
+ * `remaining` is its own arithmetic, capacity - sold - booked_offline - held,
+ * clamped at zero and null when the offering has no capacity. `open_spots` is
+ * still in the result set and is deliberately ignored: it is hand maintained
+ * and was wrong on nearly half the catalogue on 18 Sep 2026.
+ */
 const row = (patch: Record<string, unknown> = {}) => ({
   id: 1962613,
   category: "camp",
   name: "Ages 5–9 Day Camp · Nov 11, 2026",
   age_range: "5 – 9 yrs",
   price_cents: 7900,
+  remaining: 40,
   open_spots: 40,
   pdp_url: "/nova-performing-arts/schedules/activity-set/1962613",
-  active: true,
   bookable: true,
-  hidden: false,
   ...patch,
 });
 
@@ -67,6 +76,9 @@ describe("reading one offering", () => {
   });
 
   it("respects the three flags the office sets", () => {
+    // catalog_list() applies active and hidden before it returns, so in
+    // production only bookable arrives. Both are still honoured here so a
+    // direct read of activities cannot quietly lose the other two.
     expect(offeringFromRow(row({ active: false }))).toBeNull();
     expect(offeringFromRow(row({ bookable: false }))).toBeNull();
     expect(offeringFromRow(row({ hidden: true }))).toBeNull();
@@ -74,13 +86,14 @@ describe("reading one offering", () => {
 
   it("does not offer a session that is full", () => {
     // The catalogue keeps a sold-out row active because there is a waitlist.
-    // "Register" is the wrong word for a full week.
-    expect(offeringFromRow(row({ open_spots: 0 }))).toBeNull();
-    expect(offeringFromRow(row({ open_spots: -3 }))).toBeNull();
+    // "Register" is the wrong word for a full week. catalog_list() clamps at
+    // zero, so zero is what an oversold production looks like here.
+    expect(offeringFromRow(row({ remaining: 0 }))).toBeNull();
+    expect(offeringFromRow(row({ remaining: -3 }))).toBeNull();
   });
 
   it("still offers one whose places are simply not tracked", () => {
-    const offering = offeringFromRow(row({ open_spots: null }));
+    const offering = offeringFromRow(row({ remaining: null }));
     expect(offering?.openSpots).toBeUndefined();
     expect(offering?.activityId).toBe(1962613);
   });
@@ -134,5 +147,80 @@ describe("grouping them for a dashboard", () => {
 
   it("says nothing at all when nothing is open", () => {
     expect(groupOfferings([])).toEqual([]);
+  });
+});
+
+describe("what the office has pulled off the sign-up card", () => {
+  /*
+   * CJ, 18 Sep 2026: "don't advertise any of Frozen programs anymore for sign
+   * ups." All three Frozen rows were active, bookable and not hidden when he
+   * said it, so the catalogue flags alone would still have offered them.
+   */
+  it("offers no Frozen programme, whatever the catalogue says", () => {
+    for (const name of [
+      "Broadway Bound | Frozen, Kids",
+      "Broadway Bound Junior | Frozen, Jr.",
+      "Broadway Bound Teens | Frozen, Jr",
+      "A Day at the Theatre - \"A Frozen Adventure\"",
+    ]) {
+      expect(
+        offeringFromRow(row({ name, active: true, bookable: true, hidden: false })),
+        `${name} is still being advertised`
+      ).toBeNull();
+    }
+  });
+
+  it("matches however the catalogue capitalises it", () => {
+    expect(isSuppressedFromSignup("FROZEN, JR.")).toBe(true);
+    expect(isSuppressedFromSignup("frozen kids")).toBe(true);
+  });
+
+  it("leaves everything else alone", () => {
+    expect(isSuppressedFromSignup("Sweeney Todd - Teen Conservatory")).toBe(false);
+    expect(isSuppressedFromSignup("Musical Theatre Acting")).toBe(false);
+    expect(offeringFromRow(row({ name: "Hadestown - Teen Conservatory" }))).not.toBeNull();
+  });
+
+  it("is a list the office can empty to put them back", () => {
+    expect(SUPPRESSED_FROM_SIGNUP.length).toBeGreaterThan(0);
+  });
+});
+
+describe("how many places are left", () => {
+  /*
+   * The guard used to read activities.open_spots, a hand-maintained column. On
+   * 18 Sep 2026 it was right on 54 of 102 sellable rows, 29 rows claimed more
+   * places than the offering had seats, and it read 663 for a Frozen Jr
+   * production that had one left. catalog_list() computes the number instead.
+   */
+  it("believes remaining, not open_spots", () => {
+    const oversold = offeringFromRow(row({ remaining: 0, open_spots: 663 }));
+    expect(oversold, "a full offering was advertised because open_spots said otherwise").toBeNull();
+  });
+
+  it("still offers a row that open_spots calls full but the checkout does not", () => {
+    const offering = offeringFromRow(row({ remaining: 6, open_spots: 0 }));
+    expect(offering?.openSpots).toBe(6);
+  });
+
+  it("reports the checkout's number, so \"places left\" is the truth", () => {
+    expect(offeringFromRow(row({ remaining: 1, open_spots: 663 }))?.openSpots).toBe(1);
+  });
+
+  it("offers an uncapped offering, which is most coaching", () => {
+    const offering = offeringFromRow(row({ category: "coaching", remaining: null }));
+    expect(offering).not.toBeNull();
+    expect(offering?.openSpots).toBeUndefined();
+  });
+
+  it("drops anything the registration window has closed", () => {
+    // catalog_list() folds registration_opens_at and registration_closes_at
+    // into bookable, which the old direct read ignored entirely.
+    expect(offeringFromRow(row({ bookable: false }))).toBeNull();
+  });
+
+  it("still honours active and hidden if handed a raw activities row", () => {
+    expect(offeringFromRow(row({ active: false }))).toBeNull();
+    expect(offeringFromRow(row({ hidden: true }))).toBeNull();
   });
 });

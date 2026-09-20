@@ -789,20 +789,29 @@ export class MockDataProvider implements DataProvider {
   }
 
   /**
-   * A demo catalog. In production this is the org's own `public.activities`;
-   * here it is one of each kind, put through the same mapping so the sold-out
-   * and unbookable rules are exercised rather than assumed.
+   * A demo catalog. In production these rows come from `public.catalog_list()`,
+   * so they are shaped the way it shapes them: `remaining` is the seat count it
+   * computes (capacity minus sold, offline bookings and live holds, clamped at
+   * zero, null when there is no capacity), and `active` and `hidden` are absent
+   * because the function has already applied them.
+   *
+   * One of each kind, put through the same mapping, so the sold-out and
+   * unbookable rules are exercised rather than assumed. The Frozen row stays in
+   * the list on purpose: it is what proves SUPPRESSED_FROM_SIGNUP is doing its
+   * job in mock mode too.
    */
   async listOpenOfferings(): Promise<OpenOffering[]> {
     return [
-      { id: 900_001, category: "class", name: "Musical Theatre I · Tuesdays", age_range: "8 – 11 yrs", price_cents: 29500, open_spots: 6 },
-      { id: 900_002, category: "class", name: "Acting for the Camera", age_range: "12 – 15 yrs", price_cents: 34500, open_spots: 3 },
-      { id: 900_003, category: "camp", name: "Broadway Bound | Frozen, Kids", age_range: "5 – 9 yrs", price_cents: 69500, open_spots: 12 },
-      { id: 900_004, category: "coaching", name: "Private voice coaching · 30 min", price_cents: 6500, open_spots: 20 },
+      { id: 900_001, category: "class", name: "Musical Theatre I · Tuesdays", age_range: "8 – 11 yrs", price_cents: 29500, remaining: 6 },
+      { id: 900_002, category: "class", name: "Acting for the Camera", age_range: "12 – 15 yrs", price_cents: 34500, remaining: 3 },
+      // Pulled by the office, so it must not appear.
+      { id: 900_003, category: "camp", name: "Broadway Bound | Frozen, Kids", age_range: "5 – 9 yrs", price_cents: 69500, remaining: 12 },
+      // No capacity to run out of, which is most coaching.
+      { id: 900_004, category: "coaching", name: "Private voice coaching · 30 min", price_cents: 6500, remaining: null },
       // Full, so it must not appear — the waitlist keeps it active upstream.
-      { id: 900_005, category: "camp", name: "Ages 5–9 Day Camp · Oct 12", price_cents: 7900, open_spots: 0 },
+      { id: 900_005, category: "camp", name: "Ages 5–9 Day Camp · Oct 12", price_cents: 7900, remaining: 0 },
     ]
-      .map((row) => offeringFromRow({ ...row, active: true, bookable: true, hidden: false }))
+      .map((row) => offeringFromRow({ ...row, bookable: true }))
       .filter((offering): offering is OpenOffering => offering !== null);
   }
 
