@@ -150,16 +150,16 @@ export default async function FeedPage() {
 
               {post.linkUrl && (
                 <ExternalLinkButton href={post.linkUrl} variant="subtle" className="max-w-full">
-                  {/* The label is the site, not the whole URL — a raw link
+                  {/* The label is the site, not the whole URL - a raw link
                       overflowed the card at phone width (Sep 6 2026 audit). */}
                   <span className="truncate">{linkLabel(post.linkUrl)}</span>
                 </ExternalLinkButton>
               )}
 
-              {/* The slideshow, the costume guide — tap to read (hub 0076). */}
+              {/* The slideshow, the costume guide - tap to read (hub 0076). */}
               <PostAttachments attachments={post.attachments} />
 
-              {/* Show-week posts carry a ticket link — that's when families
+              {/* Show-week posts carry a ticket link - that's when families
                   are inviting relatives (#12). */}
               {post.category === "show_week" && (
                 <ExternalLinkButton href={org.ticketsUrl} variant="outline" className="self-start">

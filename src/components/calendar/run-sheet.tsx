@@ -101,7 +101,7 @@ export function RunSheet({
             {(block.pages || block.what) && (
               <p className={`${sub} leading-snug text-muted-foreground`}>
                 {block.pages && <span className="font-medium text-foreground">{block.pages}</span>}
-                {block.pages && block.what && " — "}
+                {block.pages && block.what && " - "}
                 {block.what}
               </p>
             )}

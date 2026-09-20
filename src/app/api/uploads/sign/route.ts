@@ -102,7 +102,7 @@ export async function POST(request: Request) {
   if (sizeBytes > limits.maxBytes) {
     return NextResponse.json(
       {
-        error: `That ${limits.label} is ${(sizeBytes / 1024 / 1024).toFixed(0)} MB — the limit is ${limits.maxBytes / 1024 / 1024} MB.`,
+        error: `That ${limits.label} is ${(sizeBytes / 1024 / 1024).toFixed(0)} MB - the limit is ${limits.maxBytes / 1024 / 1024} MB.`,
       },
       { status: 413 }
     );

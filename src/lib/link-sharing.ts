@@ -74,7 +74,7 @@ const REMINDERS: Record<LinkHost, SharingReminder | null> = {
     title: "Set it to Unlisted, not Private",
     tone: "warn",
     steps: [
-      "A Private video opens for you and nobody else — the team will see nothing.",
+      "A Private video opens for you and nobody else - the team will see nothing.",
       "In YouTube Studio, open the video, then Visibility → Unlisted → Save.",
       "Unlisted keeps it out of search and off your channel; only somebody with this link can watch it.",
     ],
@@ -93,7 +93,7 @@ const REMINDERS: Record<LinkHost, SharingReminder | null> = {
     tone: "warn",
     steps: [
       "Press Share on the file, then Create link (or Copy link if one exists).",
-      "Make sure it says Anyone with this link — can view, not Only people invited.",
+      "Make sure it says Anyone with this link - can view, not Only people invited.",
       "Paste that copied link here rather than the address bar from your own Dropbox.",
     ],
   },

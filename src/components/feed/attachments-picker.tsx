@@ -273,7 +273,7 @@ export function AttachmentsPicker({ onDirty }: { onDirty?: () => void }) {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Check the link opens for somebody who is not signed in as you — a Google file is
+            Check the link opens for somebody who is not signed in as you - a Google file is
             Restricted until you share it.
           </p>
         </div>
@@ -310,7 +310,7 @@ export function AttachmentsPicker({ onDirty }: { onDirty?: () => void }) {
       ) : (
         <p className="text-xs text-muted-foreground">
           Slides, PDFs, documents and pictures up to 50 MB. A PDF opens right in the browser; a
-          PowerPoint downloads — export slides to PDF if you can. Attachments are as public as
+          PowerPoint downloads - export slides to PDF if you can. Attachments are as public as
           the lobby noticeboard.
         </p>
       )}

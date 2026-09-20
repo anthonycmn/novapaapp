@@ -207,7 +207,7 @@ function balanceLine(sessionsLeft: number): string {
 function whereForCoach(roomName: string | null): string {
   return roomName
     ? roomName
-    : "No room set aside yet — worth checking the diary if you need one.";
+    : "No room set aside yet - worth checking the diary if you need one.";
 }
 
 function whereForFamily(roomName: string | null): string {
@@ -227,7 +227,7 @@ function shell(preheader: string, content: string): string {
 /* -------------------------------------------------------------------------- */
 
 export function bookingForFamily(notice: SessionNotice, portalUrl: string): Message {
-  const subject = `Coaching booked — ${notice.studentName}, ${when(notice.startsAt)}`;
+  const subject = `Coaching booked - ${notice.studentName}, ${when(notice.startsAt)}`;
   const coach = notice.coachName ? ` with ${notice.coachName}` : "";
 
   const content = [
@@ -281,7 +281,7 @@ export function bookingForFamily(notice: SessionNotice, portalUrl: string): Mess
  * ten says something different at the end of the hour.
  */
 export function bookingForCoach(notice: SessionNotice, portalUrl: string): Message {
-  const subject = `New coaching booking — ${notice.studentName}, ${when(notice.startsAt)}`;
+  const subject = `New coaching booking - ${notice.studentName}, ${when(notice.startsAt)}`;
 
   const content = [
     section(
@@ -306,7 +306,7 @@ export function bookingForCoach(notice: SessionNotice, portalUrl: string): Messa
           ? `They have ${esc(sessionCount(notice.sessionsLeft))} left on their package after this one.`
           : "This is the last session on their package."
       ) +
-        p("It is already in your diary — nothing to accept.") +
+        p("It is already in your diary - nothing to accept.") +
         button("Open my coaching", `${portalUrl}`) +
         p(esc(signOff))
     ),
@@ -321,7 +321,7 @@ export function bookingForCoach(notice: SessionNotice, portalUrl: string): Messa
     notice.sessionsLeft > 0
       ? `They have ${sessionCount(notice.sessionsLeft)} left on their package after this one.`
       : "This is the last session on their package.",
-    "It is already in your diary — nothing to accept.",
+    "It is already in your diary - nothing to accept.",
     portalUrl,
     "",
     signOff,
@@ -335,7 +335,7 @@ export function bookingForCoach(notice: SessionNotice, portalUrl: string): Messa
 /* -------------------------------------------------------------------------- */
 
 export function cancellationForFamily(notice: SessionNotice, portalUrl: string): Message {
-  const subject = `Coaching cancelled — ${notice.studentName}, ${when(notice.startsAt)}`;
+  const subject = `Coaching cancelled - ${notice.studentName}, ${when(notice.startsAt)}`;
 
   const content = [
     section(
@@ -350,7 +350,7 @@ export function cancellationForFamily(notice: SessionNotice, portalUrl: string):
       callout(
         `<strong>${esc(sessionCount(notice.sessionsLeft))}</strong> now available to book`
       ) +
-        p("Book another time whenever suits — the coach's open hours are in the portal.") +
+        p("Book another time whenever suits - the coach's open hours are in the portal.") +
         button("Book another session", portalUrl) +
         p(esc(signOff))
     ),
@@ -370,7 +370,7 @@ export function cancellationForFamily(notice: SessionNotice, portalUrl: string):
 }
 
 export function cancellationForCoach(notice: SessionNotice, portalUrl: string): Message {
-  const subject = `Coaching cancelled — ${notice.studentName}, ${when(notice.startsAt)}`;
+  const subject = `Coaching cancelled - ${notice.studentName}, ${when(notice.startsAt)}`;
 
   const content = [
     section(
@@ -418,12 +418,12 @@ export function receiptForFamily(
   portalUrl: string,
   amount: string
 ): Message {
-  const subject = `Coaching sessions confirmed — ${purchase.service}`;
+  const subject = `Coaching sessions confirmed - ${purchase.service}`;
   const who = purchase.studentName ? ` for ${purchase.studentName}` : "";
 
   const content = [
     section(
-      h2("Thank you — your coaching sessions are ready") +
+      h2("Thank you - your coaching sessions are ready") +
         p(esc(greeting(purchase.parentName))) +
         p(
           `Your payment for <strong>${esc(purchase.service)}</strong>${esc(who)} has gone through, and ${esc(
@@ -441,7 +441,7 @@ export function receiptForFamily(
     ),
     section(
       p(
-        "Pick your times in the portal — you will see each coach's open hours and can book straight into them."
+        "Pick your times in the portal - you will see each coach's open hours and can book straight into them."
       ) +
         button("Book a session", portalUrl) +
         p("Keep this email for your records. Reply to it and it reaches us directly.") +
@@ -475,7 +475,7 @@ export function receiptForFamily(
  */
 export function saleForOffice(purchase: PurchaseNotice, amount: string): Message {
   const who = purchase.studentName ?? "a family";
-  const subject = `Coaching sold — ${purchase.service} (${amount})`;
+  const subject = `Coaching sold - ${purchase.service} (${amount})`;
   const text = [
     `${who} bought ${purchase.service} in the parent portal.`,
     "",
@@ -484,7 +484,7 @@ export function saleForOffice(purchase: PurchaseNotice, amount: string): Message
     `  Reference: ${purchase.reference}`,
     `  Their balance now: ${purchase.sessionsLeft}`,
     "",
-    "The sessions are on their account and bookable — nothing needed from you.",
+    "The sessions are on their account and bookable - nothing needed from you.",
   ].join("\n");
 
   return { subject, text, html: "" };

@@ -873,7 +873,7 @@ class SupabaseDataProvider {
         const id = `lesson-${b.id}-${startsAt.slice(0, 10)}`;
         byEvent.set(id, {
           id, type: "class",
-          title: `${label} lesson — ${teacher?.full_name ?? "NOVA PA"}`,
+          title: `${label} lesson - ${teacher?.full_name ?? "NOVA PA"}`,
           startsAt,
           endsAt: new Date(startMs + Number(slot.duration_min) * 60_000).toISOString(),
           location: String(slot.location ?? ""),
@@ -1734,7 +1734,7 @@ class SupabaseDataProvider {
 
     const board = await this.boardFor(productionId);
     if (board.status !== "submitted") {
-      throw new Error("Cast the show first — understudies come after every role is filled");
+      throw new Error("Cast the show first - understudies come after every role is filled");
     }
     if (board.understudiesPublishedAt) {
       throw new Error("Understudies have already been published");
@@ -1756,7 +1756,7 @@ class SupabaseDataProvider {
       (entry) => entry.roleId === roleId && entry.studentId === studentId
     );
     if (holdsThisRole) {
-      throw new Error("They already play this role — pick a different understudy");
+      throw new Error("They already play this role - pick a different understudy");
     }
 
     // One understudy per lead, one lead per understudy: placing moves.
@@ -2154,6 +2154,12 @@ class SupabaseDataProvider {
       productions,
       classes,
       links: (linksRows ?? []).map((l) => this.mapAccountLink(l)),
+      // students.camper_id is the join to the register; the name is not.
+      studentCamperIds: new Map(
+        (studentsRows ?? [])
+          .filter((st) => st.camper_id)
+          .map((st) => [String(st.id), String(st.camper_id)])
+      ),
       coachingActivityIds,
       enrollmentExternalIds: new Map(
         (enrollmentsRows ?? [])
@@ -2171,6 +2177,23 @@ class SupabaseDataProvider {
         },
         { onConflict: "family_id,source", ignoreDuplicates: true }
       );
+    }
+    // A student matched by name because it had no camper id yet: stamp the
+    // id so the next run keys on it. The column is unique; a clash means two
+    // students claim one camper, and that is a row for a human, not a crash.
+    for (const link of plan.studentLinks) {
+      const { error: linkError } = await this.db
+        .from("students")
+        .update({ camper_id: link.camperId })
+        .eq("id", link.studentId)
+        .is("camper_id", null);
+      if (linkError) {
+        plan.issues.push({
+          kind: "conflict",
+          externalId: link.camperId,
+          message: `Student ${link.studentId} matched camper ${link.camperId} by name but the id could not be stamped: ${linkError.message}`,
+        });
+      }
     }
     for (const create of plan.creates) {
       await this.db.from("enrollments").insert({
@@ -2924,7 +2947,7 @@ class SupabaseDataProvider {
     const actor = await this.actor(actorId);
     const { data: current, error: readError } = await this.db
       .from("guardians")
-      .select("family_id")
+      .select("family_id, email")
       .eq("id", guardianId)
       .maybeSingle();
     if (readError) throw new Error(`guardian lookup failed: ${readError.message}`);
@@ -2935,7 +2958,16 @@ class SupabaseDataProvider {
     // the account belongs to, and must not be reachable from a family form.
     const row: Row = {};
     if (patch.fullName !== undefined) row.full_name = patch.fullName;
-    if (patch.email !== undefined) row.email = patch.email;
+    if (patch.email !== undefined) {
+      row.email = patch.email;
+      // The login is the auth user with this row's email. Change the email
+      // and the old link is a stranger's: one family's row pointed at a
+      // student's account for three weeks this way. Cleared here; the next
+      // sign-in by the new address re-links it (ensureParentProfile).
+      if (patch.email.trim().toLowerCase() !== String(current.email ?? "").trim().toLowerCase()) {
+        row.user_id = null;
+      }
+    }
     if (patch.phone !== undefined) row.phone = patch.phone;
     if (patch.relationship !== undefined) row.relationship = patch.relationship;
     if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl;
@@ -4467,7 +4499,7 @@ class SupabaseDataProvider {
         quantity,
         unitPriceCents: BUTTON_PRICES_CENTS[design.size],
         productType: "spirit_button",
-        displayName: `${design.size}" spirit button — ${design.studentName}`,
+        displayName: `${design.size}" spirit button - ${design.studentName}`,
       }),
     });
     if (error) throw new Error(`add to cart failed: ${error.message}`);
@@ -4516,7 +4548,7 @@ class SupabaseDataProvider {
         productType: product.type,
         productId: product.id,
         optionValue: input.optionValue,
-        displayName: optionLabel ? `${product.name} — ${optionLabel}` : product.name,
+        displayName: optionLabel ? `${product.name} - ${optionLabel}` : product.name,
         customization: input.customization,
       }),
     });
@@ -4961,7 +4993,7 @@ class SupabaseDataProvider {
           // message riding a paperwork toggle.
           type: "pickup_decision",
           title: `Pick-up request ${decision.status}`,
-          body: `${student?.first_name ?? "Your student"}: ${decision.note ?? "See details in the app."}`,
+          body: `${student?.first_name ?? "Your student"}: ${decision.note ?? "See details in the Parent Portal."}`,
           url: "/family/pickup",
         }))
       );
@@ -6053,7 +6085,7 @@ class SupabaseDataProvider {
     if (error) {
       // The partial unique index rejects a second active booking.
       if (error.message.includes("lesson_slot_one_active_idx") || error.code === "23505") {
-        throw new Error("That time was just taken — pick another open slot");
+        throw new Error("That time was just taken - pick another open slot");
       }
       throw new Error(`booking failed: ${error.message}`);
     }
@@ -6512,7 +6544,7 @@ export function createSupabaseProvider(): DataProvider {
       if (typeof prop !== "string") return value;
       return () => {
         throw new Error(
-          `SupabaseDataProvider.${prop} is not ported yet — this screen still requires the mock backend (NEXT_PUBLIC_DATA_MODE=mock).`
+          `SupabaseDataProvider.${prop} is not ported yet - this screen still requires the mock backend (NEXT_PUBLIC_DATA_MODE=mock).`
         );
       };
     },

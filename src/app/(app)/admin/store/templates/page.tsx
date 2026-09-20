@@ -51,7 +51,7 @@ export default async function ButtonTemplatesPage({
       <div>
         <h1 className="text-2xl font-semibold">Button artwork</h1>
         <p className="text-muted-foreground">
-          Upload each show&apos;s background — include the show title in the
+          Upload each show&apos;s background - include the show title in the
           artwork itself. Families see their performer standing on it, exactly
           as it will print.
         </p>

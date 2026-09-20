@@ -34,8 +34,9 @@ export function syncStatusFor(issues: SyncIssue[]): Extract<SyncStatus, "success
  *
  * Matching strategy, most to least reliable:
  *   account     → existing AccountLink, else case-insensitive guardian email
- *   participant → name + date of birth within the matched family, else name
- *   offering    → exact production/class title, else normalized title
+ *   participant → students.camper_id (the register's own id), else, only for
+ *                 a student that has no camper_id yet, name within the family
+ *   offering    → activity id, else normalized title
  *
  * Anything that fails to match becomes a SyncIssue rather than a guess.
  * Silent wrong matches are worse than a visible unmatched row.
@@ -50,6 +51,18 @@ export interface ReconcileInput {
   productions: Production[];
   classes: ClassOffering[];
   links: AccountLink[];
+  /**
+   * Student id → `students.camper_id`, the website's camper id that
+   * provisioning stamps on every student it creates from the register.
+   *
+   * This is THE join between a child here and a child there. A participant
+   * whose external id is a camper id resolves through it and nothing else:
+   * not the name, not the date of birth. Absent, every student is treated as
+   * unkeyed and the name fallback below is all that is left, which is how
+   * four children with a nickname or a changed legal name dropped off every
+   * sync run in September 2026.
+   */
+  studentCamperIds?: ReadonlyMap<string, string>;
   /**
    * Website activity ids the STAFF PORTAL publishes as coaching, from
    * `staff_portal.v_coaching_catalog`. Coaching is the portal's business and
@@ -133,6 +146,12 @@ export interface ReconcilePlan {
   updates: PlannedUpdate[];
   /** Links inferred by email that did not already exist. */
   autoLinks: AccountLink[];
+  /**
+   * `students.camper_id` to stamp on students that had none and were matched
+   * by name this run. Written once; from the next run on, the camper id is
+   * the join and the name no longer matters for that child.
+   */
+  studentLinks: { studentId: string; camperId: string }[];
   issues: SyncIssue[];
   counts: {
     accountsSeen: number;
@@ -156,6 +175,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     creates: [],
     updates: [],
     autoLinks: [],
+    studentLinks: [],
     issues: [],
     counts: {
       accountsSeen: snapshot.accounts.length,
@@ -205,6 +225,31 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
   /* ── 2. participants → students ─────────────────────────────────────── */
 
+  /*
+   * THE CAMPER ID IS THE JOIN. THE NAME IS NOT.
+   *
+   * A participant's external id is the register's camper id, and provisioning
+   * writes that same id onto `students.camper_id` when it creates the student.
+   * So the match is one equality, and a nickname ("Katy" for Katelyn, "Bree"
+   * for Logan), a changed legal name, or two children with the same name in
+   * one household cannot break it. Until Sep 20, 2026 this step compared
+   * names, and four children whose parents had typed the name they actually
+   * use were dropped from every sync run: no enrollment, no balance, nothing
+   * in the portal.
+   *
+   * The name still has one job. Forty-nine students predate the camper id and
+   * carry none, and for those alone a name match inside the linked family is
+   * accepted once and then STAMPED (plan.studentLinks), so the next run keys
+   * on the id like everyone else. A student that already carries a camper id
+   * is never name-matched to a different one; if the ids disagree, the
+   * register is right and the row is reported, not guessed at.
+   */
+  const camperIdOf = input.studentCamperIds ?? new Map<string, string>();
+  const studentByCamperId = new Map<string, string>();
+  for (const student of input.students) {
+    const camperId = camperIdOf.get(student.id);
+    if (camperId) studentByCamperId.set(camperId, student.id);
+  }
   const studentByParticipantId = new Map<string, string>();
   const studentsByFamily = new Map<string, Student[]>();
   for (const student of input.students) {
@@ -212,12 +257,23 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     list.push(student);
     studentsByFamily.set(student.familyId, list);
   }
+  // A camper id adopted by name this run is taken; a second participant
+  // cannot adopt the same unkeyed student.
+  const adoptedStudents = new Set<string>();
 
   for (const participant of snapshot.participants) {
+    const keyed = studentByCamperId.get(participant.externalId);
+    if (keyed) {
+      studentByParticipantId.set(participant.externalId, keyed);
+      continue;
+    }
+
     const familyId = familyByExternalId.get(participant.accountExternalId);
     if (!familyId) continue; // already reported as unmatched_account
 
-    const candidates = studentsByFamily.get(familyId) ?? [];
+    const candidates = (studentsByFamily.get(familyId) ?? []).filter(
+      (student) => !camperIdOf.get(student.id) && !adoptedStudents.has(student.id)
+    );
     const wantFirst = normalize(participant.firstName);
     const wantLast = normalize(participant.lastName);
 
@@ -236,11 +292,13 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
     if (match) {
       studentByParticipantId.set(participant.externalId, match.id);
+      adoptedStudents.add(match.id);
+      plan.studentLinks.push({ studentId: match.id, camperId: participant.externalId });
     } else {
       plan.issues.push({
         kind: "unmatched_participant",
         externalId: participant.externalId,
-        message: `Registered participant "${participant.firstName} ${participant.lastName}" has no matching student profile in this family.`,
+        message: `Registered participant "${participant.firstName} ${participant.lastName}" (camper ${participant.externalId}) has no student with that camper id, and no unkeyed student of that name in the linked family.`,
       });
     }
   }
@@ -398,9 +456,35 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
    */
   const legacyUnmappedByName = new Map<string, number>();
 
+  /*
+   * A line item whose child the register itself does not know.
+   *
+   * The website snapshot keys a line item to a camper by name inside the
+   * order's family, and when that family has no such camper it makes up a
+   * participant id that no participant carries. Those used to fall through
+   * "reported above" without ever being reported: two DC Unifieds comps sat
+   * on no roster for weeks and no run ever said so. Now each such child is
+   * named once.
+   */
+  const knownParticipants = new Set(snapshot.participants.map((p) => p.externalId));
+  const orphanedParticipants = new Set<string>();
+
   for (const external of snapshot.enrollments) {
     const studentId = studentByParticipantId.get(external.participantExternalId);
-    if (!studentId) continue; // reported above
+    if (!studentId) {
+      if (
+        !knownParticipants.has(external.participantExternalId) &&
+        !orphanedParticipants.has(external.participantExternalId)
+      ) {
+        orphanedParticipants.add(external.participantExternalId);
+        plan.issues.push({
+          kind: "unmatched_participant",
+          externalId: external.externalId,
+          message: `Line item ${external.externalId} ("${external.offeringName}") names a child the registration system has no camper record for under that account. Add the camper to the order's family in the registration system, or move the order to the family that has them.`,
+        });
+      }
+      continue; // otherwise reported above
+    }
 
     const offeringKey = normalize(external.offeringName);
     const activityId = external.offeringActivityId;
@@ -459,7 +543,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         message:
           external.offeringCategory === "coaching"
             ? `"${external.offeringName}" is coaching, but the staff portal's coaching catalog doesn't list it. Add it there (staff_portal.coaching_service_menu) and it will map on the next sync.`
-            : `"${external.offeringName}" doesn't match any production or class in the app. Add it, or map it manually.`,
+            : `"${external.offeringName}" doesn't match any production or class in the Parent Portal. Publish it from the staff portal (Offerings), or map it manually.`,
       });
       retract(external, undefined, `nothing ("${external.offeringName}")`);
       continue;

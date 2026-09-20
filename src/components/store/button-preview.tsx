@@ -110,7 +110,7 @@ export function ButtonPreview({
         </div>
       )}
 
-      {/* Name + role stripe — full width, trimmed by the circle's own edge
+      {/* Name + role stripe - full width, trimmed by the circle's own edge
           (overflow-hidden on the wrapper). No show-title pill: the title
           lives in the show's uploaded artwork now (hub 0069). */}
       <div

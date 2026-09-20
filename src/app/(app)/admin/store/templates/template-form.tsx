@@ -66,7 +66,7 @@ export function TemplateForm({
   }
 
   /* The sample is drawn by the same renderer the parent form and print file
-     use, with a stand-in name — an admin approves the real geometry. */
+     use, with a stand-in name - an admin approves the real geometry. */
   useEffect(() => {
     let cancelled = false;
     (async () => {

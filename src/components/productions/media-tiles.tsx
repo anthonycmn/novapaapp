@@ -73,7 +73,7 @@ export function ShowMediaTiles({ production }: { production: Production }) {
               {action}
             </div>
             {/* The note, when there is one, is the thing the Director wanted
-                said — it replaces the "Google Drive folder" line rather than
+                said - it replaces the "Google Drive folder" line rather than
                 stacking under it, so the tile keeps its height beside the
                 numbers. */}
             {m.note ? (

@@ -64,7 +64,7 @@ export function FeedPostCard({
 
         <PostAttachments attachments={post.attachments} />
 
-        {/* Show-week posts carry a ticket link — that's when families are
+        {/* Show-week posts carry a ticket link - that's when families are
             inviting relatives. */}
         {post.category === "show_week" && (
           <ExternalLinkButton href={org.ticketsUrl} variant="outline" className="self-start">

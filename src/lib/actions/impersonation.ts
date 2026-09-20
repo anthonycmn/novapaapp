@@ -42,7 +42,7 @@ export async function askTheParentAction(
   if (!user) return { ok: false, message: "Not signed in." };
   if (!active) {
     // A real parent pressing this would be being told to email themselves.
-    return { ok: false, message: "You are signed in as yourself — just do it here." };
+    return { ok: false, message: "You are signed in as yourself - just do it here." };
   }
   if (!user.email) {
     return { ok: false, message: "There is no email address on this account to send to." };
@@ -57,13 +57,13 @@ export async function askTheParentAction(
       category: "impersonation-handoff",
       // So a reply reaches the person who was actually on the phone.
       replyTo: active.actorEmail,
-      subject: `One thing we need you to do — ${where.label}`,
+      subject: `One thing we need you to do - ${where.label}`,
       text: [
         `Hello,`,
         ``,
         `${active.actorName ?? active.actorEmail} at NoVAPA was helping with your account`,
         `and got as far as they can. ${capitalise(BLOCKED_ACTIONS[action])} has to be done`,
-        `by you — we do not do that part on a family's behalf.`,
+        `by you - we do not do that part on a family's behalf.`,
         ``,
         `Open ${site}${where.path} and it will take a moment.`,
         ``,

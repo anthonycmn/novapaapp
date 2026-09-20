@@ -152,7 +152,7 @@ describe("what families are told", () => {
   /** Page numbers are the thing Tony writes and wants families to see. */
   it("puts the pages and the work in the note", () => {
     const overlay = overlayFor([call({})]);
-    expect(overlay.worksNote).toBe("Pages 40 - 48 — Review Vocals and then Stage");
+    expect(overlay.worksNote).toBe("Pages 40 - 48: Review Vocals and then Stage");
   });
 
   it("copes with only one half of the pair", () => {

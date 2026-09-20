@@ -42,7 +42,7 @@ export function WithdrawButton({ reportId, who }: { reportId: string; who: strin
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <p className="text-[12px] text-muted-foreground">
-        Withdraw this — {who} will be expected as normal?
+        Withdraw this - {who} will be expected as normal?
       </p>
       <Button
         type="button"

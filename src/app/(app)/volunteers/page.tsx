@@ -57,7 +57,7 @@ export default async function VolunteersPage() {
         <EmptyState
           icon={<HandHeart aria-hidden className="size-8" />}
           title="Nothing to sign up for yet"
-          description="When the team needs help with a show your child is in — strike, load-in, concessions — the sheet appears here and you can take a slot."
+          description="When the team needs help with a show your child is in - strike, load-in, concessions - the sheet appears here and you can take a slot."
         />
       ) : (
         sheets.map((sheet) => {

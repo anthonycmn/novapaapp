@@ -169,7 +169,7 @@ function EventCard({
             <p className="text-sm text-muted-foreground">
               {formatEventTime(event.startsAt)} – {formatTime(event.endsAt)} · {event.location}
             </p>
-            {/* Only when it differs — see showableCallTime in lib/format. */}
+            {/* Only when it differs - see showableCallTime in lib/format. */}
             {event.callTime && event.callTime !== event.startsAt && (
               <p className="text-sm">
                 <span className="font-medium">Call time:</span> {formatTime(event.callTime)}
@@ -180,7 +180,7 @@ function EventCard({
                 <span className="font-medium">Bring:</span> {event.whatToBring}
               </p>
             )}
-            {/* What is happening at this rehearsal — who is called, what is
+            {/* What is happening at this rehearsal - who is called, what is
                 worked, and the director's full plan behind the fold. */}
             <EventNotes event={event} people={event.people} />
             {event.details && <EventDetails details={event.details} />}

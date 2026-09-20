@@ -139,12 +139,12 @@ export function StaffEditForm({ profile }: { profile: StaffProfile }) {
           maxLength={600}
           placeholder="I'm so glad your child is in this class. Here's what we'll be working on, and the best way to reach me…"
         />
-        {/* The bio is a CV. This is a hello — and it is the part a parent
+        {/* The bio is a CV. This is a hello - and it is the part a parent
             reads first when they are deciding whether they trust you with
             their nine-year-old for four hours a week. */}
         <p className="text-xs text-muted-foreground">
           Shown to the families of the children you teach, under your bio.
-          Write it to them, not about you — what you&apos;re looking forward to,
+          Write it to them, not about you - what you&apos;re looking forward to,
           and how they should reach you.
         </p>
       </div>

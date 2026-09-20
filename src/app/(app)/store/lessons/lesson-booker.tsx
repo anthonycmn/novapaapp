@@ -109,7 +109,7 @@ export function LessonBooker({
                   <input type="hidden" name="slotId" value={selected.slot.id} />
                   <p className="text-sm font-medium">
                     {WEEKDAY_NAMES[selected.slot.weekday]}s at{" "}
-                    {formatSlotTime(selected.slot.startTime)} — every week with{" "}
+                    {formatSlotTime(selected.slot.startTime)} - every week with{" "}
                     {selected.teacherName}, until you cancel.
                   </p>
 

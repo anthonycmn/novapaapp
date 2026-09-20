@@ -91,5 +91,5 @@ export function submissionMessage(
 ): string {
   if (total === 0) return `Saved. ${whatNext}`;
   if (delivered === total) return `Sent to the ${org.shortName} team. ${whatNext}`;
-  return `Saved, and ${delivered} of ${total} staff were notified — the front office will still see it in the portal. ${whatNext}`;
+  return `Saved, and ${delivered} of ${total} staff were notified - the front office will still see it in the portal. ${whatNext}`;
 }

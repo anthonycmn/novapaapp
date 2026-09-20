@@ -211,7 +211,7 @@ export function weekLabel(meta: WeekMeta): string {
 }
 
 export function renderSubject(packet: StudentPacket, meta: WeekMeta): string {
-  return `Sweeney Todd this week (${weekLabel(meta)}) — ${packet.displayName}'s calls`;
+  return `Sweeney Todd this week (${weekLabel(meta)}) - ${packet.displayName}'s calls`;
 }
 
 /**
@@ -226,7 +226,7 @@ export function renderBody(packet: StudentPacket, meta: WeekMeta): string {
 
   const schedule = packet.noCalls
     ? callout(
-        `<strong>${esc(packet.displayName)} is not called this week.</strong> Nothing is wrong — this week's calls belong to other tracks. The next call will appear in the portal, and it is still a good week to spend with the tracks.`
+        `<strong>${esc(packet.displayName)} is not called this week.</strong> Nothing is wrong - this week's calls belong to other tracks. The next call will appear in the portal, and it is still a good week to spend with the tracks.`
       )
     : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px">
         ${packet.calls.map(callRow).join("")}
@@ -249,26 +249,26 @@ export function renderBody(packet: StudentPacket, meta: WeekMeta): string {
 
     section(`
       ${h2("Come knowing your part")}
-      ${p(`Everyone should arrive this week already solid on their own vocal line. Rehearsal time is not for learning it — we will use the room to <strong>refresh</strong> what you already know and, more importantly, to <strong>learn everybody else's part</strong>. Sondheim only works when you can hear the line next to yours coming, and that is the skill we are building this week.`)}
+      ${p(`Everyone should arrive this week already solid on their own vocal line. Rehearsal time is not for learning it - we will use the room to <strong>refresh</strong> what you already know and, more importantly, to <strong>learn everybody else's part</strong>. Sondheim only works when you can hear the line next to yours coming, and that is the skill we are building this week.`)}
       ${p(`The practice tracks and click tracks are made for exactly this. Sing your line against them, then sing somebody else's.`)}
       ${button("Open the practice tracks", meta.productionUrl)}
     `),
 
     section(`
       ${h2("Confirm the spelling of the name")}
-      ${p(`A notification with ${esc(packet.displayName)}'s role is waiting in the portal. Please open it and <strong>accept it if the name is spelled correctly</strong> — and if it is not, correct it right there. This spelling is the one that goes in the playbill, so it is worth thirty seconds now.`)}
+      ${p(`A notification with ${esc(packet.displayName)}'s role is waiting in the portal. Please open it and <strong>accept it if the name is spelled correctly</strong> - and if it is not, correct it right there. This spelling is the one that goes in the playbill, so it is worth thirty seconds now.`)}
       ${button("Confirm the name", meta.portalUrl)}
     `),
 
     section(`
       ${h2("Tell us what the portal is missing")}
-      ${p(`You are the first families ever to use the parent portal, and what you notice is genuinely useful to us. <strong>By the end of this week</strong>, send us anything that is broken, confusing, or simply absent — a resource you wish were in there, a page you expected and could not find. We can make it happen. Reply to this email or write to <a href="mailto:${esc(org.supportEmail)}" style="color:${C.NAVY}">${esc(org.supportEmail)}</a>.`)}
+      ${p(`You are the first families ever to use the parent portal, and what you notice is genuinely useful to us. <strong>By the end of this week</strong>, send us anything that is broken, confusing, or simply absent - a resource you wish were in there, a page you expected and could not find. We can make it happen. Reply to this email or write to <a href="mailto:${esc(org.supportEmail)}" style="color:${C.NAVY}">${esc(org.supportEmail)}</a>.`)}
     `),
 
     section(`
       ${h2("Tickets, photos, and getting the word out")}
       ${p(`<strong>Tickets go on sale after September 4.</strong> We will send the link the moment it is live.`)}
-      ${p(`We are also starting to photograph the company and post them on our social channels. When you see your student, <strong>please share it</strong> — every share puts this production in front of people who would never otherwise hear about it, and this cast has earned that audience.`)}
+      ${p(`We are also starting to photograph the company and post them on our social channels. When you see your student, <strong>please share it</strong> - every share puts this production in front of people who would never otherwise hear about it, and this cast has earned that audience.`)}
       ${p(`And never hesitate to reach out. <a href="mailto:${esc(org.supportEmail)}" style="color:${C.NAVY}">${esc(org.supportEmail)}</a> reaches us any time.`)}
     `),
 
@@ -281,7 +281,7 @@ export function renderStudentEmail(
   meta: WeekMeta
 ): { subject: string; html: string } {
   const preheader = packet.noCalls
-    ? `No calls for ${packet.displayName} this week — plus tracks, name confirmation, and ticket news.`
+    ? `No calls for ${packet.displayName} this week - plus tracks, name confirmation, and ticket news.`
     : `${packet.calls.length} call${packet.calls.length === 1 ? "" : "s"} this week for ${packet.displayName}, starting ${dayLabel(packet.calls[0].startsAt)}.`;
 
   return {

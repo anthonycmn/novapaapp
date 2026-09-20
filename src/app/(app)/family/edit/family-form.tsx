@@ -54,7 +54,7 @@ export function FamilyForm({ family }: { family: Family }) {
         />
       </div>
 
-      {/* grid-cols-4, not 6: six columns gave State ~50px at 375px — two
+      {/* grid-cols-4, not 6: six columns gave State ~50px at 375px - two
           visible characters of a 16px input (Sep 6 2026 audit). */}
       <div className="grid grid-cols-4 gap-3">
         <div className="col-span-2 flex flex-col gap-1.5">

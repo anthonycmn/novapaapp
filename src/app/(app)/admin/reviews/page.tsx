@@ -38,7 +38,7 @@ export default async function AdminReviewsPage() {
         <h1 className="text-2xl font-semibold">All feedback</h1>
         <p className="text-muted-foreground">
           {reviews.length} review{reviews.length === 1 ? "" : "s"}. Reviewer
-          names are visible here even for anonymous submissions — treat them
+          names are visible here even for anonymous submissions - treat them
           accordingly.
         </p>
       </div>

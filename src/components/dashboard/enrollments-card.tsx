@@ -77,7 +77,7 @@ export function EnrollmentsCard({
       <CardContent className="flex flex-col gap-3 pt-0">
         {active.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No active enrollments yet — browse classes and productions to get
+            No active enrollments yet - browse classes and productions to get
             started.
           </p>
         ) : (
@@ -140,7 +140,7 @@ export function EnrollmentsCard({
               </>
             ) : (
               <>
-                Your membership renews automatically — next withdrawal{" "}
+                Your membership renews automatically - next withdrawal{" "}
                 <span className="font-semibold text-foreground tabular-nums">
                   {formatCents(next.amountCents)}
                 </span>{" "}

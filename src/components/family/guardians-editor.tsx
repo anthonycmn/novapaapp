@@ -247,7 +247,7 @@ function NewGuardianRow({ onDone }: { onDone: () => void }) {
       </div>
       <p className="text-[11.5px] leading-snug text-muted-foreground">
         Adding someone here records them as a guardian. It does not give them a
-        login — the front office sends an invitation separately.
+        login - the front office sends an invitation separately.
       </p>
     </form>
   );

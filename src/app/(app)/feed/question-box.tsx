@@ -68,7 +68,7 @@ export function QuestionBox({
           <form action={formAction} className="flex flex-col gap-2">
             <Textarea
               name="question"
-              placeholder="Ask the team a question — only staff will see it"
+              placeholder="Ask the team a question - only staff will see it"
               className="min-h-16"
               maxLength={1000}
               autoFocus

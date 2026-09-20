@@ -183,6 +183,8 @@ interface Store {
   syncRuns: SyncRun[];
   /** enrollmentId → external system id, so re-runs don't duplicate. */
   enrollmentExternalIds: Map<string, string>;
+  /** Student id → the register's camper id, once the sync has keyed them. */
+  studentCamperIds: Map<string, string>;
   buttonTemplates: ButtonTemplate[];
   /** userId → cart */
   carts: Map<string, CartItem[]>;
@@ -264,6 +266,7 @@ function buildStore(): Store {
     accountLinks: [],
     syncRuns: [],
     enrollmentExternalIds: new Map(),
+    studentCamperIds: new Map(),
     buttonTemplates: deepClone(seed.buttonTemplates),
     carts: new Map(),
     orders: [],
@@ -1369,7 +1372,7 @@ export class MockDataProvider implements DataProvider {
         byEvent.set(id, {
           id,
           type: "class",
-          title: `${label} lesson — ${teacher?.fullName ?? "NOVA PA"}`,
+          title: `${label} lesson - ${teacher?.fullName ?? "NOVA PA"}`,
           startsAt,
           endsAt: new Date(startMs + slot.durationMin * 60_000).toISOString(),
           location: slot.location,
@@ -1725,7 +1728,7 @@ export class MockDataProvider implements DataProvider {
         userId: parent.id,
         type: "pickup_decision",
         title: `Pick-up request ${decision.status}`,
-        body: `${student?.firstName ?? "Your student"}: ${decision.note ?? "See details in the app."}`,
+        body: `${student?.firstName ?? "Your student"}: ${decision.note ?? "See details in the Parent Portal."}`,
         url: "/family/pickup",
         createdAt: nowIso(),
       });
@@ -1753,8 +1756,13 @@ export class MockDataProvider implements DataProvider {
       productions: store.productions,
       classes: store.classes,
       links: store.accountLinks,
+      studentCamperIds: store.studentCamperIds,
       enrollmentExternalIds: store.enrollmentExternalIds,
     });
+
+    for (const link of plan.studentLinks) {
+      store.studentCamperIds.set(link.studentId, link.camperId);
+    }
 
     // Persist auto-discovered account links.
     for (const link of plan.autoLinks) {
@@ -1988,7 +1996,7 @@ export class MockDataProvider implements DataProvider {
       quantity,
       unitPriceCents: BUTTON_PRICES_CENTS[design.size],
       productType: "spirit_button",
-      displayName: `${design.size}" spirit button — ${design.studentName}`,
+      displayName: `${design.size}" spirit button - ${design.studentName}`,
     });
     return deepClone(cart);
   }
@@ -3110,7 +3118,7 @@ export class MockDataProvider implements DataProvider {
     {
       routeId: "route-anything",
       category: "Families",
-      topic: "Something else — I need help",
+      topic: "Something else - I need help",
       blurb: "Not sure who to ask? Send it here and we will get it to the right person.",
       priority: "Standard",
       sortOrder: 99,
@@ -3854,7 +3862,7 @@ export class MockDataProvider implements DataProvider {
 
     const board = this.boardFor(productionId);
     if (board.status !== "submitted") {
-      throw new Error("Cast the show first — understudies come after every role is filled");
+      throw new Error("Cast the show first - understudies come after every role is filled");
     }
     if (board.understudiesPublishedAt) {
       throw new Error("Understudies have already been published");
@@ -3876,7 +3884,7 @@ export class MockDataProvider implements DataProvider {
       (entry) => entry.roleId === roleId && entry.studentId === studentId
     );
     if (holdsThisRole) {
-      throw new Error("They already play this role — pick a different understudy");
+      throw new Error("They already play this role - pick a different understudy");
     }
 
     // One understudy per lead, one lead per understudy: placing moves.
@@ -4519,7 +4527,7 @@ export class MockDataProvider implements DataProvider {
     if (!isStaffish(actor)) assertFamilyAccess(actor, student.familyId);
 
     if (store.lessonBookings.some((b) => b.slotId === slot.id && b.status === "active")) {
-      throw new Error("That time was just taken — pick another open slot");
+      throw new Error("That time was just taken - pick another open slot");
     }
 
     const startMs = nextLessonOccurrence(slot, Date.now());
@@ -4755,7 +4763,7 @@ export class MockDataProvider implements DataProvider {
       productType: product.type,
       productId: product.id,
       optionValue: input.optionValue,
-      displayName: optionLabel ? `${product.name} — ${optionLabel}` : product.name,
+      displayName: optionLabel ? `${product.name} - ${optionLabel}` : product.name,
       customization: deepClone(input.customization),
     });
     return deepClone(cart);

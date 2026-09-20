@@ -186,13 +186,13 @@ export function overlayFor(calls: PortalCall[]): PortalOverlay {
       const name = String(key).trim();
       if (name && !called.includes(name)) called.push(name);
     }
-    // "Pages 40 - 48 — Review Vocals", or whichever half exists. The room and
+    // "Pages 40 - 48: Review Vocals", or whichever half exists. The room and
     // the staff member stay out of it: a family is being told what their child
     // is working, not the staffing plan.
     const part = [call.act_scene, call.material ?? call.call_type]
       .map((piece) => (piece ?? "").trim())
       .filter(Boolean)
-      .join(" — ");
+      .join(": ");
     if (part && !works.includes(part)) works.push(part);
   }
 

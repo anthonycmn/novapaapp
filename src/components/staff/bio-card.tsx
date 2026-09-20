@@ -148,7 +148,7 @@ export function StaffBioCard({ assignment }: { assignment: StaffAssignment }) {
                 Full profile
               </Link>
             )}
-            {/* Where you actually meet them — a parent reading this is often
+            {/* Where you actually meet them - a parent reading this is often
                 one tap from wanting the show or class page. */}
             {[...new Map(assignment.roles.map((r) => [r.href, r])).values()].map(
               (role) => (

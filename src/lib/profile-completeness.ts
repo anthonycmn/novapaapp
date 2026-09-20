@@ -201,7 +201,7 @@ export function healthAlerts(student: Student, form: HealthForm | null): Profile
         ...base,
         severity: "required",
         label: "Health form signature",
-        why: "The answers are saved but unsigned — an unsigned form is not a medical authorization.",
+        why: "The answers are saved but unsigned - an unsigned form is not a medical authorization.",
         href,
       },
     ];
