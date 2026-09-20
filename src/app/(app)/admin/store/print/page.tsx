@@ -60,7 +60,7 @@ export default async function PrintSheetPage({
               {order.reference} · {order.placedByName}
             </h2>
             <div className="flex flex-wrap gap-3">
-              {/* Only buttons are pressed — other products don't print here. */}
+              {/* Only buttons are pressed - other products don't print here. */}
               {order.items.filter(isButtonLine).flatMap((item) => {
                 const template = templatesById.get(item.templateId);
                 const production = template

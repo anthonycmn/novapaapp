@@ -31,7 +31,7 @@ export default async function EmailAdminPage() {
           <CardTitle className="text-base">Compose</CardTitle>
           <CardDescription>
             Preview with a test to yourself before sending. Critical category
-            bypasses family opt-outs — use it for safety and logistics only.
+            bypasses family opt-outs - use it for safety and logistics only.
           </CardDescription>
         </CardHeader>
         <CardContent>

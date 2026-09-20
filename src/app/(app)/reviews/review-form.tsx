@@ -73,7 +73,7 @@ export function ReviewForm({
   if (state.ok) {
     return (
       <p role="status" className="rounded-lg bg-accent p-4 text-sm text-accent-foreground">
-        Thank you — your feedback about {subjectName} has been sent to the
+        Thank you - your feedback about {subjectName} has been sent to the
         NOVA PA team. It stays private to staff and administrators.
       </p>
     );

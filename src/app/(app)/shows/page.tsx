@@ -104,7 +104,7 @@ export default async function ShowsPage() {
           .join(" · ")}
         meta={
           nextCall
-            ? `Next: ${formatEventTime(nextCall.startsAt)} — ${nextCall.title}`
+            ? `Next: ${formatEventTime(nextCall.startsAt)} - ${nextCall.title}`
             : undefined
         }
         badge={

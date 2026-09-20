@@ -159,7 +159,7 @@ export function DirectUpload({
             rel="noopener noreferrer"
             className="min-w-0 flex-1 truncate text-[13px] text-primary underline-offset-4 hover:underline"
           >
-            {fileName || "Uploaded — view"}
+            {fileName || "Uploaded - view"}
           </a>
           <button
             type="button"

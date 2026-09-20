@@ -93,7 +93,7 @@ export function AgreementsPanel({
           inCard
           right={
             <span className="text-[12px] text-muted-foreground">
-              Filled in here — nothing to print
+              Filled in here - nothing to print
             </span>
           }
         />
@@ -187,7 +187,7 @@ function FsaPanel({
 
       {eligible.length === 0 ? (
         <p className="px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
-          A Dependent Care FSA reimburses care that lets a parent work — day
+          A Dependent Care FSA reimburses care that lets a parent work - day
           camp. Classes, private lessons and performances do not qualify at any
           age, and nobody in this household has camp fees for the current period.
         </p>
@@ -216,7 +216,7 @@ function FsaPanel({
           {tooOld.length === 1 ? "is" : "are"} {FSA_AGE_LIMIT} or older, so their
           fees are not Dependent Care FSA eligible. A child who turns{" "}
           {FSA_AGE_LIMIT} mid-year can still claim the part of the year before
-          their birthday — ask the front office and we will work it out with you.
+          their birthday - ask the front office and we will work it out with you.
         </p>
       )}
     </Card>

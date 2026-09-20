@@ -96,7 +96,7 @@ export function PushToggle() {
         </CardTitle>
         <CardDescription>
           Message replies, rehearsal changes, casting news and more, the moment
-          they happen — even with the portal closed.
+          they happen - even with the portal closed.
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">

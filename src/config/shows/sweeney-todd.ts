@@ -50,7 +50,7 @@ export const SWEENEY_REHEARSAL_TRACKS = {
         "Go to player.mtishows.com/rehearsal.",
         "Enter the code under “Streaming Access” and click Stream Tracks.",
       ],
-      note: "Streaming needs a strong connection — download to a phone for the rehearsal room.",
+      note: "Streaming needs a strong connection - download to a phone for the rehearsal room.",
     },
   ],
 } as const;

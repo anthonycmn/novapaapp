@@ -63,7 +63,7 @@ class UnconfiguredEmailProvider implements EmailDeliveryProvider {
     console.error(
       `EMAIL NOT SENT to ${email.to} ("${email.subject}"): RESEND_API_KEY is missing ` +
         `from this deployment. On Netlify, a variable marked "secret" is not ` +
-        `readable at function runtime — set it as a plain variable and redeploy.`
+        `readable at function runtime - set it as a plain variable and redeploy.`
     );
     return { id: "", ok: false };
   }
@@ -114,7 +114,7 @@ export function emailDeliveryStatus(): {
       ok: false,
       reason:
         "RESEND_API_KEY is missing from this deployment, so nothing is being sent. " +
-        "On Netlify a variable marked \"secret\" is not readable at function runtime — " +
+        "On Netlify a variable marked \"secret\" is not readable at function runtime - " +
         "set it as a plain variable and redeploy.",
     };
   }
@@ -123,7 +123,7 @@ export function emailDeliveryStatus(): {
       ok: false,
       reason:
         "EMAIL_FROM_ADDRESS is unset, so mail is sent from Resend's shared " +
-        "onboarding@resend.dev address — which Resend delivers only to the account " +
+        "onboarding@resend.dev address - which Resend delivers only to the account " +
         "owner's own inbox. Verify novapa.org in Resend and set the variable.",
     };
   }

@@ -76,7 +76,7 @@ export default async function ConsentPage({
           <CardContent className="flex flex-col gap-3 pt-0">
             <p className="text-sm">
               Switching this off deletes {studentName}&apos;s face signatures,
-              your reference photos, and every match — right away. You&apos;ll
+              your reference photos, and every match - right away. You&apos;ll
               see exactly what was removed.
             </p>
             <form action={revokeConsentAction.bind(null, studentId)}>
@@ -129,7 +129,7 @@ export default async function ConsentPage({
           Find photos of {studentName} automatically
         </h1>
         <p className="text-muted-foreground">
-          Optional. Read this first — then decide.
+          Optional. Read this first - then decide.
         </p>
       </div>
 

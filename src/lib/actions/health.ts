@@ -42,7 +42,7 @@ export async function saveHealthFormAction(
   /* Hub 0063. Asked before the input is even parsed: "may this session do this
      at all" comes before "is this any good". This form carries a signature,
      and the provenance stamp below records a name, a time and an IP against
-     it — a Chief's IP under a parent's name is the row that must never be
+     it - a Chief's IP under a parent's name is the row that must never be
      written. */
   const refused = await refuseIfImpersonating("health");
   if (refused) return { ok: false, errors: { _form: refused.message } };
@@ -120,7 +120,7 @@ export async function saveHealthFormAction(
   });
 
   const outcome = await notifySubmission({
-    subject: `Health form signed — ${childName}`,
+    subject: `Health form signed - ${childName}`,
     category: "health_form_submitted",
     // Tony, 18 Sep 2026: not CJ, not Todd — see HEALTH_FORM_RECIPIENTS.
     only: HEALTH_FORM_RECIPIENTS.map((recipient) => recipient.email),
@@ -130,7 +130,7 @@ export async function saveHealthFormAction(
       `Signed by: ${signatureParsed.data}`,
       `Submitted by ${user.displayName}${user.family ? ` (${user.family.name})` : ""}`,
       "",
-      "The answers are in the portal — not in this email. Open the student's",
+      "The answers are in the portal - not in this email. Open the student's",
       "profile to read them.",
     ],
   });

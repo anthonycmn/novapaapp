@@ -60,7 +60,7 @@ export default async function DirectoryPage({
           <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           <p>
             Staff and administrators only. Contains contact details and medical
-            flags for minors — don&apos;t export, screenshot, or share it.
+            flags for minors - don&apos;t export, screenshot, or share it.
           </p>
         </CardContent>
       </Card>

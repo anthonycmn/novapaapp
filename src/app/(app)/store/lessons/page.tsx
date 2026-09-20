@@ -38,7 +38,7 @@ export default async function LessonsPage() {
         <h1 className="text-2xl font-semibold">Private lessons</h1>
         <p className="text-muted-foreground">
           A standing weekly time with the same NOVA PA teaching artist. Book
-          once — it repeats every week until you cancel.
+          once - it repeats every week until you cancel.
         </p>
       </div>
 
@@ -76,12 +76,12 @@ export default async function LessonsPage() {
       <LessonBooker rows={rows} students={students} />
 
       <p className="text-center text-xs text-muted-foreground">
-        Lessons are billed by the studio for now — online card payment is
+        Lessons are billed by the studio for now - online card payment is
         coming. Cancelling frees the time for another family.
       </p>
 
       {/* /store/buttons, not the orphan /store index the sidebar never
-          links — one canonical flow (Sep 6 2026 audit). */}
+          links - one canonical flow (Sep 6 2026 audit). */}
       <Link
         href="/store/buttons"
         className="text-center text-sm font-medium text-primary underline-offset-4 hover:underline"

@@ -99,7 +99,7 @@ export default async function AdminPage() {
           <CardContent className="pt-0 text-sm">
             <p>{email.reason}</p>
             <p className="mt-2 text-muted-foreground">
-              Everything else works — audition receipts still show a confirmation code on
+              Everything else works - audition receipts still show a confirmation code on
               screen, and every send is still recorded. Only the mail is missing.
             </p>
           </CardContent>
@@ -196,7 +196,7 @@ export default async function AdminPage() {
       </Card>
 
       {/* Pre-casting review card removed 26 Aug 2026: casting is run from the
-          staff portal now, and this app keeps only the family half — the
+          staff portal now, and this app keeps only the family half - the
           notification when a child is submitted, and the feedback request. */}
     </div>
   );

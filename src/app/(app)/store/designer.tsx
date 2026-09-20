@@ -171,7 +171,7 @@ export function ButtonDesigner({
                 onChange={(event) => setAcknowledged(event.target.checked)}
                 className="size-4 accent-[var(--primary)]"
               />
-              Print it anyway — I understand it may look blurry
+              Print it anyway - I understand it may look blurry
             </label>
           )}
         </div>

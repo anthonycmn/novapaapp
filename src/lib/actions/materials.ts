@@ -48,7 +48,7 @@ function readLink(
       error: {
         ok: false,
         errors: {
-          [field]: "That doesn't look like a web link — it should start with https://",
+          [field]: "That doesn't look like a web link - it should start with https://",
         },
       },
     };
@@ -280,7 +280,7 @@ export async function deleteDocumentAction(documentId: string): Promise<void> {
   const user = await getSessionUser();
   if (!user) return;
   /* Hub 0063. Removing a document from somebody's own file is not a thing to
-     do on their behalf — and this one returns void, so the refusal is the
+     do on their behalf - and this one returns void, so the refusal is the
      document still being there. The page hides the button while impersonating;
      this is the backstop behind it. */
   if (await refuseIfImpersonating("document")) return;

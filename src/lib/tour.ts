@@ -61,10 +61,10 @@ export function tourSteps(opts: {
   const storeBody = (() => {
     const buttons = spiritButtonsOpen
       ? "Spirit buttons: pick the show, add a photo of your child, and see the button before you order."
-      : "Spirit buttons are opening soon — pick the show, add a photo, see the button before you order.";
+      : "Spirit buttons are opening soon - pick the show, add a photo, see the button before you order.";
     const pages = starPagesOpen
       ? "Star pages: a tribute to your performer printed in the playbill, from the whole family."
-      : "Star pages — a tribute to your performer printed in the playbill — open closer to the show.";
+      : "Star pages - a tribute to your performer printed in the playbill - open closer to the show.";
     return `${buttons} ${pages} Both are here and under Store in the menu, and Your orders keeps the history.`;
   })();
 
@@ -72,7 +72,7 @@ export function tourSteps(opts: {
     {
       key: "welcome",
       title: firstName ? `Welcome, ${firstName}` : "Welcome",
-      body: "This is the NOVA PA Parent Portal — one place for your child's schedule, your family's paperwork, and everything we tell you. Give us a minute and you'll know where it all lives.",
+      body: "This is the NOVA PA Parent Portal - one place for your child's schedule, your family's paperwork, and everything we tell you. Give us a minute and you'll know where it all lives.",
       anchors: [],
     },
     {
@@ -84,7 +84,7 @@ export function tourSteps(opts: {
     {
       key: "week",
       title: "This week",
-      body: "Every rehearsal, class and call your children have this week, all in one place. Tap the chip with your child's name on a call to tell us they're coming — or that they can't — and the chip keeps your answer so you can see you told us.",
+      body: "Every rehearsal, class and call your children have this week, all in one place. Tap the chip with your child's name on a call to tell us they're coming - or that they can't - and the chip keeps your answer so you can see you told us.",
       anchors: ["week"],
     },
     {
@@ -103,7 +103,7 @@ export function tourSteps(opts: {
     {
       key: "menu",
       title: "Everything else is in the menu",
-      body: "The menu is grouped by what you're doing: Dashboard, On stage, Your family, Store, and More. A gold number beside a row means something there is waiting for you — an unsigned form stays marked until it's signed.",
+      body: "The menu is grouped by what you're doing: Dashboard, On stage, Your family, Store, and More. A gold number beside a row means something there is waiting for you - an unsigned form stays marked until it's signed.",
       anchors: ["sidebar"],
       menu: true,
     },
@@ -126,7 +126,7 @@ export function tourSteps(opts: {
     {
       key: "family",
       title: "Your family profile",
-      body: "Guardians, address and emergency contacts live under Family profile — please keep them current, it's who we call. The Document vault holds waivers, forms and receipts. Report an absence and Pickup & drop-off are how you tell us before the day, and Message the office reaches a named person privately.",
+      body: "Guardians, address and emergency contacts live under Family profile - please keep them current, it's who we call. The Document vault holds waivers, forms and receipts. Report an absence and Pickup & drop-off are how you tell us before the day, and Message the office reaches a named person privately.",
       anchors: ["nav-group-your-family"],
       menu: true,
       link: { label: "Check your family profile", href: "/family" },
@@ -141,13 +141,13 @@ export function tourSteps(opts: {
     {
       key: "spot",
       title: "Stuck? Ask Spot",
-      body: "Spot is in the corner of every page. Ask it where something is and it points you at the right page — it doesn't know anything about your child, so it can't get that wrong. The same button is where you report something that isn't working; those go straight to CJ.",
+      body: "Spot is in the corner of every page. Ask it where something is and it points you at the right page - it doesn't know anything about your child, so it can't get that wrong. The same button is where you report something that isn't working; those go straight to CJ.",
       anchors: ["spot"],
     },
     {
       key: "done",
       title: "That's the tour",
-      body: "You can take it again any time — it's at the bottom of the menu under Show me around, or ask Spot to show you around. Welcome to the company.",
+      body: "You can take it again any time - it's at the bottom of the menu under Show me around, or ask Spot to show you around. Welcome to the company.",
       anchors: [],
     },
   ];

@@ -161,7 +161,7 @@ export default async function HealthAdminPage({
         )}
 
         <p className="mt-2 text-xs text-muted-foreground">
-          Confidential — for NOVA PA staff use during rehearsals and
+          Confidential - for NOVA PA staff use during rehearsals and
           performances only. Generated {formatDate(new Date().toISOString())}.
         </p>
       </section>

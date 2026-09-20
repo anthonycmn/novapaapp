@@ -31,13 +31,13 @@ export const ROLE_TIERS: Array<{
     value: "ensemble",
     label: "Ensemble",
     definition:
-      "Part of the heart of the show — singing and dancing in the big numbers, playing townspeople, chorus, and group scenes. Every production depends on a strong ensemble.",
+      "Part of the heart of the show - singing and dancing in the big numbers, playing townspeople, chorus, and group scenes. Every production depends on a strong ensemble.",
   },
   {
     value: "featured",
     label: "Featured role",
     definition:
-      "An ensemble part with a featured moment of its own — a dance feature, a sung line, or a spoken line that belongs just to them.",
+      "An ensemble part with a featured moment of its own - a dance feature, a sung line, or a spoken line that belongs just to them.",
   },
   {
     value: "supporting",
@@ -68,7 +68,7 @@ export const ROLE_TIERS: Array<{
     value: "lead",
     label: "Lead role",
     definition:
-      "A principal character who carries scenes — a combination of significant lines, songs, and/or dance.",
+      "A principal character who carries scenes - a combination of significant lines, songs, and/or dance.",
   },
 ];
 
@@ -95,7 +95,7 @@ export function orderRoleTiers(tiers: readonly RoleTier[]): RoleTier[] {
  * Word it once, here, so the form and the confirmation record agree.
  */
 export const NO_GUARANTEE_TEXT =
-  "Sharing a preference helps our team understand your performer — but under no circumstances does it guarantee a specific part, or any particular size of role. Casting decisions balance the needs of the whole production, and every role matters.";
+  "Sharing a preference helps our team understand your performer - but under no circumstances does it guarantee a specific part, or any particular size of role. Casting decisions balance the needs of the whole production, and every role matters.";
 
 /* ── audition profile (family-submitted) ────────────────────────────────── */
 
@@ -243,7 +243,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       key: "characterization",
       label: "Character choices & commitment",
       looksFor:
-        "A specific, playable choice about who this person is — wants, status, attitude — sustained without breaking, even between lines. Bold beats safe.",
+        "A specific, playable choice about who this person is - wants, status, attitude - sustained without breaking, even between lines. Bold beats safe.",
       levels: {
         5: "Makes a distinct, specific choice and commits to it every second, including in silence and reactions.",
         4: "Clear choice sustained through most of the piece; drops out briefly between beats.",
@@ -256,7 +256,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       key: "emotional_truth",
       label: "Emotional truth & range",
       looksFor:
-        "Feelings that read as genuine rather than indicated, with at least one clear shift — a discovery, a turn — inside the piece. Watch the eyes, not the volume.",
+        "Feelings that read as genuine rather than indicated, with at least one clear shift - a discovery, a turn - inside the piece. Watch the eyes, not the volume.",
       levels: {
         5: "Emotion reads as truthful and includes a clear, motivated shift; the turn is visible before the line.",
         4: "Truthful baseline emotion; the shift is present but arrives on the line rather than driving it.",
@@ -273,7 +273,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       levels: {
         5: "Physicality is specific to the character and fully controlled; stillness and movement are both choices.",
         4: "Grounded and purposeful with occasional habitual movement (sway, shifting weight).",
-        3: "Neutral body — neither distracting nor expressive; gestures are generic.",
+        3: "Neutral body - neither distracting nor expressive; gestures are generic.",
         2: "Nervous habits distract (pacing, fidgeting, locked knees, hands in pockets).",
         1: "Physically checked out or so tense the piece can't land.",
       },
@@ -284,7 +284,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       looksFor:
         "Give one concrete adjustment ('do it again, twice as angry', 'play it to your little brother') and watch what changes. We cast people we can direct, not finished performances.",
       levels: {
-        5: "Transforms the piece on the adjustment — a genuinely different performance, not louder/faster.",
+        5: "Transforms the piece on the adjustment - a genuinely different performance, not louder/faster.",
         4: "Makes a clear, correct change in the direction asked; keeps the rest intact.",
         3: "Attempts the change; partial or fades halfway through the redo.",
         2: "Repeats the original performance with cosmetic difference.",
@@ -300,7 +300,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
         5: "Total presence; a stumble, noise, or dropped line is absorbed in character without a flicker.",
         4: "Focused throughout; a mistake causes a visible blink but recovery is fast and composed.",
         3: "Mostly focused; checks the panel for approval or briefly breaks after an error.",
-        2: "Focus repeatedly leaves the piece — apologizing, restarting, watching the room.",
+        2: "Focus repeatedly leaves the piece - apologizing, restarting, watching the room.",
         1: "Unable to stay in the piece; stops or asks to start over more than once.",
       },
     },
@@ -311,7 +311,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       key: "pitch_intonation",
       label: "Pitch & intonation",
       looksFor:
-        "Sings in tune — including entrances after rests, wide intervals, and the ends of phrases where support flags. Listen hardest at the passaggio and the final note.",
+        "Sings in tune - including entrances after rests, wide intervals, and the ends of phrases where support flags. Listen hardest at the passaggio and the final note.",
       levels: {
         5: "Secure intonation throughout, including leaps, entrances, and sustained final notes.",
         4: "In tune with isolated drift (an under-pitched leap or one flat sustained note), self-corrected.",
@@ -324,11 +324,11 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       key: "breath_tone",
       label: "Breath support & tone",
       looksFor:
-        "Phrases carried on supported breath, not chewed into two-word bites. Tone is free and unforced — no throat squeeze on top, no breathiness masking pitch, shoulders quiet on inhale.",
+        "Phrases carried on supported breath, not chewed into two-word bites. Tone is free and unforced - no throat squeeze on top, no breathiness masking pitch, shoulders quiet on inhale.",
       levels: {
         5: "Full phrases on one breath with consistent, free tone across the range; breaths are planned and silent.",
         4: "Mostly supported; runs out of air on the longest phrase or thins slightly on top.",
-        3: "Support comes and goes — pushed at climaxes or breathy in quiet passages; audible gasping breaths.",
+        3: "Support comes and goes - pushed at climaxes or breathy in quiet passages; audible gasping breaths.",
         2: "Tone consistently forced or collapsed; breaths mid-word or every few notes.",
         1: "No functional breath management; sound cannot sustain a phrase.",
       },
@@ -350,7 +350,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       key: "range_comfort",
       label: "Range & tessitura comfort",
       looksFor:
-        "How the voice behaves where this show actually sits — comfortable top and bottom, register transitions managed without a clunk or a bail-out (dropping the octave, speaking the note).",
+        "How the voice behaves where this show actually sits - comfortable top and bottom, register transitions managed without a clunk or a bail-out (dropping the octave, speaking the note).",
       levels: {
         5: "Entire song comfortably in voice, including the extremes; transitions between registers are smooth.",
         4: "Comfortable through nearly all of it; one strained top note or a carefully negotiated break.",
@@ -378,9 +378,9 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       looksFor:
         "The song is a scene: they know who they're singing to and what they want, the face matches the lyric, and something changes between the first verse and the last.",
       levels: {
-        5: "Complete dramatic arc — specific target, clear want, visible change; the song means something.",
+        5: "Complete dramatic arc - specific target, clear want, visible change; the song means something.",
         4: "Connected to the lyric with a real target; the arc flattens in the middle.",
-        3: "Pleasant, present delivery but generalized — singing 'at the room' rather than to someone.",
+        3: "Pleasant, present delivery but generalized - singing 'at the room' rather than to someone.",
         2: "Mechanical delivery; the face and the lyric tell different stories.",
         1: "No connection to the content of the song.",
       },
@@ -396,7 +396,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       levels: {
         5: "Clean, consistent technique across every step shown; lines finished through hands and feet.",
         4: "Solid technique with isolated lapses (a relaxed foot, one unspotted turn).",
-        3: "Fundamentals present but inconsistent — alignment holds until the combination speeds up.",
+        3: "Fundamentals present but inconsistent - alignment holds until the combination speeds up.",
         2: "Technique breaks down across most steps; safety concerns on landings.",
         1: "No functional technique base for this level.",
       },
@@ -418,7 +418,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       key: "pickup_retention",
       label: "Pick-up & retention",
       looksFor:
-        "Learns a taught combination in the time given, retains it without a front-row anchor, and — the real test — keeps or fixes it on the second run rather than degrading.",
+        "Learns a taught combination in the time given, retains it without a front-row anchor, and - the real test - keeps or fixes it on the second run rather than degrading.",
       levels: {
         5: "Full combination retained and performed alone after the standard teach; second run is cleaner than the first.",
         4: "Nearly all retained; one blank moment self-corrected without stopping.",
@@ -433,7 +433,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       looksFor:
         "Holds spacing and formations while dancing full-out: finds their window, travels the distance the choreography asks, doesn't crowd or clip neighbors, adjusts when the group shifts.",
       levels: {
-        5: "Perfect spacing throughout — corrects the formation around them without being told.",
+        5: "Perfect spacing throughout - corrects the formation around them without being told.",
         4: "Holds spacing and lines; drifts once during travel and self-corrects.",
         3: "Roughly in place but compresses travel steps or loses the window during turns.",
         2: "Frequently out of formation; collides with or displaces neighbors.",
@@ -444,11 +444,11 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       key: "performance_energy",
       label: "Performance quality",
       looksFor:
-        "Face and energy while dancing: alive eyes, expression that matches the number, energy sustained through the last count — not just during the steps they like.",
+        "Face and energy while dancing: alive eyes, expression that matches the number, energy sustained through the last count - not just during the steps they like.",
       levels: {
         5: "Performs every count including transitions; the face sells the number even when the feet are working.",
         4: "Engaged and expressive; face goes neutral only during the hardest passage.",
-        3: "Executes with 'concentration face' — clean but not yet performing.",
+        3: "Executes with 'concentration face' - clean but not yet performing.",
         2: "Energy visibly drops mid-combination; going through the motions.",
         1: "Disengaged; no performance layer at all.",
       },
@@ -459,7 +459,7 @@ export const RUBRIC_CRITERIA: Record<Discipline, RubricCriterion[]> = {
       looksFor:
         "The engine underneath: balances held out of turns and on relevé, jumps landed with control (toe-ball-heel, plié), floor work entered and exited without collapsing, stamina to the end.",
       levels: {
-        5: "Controlled landings, held balances, and full power on the final phrase — the last eight counts look like the first.",
+        5: "Controlled landings, held balances, and full power on the final phrase - the last eight counts look like the first.",
         4: "Controlled through nearly all; one stumbled landing or wobbled balance, recovered cleanly.",
         3: "Control adequate at moderate tempo; landings get heavy and balances short as fatigue sets in.",
         2: "Landings consistently uncontrolled; balances not yet available.",

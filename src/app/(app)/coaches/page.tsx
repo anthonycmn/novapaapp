@@ -55,7 +55,7 @@ export default async function CoachesPage({
         <h1 className="text-2xl font-semibold">Coaching</h1>
         <p className="text-muted-foreground">
           One-to-one lessons with the people who already teach here. Pick your
-          performer, pick a coach, pick the kind of lesson — then pay and
+          performer, pick a coach, pick the kind of lesson - then pay and
           choose the weekly time you will keep.
         </p>
       </div>
@@ -69,7 +69,7 @@ export default async function CoachesPage({
       */}
       {bought && (
         <p className="rounded-lg border bg-card p-4 text-sm">
-          <span className="font-medium">Thank you — your payment went through.</span>{" "}
+          <span className="font-medium">Thank you - your payment went through.</span>{" "}
           Your lessons are on their way and will appear within a moment. Your
           reference is {bought}.
         </p>

@@ -51,7 +51,7 @@ export async function ShowPhotos({
             target="_blank"
             rel="noopener noreferrer"
             className="group relative overflow-hidden rounded-md border"
-            title={`${studentName} — opens the full photo`}
+            title={`${studentName} - opens the full photo`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

@@ -84,7 +84,7 @@ export default async function NotificationSettingsPage() {
         <CardHeader>
           <CardTitle className="text-base">Quiet hours</CardTitle>
           <CardDescription>
-            Pushes hold until morning; nothing is lost — everything stays in
+            Pushes hold until morning; nothing is lost - everything stays in
             the notification center.
           </CardDescription>
         </CardHeader>

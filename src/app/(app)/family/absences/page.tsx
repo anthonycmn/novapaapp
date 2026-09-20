@@ -103,7 +103,7 @@ export default async function AbsencesPage() {
           <CardTitle className="text-base">What will they miss?</CardTitle>
           <CardDescription>
             {options.length > 0
-              ? "Only mark the times your child will not be present — leave them blank to report the whole call."
+              ? "Only mark the times your child will not be present - leave them blank to report the whole call."
               : "Nobody in this household is registered for a show or a class at the moment."}
           </CardDescription>
         </CardHeader>

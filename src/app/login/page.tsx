@@ -11,11 +11,11 @@ import { Logo } from "@/components/brand/logo";
 export const metadata = { title: "Sign in" };
 
 const DEMO_ACCOUNTS = [
-  { email: "sofia@example.com", label: "Sofia Martinez — Parent (2 kids)" },
-  { email: "ngozi@example.com", label: "Ngozi Okafor — Parent (2 kids)" },
-  { email: "chidi@example.com", label: "Chidi Okafor — Student (13+)" },
-  { email: "marcus@example.com", label: "Marcus Lee — Staff" },
-  { email: "dana@example.com", label: "Dana Whitfield — Admin" },
+  { email: "sofia@example.com", label: "Sofia Martinez - Parent (2 kids)" },
+  { email: "ngozi@example.com", label: "Ngozi Okafor - Parent (2 kids)" },
+  { email: "chidi@example.com", label: "Chidi Okafor - Student (13+)" },
+  { email: "marcus@example.com", label: "Marcus Lee - Staff" },
+  { email: "dana@example.com", label: "Dana Whitfield - Admin" },
 ];
 
 export default async function LoginPage({
@@ -107,13 +107,13 @@ export default async function LoginPage({
                 )}
                 {error === "unconfirmed" && (
                   <p role="alert" className="text-sm text-destructive">
-                    Almost there — click the confirmation link we emailed you,
+                    Almost there - click the confirmation link we emailed you,
                     then sign in.
                   </p>
                 )}
                 {error === "already-registered" && (
                   <p role="alert" className="text-sm text-destructive">
-                    You already have an account with that email — sign in here
+                    You already have an account with that email - sign in here
                     with your usual password.
                   </p>
                 )}

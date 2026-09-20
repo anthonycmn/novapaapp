@@ -149,12 +149,12 @@ export function ResetPasswordForm() {
       // a failure to fix — it means the one they typed already works.
       if (/different from the old password/i.test(updateError.message)) {
         setError(
-          "That is already the password on your account — you can sign in with it right now."
+          "That is already the password on your account - you can sign in with it right now."
         );
         return;
       }
       setError(
-        "We couldn't save that password. Your link may have expired — request a new one below."
+        "We couldn't save that password. Your link may have expired - request a new one below."
       );
       return;
     }
@@ -219,7 +219,7 @@ export function ResetPasswordForm() {
       <CardHeader>
         <CardTitle as="h2">Choose a new password</CardTitle>
         <CardDescription>
-          Pick something you&apos;ll remember — you&apos;ll use it every time
+          Pick something you&apos;ll remember - you&apos;ll use it every time
           you open the portal. It stays visible while you type so you can
           check it; tap Hide if someone is looking over your shoulder.
         </CardDescription>

@@ -29,8 +29,8 @@ export function ImpersonationBanner({
           You are signed in as <strong className="font-semibold">{who}</strong>. Anything you
           do here is recorded against {actorEmail}.
         </p>
-        {/* A form rather than a link: leaving changes state — it closes the
-            record and drops two cookies — and a POST is the honest shape for
+        {/* A form rather than a link: leaving changes state - it closes the
+            record and drops two cookies - and a POST is the honest shape for
             that. It also keeps the way out exactly as wide as the way in. */}
         <form action={leaveImpersonationAction} className="shrink-0">
           <button

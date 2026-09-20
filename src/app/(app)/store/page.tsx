@@ -59,7 +59,7 @@ export default async function StorePage() {
         </Link>
       </div>
 
-      {/* Spirit buttons — gated by lib/feature-availability (renamed from
+      {/* Spirit buttons - gated by lib/feature-availability (renamed from
           store-availability). The designer is left intact behind the switch
           rather than removed, so opening it again is one boolean. */}
       {!isFeatureOpen("spiritButtons") ? (
@@ -78,7 +78,7 @@ export default async function StorePage() {
               Design your button
             </CardTitle>
             <CardDescription>
-              The preview updates as you go — that&apos;s exactly what gets pressed.
+              The preview updates as you go - that&apos;s exactly what gets pressed.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -91,7 +91,7 @@ export default async function StorePage() {
         </Card>
       )}
 
-      {/* Star pages — same switch, same reason. */}
+      {/* Star pages - same switch, same reason. */}
       {!isFeatureOpen("starPages") ? (
         <NotYetAvailable feature="starPages" />
       ) : (

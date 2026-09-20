@@ -113,7 +113,7 @@ export default async function CoachPage({
         </div>
       </div>
 
-      {/* The schedule stays in sight on the coach's own page too — the same
+      {/* The schedule stays in sight on the coach's own page too - the same
           lines the chooser card showed, so nothing changes underfoot. */}
       {schedule.length > 0 && (
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -178,7 +178,7 @@ export default async function CoachPage({
         <>
           {bought && sessionsLeft === 0 && (
             <p className="rounded-lg border bg-card p-4 text-sm">
-              Payment received — your lessons are on their way onto your punch
+              Payment received - your lessons are on their way onto your punch
               card. This usually takes a few seconds; refresh if they have not
               appeared.
             </p>
@@ -186,7 +186,7 @@ export default async function CoachPage({
           {bought && sessionsLeft > 0 && (
             <p className="rounded-lg border bg-card p-4 text-sm font-medium">
               Payment received. Now pick the weekly time your lessons will
-              keep — same day, same time, week after week.
+              keep - same day, same time, week after week.
             </p>
           )}
 

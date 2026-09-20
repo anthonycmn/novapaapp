@@ -94,7 +94,7 @@ export function PostForm({ productions }: { productions: Production[] }) {
         <FieldError message={state.errors?.linkUrl} />
       </div>
 
-      {/* The slideshow, the costume guide, the PDF calendar — CJ, 9 Sep 2026:
+      {/* The slideshow, the costume guide, the PDF calendar - CJ, 9 Sep 2026:
           "attach things to feed posts so parents can click them and read
           them." Files go straight to storage as they are picked; the form
           carries the list (hub 0076). */}

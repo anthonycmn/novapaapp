@@ -64,8 +64,8 @@ export default async function ThreadPage({
       <Card>
         <CardContent className="p-4">
           {/* Staff opening a family thread through this route used to see
-              the bubbles mirrored — their own replies drawn as the other
-              party's (Sep 5 2026 audit). The side follows the viewer — and a
+              the bubbles mirrored - their own replies drawn as the other
+              party's (Sep 5 2026 audit). The side follows the viewer - and a
               staff member reading THEIR OWN family's thread is the family
               here, or a teacher-parent's messages mirror the same way. */}
           <MessageList
@@ -85,7 +85,7 @@ export default async function ThreadPage({
           instead. Everyone waiting on a reply deserves the same sentence. */}
       {view.thread.status !== "closed" && (
         <p className="text-[12.5px] text-muted-foreground">
-          Messages are read during office hours — you can usually expect a
+          Messages are read during office hours - you can usually expect a
           reply within one business day. Urgent tonight? Call the office
           instead.
         </p>

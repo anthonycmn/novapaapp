@@ -30,7 +30,7 @@ export async function grantConsentAction(
 
   /* Same gate the store actions carry (Sep 5 2026 audit): while photos are
      closed, nothing may collect a child's face photos or record biometric
-     consent — a deep link must not reach further than the front door. */
+     consent - a deep link must not reach further than the front door. */
   if (!isFeatureOpen("photos")) {
     return { ok: false, errors: { _form: FEATURE_COPY.photos.title } };
   }
@@ -73,7 +73,7 @@ export async function revokeConsentAction(studentId: string): Promise<void> {
   await logActivity({
     user,
     action: "photos.consent_revoked",
-    summary: "Revoked photo face-matching consent — face data deleted",
+    summary: "Revoked photo face-matching consent - face data deleted",
     studentId,
   });
   revalidatePath("/photos");

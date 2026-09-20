@@ -115,7 +115,7 @@ export function CoachChooser({
                 {coach.scheduleLines.length > 0 ? (
                   coach.scheduleLines.map((line) => <span key={line}>{line}</span>)
                 ) : (
-                  <span>Hours coming soon — message the office for a time.</span>
+                  <span>Hours coming soon - message the office for a time.</span>
                 )}
               </p>
 
