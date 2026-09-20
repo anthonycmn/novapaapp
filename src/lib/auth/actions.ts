@@ -22,14 +22,19 @@ const isSupabaseMode = () =>
  * imported registration data. Email ownership is proven by Supabase's
  * confirmation + password sign-in before this ever runs.
  * Returns false when no family matches — the caller shows "contact us".
+ *
+ * A parent is signed in properly only when three rows agree: auth.users,
+ * profiles, and guardians.user_id. Until Sep 20, 2026 this returned at the
+ * first existing profile and never reached the guardian link below it, so a
+ * profile created any other way (the office's welcome link, provisioning)
+ * left the guardian row unlinked for good, and a guardian row whose email
+ * had been edited kept pointing at whoever signed in first. The rule now: the
+ * guardian row carrying this verified email belongs to this user, and it is
+ * pointed at them on every sign-in that finds it pointing elsewhere.
  */
 async function ensureParentProfile(userId: string, email: string): Promise<boolean> {
   const { getServiceClient } = await import("@/lib/api/supabase/client");
   const db = getServiceClient();
-
-  const { data: existing } = await db
-    .from("profiles").select("id").eq("id", userId).maybeSingle();
-  if (existing) return true;
 
   const { data: guardian } = await db
     .from("guardians")
@@ -38,6 +43,19 @@ async function ensureParentProfile(userId: string, email: string): Promise<boole
     .order("is_primary", { ascending: false })
     .limit(1)
     .maybeSingle();
+  const linkGuardian = async () => {
+    if (guardian && guardian.user_id !== userId) {
+      await db.from("guardians").update({ user_id: userId }).eq("id", guardian.id);
+    }
+  };
+
+  const { data: existing } = await db
+    .from("profiles").select("id").eq("id", userId).maybeSingle();
+  if (existing) {
+    await linkGuardian();
+    return true;
+  }
+
   if (!guardian) return false;
 
   const { error } = await db.from("profiles").insert({
@@ -48,9 +66,7 @@ async function ensureParentProfile(userId: string, email: string): Promise<boole
     family_id: guardian.family_id,
   });
   if (error) throw new Error(`profile provisioning failed: ${error.message}`);
-  if (!guardian.user_id) {
-    await db.from("guardians").update({ user_id: userId }).eq("id", guardian.id);
-  }
+  await linkGuardian();
   return true;
 }
 
@@ -93,7 +109,7 @@ export async function signUpWithEmail(formData: FormData): Promise<void> {
   await logActivity({
     actorEmail: email,
     action: "auth.signup_requested",
-    summary: "Requested a new account — confirmation email sent",
+    summary: "Requested a new account - confirmation email sent",
   });
   redirect(`/signup?sent=1&email=${encodeURIComponent(email)}`);
 }
