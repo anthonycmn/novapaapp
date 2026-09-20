@@ -21,7 +21,10 @@
  * already stores on an enrollment, which is why no separate mapping is needed.
  */
 
-const SITE = "https://www.northernvirginiaperformingarts.org";
+// novapa.org is primary and canonical since Sep 6, 2026. The old domain 301s
+// here with the query string intact (checked Sep 20, 2026), but a deep link
+// should not spend a redirect on its way to checkout.
+const SITE = "https://novapa.org";
 
 export const registration = {
   /** Where families browse and buy. */

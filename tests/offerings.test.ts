@@ -63,7 +63,7 @@ describe("reading one offering", () => {
       priceCents: 7900,
       openSpots: 40,
       registerUrl:
-        "https://www.northernvirginiaperformingarts.org/register/?activity=1962613",
+        "https://novapa.org/register/?activity=1962613",
     });
   });
 
