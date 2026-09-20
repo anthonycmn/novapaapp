@@ -122,6 +122,96 @@ describe("reconciliation (pure)", () => {
     expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
   });
 
+  /* ── the camper id is the join; the name is not ─────────────────────── */
+
+  // A class Ava is not in yet, so a match shows up as a create.
+  const VOICE_CLASS_NAME = seed.classes.find((c) => c.id === "class-voice1")!.name;
+
+  const camperSnapshot = (participant: {
+    externalId: string;
+    firstName: string;
+    lastName: string;
+    accountExternalId?: string;
+  }) => ({
+    source: "website" as const,
+    fetchedAt: "2026-09-20T12:00:00.000Z",
+    accounts: [
+      {
+        externalId: participant.accountExternalId ?? "web-martinez",
+        source: "website" as const,
+        guardianName: "Sofia Martinez",
+        email: "sofia@example.com",
+      },
+    ],
+    participants: [
+      {
+        externalId: participant.externalId,
+        accountExternalId: participant.accountExternalId ?? "web-martinez",
+        firstName: participant.firstName,
+        lastName: participant.lastName,
+      },
+    ],
+    enrollments: [
+      {
+        externalId: "item-1",
+        source: "website" as const,
+        participantExternalId: participant.externalId,
+        accountExternalId: participant.accountExternalId ?? "web-martinez",
+        offeringName: VOICE_CLASS_NAME,
+        status: "enrolled" as const,
+        balanceCents: 0,
+        amountPaidCents: 9000,
+        enrolledAt: "2026-09-01T00:00:00.000Z",
+      },
+    ],
+  });
+
+  it("matches a participant by camper id even when the register uses a nickname", () => {
+    // The register says "Katy"; the portal says Katelyn. Same camper id.
+    const snapshot = camperSnapshot({ externalId: "camper-ava", firstName: "Katy", lastName: "Martinez" });
+    const plan = reconcile({
+      ...reconcileInput(snapshot),
+      studentCamperIds: new Map([["stu-ava", "camper-ava"]]),
+    });
+    expect(plan.issues.filter((i) => i.kind === "unmatched_participant")).toHaveLength(0);
+    expect(plan.creates.map((c) => c.studentId)).toEqual(["stu-ava"]);
+    expect(plan.studentLinks).toEqual([]);
+  });
+
+  it("never name-matches a student that already carries a different camper id", () => {
+    // Ava is keyed to camper-ava; a second "Ava Martinez" with another id is
+    // somebody else, or a duplicate. Either way a human decides, not a guess.
+    const snapshot = camperSnapshot({ externalId: "camper-other", firstName: "Ava", lastName: "Martinez" });
+    const plan = reconcile({
+      ...reconcileInput(snapshot),
+      studentCamperIds: new Map([["stu-ava", "camper-ava"]]),
+    });
+    expect(plan.creates).toHaveLength(0);
+    const unmatched = plan.issues.filter((i) => i.kind === "unmatched_participant");
+    expect(unmatched).toHaveLength(1);
+    expect(unmatched[0].externalId).toBe("camper-other");
+  });
+
+  it("adopts an unkeyed student by name once, and stamps the camper id", () => {
+    const snapshot = camperSnapshot({ externalId: "camper-ava", firstName: "Ava", lastName: "Martinez" });
+    const plan = reconcile(reconcileInput(snapshot));
+    expect(plan.creates.map((c) => c.studentId)).toEqual(["stu-ava"]);
+    expect(plan.studentLinks).toEqual([{ studentId: "stu-ava", camperId: "camper-ava" }]);
+  });
+
+  it("reports a line item whose child the register has no camper record for", () => {
+    // website.ts makes up "unmatched:<family>:<name>" when the order's family
+    // has no camper of that name. It used to fall through silently.
+    const snapshot = camperSnapshot({ externalId: "camper-ava", firstName: "Ava", lastName: "Martinez" });
+    snapshot.enrollments[0].participantExternalId = "unmatched:web-martinez:claire sproule";
+    const plan = reconcile(reconcileInput(snapshot));
+    expect(plan.creates).toHaveLength(0);
+    const orphan = plan.issues.filter((i) => i.kind === "unmatched_participant");
+    expect(orphan).toHaveLength(1);
+    expect(orphan[0].externalId).toBe("item-1");
+    expect(orphan[0].message).toContain("no camper record");
+  });
+
   /* ── coaching: the staff portal's, resolved through its catalog ────────── */
 
   const coachingSnapshot = (activityId: number | undefined) => ({
