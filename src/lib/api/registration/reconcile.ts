@@ -11,7 +11,20 @@ import type {
   RegistrationSnapshot,
   RegistrationSource,
   SyncIssue,
+  SyncStatus,
 } from "./types";
+
+/**
+ * What a run's issues say about the run. "partial" means a person has
+ * something to look at. The legacy bucket is a count for the record, not
+ * work, so it does not qualify: from Sep 4 to Sep 20 2026 every run read
+ * "partial, 562 issues" on the strength of 556 Sawyer-era rows nobody was
+ * ever going to map, and the one real failure among them (a paying family's
+ * class order with no room in the app) went unnoticed for two days.
+ */
+export function syncStatusFor(issues: SyncIssue[]): Extract<SyncStatus, "success" | "partial"> {
+  return issues.some((issue) => issue.kind !== "legacy_unmapped") ? "partial" : "success";
+}
 
 /**
  * Pure reconciliation: given what the app knows and what the registration
@@ -366,6 +379,25 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
    */
   const plannedKeys = new Set<string>();
 
+  /*
+   * THE LEGACY SET IS A COUNT, NOT A TO-DO LIST.
+   *
+   * legacy_enrollments is the Sawyer and Regpack register as it stood at the
+   * cutover: 727 orders, most of them completed 2026 summer programs, and
+   * 526 of 816 rows with no activity_id at all, just Sawyer prose. Jason's
+   * call (Aug 14 2026) was never to backfill them; they are accurate records
+   * of what happened and matching them by text would invent rosters. A legacy
+   * row that points at a CURRENT program resolves by activity id above, so a
+   * legacy row that resolves to nothing is, by construction, one of these.
+   *
+   * Reporting each one as unknown_offering made every run "partial" with
+   * 556 identical items and hid the real one. So they are rolled into a
+   * single legacy_unmapped issue that names the programs and the count, and
+   * that kind does not count toward "partial" (syncStatusFor). Withdrawal of
+   * anything such a row placed earlier is unchanged.
+   */
+  const legacyUnmappedByName = new Map<string, number>();
+
   for (const external of snapshot.enrollments) {
     const studentId = studentByParticipantId.get(external.participantExternalId);
     if (!studentId) continue; // reported above
@@ -413,6 +445,14 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         : undefined;
 
     if (!productionId && !classId && coachingActivityId == null) {
+      if (external.externalId.startsWith("legacy:")) {
+        legacyUnmappedByName.set(
+          external.offeringName,
+          (legacyUnmappedByName.get(external.offeringName) ?? 0) + 1
+        );
+        retract(external, undefined, `nothing ("${external.offeringName}")`);
+        continue;
+      }
       plan.issues.push({
         kind: "unknown_offering",
         externalId: external.externalId,
@@ -524,6 +564,20 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
       plan.counts.enrollmentsUpdated += 1;
       if (balanceChanged) plan.counts.balancesUpdated += 1;
     }
+  }
+
+  if (legacyUnmappedByName.size > 0) {
+    const rows = [...legacyUnmappedByName.values()].reduce((sum, n) => sum + n, 0);
+    const named = [...legacyUnmappedByName.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const shown = named.slice(0, 8).map(([name, n]) => `${name} (${n})`).join("; ");
+    const more = named.length > 8 ? `; and ${named.length - 8} more` : "";
+    plan.issues.push({
+      kind: "legacy_unmapped",
+      externalId: "legacy:*",
+      count: rows,
+      message: `${rows} Sawyer-era registration${rows === 1 ? "" : "s"} name ${named.length} program${named.length === 1 ? "" : "s"} the app does not carry: ${shown}${more}. These are completed programs kept for the record and are never mapped by hand (Aug 14 2026). Nothing to do unless a current program is on this list.`,
+    });
   }
 
   return plan;

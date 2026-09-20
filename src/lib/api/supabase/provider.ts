@@ -103,7 +103,7 @@ import {
 } from "../messages/offering-topics";
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
 import { getFaceMatchProvider } from "../photos/face-provider";
-import { reconcile } from "../registration/reconcile";
+import { reconcile, syncStatusFor } from "../registration/reconcile";
 import { fetchCoachingActivityIds } from "../registration/website";
 import type {
   AccountLink,
@@ -2209,7 +2209,7 @@ class SupabaseDataProvider {
       .from("registration_sync_runs")
       .insert({
         source: snapshot.source, trigger,
-        status: plan.issues.length > 0 ? "partial" : "success",
+        status: syncStatusFor(plan.issues),
         started_at: startedAt, finished_at: new Date().toISOString(),
         counts: plan.counts, issues: plan.issues,
       })
