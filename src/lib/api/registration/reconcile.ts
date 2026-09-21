@@ -26,6 +26,77 @@ export function syncStatusFor(issues: SyncIssue[]): Extract<SyncStatus, "success
   return issues.some((issue) => issue.kind !== "legacy_unmapped") ? "partial" : "success";
 }
 
+const studentName = (s?: Student) => (s ? `${s.firstName} ${s.lastName}` : null);
+
+/**
+ * One sentence for a line item another enrollment already holds.
+ *
+ * Two paths reach it and both hit the same unique index
+ * (enrollments_external_idx), so they say the same thing:
+ *
+ *   create  the student has no enrollment for this target, and the insert
+ *           would throw 23505. Nothing is written.
+ *   adopt   the student HAS one, added by hand and never stamped, and the
+ *           stamp would throw 23505. The row still updates; only the link
+ *           to the line item is withheld.
+ *
+ * And two shapes need different sentences. A sibling's row is a wrong child.
+ * The same name twice is one child with two student rows, usually in two
+ * families, which is what the register's camper_id join exposed on 20 Sep
+ * 2026: four of Ryan Rodgers's registrations sat on a duplicate record with
+ * no guardian who could sign in, so his family saw one of five. Printing
+ * "is for Ryan Rodgers but is held for Ryan Rodgers" would tell nobody
+ * anything, so say which record.
+ */
+function wrongChildIssue(args: {
+  externalId: string;
+  offeringName: string;
+  studentId: string;
+  shouldBe?: Student;
+  heldBy?: Student;
+  heldEnrollmentId: string;
+  heldStudentId: string;
+  /** The adopt path's own row, when there is one. */
+  adoptedEnrollmentId?: string;
+}): SyncIssue {
+  const { shouldBe, heldBy } = args;
+  const sameChild =
+    !!heldBy &&
+    !!shouldBe &&
+    studentName(heldBy)?.toLowerCase() === studentName(shouldBe)?.toLowerCase();
+  const head =
+    `Registration ${args.externalId} ("${args.offeringName}") is for ` +
+    `${studentName(shouldBe) ?? "another student"}`;
+  const onRoster = args.adoptedEnrollmentId
+    ? `, whose enrollment ${args.adoptedEnrollmentId} is already on the roster`
+    : "";
+
+  if (sameChild) {
+    const otherFamily =
+      heldBy.familyId !== shouldBe.familyId ? ` in family ${heldBy.familyId}` : "";
+    return {
+      kind: "wrong_child",
+      externalId: args.externalId,
+      message:
+        `${head}, student ${args.studentId} in family ${shouldBe.familyId}${onRoster}, and ` +
+        `enrollment ${args.heldEnrollmentId} already carries it for a second record of the ` +
+        `same child, student ${args.heldStudentId}${otherFamily}. ` +
+        `Merge the duplicate student, then this registration places itself.`,
+    };
+  }
+
+  return {
+    kind: "wrong_child",
+    externalId: args.externalId,
+    message:
+      `${head}${onRoster}, ` +
+      `but enrollment ${args.heldEnrollmentId} already carries that registration for ` +
+      `${studentName(heldBy) ?? "a different student"}. ` +
+      `Nobody's roster changed${args.adoptedEnrollmentId ? " and the balance is still up to date" : ""}. ` +
+      `Move the enrollment to the right child, or delete it and let the next sync place it.`,
+  };
+}
+
 /**
  * Pure reconciliation: given what the app knows and what the registration
  * system says, produce a plan of changes plus a list of things a human needs
@@ -594,35 +665,17 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     // nowhere to show. Say it instead, and name both children.
     const heldElsewhere = existingByExternalId.get(external.externalId);
     if (!existing && heldElsewhere && heldElsewhere.studentId !== studentId) {
-      const heldBy = input.students.find((s) => s.id === heldElsewhere.studentId);
-      const shouldBe = input.students.find((s) => s.id === studentId);
-      const name = (s?: Student) => (s ? `${s.firstName} ${s.lastName}` : null);
-      const sameChild =
-        heldBy && shouldBe &&
-        name(heldBy)?.toLowerCase() === name(shouldBe)?.toLowerCase();
-      // Two shapes, and they need different sentences. A sibling's row is a
-      // wrong child. The same name twice is one child with two student rows,
-      // usually in two families, which is what the register's camper_id join
-      // exposed on 20 Sep 2026: four of Ryan Rodgers's registrations sat on a
-      // duplicate record with no guardian who could sign in, so his family saw
-      // one of five. Printing "is for Ryan Rodgers but is held for Ryan
-      // Rodgers" would tell nobody anything, so say which record.
-      plan.issues.push({
-        kind: "wrong_child",
-        externalId: external.externalId,
-        message: sameChild
-          ? `Registration ${external.externalId} ("${external.offeringName}") is for ` +
-            `${name(shouldBe)}, student ${studentId} in family ${shouldBe.familyId}, and ` +
-            `enrollment ${heldElsewhere.id} already carries it for a second record of the ` +
-            `same child, student ${heldElsewhere.studentId}` +
-            `${heldBy.familyId !== shouldBe.familyId ? ` in family ${heldBy.familyId}` : ""}. ` +
-            `Merge the duplicate student, then this registration places itself.`
-          : `Registration ${external.externalId} ("${external.offeringName}") is for ` +
-            `${name(shouldBe) ?? "another student"}, ` +
-            `but enrollment ${heldElsewhere.id} already carries that registration for ` +
-            `${name(heldBy) ?? "a different student"}. ` +
-            `Nobody's roster changed. Move the enrollment to the right child, or delete it and let the next sync place it.`,
-      });
+      plan.issues.push(
+        wrongChildIssue({
+          externalId: external.externalId,
+          offeringName: external.offeringName,
+          studentId,
+          shouldBe: input.students.find((s) => s.id === studentId),
+          heldBy: input.students.find((s) => s.id === heldElsewhere.studentId),
+          heldEnrollmentId: heldElsewhere.id,
+          heldStudentId: heldElsewhere.studentId,
+        })
+      );
       continue;
     }
 
@@ -712,22 +765,18 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         : undefined;
     const stampExternalId = wantsStamp && !stampBlockedBy;
     if (stampBlockedBy) {
-      const heldBy = input.students.find((s) => s.id === stampBlockedBy.studentId);
-      const shouldBe = input.students.find((s) => s.id === studentId);
-      plan.issues.push({
-        kind: "wrong_child",
-        externalId: external.externalId,
-        message:
-          `Registration ${external.externalId} ("${external.offeringName}") is for ` +
-          `${shouldBe ? `${shouldBe.firstName} ${shouldBe.lastName}` : "another student"}, ` +
-          `whose enrollment ${existing.id} is already on the roster, but enrollment ` +
-          `${stampBlockedBy.id} carries that registration for ` +
-          `${heldBy ? `${heldBy.firstName} ${heldBy.lastName}` : "a different student"}, ` +
-          `so the line item cannot be linked to it. Nobody's roster changed and the ` +
-          `balance is still up to date. These are usually one child entered twice: ` +
-          `decide which student record is the child, move the enrollment onto it, and ` +
-          `retire the other.`,
-      });
+      plan.issues.push(
+        wrongChildIssue({
+          externalId: external.externalId,
+          offeringName: external.offeringName,
+          studentId,
+          shouldBe: input.students.find((s) => s.id === studentId),
+          heldBy: input.students.find((s) => s.id === stampBlockedBy.studentId),
+          heldEnrollmentId: stampBlockedBy.id,
+          heldStudentId: stampBlockedBy.studentId,
+          adoptedEnrollmentId: existing.id,
+        })
+      );
     }
     if (
       balanceChanged ||
