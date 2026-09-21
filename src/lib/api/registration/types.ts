@@ -83,7 +83,9 @@ export interface SyncIssue {
     | "unknown_offering"
     | "conflict"
     // The source says this registration is child A's, and an enrollment
-    // already carries it for child B. Reported, never retried.
+    // already carries it for child B. Reported, never retried: the write
+    // can only ever throw 23505 on enrollments_external_idx, whether it is
+    // an insert (create) or a stamp onto a row we would otherwise adopt.
     | "wrong_child"
     | "parse_error"
     /**
