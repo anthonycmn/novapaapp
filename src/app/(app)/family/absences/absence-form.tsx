@@ -68,7 +68,7 @@ export function AbsenceForm({ options }: { options: AbsenceOption[] }) {
         >
           {options.map((option) => (
             <option key={keyOf(option)} value={keyOf(option)}>
-              {option.studentName} — {option.offeringTitle}
+              {option.studentName} - {option.offeringTitle}
             </option>
           ))}
         </select>
@@ -126,7 +126,7 @@ export function AbsenceForm({ options }: { options: AbsenceOption[] }) {
           id="reason"
           name="reason"
           rows={3}
-          placeholder="Illness, a family commitment, a school event — a line is plenty."
+          placeholder="Illness, a family commitment, a school event - a line is plenty."
           required
         />
         <FieldError message={state.errors?.reason} />

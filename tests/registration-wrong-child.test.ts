@@ -93,3 +93,135 @@ describe("a registration another child's enrollment already holds", () => {
     expect(plan.issues.find((i) => i.kind === "wrong_child")).toBeUndefined();
   });
 });
+
+/**
+ * The Rodgers case, 20 Sep 2026, reached the other way.
+ *
+ * Making students.camper_id the join pointed the resolver at the keyed one of
+ * two student rows for the same child, while the unkeyed row still held the
+ * line item. The keyed row already had an enrollment for the same production,
+ * added by hand and never stamped, so the sync stopped trying to create and
+ * started trying to adopt: PATCH the external id onto it. Same unique index,
+ * same 23505, 97 conflicts in 24 hours on one enrollment.
+ *
+ * The create guard above cannot see this one, because an enrollment exists.
+ * The rule here: withhold the stamp, report it, and let every other column on
+ * the row keep updating, because the enrollment is not in doubt and a family's
+ * balance should not go stale while a duplicate student row is sorted out.
+ */
+describe("a line item another enrollment already holds, on a row we would adopt", () => {
+  const production = seed.productions[0];
+  const family = seed.families[0];
+  const keyed = {
+    ...seed.students[0],
+    id: "stu-ryan-keyed",
+    familyId: family.id,
+    firstName: "Ryan",
+    lastName: "Rodgers",
+  };
+  const unkeyed = {
+    ...seed.students[0],
+    id: "stu-ryan-unkeyed",
+    familyId: family.id,
+    firstName: "Ryan",
+    lastName: "Rodgers",
+  };
+
+  const base = {
+    families: [family],
+    guardians: [{ ...seed.guardians[0], email: "r@example.com", familyId: family.id }],
+    students: [keyed, unkeyed],
+    productions: seed.productions,
+    classes: seed.classes,
+    links: [],
+    // Only the keyed row carries a camper id, so the resolver picks it.
+    studentCamperIds: new Map([[keyed.id, "camper-ryan"]]),
+    enrollments: [
+      {
+        ...seed.enrollments[0],
+        id: "enr-ryan-keyed",
+        studentId: keyed.id,
+        productionId: production.id,
+        classId: undefined,
+        status: "enrolled" as const,
+        balanceCents: 0,
+      },
+      {
+        ...seed.enrollments[0],
+        id: "enr-ryan-unkeyed",
+        studentId: unkeyed.id,
+        productionId: production.id,
+        classId: undefined,
+        status: "enrolled" as const,
+        balanceCents: 0,
+      },
+    ],
+    // The line item sits on the unkeyed row. The keyed row has no line item,
+    // which is exactly why the sync wants to stamp it.
+    enrollmentExternalIds: new Map([["enr-ryan-unkeyed", "legacy:699"]]),
+  };
+
+  const snapshot = {
+    accounts: [
+      { externalId: "acct-r", source: "website" as const, guardianName: "R", email: "r@example.com" },
+    ],
+    participants: [
+      { externalId: "camper-ryan", accountExternalId: "acct-r", firstName: "Ryan", lastName: "Rodgers" },
+    ],
+    enrollments: [
+      {
+        externalId: "legacy:699",
+        source: "website" as const,
+        participantExternalId: "camper-ryan",
+        accountExternalId: "acct-r",
+        offeringName: production.title,
+        offeringCategory: "camp",
+        status: "enrolled" as const,
+        balanceCents: 12500,
+        amountPaidCents: 0,
+        enrolledAt: "2026-09-05T00:00:00.000Z",
+      },
+    ],
+    fetchedAt: "2026-09-21T10:45:00.000Z",
+    source: "website" as const,
+  };
+
+  it("never stamps the line item onto the second row", () => {
+    const plan = reconcile({ ...base, snapshot });
+    const update = plan.updates.find((u) => u.enrollmentId === "enr-ryan-keyed");
+    expect(update?.externalId).toBeUndefined();
+  });
+
+  it("still updates the balance on that row", () => {
+    const plan = reconcile({ ...base, snapshot });
+    const update = plan.updates.find((u) => u.enrollmentId === "enr-ryan-keyed");
+    expect(update?.balanceCents).toBe(12500);
+  });
+
+  it("is reported, naming both student records and the enrollment holding it", () => {
+    const plan = reconcile({ ...base, snapshot });
+    const issue = plan.issues.find((i) => i.kind === "wrong_child");
+    expect(issue).toBeDefined();
+    expect(issue?.externalId).toBe("legacy:699");
+    expect(issue?.message).toContain("Ryan Rodgers");
+    expect(issue?.message).toContain("enr-ryan-unkeyed");
+    expect(issue?.message).toContain("enr-ryan-keyed");
+  });
+
+  it("creates nothing, because the enrollment is already there", () => {
+    const plan = reconcile({ ...base, snapshot });
+    expect(plan.counts.enrollmentsCreated).toBe(0);
+  });
+
+  it("stamps normally when no other enrollment holds the line item", () => {
+    const plan = reconcile({
+      ...base,
+      enrollments: base.enrollments.filter((e) => e.id === "enr-ryan-keyed"),
+      enrollmentExternalIds: new Map(),
+      snapshot,
+    });
+    const update = plan.updates.find((u) => u.enrollmentId === "enr-ryan-keyed");
+    expect(update?.externalId).toBe("legacy:699");
+    expect(plan.issues.find((i) => i.kind === "wrong_child")).toBeUndefined();
+  });
+});

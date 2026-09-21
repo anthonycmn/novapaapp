@@ -79,7 +79,7 @@ export function CatalogItemForm({
           >
             {product.options.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label} — {formatCents(priceFor(product, option.value))}
+                {option.label} - {formatCents(priceFor(product, option.value))}
                 {option.description ? ` (${option.description})` : ""}
               </option>
             ))}
@@ -120,7 +120,7 @@ export function CatalogItemForm({
             ref={fileRef}
             id={`photo-${product.id}`}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             onChange={onPick}
             className="sr-only"
           />
@@ -147,7 +147,7 @@ export function CatalogItemForm({
             name="message"
             className="min-h-28"
             maxLength={product.messageMaxLength ?? 400}
-            placeholder="We are so proud of you — break a leg!"
+            placeholder="We are so proud of you - break a leg!"
             required
           />
           <div className="flex flex-col gap-1.5">

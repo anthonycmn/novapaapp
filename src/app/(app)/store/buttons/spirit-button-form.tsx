@@ -262,7 +262,7 @@ export function SpiritButtonForm({
         {cutout && artwork && (
           <p className="flex items-center gap-1.5 text-center text-[12px] text-muted-foreground">
             <Scissors aria-hidden className="size-3.5 shrink-0" />
-            We cut your performer out automatically — this is exactly what gets
+            We cut your performer out automatically - this is exactly what gets
             printed.
           </p>
         )}
@@ -279,7 +279,7 @@ export function SpiritButtonForm({
             ref={fileRef}
             id="photo"
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={onPickFile}
             className="sr-only"
           />
@@ -355,7 +355,7 @@ export function SpiritButtonForm({
           />
         </div>
 
-        {/* Size and style are no longer asked — see FIXED_SIZE above. What a
+        {/* Size and style are no longer asked - see FIXED_SIZE above. What a
             parent is getting is said in the line under the preview instead. */}
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
@@ -377,7 +377,7 @@ export function SpiritButtonForm({
           {pending ? "Adding…" : "Add to cart"}
         </Button>
         <p className="text-[12px] leading-relaxed text-muted-foreground">
-          Adding to the cart does not charge you — you&apos;ll see the total
+          Adding to the cart does not charge you - you&apos;ll see the total
           and pay by card at checkout. The preview above is exactly what gets
           printed.
         </p>

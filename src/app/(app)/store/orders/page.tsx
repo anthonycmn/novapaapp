@@ -51,7 +51,7 @@ export default async function OrdersPage({
       {placed && (
         <Card className="border-primary/40">
           <CardContent className="p-4 text-sm">
-            <p className="font-medium">Order {placed} placed — thank you! 🎉</p>
+            <p className="font-medium">Order {placed} placed - thank you! 🎉</p>
             <p className="text-muted-foreground">
               We&apos;ll let you know as soon as your buttons are ready.
             </p>

@@ -123,7 +123,7 @@ describe("calendar & reminders", () => {
     const martinez = await provider.getFamilyCalendar("user-sofia", "fam-martinez");
     const lessons = martinez.filter((event) => event.id.startsWith("lesson-"));
     expect(lessons.length).toBeGreaterThanOrEqual(4);
-    expect(lessons[0].title).toContain("Voice lesson — Marcus Lee");
+    expect(lessons[0].title).toContain("Voice lesson - Marcus Lee");
     expect(lessons[0].studentIds).toEqual(["stu-ava"]);
 
     const nguyen = await provider.getFamilyCalendar("user-minh", "fam-nguyen");

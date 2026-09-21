@@ -4,7 +4,7 @@ import { AccessDeniedError } from "@/lib/api/provider";
 import { MockDataProvider, resetMockStore } from "@/lib/api/mock/provider";
 import { MockRegistrationProvider } from "@/lib/api/registration/mock";
 import { mapSnapshot } from "@/lib/api/registration/custom";
-import { reconcile } from "@/lib/api/registration/reconcile";
+import { reconcile, syncStatusFor } from "@/lib/api/registration/reconcile";
 import { resolveLegacyOfferingName } from "@/lib/api/registration/website";
 import * as seed from "@/lib/api/mock/seed-data";
 
@@ -120,6 +120,96 @@ describe("reconciliation (pure)", () => {
     };
     const plan = reconcile(reconcileInput(snapshot));
     expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
+  });
+
+  /* ── the camper id is the join; the name is not ─────────────────────── */
+
+  // A class Ava is not in yet, so a match shows up as a create.
+  const VOICE_CLASS_NAME = seed.classes.find((c) => c.id === "class-voice1")!.name;
+
+  const camperSnapshot = (participant: {
+    externalId: string;
+    firstName: string;
+    lastName: string;
+    accountExternalId?: string;
+  }) => ({
+    source: "website" as const,
+    fetchedAt: "2026-09-20T12:00:00.000Z",
+    accounts: [
+      {
+        externalId: participant.accountExternalId ?? "web-martinez",
+        source: "website" as const,
+        guardianName: "Sofia Martinez",
+        email: "sofia@example.com",
+      },
+    ],
+    participants: [
+      {
+        externalId: participant.externalId,
+        accountExternalId: participant.accountExternalId ?? "web-martinez",
+        firstName: participant.firstName,
+        lastName: participant.lastName,
+      },
+    ],
+    enrollments: [
+      {
+        externalId: "item-1",
+        source: "website" as const,
+        participantExternalId: participant.externalId,
+        accountExternalId: participant.accountExternalId ?? "web-martinez",
+        offeringName: VOICE_CLASS_NAME,
+        status: "enrolled" as const,
+        balanceCents: 0,
+        amountPaidCents: 9000,
+        enrolledAt: "2026-09-01T00:00:00.000Z",
+      },
+    ],
+  });
+
+  it("matches a participant by camper id even when the register uses a nickname", () => {
+    // The register says "Katy"; the portal says Katelyn. Same camper id.
+    const snapshot = camperSnapshot({ externalId: "camper-ava", firstName: "Katy", lastName: "Martinez" });
+    const plan = reconcile({
+      ...reconcileInput(snapshot),
+      studentCamperIds: new Map([["stu-ava", "camper-ava"]]),
+    });
+    expect(plan.issues.filter((i) => i.kind === "unmatched_participant")).toHaveLength(0);
+    expect(plan.creates.map((c) => c.studentId)).toEqual(["stu-ava"]);
+    expect(plan.studentLinks).toEqual([]);
+  });
+
+  it("never name-matches a student that already carries a different camper id", () => {
+    // Ava is keyed to camper-ava; a second "Ava Martinez" with another id is
+    // somebody else, or a duplicate. Either way a human decides, not a guess.
+    const snapshot = camperSnapshot({ externalId: "camper-other", firstName: "Ava", lastName: "Martinez" });
+    const plan = reconcile({
+      ...reconcileInput(snapshot),
+      studentCamperIds: new Map([["stu-ava", "camper-ava"]]),
+    });
+    expect(plan.creates).toHaveLength(0);
+    const unmatched = plan.issues.filter((i) => i.kind === "unmatched_participant");
+    expect(unmatched).toHaveLength(1);
+    expect(unmatched[0].externalId).toBe("camper-other");
+  });
+
+  it("adopts an unkeyed student by name once, and stamps the camper id", () => {
+    const snapshot = camperSnapshot({ externalId: "camper-ava", firstName: "Ava", lastName: "Martinez" });
+    const plan = reconcile(reconcileInput(snapshot));
+    expect(plan.creates.map((c) => c.studentId)).toEqual(["stu-ava"]);
+    expect(plan.studentLinks).toEqual([{ studentId: "stu-ava", camperId: "camper-ava" }]);
+  });
+
+  it("reports a line item whose child the register has no camper record for", () => {
+    // website.ts makes up "unmatched:<family>:<name>" when the order's family
+    // has no camper of that name. It used to fall through silently.
+    const snapshot = camperSnapshot({ externalId: "camper-ava", firstName: "Ava", lastName: "Martinez" });
+    snapshot.enrollments[0].participantExternalId = "unmatched:web-martinez:claire sproule";
+    const plan = reconcile(reconcileInput(snapshot));
+    expect(plan.creates).toHaveLength(0);
+    const orphan = plan.issues.filter((i) => i.kind === "unmatched_participant");
+    expect(orphan).toHaveLength(1);
+    expect(orphan[0].externalId).toBe("item-1");
+    expect(orphan[0].message).toContain("no camper record");
   });
 
   /* ── coaching: the staff portal's, resolved through its catalog ────────── */
@@ -681,6 +771,77 @@ describe("one child stated twice in one snapshot", () => {
     expect(plan.counts.enrollmentsCreated).toBe(1);
     // First line item wins — the order row, which carries the money.
     expect(plan.creates[0].externalId).toBe("order_item:1");
+  });
+});
+
+describe("the legacy set is a count, not a to-do list", () => {
+  // Sep 4 to Sep 20 2026: every run read "partial, 562 issues" on the
+  // strength of 556 Sawyer-era rows naming completed 2026 summer programs,
+  // and the one real unknown_offering among them (a paying family's class
+  // order with no class row in the app) went unnoticed for two days.
+  const snapshotWith = (enrollments: Array<{ externalId: string; offeringName: string }>) => ({
+    source: "website" as const,
+    fetchedAt: "2026-09-20T12:00:00.000Z",
+    accounts: [
+      { externalId: "a1", source: "website" as const, guardianName: "Sofia Martinez", email: "sofia@example.com" },
+    ],
+    participants: [
+      { externalId: "p1", accountExternalId: "a1", firstName: "Ava", lastName: "Martinez", dateOfBirth: "2015-03-12" },
+    ],
+    enrollments: enrollments.map(({ externalId, offeringName }) => ({
+      externalId,
+      source: "website" as const,
+      participantExternalId: "p1",
+      accountExternalId: "a1",
+      offeringName,
+      offeringCategory: "camp",
+      offeringActivityId: undefined,
+      status: "enrolled" as const,
+      balanceCents: 0,
+      amountPaidCents: 0,
+      enrolledAt: "2026-09-01T00:00:00.000Z",
+    })),
+  });
+
+  it("rolls every unmapped legacy row into one issue that does not make the run partial", () => {
+    const plan = reconcile({
+      ...reconcileInput(
+        snapshotWith([
+          { externalId: "legacy:1", offeringName: "\"Annie, Jr.\" - Broadway Bound Stagelighters | Grades 5 - 10" },
+          { externalId: "legacy:2", offeringName: "\"Annie, Jr.\" - Broadway Bound Stagelighters | Grades 5 - 10" },
+          { externalId: "legacy:3", offeringName: "Broadway Bound Grades 4 - 9: Dream | July 24th at 7pm Performance" },
+        ])
+      ),
+      enrollments: [],
+    });
+    expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
+    const bucket = plan.issues.filter((i) => i.kind === "legacy_unmapped");
+    expect(bucket).toHaveLength(1);
+    expect(bucket[0].count).toBe(3);
+    expect(bucket[0].message).toContain("3 Sawyer-era registrations name 2 programs");
+    expect(bucket[0].message).toContain("Stagelighters | Grades 5 - 10 (2)");
+    expect(syncStatusFor(plan.issues)).toBe("success");
+  });
+
+  it("still reports a web order that resolves to nothing, and that alone makes the run partial", () => {
+    const plan = reconcile({
+      ...reconcileInput(
+        snapshotWith([
+          { externalId: "legacy:1", offeringName: "Broadway Bound Youth PM | July 24th at 5pm Performance" },
+          { externalId: "order_item:207e1d5a", offeringName: "Musical Theatre Acting (9 - 12 yrs)" },
+        ])
+      ),
+      enrollments: [],
+    });
+    const unknown = plan.issues.filter((i) => i.kind === "unknown_offering");
+    expect(unknown).toHaveLength(1);
+    expect(unknown[0].externalId).toBe("order_item:207e1d5a");
+    expect(syncStatusFor(plan.issues)).toBe("partial");
+  });
+
+  it("reports nothing at all when there are no legacy rows to bucket", () => {
+    const plan = reconcile({ ...reconcileInput(snapshotWith([])), enrollments: [] });
+    expect(plan.issues.filter((i) => i.kind === "legacy_unmapped")).toHaveLength(0);
   });
 });
 

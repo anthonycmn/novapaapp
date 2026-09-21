@@ -16,7 +16,7 @@ export function ConsentExplanation({ studentName }: { studentName: string }) {
             <h2 className="text-lg font-semibold">What you&apos;re turning on</h2>
             <p className="mt-1 text-sm leading-relaxed">
               After a show, our photographer uploads hundreds of pictures. If
-              you turn this on, the app will look through new galleries and
+              you turn this on, the Parent Portal will look through new galleries and
               pull out the ones with {studentName} in them, so you don&apos;t
               have to scroll through all of them.
             </p>
@@ -25,8 +25,8 @@ export function ConsentExplanation({ studentName }: { studentName: string }) {
           <div>
             <h2 className="text-lg font-semibold">How it works</h2>
             <p className="mt-1 text-sm leading-relaxed">
-              You upload 2–4 clear photos of {studentName}. The app turns each
-              face into a <strong>list of numbers</strong> — a kind of
+              You upload 2–4 clear photos of {studentName}. The Parent Portal turns each
+              face into a <strong>list of numbers</strong> - a kind of
               fingerprint of facial features. When new show photos come in, it
               does the same thing to those and compares the numbers. Close
               match, we show you the photo.
@@ -47,7 +47,7 @@ export function ConsentExplanation({ studentName }: { studentName: string }) {
               </li>
               <li className="flex gap-2">
                 <Check aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
-                Photos stay on SmugMug. We only link to them — buying prints
+                Photos stay on SmugMug. We only link to them - buying prints
                 still works exactly the same way.
               </li>
             </ul>
@@ -86,7 +86,7 @@ export function ConsentExplanation({ studentName }: { studentName: string }) {
                 <Trash2 aria-hidden className="mt-0.5 size-4 shrink-0" />
                 <span>
                   You can switch this off any time. When you do, we delete the
-                  face numbers, your reference photos, and the matches —
+                  face numbers, your reference photos, and the matches -
                   <strong> immediately</strong>, and always within 24 hours.
                 </span>
               </li>

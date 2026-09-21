@@ -41,14 +41,14 @@ export const FEATURE_COPY: Record<
 > = {
   spiritButtons: {
     title: "Spirit buttons are not yet available",
-    body: "We are still getting these ready. When they open you will be able to pick a show, add a photo, and see the button before you order — we will let you know.",
+    body: "We are still getting these ready. When they open you will be able to pick a show, add a photo, and see the button before you order - we will let you know.",
   },
   starPages: {
     title: "Star pages are not yet available",
-    body: "We are still getting these ready. When they open you will be able to write a playbill tribute to your performer — we will let you know.",
+    body: "We are still getting these ready. When they open you will be able to write a playbill tribute to your performer - we will let you know.",
   },
   photos: {
     title: "Photos are not yet available",
-    body: "We are still getting these ready. When they open you will be able to see the galleries from your child's show, and the photos they are in — we will let you know.",
+    body: "We are still getting these ready. When they open you will be able to see the galleries from your child's show, and the photos they are in - we will let you know.",
   },
 };

@@ -61,9 +61,16 @@ export const STAFF_CONTACTS: StaffContact[] = [
     forWhat: "Invoices, balances, payment plans and FSA statements.",
   },
   {
-    name: "Jason Jones",
-    title: "Chief Technology Officer",
-    email: "jason@novapa.org",
+    /*
+     * A desk, not a person. Jason Jones held this row until his last day,
+     * 16 Sep 2026, and a family who could not sign in was still being sent to
+     * his address two days later. CJ, 18 Sep 2026: "change jason@novapa.org to
+     * info@novapa.org". The office reads info@, so the help does not depend on
+     * one contractor still being here.
+     */
+    name: "NOVAPA Office",
+    title: "Technical Support",
+    email: "info@novapa.org",
     forWhat: "Trouble signing in to this portal, or anything that looks broken.",
   },
   {

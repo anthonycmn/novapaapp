@@ -92,7 +92,7 @@ export function HeadshotSection({ student }: { student: Student }) {
           />
           <FieldError message={state.errors?.headshotUrl} />
           <p className="text-xs text-muted-foreground">
-            A photo in Drive, Dropbox or iCloud — the link has to open the image
+            A photo in Drive, Dropbox or iCloud - the link has to open the image
             itself for somebody who is not signed in as you. Clear the box and
             save to take it down.
           </p>
@@ -238,7 +238,7 @@ export function ResumePdfSection({ student }: { student: Student }) {
         />
         <FieldError message={state.errors?.resumePdfUrl} />
         <p className="text-xs text-muted-foreground">
-          Optional — the builder above makes one for you. This is for a PDF you
+          Optional - the builder above makes one for you. This is for a PDF you
           already keep in Drive, Dropbox or iCloud.
         </p>
       </div>
@@ -372,9 +372,9 @@ export function ResumeBuilder({
                     onChange={(event) => update(index, { title: event.target.value })}
                     placeholder={
                       row.category === "role"
-                        ? "Young Elsa — Frozen Jr."
+                        ? "Young Elsa - Frozen Jr."
                         : row.category === "training"
-                          ? "Ballet — 3 years"
+                          ? "Ballet - 3 years"
                           : "Juggling"
                     }
                     required
@@ -443,7 +443,7 @@ export function PerformerDetails({ student }: { student: Student }) {
         <p>{student.danceExperience || "—"}</p>
       </div>
       <p className="text-xs text-muted-foreground sm:col-span-2">
-        Edit these on the profile page — they print at the top of the resume.
+        Edit these on the profile page - they print at the top of the resume.
       </p>
     </div>
   );

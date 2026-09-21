@@ -375,7 +375,14 @@ describe("reconcile and day camps", () => {
     const plan = reconcile(input);
     expect(plan.updates).toContainEqual({ enrollmentId: "enr-id", status: "withdrawn" });
     expect(plan.updates.find((u) => u.enrollmentId === "enr-name")).toBeUndefined();
-    expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(2);
+    // Both are legacy rows, so they land in the one legacy_unmapped bucket
+    // (Sep 20 2026) rather than as two unknown_offering items; the renamed
+    // show is still named there for a human to spot.
+    expect(plan.issues.filter((i) => i.kind === "unknown_offering")).toHaveLength(0);
+    const bucket = plan.issues.filter((i) => i.kind === "legacy_unmapped");
+    expect(bucket).toHaveLength(1);
+    expect(bucket[0].count).toBe(2);
+    expect(bucket[0].message).toContain("Disney Adventures Camp (renamed) (1)");
   });
 
   it("is a no-op on a second run over the same rows", () => {

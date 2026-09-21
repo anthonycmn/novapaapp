@@ -70,7 +70,7 @@ export function SubscribeCard({ feedUrl }: { feedUrl: string }) {
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>
-            This link is private to your family — anyone with it can see your
+            This link is private to your family - anyone with it can see your
             schedule, so don&apos;t post it publicly.
           </span>
           {/* The lever that warning always implied. Two taps on purpose: a

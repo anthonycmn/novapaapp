@@ -164,7 +164,7 @@ export function NotificationsPanel({
         <ul className="divide-y">
           {notifications.map((notification) => (
             <li key={notification.id}>
-              {/* Following a notification is what marks it read — the same
+              {/* Following a notification is what marks it read - the same
                   route the notifications page uses, so the two agree. */}
               <a
                 href={`/api/notifications/go/${notification.id}`}
@@ -372,7 +372,7 @@ export function StaffHighlight({
           )}
           {featured.specialties.length > 0 && (
             /* div, not p: Badge renders a div, and a div inside a p is
-               invalid HTML — it failed hydration on every dashboard load
+               invalid HTML - it failed hydration on every dashboard load
                (Sep 6 2026 audit, caught live in the browser). */
             <div className="mt-1.5 flex flex-wrap gap-1">
               {featured.specialties.slice(0, 3).map((specialty) => (

@@ -50,7 +50,7 @@ export default async function WelcomePage({
               {link.displayName ? `Welcome, ${link.displayName.split(" ")[0]}` : "Welcome"}
             </CardTitle>
             <CardDescription>
-              Tap the button and you&apos;re in — no password needed. Once
+              Tap the button and you&apos;re in - no password needed. Once
               you&apos;re inside, you can choose a password for next time.
             </CardDescription>
           </CardHeader>

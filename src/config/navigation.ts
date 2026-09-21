@@ -124,7 +124,7 @@ export const FAMILY_SECTIONS: NavSection[] = [
  * approval lives there. Remove this and the approval queue has no source.
  */
 export const STAFF_SECTIONS: NavSection[] = [
-  { href: "/staff/edit", Icon: UserPen, label: "Edit my profile", description: "Your public bio and headshot — admin-approved before families see it", group: "Staff" },
+  { href: "/staff/edit", Icon: UserPen, label: "Edit my profile", description: "Your public bio and headshot - admin-approved before families see it", group: "Staff" },
 ];
 
 /**

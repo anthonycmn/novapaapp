@@ -118,7 +118,7 @@ export function bandChoiceForAge(age: number | null): BandChoice {
     return { defaultKey: null, offered: all, note: "Add a birthday to the profile and we'll pick the right age group." };
   }
   if (age < 5 || age > 15) {
-    return { defaultKey: null, offered: all, note: `Day camps are for ages 5–15; ${age} is outside that — call the office if you'd like to talk it through.` };
+    return { defaultKey: null, offered: all, note: `Day camps are for ages 5–15; ${age} is outside that - call the office if you'd like to talk it through.` };
   }
   if (age <= 8) return { defaultKey: "5-9", offered: ["5-9"] };
   if (age === 9) return { defaultKey: "5-9", offered: ["5-9", "9-12"] };

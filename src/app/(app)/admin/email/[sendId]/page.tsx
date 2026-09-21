@@ -97,7 +97,7 @@ export default async function EmailEngagementPage({
         <CardContent className="pt-0">
           {nonOpeners.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Everyone opened it — nice.
+              Everyone opened it - nice.
             </p>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">

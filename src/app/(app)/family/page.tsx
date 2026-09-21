@@ -133,7 +133,7 @@ export default async function FamilyPage() {
             <p className="font-medium">Emergency contacts</p>
             {(family.emergencyContacts ?? []).length === 0 ? (
               <p className="text-muted-foreground">
-                None yet — add someone other than a parent we can call.
+                None yet - add someone other than a parent we can call.
               </p>
             ) : (
               <ul className="mt-1 flex flex-col gap-0.5">
@@ -155,7 +155,7 @@ export default async function FamilyPage() {
           <CardTitle className="text-base">Sign-in</CardTitle>
           <CardDescription>
             You open the portal with {user.email}. The password can be changed
-            here any time — no email link needed.
+            here any time - no email link needed.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">

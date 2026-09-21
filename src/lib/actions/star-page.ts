@@ -50,7 +50,7 @@ export async function submitStarPageAction(
   const priceCents = product ? priceFor(product, optionValue) : 0;
 
   const outcome = await notifySubmission({
-    subject: `Star page — ${studentName} (${productionTitle})`,
+    subject: `Star page - ${studentName} (${productionTitle})`,
     category: "star_page_submission",
     lines: [
       `${option?.label ?? "Star page"} for ${studentName}`,
@@ -70,7 +70,7 @@ export async function submitStarPageAction(
       `Submitted by ${user.displayName}${user.family ? ` (${user.family.name})` : ""}`,
       `Reply to:  ${user.email}`,
       "",
-      "Not paid — the store does not take payment yet. The full design, photo",
+      "Not paid - the store does not take payment yet. The full design, photo",
       `included, is in the family's cart in the ${org.shortName} portal.`,
     ],
   });

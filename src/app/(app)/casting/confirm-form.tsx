@@ -101,7 +101,7 @@ export function ConfirmForm({
             required
           />
           <p className="text-xs text-muted-foreground">
-            This goes to print exactly as typed — please double-check spelling,
+            This goes to print exactly as typed - please double-check spelling,
             capitalization, and accents.
           </p>
         </div>

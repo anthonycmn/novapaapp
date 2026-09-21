@@ -51,7 +51,7 @@ export interface ResendReceiptsResult {
 
 const LATE_NOTE_TEXT =
   "This receipt is arriving late: our confirmation emails were not going out between " +
-  "September 10 and September 13. Nothing about the audition itself was affected — it was " +
+  "September 10 and September 13. Nothing about the audition itself was affected - it was " +
   "saved the moment you submitted it, and the staff have it. Sorry for the worry.";
 
 export async function resendAuditionReceipts(options: {
@@ -173,7 +173,7 @@ export async function resendAuditionReceipts(options: {
     await logActivity({
       actorEmail: row.email,
       action: RESENT,
-      summary: `${ok ? "Was sent" : "Could not be sent"} the audition receipt for ${row.studentName} — ${row.productionTitle} (late, after the mail key was set)`,
+      summary: `${ok ? "Was sent" : "Could not be sent"} the audition receipt for ${row.studentName} - ${row.productionTitle} (late, after the mail key was set)`,
       studentId: row.studentId,
       detail: {
         productionId: row.productionId,

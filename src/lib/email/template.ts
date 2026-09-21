@@ -125,7 +125,7 @@ export function renderEmailShell({ content, footerNote }: EmailShellOptions): st
         ${footerNote ? `<p class="muted" style="margin:0 0 12px;font:400 13px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${MUTED}">${footerNote}</p>` : ""}
         <!-- The mission, with the mark beside it rather than above it.
              28px because a signature logo is an ornament next to a line of
-             type, not a second masthead — the navy bar at the top is already
+             type, not a second masthead - the navy bar at the top is already
              doing that job. valign="middle" and an explicit width/height keep
              Outlook from inventing its own. -->
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px">

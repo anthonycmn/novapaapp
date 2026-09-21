@@ -85,7 +85,7 @@ export function NextCall({
             <CalendarDays aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
             {formatEventTime(event.startsAt)}
           </p>
-          {/* Only when it differs — see showableCallTime in lib/format. */}
+          {/* Only when it differs - see showableCallTime in lib/format. */}
           {event.callTime && event.callTime !== event.startsAt && (
             <p className="flex items-start gap-2 text-[13.5px] font-medium text-primary">
               <Clock aria-hidden size={15} className="mt-0.5 shrink-0" />
@@ -106,8 +106,8 @@ export function NextCall({
           )}
         </div>
 
-        {/* The staff portal's run sheet — the rooms, times and cast a
-            director reads — when it has one for this call. Otherwise the
+        {/* The staff portal's run sheet - the rooms, times and cast a
+            director reads - when it has one for this call. Otherwise the
             calendar's own two lines. CJ, 16 Sep 2026: staff is the authority. */}
         {event.run && event.run.length > 0 && (
           <div className="mt-2">
@@ -156,7 +156,7 @@ export function NextCall({
         )}
 
         {/* Each of this family's children on the call: their role, and the
-            attendance chip — the record of what has been told to the show,
+            attendance chip - the record of what has been told to the show,
             editable in place. */}
         {(() => {
           const kids = (calledStudentIds ?? [])
@@ -188,13 +188,13 @@ export function NextCall({
 
         {event.changeNote && (
           <p className="mt-2 rounded-md bg-tip px-3 py-1.5 text-[12.5px] text-tip-foreground">
-            Changed — {event.changeNote}
+            Changed - {event.changeNote}
           </p>
         )}
 
         {/* Buttons and star pages, right where a family is already thinking
             about the show (Tony, 17 Aug 2026). Both are bought FOR a
-            production, so the show page is where the thought occurs — the
+            production, so the show page is where the thought occurs - the
             store is where you go once you have already had it. */}
         <div className="mt-3 flex flex-wrap gap-2 border-t pt-3">
           <Link
@@ -244,14 +244,14 @@ export function PerformanceStrip({ events }: { events: CalendarEvent[] }) {
               }`}
             >
               {/*
-                  Both times, labeled — CJ, 26 Aug: "for the RUN in the parent
+                  Both times, labeled - CJ, 26 Aug: "for the RUN in the parent
                   portal add both call time and performance time."
 
                   These were the same number until the 26th, because starts_at
                   held the CALL and the curtain lived only inside the title.
                   Now that they are two facts, a strip a family sends to
                   grandparents should carry the one they arrive for and the one
-                  the curtain goes up on — and say which is which, because
+                  the curtain goes up on - and say which is which, because
                   "7:00" with no label is the thing that put somebody in a
                   car park at the wrong time.
               */}

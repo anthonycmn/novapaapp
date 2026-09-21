@@ -37,7 +37,7 @@ export function PoliciesRecord() {
 
       <p className="border-b px-4 py-3 text-[12.5px] leading-relaxed text-muted-foreground">
         Registering with {org.shortName} accepts all of these. They are kept here
-        so you can look one up mid-season without hunting through your email —
+        so you can look one up mid-season without hunting through your email -
         the full wording on our website is the version that binds, and it is
         linked from every line.
       </p>
@@ -57,8 +57,8 @@ export function PoliciesRecord() {
           <ExternalLink aria-hidden size={11} />
         </a>
         <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
-          Anything you would like changed — including asking us not to photograph
-          your child — is a written request to{" "}
+          Anything you would like changed - including asking us not to photograph
+          your child - is a written request to{" "}
           <a
             href={`mailto:${org.supportEmail}`}
             className="text-primary underline-offset-4 hover:underline"

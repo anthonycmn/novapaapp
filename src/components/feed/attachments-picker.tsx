@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { heicToJpegFile, isHeicFile } from "@/lib/platform/heic";
 import { Link2, Paperclip, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,8 @@ type PickedAttachment =
   | { kind: "file"; name: string; path: string; mime?: string; sizeBytes?: number }
   | { kind: "link"; name: string; url: string };
 
-const ACCEPT = ".pdf,.pptx,.ppt,.key,.docx,.doc,.xlsx,.xls,.txt,.csv,.jpg,.jpeg,.png,.webp,.gif,.heic";
+const ACCEPT =
+  ".pdf,.pptx,.ppt,.key,.docx,.doc,.xlsx,.xls,.txt,.csv,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif";
 
 const MIME_BY_EXT: Record<string, string> = {
   pdf: "application/pdf",
@@ -44,6 +46,7 @@ const MIME_BY_EXT: Record<string, string> = {
   webp: "image/webp",
   gif: "image/gif",
   heic: "image/heic",
+  heif: "image/heif",
 };
 
 /**
@@ -85,7 +88,10 @@ export function AttachmentsPicker({ onDirty }: { onDirty?: () => void }) {
     onDirty?.();
   }
 
-  async function uploadOne(file: File): Promise<PickedAttachment> {
+  async function uploadOne(picked: File): Promise<PickedAttachment> {
+    // A HEIC picture is stored as a JPEG: a feed post is read on every kind of
+    // phone and only Apple's can open HEIC. See platform/heic.ts.
+    const file = isHeicFile(picked, picked.name) ? await heicToJpegFile(picked) : picked;
     const contentType = mimeOf(file);
     const signResponse = await fetch("/api/uploads/sign", {
       method: "POST",
@@ -107,7 +113,7 @@ export function AttachmentsPicker({ onDirty }: { onDirty?: () => void }) {
       request.upload.onprogress = (e) => {
         if (e.lengthComputable) {
           const progress = Math.round((e.loaded / e.total) * 100);
-          setUploading((u) => u.map((x) => (x.name === file.name ? { ...x, progress } : x)));
+          setUploading((u) => u.map((x) => (x.name === picked.name ? { ...x, progress } : x)));
         }
       };
       request.onload = () =>
@@ -267,7 +273,7 @@ export function AttachmentsPicker({ onDirty }: { onDirty?: () => void }) {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Check the link opens for somebody who is not signed in as you — a Google file is
+            Check the link opens for somebody who is not signed in as you - a Google file is
             Restricted until you share it.
           </p>
         </div>
@@ -304,7 +310,7 @@ export function AttachmentsPicker({ onDirty }: { onDirty?: () => void }) {
       ) : (
         <p className="text-xs text-muted-foreground">
           Slides, PDFs, documents and pictures up to 50 MB. A PDF opens right in the browser; a
-          PowerPoint downloads — export slides to PDF if you can. Attachments are as public as
+          PowerPoint downloads - export slides to PDF if you can. Attachments are as public as
           the lobby noticeboard.
         </p>
       )}

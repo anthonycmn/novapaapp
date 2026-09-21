@@ -73,7 +73,13 @@ export async function POST(request: NextRequest) {
   const session = event.data.object;
   const reference = session.client_reference_id ?? session.metadata?.order_reference;
   if (!reference) {
-    return NextResponse.json({ error: "No order reference on session" }, { status: 400 });
+    // Not ours. The account also sells through Stripe Payment Links (a $125
+    // link on Sep 17 2026 was the first), and every Checkout Session on the
+    // account lands here, reference or not. A 400 made Stripe retry the same
+    // payment for three days and lit the endpoint red at 100% errors; there
+    // is nothing to retry. Acknowledge it and let the registration side, or
+    // Stripe itself, be the record.
+    return NextResponse.json({ received: true, warning: "No order reference on session" });
   }
 
   if (isCoachingReference(reference)) {

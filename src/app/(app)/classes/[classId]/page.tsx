@@ -142,7 +142,7 @@ export default async function ClassPage({
             </p>
           </Card>
 
-          {/* Only this family's own sessions — the class calendar for somebody
+          {/* Only this family's own sessions - the class calendar for somebody
               who is not enrolled would be a schedule they cannot attend. */}
           {mySessions.length > 0 && (
             <Card pad={false}>

@@ -133,7 +133,7 @@ export function AuditionForm({
         >
           <Loader2 aria-hidden className="size-10 animate-spin text-primary" />
           <p className="text-sm font-medium">
-            {leaving ? "Submitted — one moment…" : `Sending ${studentName}'s audition…`}
+            {leaving ? "Submitted - one moment…" : `Sending ${studentName}'s audition…`}
           </p>
         </div>
       )}
@@ -146,7 +146,7 @@ export function AuditionForm({
           What should we consider {studentName} for?
         </legend>
         <p className="text-xs text-muted-foreground">
-          Tick as many as apply — they are separate questions, and it is
+          Tick as many as apply - they are separate questions, and it is
           completely fine to tick none.
         </p>
         {ROLE_KINDS.map((kind) => (
@@ -169,7 +169,7 @@ export function AuditionForm({
       </fieldset>
 
       {/*
-        Boxes, not a radio — Yin, a parent, 8 Sep 2026: "it would be great to
+        Boxes, not a radio - Yin, a parent, 8 Sep 2026: "it would be great to
         enable multi-selection for 'And how big a part are they hoping for?'
         question as many kids are open to multiple types of roles!"
 
@@ -179,14 +179,14 @@ export function AuditionForm({
         is everything they would be glad to be cast as.
 
         Unlike the question above it, this one still wants at least one answer
-        — see the note on preferenceTiers in actions/audition-schema.ts.
+        - see the note on preferenceTiers in actions/audition-schema.ts.
       */}
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">
           And how big a part are they hoping for?
         </legend>
         <p className="text-xs text-muted-foreground">
-          Tick every size of part they&apos;d be happy with — plenty of
+          Tick every size of part they&apos;d be happy with - plenty of
           performers are glad of more than one.
         </p>
         {ROLE_TIERS.map((tier) => (
@@ -221,7 +221,7 @@ export function AuditionForm({
       </fieldset>
 
       {/*
-        The "Their audition song" tile is gone — CJ, 4 Sep 2026: "eliminate the
+        The "Their audition song" tile is gone - CJ, 4 Sep 2026: "eliminate the
         'Their Audition Song' tile and box - since it is collected below."
 
         It asked for the song by name and for a link to the track, immediately
@@ -237,13 +237,13 @@ export function AuditionForm({
             Only if you&apos;re auditioning by video, or you&apos;d like the
             team to have these. Nothing here is required.
           </p>
-          {/* Said once, before anybody pastes anything — a preference is only
+          {/* Said once, before anybody pastes anything - a preference is only
               useful if it arrives before the decision. */}
           <p className="mt-2 text-xs text-muted-foreground">{VIDEO_PREFERENCE}</p>
         </div>
 
         {/*
-          How to film it, in red, immediately above the boxes — CJ, 4 Sep 2026,
+          How to film it, in red, immediately above the boxes - CJ, 4 Sep 2026,
           who dictated the wording.
 
           Red because this is the one thing on the page that costs a family a
@@ -261,7 +261,7 @@ export function AuditionForm({
           </p>
           <p className="mt-2">
             If they wish to audition in person and not submit a video, that is
-            also OK — but this gives them the option to perfect the song and
+            also OK - but this gives them the option to perfect the song and
             submit it. All songs are watched in their entirety.
           </p>
           <p className="mt-2">
@@ -270,13 +270,13 @@ export function AuditionForm({
         </div>
 
         {/*
-          Links, not uploads — Tony, 2 Sep 2026: "instead of uploading videos
+          Links, not uploads - Tony, 2 Sep 2026: "instead of uploading videos
           for singing and dance, provide a space for a URL."
 
           A self-tape off a phone is a several-hundred-megabyte file going up a
           home connection, and a family whose upload dies at 80% has no
-          audition. The video is already in their phone's cloud — YouTube
-          unlisted, Drive, Dropbox, iCloud — and pasting that link takes ten
+          audition. The video is already in their phone's cloud - YouTube
+          unlisted, Drive, Dropbox, iCloud - and pasting that link takes ten
           seconds and cannot fail halfway. It also leaves the family deciding
           who can watch their child sing, which is the right place for that.
 
@@ -314,7 +314,7 @@ export function AuditionForm({
             different facts into one clause and misspells karaoke. What a
             parent is actually saying by ticking it is: this link is not a
             self-tape, it is the backing track, and my child will sing to it in
-            the room. That distinction matters to whoever opens the link — a
+            the room. That distinction matters to whoever opens the link - a
             panel expecting a performance and finding an instrumental will
             assume the wrong file was sent.
 
@@ -405,12 +405,12 @@ export function AuditionForm({
           id="previousRoles"
           name="previousRoles"
           defaultValue={existing?.previousRoles ?? ""}
-          placeholder={"For example:\nYoung Anna — Frozen Jr. (2025)\nEnsemble — Annie Jr. (2024)"}
+          placeholder={"For example:\nYoung Anna - Frozen Jr. (2025)\nEnsemble - Annie Jr. (2024)"}
           className={`min-h-24 ${SUGGESTION}`}
           maxLength={2000}
         />
         <p className="text-xs text-muted-foreground">
-          Shows with us are already on file — this is for anything else.
+          Shows with us are already on file - this is for anything else.
         </p>
       </div>
 
@@ -441,7 +441,7 @@ export function AuditionForm({
             defaultChecked={Boolean(existing)}
             className="mt-0.5 size-4 accent-[var(--primary)]"
           />
-          We understand — sharing a preference does not guarantee any specific
+          We understand - sharing a preference does not guarantee any specific
           part or size of role.
         </label>
         <FieldError message={state.errors?.acknowledged} />

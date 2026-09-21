@@ -44,7 +44,7 @@ export function BugReportForm({ onDone }: { onDone: () => void }) {
         <p className="flex items-start gap-2 text-[12.5px]">
           <CheckCircle2 aria-hidden size={15} className="mt-0.5 shrink-0 text-primary" />
           <span>
-            Thank you — that went straight to CJ, with the details of your
+            Thank you - that went straight to CJ, with the details of your
             browser. He reads these himself.
           </span>
         </p>
@@ -76,7 +76,7 @@ export function BugReportForm({ onDone }: { onDone: () => void }) {
           required
           maxLength={4000}
           rows={4}
-          placeholder="For example: my daughter's name is missing from the week calendar — there's a dot but no name."
+          placeholder="For example: my daughter's name is missing from the week calendar - there's a dot but no name."
           className="w-full rounded-md border border-input bg-background p-2 text-[12.5px] placeholder:italic placeholder:text-muted-foreground/70"
         />
         <FieldError message={state.errors?.whatHappened} />
@@ -109,7 +109,7 @@ export function BugReportForm({ onDone }: { onDone: () => void }) {
           {environment ? describeEnvironment(environment) : "Reading your browser…"}
         </pre>
         <p className="px-2.5 pb-2.5 text-[11px] text-muted-foreground">
-          Nothing else — no screenshot, and nothing about your child.
+          Nothing else - no screenshot, and nothing about your child.
         </p>
       </details>
 

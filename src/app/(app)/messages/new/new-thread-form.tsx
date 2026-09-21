@@ -128,7 +128,7 @@ export function NewThreadForm({
       )}
 
       {/* The contact tree's own urgency, said plainly. Somebody whose child is
-          hurt right now must not be typing — and this is the moment they would
+          hurt right now must not be typing - and this is the moment they would
           otherwise start. */}
       {chosen && chosen.priority !== "Standard" && (
         <p className="flex items-start gap-2 rounded-lg border border-destructive/40 p-3 text-sm">

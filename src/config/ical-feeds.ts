@@ -104,7 +104,7 @@ export const ICAL_FEEDS: IcalFeed[] = [
     locationRewrites: [
       {
         when: /^Rehearsal Space/i,
-        use: "Rehearsal Space, South Building, National Conference Center, 18945 Conference Center Drive, Leesburg VA 20175 — park in the south lot",
+        use: "Rehearsal Space, South Building, National Conference Center, 18945 Conference Center Drive, Leesburg VA 20175 - park in the south lot",
       },
     ],
   },

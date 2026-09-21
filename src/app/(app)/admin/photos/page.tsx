@@ -41,7 +41,7 @@ export default async function PhotosAdminPage() {
             <p>
               {!smugmug.isConfigured() && "SmugMug credentials not set. "}
               {!faceProvider.isConfigured() &&
-                "Face embedding service not set — matching uses deterministic stand-in vectors. "}
+                "Face embedding service not set - matching uses deterministic stand-in vectors. "}
               See NEEDS-FROM-TONY.md #4 and #5.
             </p>
           </CardContent>
@@ -52,7 +52,7 @@ export default async function PhotosAdminPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Providers</CardTitle>
           <CardDescription>
-            Matching runs as a background job — it never blocks a page load
+            Matching runs as a background job - it never blocks a page load
             for a family.
           </CardDescription>
         </CardHeader>
@@ -104,7 +104,7 @@ export default async function PhotosAdminPage() {
           <ul className="flex list-disc flex-col gap-1 pl-4">
             <li>Only students whose parents opted in are ever matched.</li>
             <li>
-              Matches are visible to that family and to admins — staff at large
+              Matches are visible to that family and to admins - staff at large
               do not browse them.
             </li>
             <li>
