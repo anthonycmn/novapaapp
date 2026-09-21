@@ -48,6 +48,7 @@ export function WeekCalendar({
   students,
   responses = [],
   canRespond = false,
+  conflictsClosed = {},
 }: {
   events: FamilyCalendarEvent[];
   students: Array<{ id: string; name: string }>;
@@ -55,6 +56,8 @@ export function WeekCalendar({
   responses?: CallResponseRecord[];
   /** Staff see the same calendar and have nothing to answer. */
   canRespond?: boolean;
+  /** Shows that have stopped taking conflicts (0093): production id → title. */
+  conflictsClosed?: Record<string, string>;
 }) {
   const today = todayKey();
   const [anchor, setAnchor] = useState(() => weekStart(today));
@@ -211,6 +214,7 @@ export function WeekCalendar({
                         showChildren={students.length > 1 && childFilter === null}
                         responses={responses}
                         canRespond={canRespond}
+                        conflictsClosed={conflictsClosed}
                       />
                     ))}
                   </div>
@@ -231,6 +235,7 @@ function EventRow({
   responses,
   canRespond,
   showChildren,
+  conflictsClosed,
 }: {
   event: FamilyCalendarEvent;
   colorByStudent: Record<string, string>;
@@ -238,6 +243,7 @@ function EventRow({
   showChildren: boolean;
   responses: CallResponseRecord[];
   canRespond: boolean;
+  conflictsClosed: Record<string, string>;
 }) {
   const body = (
     <>
@@ -339,6 +345,9 @@ function EventRow({
             answer={answerFor(studentId)}
             eventTitle={event.title}
             eventWhen={`${formatTime(event.startsAt)}`}
+            conflictsClosedFor={
+              event.productionId ? conflictsClosed[event.productionId] : undefined
+            }
           />
         ))}
     </div>

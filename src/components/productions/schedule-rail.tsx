@@ -87,6 +87,7 @@ export function ScheduleRail({
   students,
   calledStudentsByEvent,
   answers,
+  conflictsClosed = false,
 }: {
   events: CalendarEvent[];
   /** Event ids this family is actually called to, for the "My calls" view. */
@@ -102,6 +103,8 @@ export function ScheduleRail({
   calledStudentsByEvent?: Record<string, string[]>;
   /** `${eventId}:${studentId}` → the family's standing answer, if any. */
   answers?: Record<string, CallAnswer>;
+  /** The show has stopped taking conflicts (0093): chips offer Attending only. */
+  conflictsClosed?: boolean;
 }) {
   const mine = useMemo(() => new Set(myEventIds ?? []), [myEventIds]);
   const studentById = useMemo(
@@ -422,6 +425,9 @@ export function ScheduleRail({
                                       answer={answers?.[`${event.id}:${kid.id}`] ?? null}
                                       eventTitle={event.title}
                                       eventWhen={when}
+                                      conflictsClosedFor={
+                                        conflictsClosed ? productionTitle : undefined
+                                      }
                                     />
                                     {kid.roleNames.length > 0 && (
                                       <span className="text-[11px] text-muted-foreground">

@@ -289,6 +289,7 @@ function mapProduction(row: Row): Production {
     buttonTemplateUrl: s(row.button_template_url),
     ticketsUrl: s(row.tickets_url),
     curriculumUrl: s(row.curriculum_url),
+    conflictsClosedAt: s(row.conflicts_closed_at),
     registrationActivityId:
       typeof row.registration_activity_id === "number"
         ? row.registration_activity_id

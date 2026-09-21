@@ -33,6 +33,7 @@ export function NextCall({
   students,
   calledStudentIds,
   answers,
+  conflictsClosedFor,
 }: {
   event?: CalendarEvent;
   /** Preselects the show in the store, so nobody picks it twice. */
@@ -43,6 +44,8 @@ export function NextCall({
   calledStudentIds?: string[];
   /** `${eventId}:${studentId}` → the family's standing answer. */
   answers?: Record<string, CallAnswer>;
+  /** The show's title when it has stopped taking conflicts (0093). */
+  conflictsClosedFor?: string;
 }) {
   if (!event) {
     return (
@@ -174,6 +177,7 @@ export function NextCall({
                     answer={answers?.[`${event.id}:${kid.id}`] ?? null}
                     eventTitle={event.title}
                     eventWhen={formatEventTime(event.startsAt)}
+                    conflictsClosedFor={conflictsClosedFor}
                   />
                   {kid.roleNames.length > 0 && (
                     <span className="text-[12px] text-muted-foreground">

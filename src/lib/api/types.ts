@@ -208,6 +208,15 @@ export interface Production {
    * (`public.activities.id`). See ClassOffering.registrationActivityId.
    */
   registrationActivityId?: number;
+  /**
+   * When the show stopped taking conflicts from families (hub 0093). CJ,
+   * 21 Sep 2026, for Sweeney Todd: "Disable the ability to report conflicts
+   * … put a banner in there that says, we are no longer accepting conflicts
+   * at this time." Set: the absence form leaves the show out, the attendance
+   * chip offers only Attending, and the banner shows wherever a parent
+   * would have reported one. Unset: open, as every show is by default.
+   */
+  conflictsClosedAt?: string;
 }
 
 export interface Enrollment {

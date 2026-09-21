@@ -7,6 +7,7 @@ import { enrollmentIsCurrent } from "@/lib/enrollment-current";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/states";
 import { CalendarOff } from "lucide-react";
+import { ConflictsClosedBanner } from "@/components/conflicts-closed-banner";
 import { AbsenceForm, type AbsenceOption } from "./absence-form";
 import { WithdrawButton } from "./withdraw-button";
 
@@ -48,17 +49,37 @@ export default async function AbsencesPage() {
    * system". A Tuesday dance class is missed as often as a Saturday
    * rehearsal, and until this the form could not say so.
    */
-  const options: AbsenceOption[] = enrollments
-    .filter(
-      (enrollment) =>
-        enrollmentIsCurrent(enrollment) && (enrollment.productionId || enrollment.classId)
+  const current = enrollments.filter(
+    (enrollment) =>
+      enrollmentIsCurrent(enrollment) && (enrollment.productionId || enrollment.classId)
+  );
+
+  /*
+   * A show that has stopped taking conflicts (0093) comes off the form and
+   * goes on the banner instead. CJ, 21 Sep 2026, for Sweeney Todd: "Disable
+   * the ability to report conflicts … put a banner in there that says, we
+   * are no longer accepting conflicts at this time." The receipts underneath
+   * stay: what a family already told us is still true, and withdrawing one
+   * is still allowed — it shortens the director's list rather than adding to it.
+   */
+  const closedShows = Array.from(
+    new Set(
+      current
+        .map((enrollment) =>
+          enrollment.productionId ? productionById.get(enrollment.productionId) : undefined
+        )
+        .filter((production) => production?.conflictsClosedAt)
+        .map((production) => production!.title)
     )
+  );
+
+  const options: AbsenceOption[] = current
     .flatMap((enrollment): AbsenceOption[] => {
       const student = studentById.get(enrollment.studentId);
       if (!student) return [];
       if (enrollment.productionId) {
         const production = productionById.get(enrollment.productionId);
-        if (!production) return [];
+        if (!production || production.conflictsClosedAt) return [];
         return [
           {
             studentId: student.id,
@@ -98,13 +119,17 @@ export default async function AbsencesPage() {
         </p>
       </div>
 
+      <ConflictsClosedBanner productionTitles={closedShows} />
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">What will they miss?</CardTitle>
           <CardDescription>
             {options.length > 0
               ? "Only mark the times your child will not be present — leave them blank to report the whole call."
-              : "Nobody in this household is registered for a show or a class at the moment."}
+              : closedShows.length > 0
+                ? "Conflicts are closed for the show your household is in."
+                : "Nobody in this household is registered for a show or a class at the moment."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -112,8 +137,9 @@ export default async function AbsencesPage() {
             <AbsenceForm options={options} />
           ) : (
             <p className="text-sm text-muted-foreground">
-              Once a child is registered for a show or a class, you can report
-              an absence from it here.
+              {closedShows.length > 0
+                ? "Nothing here can take an absence right now. If something urgent comes up, please email the office."
+                : "Once a child is registered for a show or a class, you can report an absence from it here."}
             </p>
           )}
         </CardContent>

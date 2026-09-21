@@ -80,6 +80,9 @@ export const productions: Production[] = [
     opensOn: "2026-10-23",
     closesOn: "2026-11-01",
     ticketsUrl: "https://novapa.booktix.com",
+    // Closed to conflicts, as the live show has been since 21 Sep 2026
+    // (0093), so mock mode shows the banner and the one-answer chip.
+    conflictsClosedAt: "2026-09-21T14:00:00Z",
     // The two folders that actually exist. No staging row on purpose: no
     // such folder has been made, and mock mode should show the gap rather
     // than paper over it with a link that would 404 in real life.

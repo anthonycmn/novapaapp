@@ -67,6 +67,7 @@ export function CallResponse({
   answer,
   eventTitle,
   eventWhen,
+  conflictsClosedFor,
 }: {
   eventId: string;
   studentId: string;
@@ -74,6 +75,8 @@ export function CallResponse({
   answer: CallAnswer | null;
   eventTitle: string;
   eventWhen: string;
+  /** The show's title when it has stopped taking conflicts (0093). */
+  conflictsClosedFor?: string;
 }) {
   const [current, setCurrent] = useState<CallAnswer | null>(answer);
   const [open, setOpen] = useState(false);
@@ -134,6 +137,7 @@ export function CallResponse({
           studentName={studentName}
           eventTitle={eventTitle}
           eventWhen={eventWhen}
+          conflictsClosedFor={conflictsClosedFor}
           current={current?.status ?? null}
           note={note}
           onNoteChange={setNote}

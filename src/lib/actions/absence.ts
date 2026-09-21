@@ -147,6 +147,20 @@ export async function reportAbsenceAction(
     productionId ? provider.getProduction(productionId) : Promise.resolve(undefined),
     classId ? provider.getClasses() : Promise.resolve([]),
   ]);
+  /*
+   * 0093: a show that has stopped taking conflicts refuses the form too. The
+   * page already leaves the show out of the dropdown; this is for the posted
+   * id, which a stale tab can still send.
+   */
+  if (production?.conflictsClosedAt) {
+    return {
+      ok: false,
+      errors: {
+        productionId: `We are no longer accepting conflicts for ${production.title} at this time.`,
+      },
+    };
+  }
+
   const childName = student
     ? `${student.preferredName ?? student.firstName} ${student.lastName}`
     : "A student";

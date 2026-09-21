@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Bandage, Check, Clock, X } from "lucide-react";
+import { ConflictsClosedBanner } from "@/components/conflicts-closed-banner";
 import { cn } from "@/lib/utils";
 
 export type AttendanceStatus = "attending" | "not_attending" | "injury" | "partial";
@@ -25,6 +26,14 @@ export type AttendanceStatus = "attending" | "not_attending" | "injury" | "parti
  * SINGLE SELECT. A child is one of these things on one night. Checkboxes
  * would let somebody be attending and not attending at once, which is not an
  * answer, it is a bug report.
+ *
+ * ONE ANSWER WHEN CONFLICTS ARE CLOSED (0093). CJ, 21 Sep 2026, for Sweeney
+ * Todd: "Disable the ability to report conflicts … we are no longer accepting
+ * conflicts at this time." The three conflict answers go and the banner
+ * takes their place; Attending stays, because confirming you will be there
+ * is not a conflict, and Clear stays, because taking one back shortens the
+ * director's list. The RPC refuses the other three as well, so this is the
+ * polite half of a rule the database enforces.
  */
 
 const OPTIONS: Array<{
@@ -56,10 +65,13 @@ export function AttendanceDialog({
   onPick,
   onClear,
   onClose,
+  conflictsClosedFor,
 }: {
   studentName: string;
   eventTitle: string;
   eventWhen: string;
+  /** Set when this call's show has stopped taking conflicts: the show's title. */
+  conflictsClosedFor?: string;
   current: AttendanceStatus | null;
   note: string;
   onNoteChange: (v: string) => void;
@@ -70,6 +82,9 @@ export function AttendanceDialog({
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  const options = conflictsClosedFor
+    ? OPTIONS.filter((option) => option.value === "attending")
+    : OPTIONS;
 
   // Escape closes, and focus starts inside. This opens over a calendar
   // somebody is reading; trapping them in it would be rude.
@@ -129,8 +144,16 @@ export function AttendanceDialog({
           )}
         </div>
 
+        {conflictsClosedFor && (
+          <ConflictsClosedBanner
+            productionTitles={[conflictsClosedFor]}
+            compact
+            className="mt-3"
+          />
+        )}
+
         <div className="mt-2 overflow-hidden rounded-lg border">
-          {OPTIONS.map(({ value, label, Icon, tone }) => (
+          {options.map(({ value, label, Icon, tone }) => (
             <button
               key={value}
               type="button"

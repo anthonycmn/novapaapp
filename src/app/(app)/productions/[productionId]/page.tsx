@@ -21,6 +21,7 @@ import { ScenesAndSongs } from "@/components/productions/scenes-and-songs";
 import { ScheduleRail } from "@/components/productions/schedule-rail";
 import { NextCall, PerformanceStrip } from "@/components/productions/next-call";
 import { ShowFeed } from "@/components/productions/show-feed";
+import { ConflictsClosedBanner } from "@/components/conflicts-closed-banner";
 
 export const metadata = { title: "Production" };
 
@@ -254,6 +255,14 @@ export default async function ProductionPage({
         }
       />
 
+      {/* 0093: the show has stopped taking conflicts. Under the title, above
+          everything, because it is the one thing on this page a family
+          could get wrong today — and only for families, since staff have
+          nothing to report here. */}
+      {production.conflictsClosedAt && user.familyId && (
+        <ConflictsClosedBanner productionTitles={[production.title]} />
+      )}
+
       {/* The stat row, the same shape as the staff portal's show page — but
           carrying what a FAMILY needs, not what an admin does. Deliberately
           nothing about anyone else's child: no roster counts, no unresolved
@@ -357,6 +366,7 @@ export default async function ProductionPage({
         students={railStudents}
         calledStudentIds={nextCall ? (calledStudentsByEvent[nextCall.id] ?? []) : []}
         answers={callAnswers}
+        conflictsClosedFor={production.conflictsClosedAt ? production.title : undefined}
       />
 
       {myScripts.length > 0 && (
@@ -429,6 +439,7 @@ export default async function ProductionPage({
             students={railStudents}
             calledStudentsByEvent={calledStudentsByEvent}
             answers={callAnswers}
+            conflictsClosed={Boolean(production.conflictsClosedAt)}
           />
         </div>
       </div>

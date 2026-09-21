@@ -279,6 +279,11 @@ export default async function DashboardPage({
             events={familyEvents}
             responses={callResponses}
             canRespond={Boolean(user.familyId)}
+            conflictsClosed={Object.fromEntries(
+              productions
+                .filter((production) => production.conflictsClosedAt)
+                .map((production) => [production.id, production.title])
+            )}
             students={students.map((student) => ({
               id: student.id,
               name: student.preferredName ?? student.firstName,
