@@ -82,6 +82,36 @@ describe("a registration another child's enrollment already holds", () => {
     expect(issue?.message).toContain("enr-vanessa");
   });
 
+  it("names the records, not the name, when one child has two student rows", () => {
+    // Ryan Rodgers, 20 Sep 2026: the same child twice, in two families, and
+    // four registrations on the record nobody could sign in to.
+    // The duplicate lives in a second family, which is why the register's
+    // account resolves to one record and the enrollments sit on the other.
+    const otherFamily = { ...family, id: "fam-rodgers-2" };
+    const ryanA = { ...vanessa, id: "stu-ryan-a", familyId: family.id, firstName: "Ryan", lastName: "Rodgers" };
+    const ryanB = { ...vanessa, id: "stu-ryan-b", familyId: otherFamily.id, firstName: "Ryan", lastName: "Rodgers" };
+    const plan = reconcile({
+      ...base,
+      families: [family, otherFamily],
+      students: [ryanA, ryanB],
+      enrollments: [{ ...base.enrollments[0], id: "enr-ryan-b", studentId: ryanB.id }],
+      // The map is keyed by enrollment id, so it has to follow the rename.
+      enrollmentExternalIds: new Map([["enr-ryan-b", "legacy:778"]]),
+      snapshot: {
+        ...snapshot,
+        participants: [
+          { externalId: "part-kai", accountExternalId: "acct-1", firstName: "Ryan", lastName: "Rodgers" },
+        ],
+      },
+    });
+    const issue = plan.issues.find((i) => i.kind === "wrong_child");
+    expect(issue?.message).toContain("second record of the same child");
+    expect(issue?.message).toContain("stu-ryan-b");
+    expect(issue?.message).toContain("fam-rodgers-2");
+    expect(issue?.message).toContain("Merge the duplicate student");
+    expect(plan.creates).toHaveLength(0);
+  });
+
   it("still creates the enrollment when the line item is nobody else's", () => {
     const plan = reconcile({
       ...base,

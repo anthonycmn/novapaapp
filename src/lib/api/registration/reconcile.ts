@@ -596,15 +596,32 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     if (!existing && heldElsewhere && heldElsewhere.studentId !== studentId) {
       const heldBy = input.students.find((s) => s.id === heldElsewhere.studentId);
       const shouldBe = input.students.find((s) => s.id === studentId);
+      const name = (s?: Student) => (s ? `${s.firstName} ${s.lastName}` : null);
+      const sameChild =
+        heldBy && shouldBe &&
+        name(heldBy)?.toLowerCase() === name(shouldBe)?.toLowerCase();
+      // Two shapes, and they need different sentences. A sibling's row is a
+      // wrong child. The same name twice is one child with two student rows,
+      // usually in two families, which is what the register's camper_id join
+      // exposed on 20 Sep 2026: four of Ryan Rodgers's registrations sat on a
+      // duplicate record with no guardian who could sign in, so his family saw
+      // one of five. Printing "is for Ryan Rodgers but is held for Ryan
+      // Rodgers" would tell nobody anything, so say which record.
       plan.issues.push({
         kind: "wrong_child",
         externalId: external.externalId,
-        message:
-          `Registration ${external.externalId} ("${external.offeringName}") is for ` +
-          `${shouldBe ? `${shouldBe.firstName} ${shouldBe.lastName}` : "another student"}, ` +
-          `but enrollment ${heldElsewhere.id} already carries that registration for ` +
-          `${heldBy ? `${heldBy.firstName} ${heldBy.lastName}` : "a different student"}. ` +
-          `Nobody's roster changed. Move the enrollment to the right child, or delete it and let the next sync place it.`,
+        message: sameChild
+          ? `Registration ${external.externalId} ("${external.offeringName}") is for ` +
+            `${name(shouldBe)}, student ${studentId} in family ${shouldBe.familyId}, and ` +
+            `enrollment ${heldElsewhere.id} already carries it for a second record of the ` +
+            `same child, student ${heldElsewhere.studentId}` +
+            `${heldBy.familyId !== shouldBe.familyId ? ` in family ${heldBy.familyId}` : ""}. ` +
+            `Merge the duplicate student, then this registration places itself.`
+          : `Registration ${external.externalId} ("${external.offeringName}") is for ` +
+            `${name(shouldBe) ?? "another student"}, ` +
+            `but enrollment ${heldElsewhere.id} already carries that registration for ` +
+            `${name(heldBy) ?? "a different student"}. ` +
+            `Nobody's roster changed. Move the enrollment to the right child, or delete it and let the next sync place it.`,
       });
       continue;
     }
