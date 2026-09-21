@@ -26,6 +26,77 @@ export function syncStatusFor(issues: SyncIssue[]): Extract<SyncStatus, "success
   return issues.some((issue) => issue.kind !== "legacy_unmapped") ? "partial" : "success";
 }
 
+const studentName = (s?: Student) => (s ? `${s.firstName} ${s.lastName}` : null);
+
+/**
+ * One sentence for a line item another enrollment already holds.
+ *
+ * Two paths reach it and both hit the same unique index
+ * (enrollments_external_idx), so they say the same thing:
+ *
+ *   create  the student has no enrollment for this target, and the insert
+ *           would throw 23505. Nothing is written.
+ *   adopt   the student HAS one, added by hand and never stamped, and the
+ *           stamp would throw 23505. The row still updates; only the link
+ *           to the line item is withheld.
+ *
+ * And two shapes need different sentences. A sibling's row is a wrong child.
+ * The same name twice is one child with two student rows, usually in two
+ * families, which is what the register's camper_id join exposed on 20 Sep
+ * 2026: four of Ryan Rodgers's registrations sat on a duplicate record with
+ * no guardian who could sign in, so his family saw one of five. Printing
+ * "is for Ryan Rodgers but is held for Ryan Rodgers" would tell nobody
+ * anything, so say which record.
+ */
+function wrongChildIssue(args: {
+  externalId: string;
+  offeringName: string;
+  studentId: string;
+  shouldBe?: Student;
+  heldBy?: Student;
+  heldEnrollmentId: string;
+  heldStudentId: string;
+  /** The adopt path's own row, when there is one. */
+  adoptedEnrollmentId?: string;
+}): SyncIssue {
+  const { shouldBe, heldBy } = args;
+  const sameChild =
+    !!heldBy &&
+    !!shouldBe &&
+    studentName(heldBy)?.toLowerCase() === studentName(shouldBe)?.toLowerCase();
+  const head =
+    `Registration ${args.externalId} ("${args.offeringName}") is for ` +
+    `${studentName(shouldBe) ?? "another student"}`;
+  const onRoster = args.adoptedEnrollmentId
+    ? `, whose enrollment ${args.adoptedEnrollmentId} is already on the roster`
+    : "";
+
+  if (sameChild) {
+    const otherFamily =
+      heldBy.familyId !== shouldBe.familyId ? ` in family ${heldBy.familyId}` : "";
+    return {
+      kind: "wrong_child",
+      externalId: args.externalId,
+      message:
+        `${head}, student ${args.studentId} in family ${shouldBe.familyId}${onRoster}, and ` +
+        `enrollment ${args.heldEnrollmentId} already carries it for a second record of the ` +
+        `same child, student ${args.heldStudentId}${otherFamily}. ` +
+        `Merge the duplicate student, then this registration places itself.`,
+    };
+  }
+
+  return {
+    kind: "wrong_child",
+    externalId: args.externalId,
+    message:
+      `${head}${onRoster}, ` +
+      `but enrollment ${args.heldEnrollmentId} already carries that registration for ` +
+      `${studentName(heldBy) ?? "a different student"}. ` +
+      `Nobody's roster changed${args.adoptedEnrollmentId ? " and the balance is still up to date" : ""}. ` +
+      `Move the enrollment to the right child, or delete it and let the next sync place it.`,
+  };
+}
+
 /**
  * Pure reconciliation: given what the app knows and what the registration
  * system says, produce a plan of changes plus a list of things a human needs
@@ -571,6 +642,43 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
     if (!existing && plannedKeys.has(`${studentId}::${targetKey}`)) continue;
 
+    // The external id is unique across enrollments (enrollments_external_idx on
+    // external_source, external_id). If another row already holds this one, the
+    // registration is on a different student than the source says. Creating
+    // would throw 23505 on every run, which is exactly what it did: 192 times
+    // in 24 hours through 18 Sep 2026 on legacy:778 and legacy:790, Kai
+    // Stuermann's Sweeney Todd and Hadestown registrations, both sitting on
+    // his sister Vanessa.
+    //
+    // Two shapes reach here, and the second is why this is not a one-off:
+    //
+    //   1. A sibling, from a Sawyer era row matched by name before the camper
+    //      id was the join (the Stuermanns).
+    //   2. One child entered twice, one student row keyed and one not. Making
+    //      camper_id the join on 20 Sep 2026 pointed the resolver at the keyed
+    //      row while the unkeyed row still held the line item, so three more
+    //      registrations began failing every fifteen minutes from 3:30 PM ET
+    //      that day: 9df1fd22, legacy:772 and legacy:699, all Ryan Rodgers.
+    //
+    // The insert can never win either way, and while it keeps failing the run
+    // reports "partial" forever, so a real problem in the issue list has
+    // nowhere to show. Say it instead, and name both children.
+    const heldElsewhere = existingByExternalId.get(external.externalId);
+    if (!existing && heldElsewhere && heldElsewhere.studentId !== studentId) {
+      plan.issues.push(
+        wrongChildIssue({
+          externalId: external.externalId,
+          offeringName: external.offeringName,
+          studentId,
+          shouldBe: input.students.find((s) => s.id === studentId),
+          heldBy: input.students.find((s) => s.id === heldElsewhere.studentId),
+          heldEnrollmentId: heldElsewhere.id,
+          heldStudentId: heldElsewhere.studentId,
+        })
+      );
+      continue;
+    }
+
     if (!existing) {
       plannedKeys.add(`${studentId}::${targetKey}`);
       plan.creates.push({
@@ -631,8 +739,45 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
      * first sync that recognises it, and never rewritten afterwards — the
      * line item a row was created from does not change.
      */
-    const stampExternalId =
+    const wantsStamp =
       !input.enrollmentExternalIds?.get(existing.id) && Boolean(external.externalId);
+    /*
+     * ...unless another enrollment already holds that external id.
+     *
+     * Same unique index as the create path above, reached the other way. The
+     * row exists, it is the right child's, and it has no line item yet, so
+     * every run tried to stamp it and the index refused: 97 PATCH conflicts in
+     * 24 hours on one enrollment, from 20 Sep 2026 at 3:30 PM ET, the first
+     * sync run after the camper id join shipped.
+     *
+     * Ryan Rodgers is two student rows, one keyed and one not. The unkeyed row
+     * holds the line item; the keyed row holds the enrollment the sync now
+     * resolves to. Neither the create guard nor this one can decide which row
+     * is the child, so both report and neither retries.
+     *
+     * Only the stamp is withheld. Balance, status, payment and category still
+     * update, because the enrollment itself is not in doubt and a family's
+     * balance should not go stale while a duplicate student row is sorted out.
+     */
+    const stampBlockedBy =
+      wantsStamp && heldElsewhere && heldElsewhere.id !== existing.id
+        ? heldElsewhere
+        : undefined;
+    const stampExternalId = wantsStamp && !stampBlockedBy;
+    if (stampBlockedBy) {
+      plan.issues.push(
+        wrongChildIssue({
+          externalId: external.externalId,
+          offeringName: external.offeringName,
+          studentId,
+          shouldBe: input.students.find((s) => s.id === studentId),
+          heldBy: input.students.find((s) => s.id === stampBlockedBy.studentId),
+          heldEnrollmentId: stampBlockedBy.id,
+          heldStudentId: stampBlockedBy.studentId,
+          adoptedEnrollmentId: existing.id,
+        })
+      );
+    }
     if (
       balanceChanged ||
       statusChanged ||
