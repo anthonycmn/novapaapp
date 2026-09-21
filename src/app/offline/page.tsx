@@ -11,11 +11,11 @@ export default function OfflinePage() {
       <img src="/brand/novapa-logo.png" alt="" aria-hidden width={72} height={72} />
       <h1 className="text-2xl font-semibold">You&apos;re offline</h1>
       <p className="max-w-sm text-muted-foreground">
-        No connection right now — theater basements will do that. Pages
+        No connection right now - theater basements will do that. Pages
         you&apos;ve visited recently still work.
       </p>
       {/* Plain <a> links, on purpose: this page renders OUTSIDE the app
-          shell, so there is no sidebar here — the old copy said "use the
+          shell, so there is no sidebar here - the old copy said "use the
           navigation" on a page that had none (Sep 5 2026 audit). These load
           from the service worker's cache. */}
       <p className="flex flex-wrap justify-center gap-4 text-sm font-medium">

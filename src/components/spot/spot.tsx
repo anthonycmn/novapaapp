@@ -154,7 +154,7 @@ export function Spot() {
                          to the message form, which routes to a real person. */
                       <div className="rounded-lg border p-3">
                         <p className="text-[12.5px]">
-                          I don&apos;t know that one — I&apos;d rather say so than
+                          I don&apos;t know that one - I&apos;d rather say so than
                           guess. The office will know.
                         </p>
                         <Link

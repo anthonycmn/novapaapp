@@ -53,7 +53,7 @@ export default async function LessonRosterPage() {
                 </span>
                 {teacherName}{" "}
                 <span className="font-normal text-muted-foreground">
-                  — {meta?.label},{" "}
+                  - {meta?.label},{" "}
                   {formatCents(teacherRows[0].slot.pricePerLessonCents)}/lesson
                 </span>
               </p>
@@ -87,7 +87,7 @@ export default async function LessonRosterPage() {
 
       <p className="text-xs text-muted-foreground">
         Need to free a slot? Ask the family to cancel from Private lessons, or
-        message the office — admin cancellation tools land with the payments
+        message the office - admin cancellation tools land with the payments
         build.
       </p>
     </div>

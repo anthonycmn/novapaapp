@@ -148,7 +148,7 @@ export default async function StoreAdminPage({
                 {lowRes && (
                   <p className="flex items-center gap-1.5 text-sm text-destructive">
                     <AlertTriangle aria-hidden className="size-4" />
-                    Contains a low-resolution photo — check before pressing.
+                    Contains a low-resolution photo - check before pressing.
                   </p>
                 )}
 

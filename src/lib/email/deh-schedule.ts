@@ -133,7 +133,7 @@ export function scheduleRange(days: DehDay[] = DEH_SCHEDULE): string {
 }
 
 export function renderDehSubject(recipient: DehRecipient): string {
-  return `Dear Evan Hansen — updated schedule for ${recipient.studentName} (students called ${STUDENT_CALL})`;
+  return `Dear Evan Hansen - updated schedule for ${recipient.studentName} (students called ${STUDENT_CALL})`;
 }
 
 /**
@@ -175,9 +175,9 @@ export function renderDehBody(
       `
       <p class="muted" style="margin:0 0 4px;font:600 11px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${C.GOLD_TEXT};text-transform:uppercase;letter-spacing:1.1px">Dear Evan Hansen &middot; Triple Threat Teen Intensive</p>
       ${h2(`Updated schedule for ${recipient.studentName}`)}
-      ${p(`The schedule for <strong>${esc(scheduleRange(days))}</strong> has changed. Here is the new one — please replace anything you had written down before this email.`)}
+      ${p(`The schedule for <strong>${esc(scheduleRange(days))}</strong> has changed. Here is the new one - please replace anything you had written down before this email.`)}
       ${callout(
-        `<strong>Students are not called until ${esc(STUDENT_CALL)}.</strong> The earlier times below are the production windows — load-in, crew and staff. Your student does not need to be at ${esc(meta.venue)} before ${esc(STUDENT_CALL)} on any of these days.`
+        `<strong>Students are not called until ${esc(STUDENT_CALL)}.</strong> The earlier times below are the production windows - load-in, crew and staff. Your student does not need to be at ${esc(meta.venue)} before ${esc(STUDENT_CALL)} on any of these days.`
       )}
       <div class="muted" style="margin:14px 0 8px;font:600 11px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:${C.MUTED};text-transform:uppercase;letter-spacing:1.1px">${esc(scheduleRange(days))}</div>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px">
@@ -210,7 +210,7 @@ export function renderDehEmail(
   return {
     subject: renderDehSubject(recipient),
     html: renderEmailShell({
-      preheader: `Updated ${scheduleRange(days)} schedule — students are not called until ${STUDENT_CALL}.`,
+      preheader: `Updated ${scheduleRange(days)} schedule - students are not called until ${STUDENT_CALL}.`,
       content: renderDehBody(recipient, meta, days),
       footerNote: `You are receiving this because ${esc(recipient.studentName)} is in the Dear Evan Hansen company.`,
     }),

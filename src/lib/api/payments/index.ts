@@ -136,7 +136,7 @@ export function setPaymentProvider(provider: PaymentProvider | null): void {
 
 /** Human-readable line description for a button order. */
 export function describeButton(studentName: string, role: string, size: string): string {
-  return `${studentName} — ${role} (${size}" button) · ${org.programBrand}`;
+  return `${studentName} - ${role} (${size}" button) · ${org.programBrand}`;
 }
 
 /**
@@ -169,10 +169,10 @@ export function livePaymentsBlockedBecause(): string | null {
   if (!process.env.STRIPE_SECRET_KEY) {
     return demoData
       ? null // the demo store may complete demo checkouts
-      : "Card payments aren't switched on quite yet. Nothing has been charged — please try again soon.";
+      : "Card payments aren't switched on quite yet. Nothing has been charged - please try again soon.";
   }
   if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    return "Card payments are being set up and aren't quite ready. Nothing has been charged — please try again shortly.";
+    return "Card payments are being set up and aren't quite ready. Nothing has been charged - please try again shortly.";
   }
   return null;
 }

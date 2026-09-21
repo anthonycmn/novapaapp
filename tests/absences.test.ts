@@ -105,7 +105,7 @@ describe("the part of the call that is missed", () => {
   it("reads a no-times report as the whole call", () => {
     expect(
       describeAbsenceWindow({ startsOn: "2026-09-15", endsOn: "2026-09-15" })
-    ).toBe("Sep 15, 2026 — the whole call");
+    ).toBe("Sep 15, 2026: the whole call");
   });
 
   it("reads a late arrival as the hour they are away", () => {
@@ -137,7 +137,7 @@ describe("the part of the call that is missed", () => {
   it("still reads the older two-day reports as a range", () => {
     expect(
       describeAbsenceWindow({ startsOn: "2026-09-15", endsOn: "2026-09-16" })
-    ).toBe("Sep 15, 2026 – Sep 16, 2026 — the whole call");
+    ).toBe("Sep 15, 2026 – Sep 16, 2026: the whole call");
   });
 
   it("reads a stored time as wall clock, not as an instant", () => {

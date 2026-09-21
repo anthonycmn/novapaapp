@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ARRIVAL_RECIPIENTS,
+  HEALTH_FORM_RECIPIENTS,
   mergeRecipients,
   isOrgAddress,
   SUBMISSION_RECIPIENTS,
@@ -78,6 +79,26 @@ describe("who hears an arrival", () => {
     for (const recipient of ARRIVAL_RECIPIENTS) {
       expect(isOrgAddress(recipient.email), recipient.email).toBe(true);
     }
+  });
+});
+
+describe("who hears a signed health form", () => {
+  it("is everyone on the submission list except CJ and Todd", () => {
+    // Tony, 18 Sep 2026: "STOP SENDING HEALTH FORM NOTIFICATIONS TO
+    // TODD@NOVAPA.ORG AND CJ@NOVAPA.ORG."
+    const mailboxes = HEALTH_FORM_RECIPIENTS.map((r) => r.email);
+    expect(mailboxes).not.toContain("cj@novapa.org");
+    expect(mailboxes).not.toContain("todd@novapa.org");
+    expect(mailboxes.sort()).toEqual(["jen@novapa.org", "katie@novapa.org", "katieh@novapa.org"]);
+  });
+
+  it("is derived from the submission list, not typed twice", () => {
+    const all = SUBMISSION_RECIPIENTS.map((r) => r.email);
+    for (const recipient of HEALTH_FORM_RECIPIENTS) {
+      expect(all).toContain(recipient.email);
+      expect(isOrgAddress(recipient.email), recipient.email).toBe(true);
+    }
+    expect(HEALTH_FORM_RECIPIENTS.length).toBe(SUBMISSION_RECIPIENTS.length - 2);
   });
 });
 

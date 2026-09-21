@@ -120,7 +120,7 @@ export async function accentFromArtwork(dataUrl: string): Promise<string | null>
   try {
     pixels = context.getImageData(0, 0, size, size).data;
   } catch {
-    return null; // tainted canvas — never the case for data URLs, but cheap to survive
+    return null; // tainted canvas - never the case for data URLs, but cheap to survive
   }
 
   const buckets = new Map<number, { score: number; r: number; g: number; b: number; n: number }>();
@@ -296,7 +296,7 @@ export async function renderButtonArtwork(
 
   /* ---- name + role stripe, full bleed ----
      CJ, 5 Sep 2026: the stripe runs the whole way across the button (the
-     circle clip trims it to the edge), and there is no show-title pill —
+     circle clip trims it to the edge), and there is no show-title pill -
      the title lives in the uploaded artwork now. Text still stays inside
      the face so nothing legible wraps around the back. */
   if (spec.studentName) {

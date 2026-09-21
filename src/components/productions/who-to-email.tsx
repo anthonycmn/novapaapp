@@ -34,7 +34,7 @@ export function WhoToEmail({
         inCard
         right={
           <span className="text-[12px] text-muted-foreground">
-            Staff only — we never publish family addresses
+            Staff only - we never publish family addresses
           </span>
         }
       />
@@ -45,8 +45,8 @@ export function WhoToEmail({
           </p>
           {/*
             Names and jobs, linked to their profile rather than an address.
-            family_hub.staff_profiles holds no email — the bio and the photo
-            are what it keeps — so this offers the thing that exists instead of
+            family_hub.staff_profiles holds no email - the bio and the photo
+            are what it keeps - so this offers the thing that exists instead of
             a mailto that would have to be invented.
           */}
           <ul className="mt-1.5 flex flex-col gap-1">

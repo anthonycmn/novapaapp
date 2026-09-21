@@ -27,7 +27,7 @@ export default function AppError({
           <span aria-hidden className="text-4xl">🎭</span>
           <h1 className="text-xl font-semibold">Something went wrong backstage</h1>
           <p className="text-sm text-muted-foreground">
-            That page didn&apos;t load. Try again — if it keeps happening, let
+            That page didn&apos;t load. Try again - if it keeps happening, let
             the front office know.
           </p>
           {error.digest && (

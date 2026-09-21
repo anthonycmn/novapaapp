@@ -100,6 +100,6 @@ function blurbFor(contact: OfferingContact): string {
         ? `${contact.studentNames[0]}'s`
         : `${contact.studentNames.slice(0, -1).join(", ")} and ${contact.studentNames.at(-1)}'s`;
   return contact.category === "Your classes"
-    ? `Anything about ${who} class — what to wear, what they're working on, a week they'll miss.`
+    ? `Anything about ${who} class - what to wear, what they're working on, a week they'll miss.`
     : `Anything about ${who} rehearsals, costumes, scenes or the run.`;
 }

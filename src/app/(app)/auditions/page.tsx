@@ -91,7 +91,7 @@ export default async function AuditionsPage() {
                 key={`${student.id}-${production.id}`}
                 href={`/auditions/${production.id}/${student.id}`}
                 Icon={Drama}
-                title={`${displayName} — ${production.title}`}
+                title={`${displayName} - ${production.title}`}
                 subtitle={
                   existing
                     ? /*
@@ -106,8 +106,8 @@ export default async function AuditionsPage() {
                        * to find out they were allowed to.
                        */
                       hasFiles
-                      ? "Submitted, with recordings — you can still change anything"
-                      : "Submitted — you can still change anything until auditions begin"
+                      ? "Submitted, with recordings - you can still change anything"
+                      : "Submitted - you can still change anything until auditions begin"
                     : "Not started"
                 }
                 meta={

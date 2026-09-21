@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Check, FileVideo, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { heicToJpegFile, isHeicFile } from "@/lib/platform/heic";
 
 /**
  * A file that goes straight from the browser to storage.
@@ -57,15 +58,29 @@ export function DirectUpload({
   const [error, setError] = useState("");
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const picked = event.target.files?.[0];
+    if (!picked) return;
     setError("");
-    setFileName(file.name);
-    setContentType(file.type);
-    setSizeBytes(file.size);
+    setFileName(picked.name);
+    setContentType(picked.type);
+    setSizeBytes(picked.size);
     setProgress(0);
 
     try {
+      /*
+       * A photo of a form off an iPhone is a HEIC, and a HEIC in the vault
+       * would open on the parent's phone and refuse on the office laptop. It
+       * becomes a JPEG here, before the server is asked for a place to put it,
+       * so what the bucket holds is something every screen can show.
+       */
+      let file = picked;
+      if (isHeicFile(picked, picked.name)) {
+        file = await heicToJpegFile(picked);
+        setFileName(file.name);
+        setContentType(file.type);
+        setSizeBytes(file.size);
+      }
+
       const signResponse = await fetch("/api/uploads/sign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -144,7 +159,7 @@ export function DirectUpload({
             rel="noopener noreferrer"
             className="min-w-0 flex-1 truncate text-[13px] text-primary underline-offset-4 hover:underline"
           >
-            {fileName || "Uploaded — view"}
+            {fileName || "Uploaded - view"}
           </a>
           <button
             type="button"

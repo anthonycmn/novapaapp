@@ -178,7 +178,7 @@ export function StarPageForm({
             ref={fileRef}
             id="photo"
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={onPickFile}
             className="sr-only"
           />
@@ -238,8 +238,8 @@ export function StarPageForm({
             required
           />
           <p className="text-[12px] text-muted-foreground">
-            {message.length}/{maxLength} characters. We print it as you type it —
-            spelling, line breaks and all — so give it a read before you send.
+            {message.length}/{maxLength} characters. We print it as you type it -
+            spelling, line breaks and all - so give it a read before you send.
           </p>
           <FieldError message={state.errors?.message} />
         </div>
@@ -262,7 +262,7 @@ export function StarPageForm({
           {pending ? "Submitting…" : `Submit this star page · ${formatCents(priceCents)}`}
         </Button>
         <p className="text-[12px] leading-relaxed text-muted-foreground">
-          Submitting sends your tribute to the NOVA PA team — it does not charge
+          Submitting sends your tribute to the NOVA PA team - it does not charge
           you. We are not taking payment online yet, so the front office will
           confirm the total with you.
         </p>

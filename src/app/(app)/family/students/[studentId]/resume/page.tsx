@@ -52,7 +52,7 @@ export default async function ResumePage({
           year: credit.year,
         }))
       : history.map((entry) => ({
-          title: `${entry.role} — ${entry.productionTitle}`,
+          title: `${entry.role} - ${entry.productionTitle}`,
           organization: entry.organization ?? "NOVA PA",
           year: entry.year,
         }));
@@ -64,7 +64,7 @@ export default async function ResumePage({
   const suggestedCredits: ResumeCredit[] = history.map((entry, index) => ({
     id: `history-${index}`,
     category: "role",
-    title: `${entry.role} — ${entry.productionTitle}`,
+    title: `${entry.role} - ${entry.productionTitle}`,
     organization: entry.organization ?? "NOVA PA",
     year: entry.year,
   }));
@@ -163,17 +163,17 @@ export default async function ResumePage({
         </footer>
       </article>
 
-      {/* The editor, right under the thing it edits — screen only. The
+      {/* The editor, right under the thing it edits - screen only. The
           builder existed fully-formed and was mounted nowhere (Sep 5 2026
           audit), so Training and Special Skills could never be filled in.
           Show-history suggestions use the same mapping the print fallback
-          does, so accepting them changes nothing on paper — it just makes
+          does, so accepting them changes nothing on paper - it just makes
           the credits editable from then on. */}
       <Card className="no-print mx-auto mt-6 max-w-[7.5in]">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Edit this resume</CardTitle>
           <CardDescription>
-            Add roles from other theatres, training, and special skills — the
+            Add roles from other theatres, training, and special skills - the
             printed page above updates when you save.
           </CardDescription>
         </CardHeader>

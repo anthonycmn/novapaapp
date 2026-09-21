@@ -94,7 +94,7 @@ export default async function SpiritButtonsPage({
       <>
         <SectionHeader
           as="h1"
-          title={`Spirit button — ${chosen.production.title}`}
+          title={`Spirit button - ${chosen.production.title}`}
           subtitle={`${formatCents(SPIRIT_BUTTON_PRICE_CENTS)} each · add a photo and your performer's name`}
           right={
             <Link

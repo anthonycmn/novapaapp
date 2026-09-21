@@ -79,7 +79,7 @@ export function HealthFormEditor({
             id="allergies"
             name="allergies"
             defaultValue={answers?.allergies ?? profileAllergies ?? ""}
-            placeholder="Food, medication, environmental — and what to do"
+            placeholder="Food, medication, environmental - and what to do"
             className="min-h-16"
           />
         </div>

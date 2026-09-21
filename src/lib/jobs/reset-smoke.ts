@@ -139,7 +139,7 @@ export async function runResetSmoke(options: {
       if (error) throw new StepFailure(`generateLink: ${error.message}`);
       code = data.properties?.email_otp ?? "";
       if (!/^\d{6,10}$/.test(code)) {
-        throw new StepFailure(`email_otp is "${code}" — expected 6–10 digits`);
+        throw new StepFailure(`email_otp is "${code}" - expected 6–10 digits`);
       }
       return `${code.length}-digit code`;
     });
@@ -154,7 +154,7 @@ export async function runResetSmoke(options: {
       const to = location(response);
       if (response.status !== 303 || !/\/login\?reset=1$/.test(to)) {
         throw new StepFailure(
-          `POST code → ${response.status} ${to || "(no Location)"} — expected 303 to /login?reset=1`
+          `POST code → ${response.status} ${to || "(no Location)"} - expected 303 to /login?reset=1`
         );
       }
       // Next answers a server action's redirect() with a RELATIVE Location
@@ -175,7 +175,7 @@ export async function runResetSmoke(options: {
         .find((c) => c.startsWith(`${sessionCookieName}=`));
       if (response.status !== 303 || !/\/dashboard$/.test(to)) {
         throw new StepFailure(
-          `POST password → ${response.status} ${to || "(no Location)"} — expected 303 to /dashboard`
+          `POST password → ${response.status} ${to || "(no Location)"} - expected 303 to /dashboard`
         );
       }
       if (!cookie) throw new StepFailure(`303 to /dashboard but no ${sessionCookieName} cookie was set`);
@@ -218,23 +218,23 @@ async function sendReport(result: SmokeResult): Promise<boolean> {
   const failed = result.steps.find((s) => !s.ok);
   const subject = result.ok
     ? `Parent portal sign-in check passed (${result.base})`
-    : `Parent portal sign-in is BROKEN — ${failed?.name ?? "did not start"}`;
+    : `Parent portal sign-in is BROKEN - ${failed?.name ?? "did not start"}`;
   const lines = result.steps.map(
-    (s) => `${s.ok ? "PASS" : "FAIL"}  ${s.name} — ${s.detail} (${s.ms} ms)`
+    (s) => `${s.ok ? "PASS" : "FAIL"}  ${s.name} - ${s.detail} (${s.ms} ms)`
   );
   if (result.steps.length < 4) {
     lines.push(`(stopped after ${result.steps.length} of 4 steps)`);
   }
   const text = [
     result.ok
-      ? "A test parent asked for a reset code, typed it, chose a password and signed in — every step on the live portal, no email involved."
+      ? "A test parent asked for a reset code, typed it, chose a password and signed in - every step on the live portal, no email involved."
       : "A test parent could not get through the live portal's reset-and-sign-in flow. A real family hitting this gets locked out. Details:",
     "",
     ...lines,
     "",
     `Portal: ${result.base}`,
     `Run at: ${result.startedAt} (${result.durationMs} ms)`,
-    `Fixture: ${SMOKE_PARENT_EMAIL} — its password is rotated every run, nothing to keep.`,
+    `Fixture: ${SMOKE_PARENT_EMAIL} - its password is rotated every run, nothing to keep.`,
     "",
     "This check runs after every production deploy and every six hours (src/lib/jobs/reset-smoke.ts).",
   ].join("\n");

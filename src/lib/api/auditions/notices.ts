@@ -44,8 +44,8 @@ export function auditionReceiptForFamily(receipt: AuditionReceipt): Message {
   const { studentName, productionTitle, confirmationCode, isUpdate, auditionUrl } = receipt;
 
   const subject = isUpdate
-    ? `Audition updated — ${studentName}, ${productionTitle}`
-    : `Audition submitted — ${studentName}, ${productionTitle}`;
+    ? `Audition updated - ${studentName}, ${productionTitle}`
+    : `Audition submitted - ${studentName}, ${productionTitle}`;
 
   const headline = isUpdate
     ? `${studentName}'s audition information has been updated.`
@@ -61,7 +61,7 @@ export function auditionReceiptForFamily(receipt: AuditionReceipt): Message {
             `<span style="font-size:13px">Keep this with your records. If you ever need to ask about this audition, quote the code.</span>`
         ) +
         p(
-          `This is for <strong>${esc(productionTitle)}</strong>. You can come back and change anything until auditions begin — the code stays the same.`
+          `This is for <strong>${esc(productionTitle)}</strong>. You can come back and change anything until auditions begin - the code stays the same.`
         ) +
         button("Review or change it", auditionUrl),
       { first: true }
@@ -81,7 +81,7 @@ export function auditionReceiptForFamily(receipt: AuditionReceipt): Message {
     `Confirmation code: ${confirmationCode}`,
     "Keep this with your records. If you ever need to ask about this audition, quote the code.",
     "",
-    `This is for ${productionTitle}. You can come back and change anything until auditions begin — the code stays the same.`,
+    `This is for ${productionTitle}. You can come back and change anything until auditions begin - the code stays the same.`,
     auditionUrl,
     "",
     "Sharing a preference helps the team understand your performer, but it never guarantees a specific part or size of role. Every role matters.",

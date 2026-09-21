@@ -261,7 +261,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
           // "Pages 40 - 48 — Review Vocals", or whichever half exists. The
           // room and the leader stay out of the one-liner; they are on the
           // block itself.
-          const part = [block.pages, block.what ?? block.title].filter(Boolean).join(" — ");
+          const part = [block.pages, block.what ?? block.title].filter(Boolean).join(" - ");
           if (part && !works.includes(part)) works.push(part);
         }
         if (called.length > 0) row.called_note = called.join(" · ");

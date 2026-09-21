@@ -23,7 +23,7 @@ export type AuditionSubmitState = FamilyFormState & {
  * it posts, and the schema refuses it again if anything gets past the browser.
  */
 export const NO_TIER_PICKED =
-  "Please tick at least one — every size of part they'd be happy with.";
+  "Please tick at least one - every size of part they'd be happy with.";
 
 /**
  * What an audition submission must contain.
@@ -69,7 +69,7 @@ export const profileSchema = z.object({
     .string()
     .max(500)
     .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
-      message: "That doesn't look like a web link — it should start with https://",
+      message: "That doesn't look like a web link - it should start with https://",
     }),
   /*
    * The videos and the resume are links now rather than uploads (2 Sep 2026),
@@ -84,19 +84,19 @@ export const profileSchema = z.object({
     .string()
     .max(1000)
     .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
-      message: "That doesn't look like a web link — it should start with https://",
+      message: "That doesn't look like a web link - it should start with https://",
     }),
   danceVideoUrl: z
     .string()
     .max(1000)
     .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
-      message: "That doesn't look like a web link — it should start with https://",
+      message: "That doesn't look like a web link - it should start with https://",
     }),
   resumeUrl: z
     .string()
     .max(1000)
     .refine((value) => value === "" || /^https?:\/\/\S+$/i.test(value), {
-      message: "That doesn't look like a web link — it should start with https://",
+      message: "That doesn't look like a web link - it should start with https://",
     }),
   inPersonWithBackingTrack: z.boolean(),
   notes: z.string().max(2000),

@@ -49,7 +49,7 @@ export default async function DayCampsPage() {
           <CardContent className="p-4 text-sm">
             <p className="font-medium">We can&apos;t reach the registration system right now.</p>
             <p className="mt-1 text-muted-foreground">
-              Your credits and bookings are safe over there — this page just can&apos;t
+              Your credits and bookings are safe over there - this page just can&apos;t
               read them at the moment. Try again in a minute, or{" "}
               <Link href="/messages" className="underline">message the office</Link>.
             </p>

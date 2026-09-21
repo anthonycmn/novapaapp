@@ -164,7 +164,7 @@ export function PickupRequestForm({ students }: { students: Student[] }) {
       <FieldError message={state.errors?._form} />
       {state.ok && (
         <p role="status" className="text-sm font-medium text-primary">
-          ✓ Request submitted — we&apos;ll notify you when staff responds.
+          ✓ Request submitted - we&apos;ll notify you when staff responds.
         </p>
       )}
 

@@ -4,6 +4,8 @@
  * keeping the same return shape.
  */
 
+import { heicToJpegBlob } from "./heic";
+
 export interface PickedImage {
   dataUrl: string;
   width: number;
@@ -19,7 +21,8 @@ export interface PickedImage {
  * has been into Settings and picked "Most Compatible", and telling half the
  * families their own camera roll is the wrong format is not an option. Storage
  * accepts none of it, so everything is re-encoded to JPEG below and it is the
- * JPEG that goes up.
+ * JPEG that goes up. Safari decodes HEIC itself; every other browser gets
+ * libheif (heic.ts), so the format works on an Android phone too.
  */
 export const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
@@ -104,7 +107,7 @@ export function dataUrlBytes(dataUrl: string): number {
   return Math.floor((base64.length * 3) / 4) - padding;
 }
 
-function readAsDataUrl(file: File): Promise<string> {
+function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result));
@@ -121,7 +124,7 @@ function decode(dataUrl: string, isHeic: boolean): Promise<HTMLImageElement> {
       reject(
         new ImageRejectedError(
           isHeic
-            ? "This browser can't open HEIC photos. On an iPhone, Settings ▸ Camera ▸ Formats ▸ Most Compatible will save new photos as JPEG, or send the photo to yourself first and choose the copy."
+            ? "That HEIC photo could not be opened. Send the photo to yourself first and choose the copy, or export it as JPEG or PNG."
             : "That file doesn't look like an image."
         )
       );
@@ -157,7 +160,20 @@ export async function readImageFile(
 
   const sourceDataUrl = await readAsDataUrl(file);
   const isHeic = declaredType === "image/heic" || declaredType === "image/heif";
-  const image = await decode(sourceDataUrl, isHeic);
+  let image: HTMLImageElement;
+  try {
+    image = await decode(sourceDataUrl, isHeic);
+  } catch (cause) {
+    // Safari opens HEIC itself; every other browser gets libheif (heic.ts).
+    if (!isHeic) throw cause;
+    let jpeg: Blob;
+    try {
+      jpeg = await heicToJpegBlob(file);
+    } catch (error) {
+      throw new ImageRejectedError(error instanceof Error ? error.message : String(error));
+    }
+    image = await decode(await readAsDataUrl(jpeg), false);
+  }
 
   const encoded = encodeToBudget(
     image,

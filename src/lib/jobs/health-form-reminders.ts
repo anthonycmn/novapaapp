@@ -193,7 +193,7 @@ export async function runHealthFormReminders(): Promise<HealthFormReminderResult
     }
     if (entry.expiring.length > 0) {
       parts.push(
-        `${list(entry.expiring)}'s health form expires soon — two minutes to review and re-sign.`
+        `${list(entry.expiring)}'s health form expires soon - two minutes to review and re-sign.`
       );
     }
     const title =

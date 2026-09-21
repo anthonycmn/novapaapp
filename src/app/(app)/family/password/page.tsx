@@ -95,7 +95,7 @@ export default async function PasswordPage({
                   href="/dashboard"
                   className="text-center text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline sm:text-left"
                 >
-                  Skip for now — take me to the portal
+                  Skip for now - take me to the portal
                 </Link>
               )}
             </form>

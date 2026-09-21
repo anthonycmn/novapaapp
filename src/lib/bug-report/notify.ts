@@ -23,7 +23,7 @@ export interface BugReportNotice {
 export function bugReportSubject(notice: BugReportNotice): string {
   const first = notice.whatHappened.trim().split(/\n/)[0] ?? "";
   const cut = first.length > 60 ? `${first.slice(0, 57).trimEnd()}…` : first;
-  return `Bug on ${notice.environment.page} — ${cut || "no description"}`;
+  return `Bug on ${notice.environment.page} - ${cut || "no description"}`;
 }
 
 /**
