@@ -1,4 +1,11 @@
--- 0091 a seen mark is made by a login, not by a hub profile.
+-- 0093 a seen mark is made by a login, not by a hub profile.
+--
+-- Numbered 0091 when it was written on 18 Sep 2026. Later the same day two
+-- other migrations were applied and recorded under 0091 and 0092
+-- (hub_0091_frozen_kids_has_twenty_six_roles_for_twenty_six_students,
+-- hub_0092_frozen_kids_keeps_the_bishop_and_weselton_and_nobody_plays_two_parts).
+-- Both numbers are spent, so this is 0093. Nothing in the body changed with
+-- the rename.
 --
 -- 17 Sep 2026, the afternoon of the Frozen and Sweeney auditions: 34 of the 98
 -- "seen" marks the panel made were refused. Britney Sistare lost 29 between
@@ -49,7 +56,7 @@ alter table family_hub.audition_reviews
 
 comment on column family_hub.audition_reviews.reviewer_user_id is
   'auth.uid() of the person who opened the submission. A login, not a hub '
-  'profile: anybody on the show (hub 0080) leaves a seen mark. Hub 0091.';
+  'profile: anybody on the show (hub 0080) leaves a seen mark. Hub 0093.';
 
 drop policy if exists audition_reviews_staff on family_hub.audition_reviews;
 create policy audition_reviews_staff on family_hub.audition_reviews
