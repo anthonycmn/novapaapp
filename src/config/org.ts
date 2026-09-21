@@ -2,8 +2,9 @@
  * Organization-level configuration. All external URLs and org identity live
  * here — never hard-code these in components.
  *
- * NOTE: The primary public domain needs confirmation from the org
- * (see NEEDS-FROM-TONY.md #9). Both candidate domains are recorded here.
+ * The primary public domain is settled: novapa.org, canonical since
+ * 6 Sep 2026 (NEEDS-FROM-TONY.md #9). The other brand domain is still
+ * recorded, as an alternate.
  */
 export const org = {
   name: "Northern Virginia Performing Arts",
@@ -27,9 +28,9 @@ export const org = {
    */
   mission: "impACTing Lives One Story At a Time",
 
-  /** Primary public website. */
-  websiteUrl: "https://www.northernvirginiaperformingarts.org",
-  /** Alternate/secondary brand domain — confirm which is primary. */
+  /** Primary public website. Canonical since 6 Sep 2026. */
+  websiteUrl: "https://novapa.org",
+  /** Alternate/secondary brand domain. */
   altWebsiteUrl: "https://www.broadwayboundnova.org",
 
   /** BookTix ticketing storefront. */

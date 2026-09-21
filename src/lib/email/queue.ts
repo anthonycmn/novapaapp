@@ -28,6 +28,8 @@
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
 import { getOptedOutFamilies, keepSubscribed } from "@/lib/email/opt-outs";
+import { getGuardianNamesByUserId, guardianNameFor } from "@/lib/family/guardian-names";
+import { realFirstName } from "@/lib/names";
 import type { EmailSend, FeedAudience, User } from "@/lib/api/types";
 
 export interface QueueProvider {
@@ -138,10 +140,18 @@ export async function runEmailQueue(
         optedOutByCategory.get(send.category) ?? new Set<string>()
       );
       let delivered = 0;
+      // display_name is an email address for 176 of 815 parents, so the
+      // greeting asks the guardian row first. One read per send, not per
+      // recipient, for the same reason the opt-outs above are read per
+      // category. See lib/names.
+      const guardianNames = await getGuardianNamesByUserId(recipients.map((r) => r.id));
 
       for (const recipient of recipients) {
         const context = {
-          parent_first: recipient.displayName.split(" ")[0],
+          parent_first: realFirstName({
+            displayName: recipient.displayName,
+            guardianName: guardianNameFor(guardianNames, recipient.id),
+          }),
           sender_name: send.createdByName,
         };
         // Merge first, then instrument — a merge field that resolves to a URL

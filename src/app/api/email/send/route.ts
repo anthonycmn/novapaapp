@@ -4,6 +4,8 @@ import { getProvider } from "@/lib/api";
 import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
 import { resolveSubscribedAudience } from "@/lib/email/opt-outs";
+import { getGuardianNamesByUserId, guardianNameFor } from "@/lib/family/guardian-names";
+import { realFirstName } from "@/lib/names";
 import type { EmailCategory } from "@/lib/api/types";
 import { corsHeaders, userFromBearer } from "@/lib/auth/portal-bridge";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
@@ -201,11 +203,17 @@ export async function POST(request: NextRequest) {
     productionIds.length === 1 ? await provider.getProduction(productionIds[0]) : null;
   // Tracking endpoints live on the hub regardless of who composed the email.
   const origin = `https://${request.headers.get("host") ?? "portal.novapa.org"}`;
+  // display_name is an email address for 176 of 815 parents, so the greeting
+  // asks the guardian row first. See lib/names.
+  const guardianNames = await getGuardianNamesByUserId(recipients.map((r) => r.id));
 
   let delivered = 0;
   for (const recipient of recipients) {
     const context = {
-      parent_first: recipient.displayName.split(" ")[0],
+      parent_first: realFirstName({
+        displayName: recipient.displayName,
+        guardianName: guardianNameFor(guardianNames, recipient.id),
+      }),
       sender_name: user.displayName,
       show_title: production?.title,
     };

@@ -19,6 +19,7 @@ import { TOUR_MENU_EVENT } from "@/components/tour/portal-tour";
  */
 export function AppShell({
   displayName,
+  guardianName,
   roleLabel,
   unreadCount,
   navAlerts,
@@ -26,6 +27,8 @@ export function AppShell({
   children,
 }: {
   displayName: string;
+  /** Passed straight through to the sidebar's name slot. See lib/names. */
+  guardianName?: string | null;
   roleLabel: string;
   unreadCount: number;
   /** href → how many things are waiting there. See lib/nav-alerts. */
@@ -75,6 +78,7 @@ export function AppShell({
   const sidebar = (
     <Sidebar
       displayName={displayName}
+      guardianName={guardianName}
       roleLabel={roleLabel}
       onNavigate={() => setOpen(false)}
       navAlerts={navAlerts}
