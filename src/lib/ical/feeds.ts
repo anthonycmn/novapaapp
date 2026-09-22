@@ -28,9 +28,12 @@ import { ICAL_FEEDS, type IcalFeed } from "@/config/ical-feeds";
 
 interface FeedRow {
   production_id: string;
-  ics_url: string;
+  /** Null on a show the portal builds itself (staff 0321 made it optional). */
+  ics_url: string | null;
   calendar_name: string | null;
   hub_settings: HubSettings | null;
+  /** calendar_owned (Google feeds both portals) or portal_owned (the staff portal writes the schedule). */
+  mode?: "calendar_owned" | "portal_owned" | null;
 }
 
 /** The hub's half of a feed row, stored as plain JSON on the portal row. */
@@ -65,7 +68,8 @@ function feedFromRow(
     // one stable name a row has, so it is the default.
     key: settings.key || `gcal_${row.production_id}`,
     productionId: hubProductionId,
-    url: row.ics_url,
+    url: row.ics_url ?? undefined,
+    portalOwned: row.mode === "portal_owned",
     titlePrefix: prefixRegExp(settings.title_prefix ?? row.calendar_name),
     roleAliases: settings.role_aliases ?? {},
     staffNames: settings.staff_names ?? [],
@@ -87,7 +91,7 @@ export async function loadIcalFeeds(): Promise<IcalFeed[]> {
     const [{ data: rows, error }, { data: links }, { data: titles }] = await Promise.all([
       portal
         .from("production_calendar_feeds")
-        .select("production_id, ics_url, calendar_name, hub_settings"),
+        .select("production_id, ics_url, calendar_name, hub_settings, mode"),
       hub.from("production_portal_link").select("hub_production_id, portal_production_id"),
       portal.from("productions").select("id, title"),
     ]);
@@ -97,7 +101,9 @@ export async function loadIcalFeeds(): Promise<IcalFeed[]> {
       (titles ?? []).map((p) => [String(p.id), String(p.title ?? "")])
     );
     for (const row of (rows ?? []) as FeedRow[]) {
-      if (!row.ics_url) continue;
+      // A portal-owned show stays in the list WITHOUT a URL: the sync skips
+      // it by the flag, and icalOwnedProductionIds still counts it as owned.
+      if (!row.ics_url && row.mode !== "portal_owned") continue;
       const hubIds = (links ?? [])
         .filter((l) => String(l.portal_production_id) === String(row.production_id))
         .map((l) => String(l.hub_production_id))
