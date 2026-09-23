@@ -5548,7 +5548,7 @@ class SupabaseDataProvider {
           ? `[${thread.routeTopic ?? "Message"}] ${thread.subject}`
           : `Re: ${thread.subject}`,
         text: [
-          ...(who ? [`${who} —`, ""] : []),
+          ...(who ? [who, ""] : []),
           isNew
             ? `${fromName} has sent a message about "${thread.routeTopic ?? thread.subject}".`
             : `${fromName} has replied about "${thread.subject}".`,

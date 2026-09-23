@@ -69,7 +69,7 @@ export function auditionReceiptForFamily(receipt: AuditionReceipt): Message {
     section(
       p(
         `Sharing a preference helps the team understand your performer, but it never guarantees a specific part or size of role. Every role matters.`
-      ) + p(`— ${esc(org.shortName)}`)
+      ) + p(esc(org.shortName))
     ),
   ].join("");
 
@@ -86,7 +86,7 @@ export function auditionReceiptForFamily(receipt: AuditionReceipt): Message {
     "",
     "Sharing a preference helps the team understand your performer, but it never guarantees a specific part or size of role. Every role matters.",
     "",
-    `— ${org.shortName}`,
+    org.shortName,
   ].join("\n");
 
   return {

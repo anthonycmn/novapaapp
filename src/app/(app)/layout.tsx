@@ -44,10 +44,20 @@ export default async function AppLayout({
      sessions ever - the cost of asking is one signed-cookie check, cached for
      the request and shared with the guards. */
   const impersonation = await currentImpersonation();
+  /* The name the sidebar shows. profiles.display_name is an email address for
+     176 of 815 parents (Sep 21 2026 audit), and the guardian row is where
+     this household's actual name lives, so the sidebar is given both and
+     lib/names picks. Parents only: staff have no guardian row to read. */
+  const guardian = user.familyId
+    ? (await getProvider().getGuardians(user.id, user.familyId)).find(
+        (g) => g.userId === user.id
+      )
+    : undefined;
 
   return (
     <AppShell
       displayName={user.displayName}
+      guardianName={guardian?.fullName}
       roleLabel={user.family?.name ?? ROLE_LABEL[user.role] ?? user.role}
       unreadCount={unreadCount}
       navAlerts={navAlerts}

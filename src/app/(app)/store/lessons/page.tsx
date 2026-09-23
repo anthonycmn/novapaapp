@@ -50,7 +50,7 @@ export default async function LessonsPage() {
               <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div>
                   <p className="font-medium">
-                    {studentName.split(" ")[0]} — {WEEKDAY_NAMES[slot.weekday]}s with{" "}
+                    {studentName.split(" ")[0]} - {WEEKDAY_NAMES[slot.weekday]}s with{" "}
                     {teacherName}
                   </p>
                   <p className="text-sm text-muted-foreground">

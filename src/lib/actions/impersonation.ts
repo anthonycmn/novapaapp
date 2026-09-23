@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSessionUser, sessionCookieName } from "@/lib/auth/session";
 import { getEmailDeliveryProvider } from "@/lib/api/email";
+import { org } from "@/config/org";
 import { getServiceClient } from "@/lib/api/supabase/client";
 import {
   BLOCKED_ACTIONS,
@@ -70,7 +71,7 @@ export async function askTheParentAction(
         `If you were not expecting this, reply to this email and it reaches`,
         `${active.actorEmail} directly.`,
         ``,
-        `— NoVAPA`,
+        org.shortName,
       ].join("\n"),
     });
   } catch (e) {

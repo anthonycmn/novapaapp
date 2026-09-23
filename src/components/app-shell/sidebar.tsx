@@ -9,6 +9,7 @@ import { Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { realName } from "@/lib/names";
 import type { NavAlerts } from "@/lib/nav-alerts";
 
 /**
@@ -28,12 +29,19 @@ function slug(group: string): string {
 
 export function Sidebar({
   displayName,
+  guardianName,
   roleLabel,
   onNavigate,
   navAlerts,
   signOutSlot,
 }: {
   displayName: string;
+  /**
+   * `guardians.full_name` for this parent, when there is one. The name slot
+   * prefers it: `display_name` is an email address for 176 of 815 parents,
+   * and this row was showing it to them, initials and all. See lib/names.
+   */
+  guardianName?: string | null;
   roleLabel: string;
   /** Mobile drawer closes itself on selection; the desktop rail passes nothing. */
   onNavigate?: () => void;
@@ -62,6 +70,8 @@ export function Sidebar({
    * looking at profiles, rather than from a section of their own.
    */
   const groups = groupSections(FAMILY_SECTIONS);
+
+  const name = realName({ displayName, guardianName });
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -193,9 +203,12 @@ export function Sidebar({
         </div>
 
         <div className="flex items-center gap-2 rounded-md px-2 py-1.5">
-          <Avatar name={displayName} className="size-[26px] text-[10px]" />
+          {/* An address is not a name, so when neither source holds one the
+              name line is dropped rather than filled with the inbox, and the
+              family label carries the row (and the initials) on its own. */}
+          <Avatar name={name || roleLabel} className="size-[26px] text-[10px]" />
           <div className="min-w-0 flex-1 leading-tight">
-            <div className="truncate text-[12.5px] font-medium">{displayName}</div>
+            {name && <div className="truncate text-[12.5px] font-medium">{name}</div>}
             <div className="truncate text-[11px] text-muted-foreground">{roleLabel}</div>
           </div>
           {signOutSlot}

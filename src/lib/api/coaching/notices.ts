@@ -216,7 +216,7 @@ function whereForFamily(roomName: string | null): string {
     : "We will confirm the studio with you nearer the time.";
 }
 
-const signOff = `— ${org.shortName}`;
+const signOff = org.shortName;
 
 function shell(preheader: string, content: string): string {
   return renderEmailShell({ preheader, content });
