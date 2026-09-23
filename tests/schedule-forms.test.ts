@@ -65,6 +65,29 @@ describe("iCal feed (#5)", () => {
     expect(/DTSTART:\d{8}T\d{6}Z/.test(ics)).toBe(true);
   });
 
+  it("stamps every event with the feed's generation time, never the event's start", () => {
+    // A future start time used as DTSTAMP made every later edit look older
+    // than the copy a subscriber already held (Jen Travis, 23 Sep 2026).
+    const ics = buildFamilyIcs(
+      [
+        {
+          id: "e1",
+          type: "rehearsal",
+          title: "Rehearsal",
+          startsAt: "2026-09-26T13:00:00.000Z",
+          endsAt: "2026-09-26T16:30:00.000Z",
+          changedAt: "2026-09-05T16:23:25.000Z",
+          location: "Studio B",
+          studentIds: [],
+        },
+      ],
+      { familyName: "Test", studentNamesById: {}, now: new Date("2026-09-23T20:00:00.000Z") }
+    );
+    expect(ics).toContain("DTSTAMP:20260923T200000Z");
+    expect(ics).not.toContain("DTSTAMP:20260926");
+    expect(ics).toContain("UID:e1@portal.novapa.org");
+  });
+
   it("escapes special characters in summaries", () => {
     const ics = buildFamilyIcs(
       [
