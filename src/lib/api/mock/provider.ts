@@ -1,5 +1,6 @@
 import { EXTENDED_CARE_DAY_CENTS } from "@/config/fees";
 import { makeConfirmationCode } from "@/lib/auditions/confirmation-code";
+import { emailBodyToText, sendForNotice } from "@/lib/email/full-text";
 import { AccessDeniedError, type DataProvider } from "../provider";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
@@ -1038,6 +1039,26 @@ export class MockDataProvider implements DataProvider {
       (n) => n.id === notificationId && n.userId === actorId
     );
     if (notification && !notification.readAt) notification.readAt = nowIso();
+  }
+
+  async getNotificationInFull(
+    actorId: string,
+    notificationId: string
+  ): Promise<{ notification: AppNotification; fullText: string } | null> {
+    getActor(actorId);
+    const notification = store.notifications.find(
+      (n) => n.id === notificationId && n.userId === actorId
+    );
+    if (!notification) return null;
+    // Same rule as the Supabase adapter: an email notice shows the email.
+    const send =
+      notification.type === "announcement"
+        ? sendForNotice(notification, store.emailSends)
+        : undefined;
+    return {
+      notification: deepClone(notification),
+      fullText: emailBodyToText(send ? send.body : notification.body),
+    };
   }
 
   /* ── the dashboard as an arrangement (0060) ─────────────────────────── */

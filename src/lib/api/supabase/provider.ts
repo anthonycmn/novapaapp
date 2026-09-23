@@ -141,6 +141,7 @@ import {
   type UploadSource,
 } from "../storage";
 import { getPortalReadClient, getServiceClient, getWebsiteReadClient } from "./client";
+import { emailBodyToText, sendForNotice } from "@/lib/email/full-text";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
 import { runFromEvents, type ProductionRun } from "../productions/run";
@@ -654,6 +655,41 @@ class SupabaseDataProvider {
       .limit(200);
     if (error) throw new Error(`notifications lookup failed: ${error.message}`);
     return (data ?? []).map(mapNotification);
+  }
+
+  async getNotificationInFull(
+    actorId: string,
+    notificationId: string
+  ): Promise<{ notification: AppNotification; fullText: string } | null> {
+    await this.actor(actorId);
+    // Own rows only, by the filter: the service key reads everything.
+    const { data, error } = await this.db
+      .from("notifications")
+      .select("*")
+      .eq("id", notificationId)
+      .eq("user_id", actorId)
+      .maybeSingle();
+    if (error) throw new Error(`notification lookup failed: ${error.message}`);
+    if (!data) return null;
+    const notification = mapNotification(data);
+
+    // A "we emailed you this" notice holds only a preview; the email itself
+    // is in email_sends. Anything else is complete as written.
+    if (notification.type === "announcement") {
+      const from = new Date(Date.parse(notification.createdAt) - 10 * 60_000).toISOString();
+      const { data: sends } = await this.db
+        .from("email_sends")
+        .select("subject, body, sent_at")
+        .eq("subject", notification.title)
+        .gte("sent_at", from)
+        .lte("sent_at", notification.createdAt);
+      const send = sendForNotice(
+        notification,
+        (sends ?? []).map((s) => ({ subject: String(s.subject), body: String(s.body ?? ""), sentAt: s.sent_at as string | null }))
+      );
+      if (send) return { notification, fullText: emailBodyToText(send.body) };
+    }
+    return { notification, fullText: emailBodyToText(notification.body) };
   }
 
   async markNotificationRead(actorId: string, notificationId: string): Promise<void> {
@@ -3273,7 +3309,9 @@ class SupabaseDataProvider {
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&")
-      .replace(/s+/g, " ")
+      // \s, not s: the bare "s+" turned every letter s into a space, so 905
+      // previews read "Hi Familie !" (found 23 Sep 2026).
+      .replace(/\s+/g, " ")
       .trim();
     return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
   }
