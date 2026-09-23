@@ -270,6 +270,15 @@ export interface DataProvider {
     audience?: NotificationAudienceFilter
   ): Promise<number>;
   markNotificationRead(actorId: string, notificationId: string): Promise<void>;
+  /**
+   * One of this account's own notifications, with the whole message behind
+   * it: for a "we emailed you this" notice, the full email; otherwise the
+   * notification's own body. Null for an id that is not theirs.
+   */
+  getNotificationInFull(
+    actorId: string,
+    notificationId: string
+  ): Promise<{ notification: AppNotification; fullText: string } | null>;
   /** Marks the audience being looked at, not the other one. */
   markAllNotificationsRead(
     actorId: string,
