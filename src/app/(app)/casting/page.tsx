@@ -2,7 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PartyPopper } from "lucide-react";
 import { getProvider } from "@/lib/api";
-import { DISCIPLINES, RUBRIC_CRITERIA } from "@/lib/api/auditions/types";
+import {
+  DISCIPLINES,
+  EVALUATOR_ROLE_TITLES,
+  RUBRIC_CRITERIA,
+} from "@/lib/api/auditions/types";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -168,9 +172,11 @@ export default async function CastingPage() {
                     ) : (
                       <div className="flex flex-col gap-4">
                         <h3 className="font-semibold">Audition feedback</h3>
-                        {feedback.length < DISCIPLINES.length && (
+                        {/* Areas, not rubrics: the Director and the Assistant
+                            Director each write an acting rubric. */}
+                        {new Set(feedback.map((e) => e.discipline)).size < DISCIPLINES.length && (
                           <p className="rounded-lg bg-muted p-2 text-sm text-muted-foreground">
-                            {feedback.length} of {DISCIPLINES.length} areas
+                            {new Set(feedback.map((e) => e.discipline)).size} of {DISCIPLINES.length} areas
                             submitted so far — the rest appear as soon as the
                             team completes them.
                           </p>
@@ -179,12 +185,19 @@ export default async function CastingPage() {
                           const meta = DISCIPLINES.find(
                             (d) => d.value === evaluation.discipline
                           )!;
+                          // Isabel Sok, 23 Sep 2026: "Acting - Ryyana Cunningham -
+                          // Director", not just the chair.
+                          const title =
+                            EVALUATOR_ROLE_TITLES[evaluation.evaluatorRole ?? ""] ??
+                            meta.evaluatorTitle;
                           return (
                             <div key={evaluation.id} className="rounded-lg border p-3">
                               <p className="mb-2 text-sm font-semibold">
                                 {meta.label}{" "}
                                 <span className="font-normal text-muted-foreground">
-                                  — {meta.evaluatorTitle}
+                                  — {evaluation.evaluatorName
+                                    ? `${evaluation.evaluatorName}, ${title}`
+                                    : title}
                                 </span>
                               </p>
                               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">

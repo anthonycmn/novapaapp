@@ -207,6 +207,18 @@ export const DISCIPLINES: Array<{
   { value: "dance", label: "Dance", evaluatorTitle: "Choreographer" },
 ];
 
+/**
+ * The panel chair a rubric was written from (evaluator_role, hub 0075), as a
+ * family reads it. The discipline's evaluatorTitle is only the fallback: the
+ * Assistant Director writes acting rubrics too, and must not read "Director".
+ */
+export const EVALUATOR_ROLE_TITLES: Record<string, string> = {
+  director: "Director",
+  assistant_director: "Assistant Director",
+  vocal_director: "Vocal / Music Director",
+  choreographer: "Choreographer",
+};
+
 export interface RubricCriterion {
   key: string;
   label: string;
