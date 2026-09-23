@@ -31,10 +31,29 @@ function foldLine(line: string): string {
   return parts.join("\r\n");
 }
 
+/*
+ * The UID namespace. Bumped from "@novapa-family-hub" on 23 Sep 2026: the old
+ * DTSTAMP fell back to an event's own start time, so a subscriber's copy of a
+ * never-moved rehearsal carried a FUTURE stamp, and every later edit arrived
+ * stamped older than the copy it should replace. Jen Travis's Google Calendar
+ * held Aubry's Sep 26 call at a time and address the portal had dropped weeks
+ * before, through a delete and re-add. New UIDs make every client drop those
+ * copies and take the current ones; change it again only for the same reason.
+ */
+const UID_DOMAIN = "portal.novapa.org";
+
 export function buildFamilyIcs(
   events: FamilyCalendarEvent[],
-  options: { familyName: string; studentNamesById: Record<string, string> }
+  options: {
+    familyName: string;
+    studentNamesById: Record<string, string>;
+    /** When the feed was generated. Injected for tests. */
+    now?: Date;
+  }
 ): string {
+  // RFC 5545 §3.8.7.2: with a METHOD, DTSTAMP is when this calendar object
+  // was created — i.e. now — never a date taken from the event itself.
+  const stamp = toIcsUtc((options.now ?? new Date()).toISOString());
   const lines: string[] = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -70,8 +89,8 @@ export function buildFamilyIcs(
 
     lines.push(
       "BEGIN:VEVENT",
-      `UID:${event.id}@novapa-family-hub`,
-      `DTSTAMP:${toIcsUtc(event.changedAt ?? event.startsAt)}`,
+      `UID:${event.id}@${UID_DOMAIN}`,
+      `DTSTAMP:${stamp}`,
       `DTSTART:${toIcsUtc(event.startsAt)}`,
       `DTEND:${toIcsUtc(event.endsAt)}`,
       foldLine(`SUMMARY:${icsEscape(kids ? `${event.title} (${kids})` : event.title)}`),
