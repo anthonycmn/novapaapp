@@ -22,7 +22,7 @@ import {
 import { logActivity } from "@/lib/activity";
 import { getSessionUser } from "@/lib/auth/session";
 import { jobActorId } from "@/lib/jobs/actor";
-import { recordDayCampCreditBooking } from "@/lib/receipts/record";
+import { fileReceiptForHold } from "@/lib/receipts/registration-orders";
 
 /**
  * The punch card's two actions.
@@ -157,15 +157,6 @@ export async function bookWithCreditsAction(
     } catch (error) {
       return { ok: false, message: friendlyHoldError(error instanceof Error ? error.message : String(error), picks) };
     }
-    await recordDayCampCreditBooking({
-      holdId: `mock-${Date.now()}`,
-      familyId: user.familyId,
-      buyerName: user.displayName,
-      studentName: childName,
-      days: booked.map((b) => ({ name: b.name, date: b.date })),
-      creditsLeft: card.credits.day - picks.length,
-      mockActorId: user.id,
-    });
     revalidatePath("/day-camps");
     revalidatePath("/dashboard");
     return {
@@ -269,16 +260,12 @@ export async function bookWithCreditsAction(
 
   const creditsLeft = card.credits.day - picks.length;
 
-  /* 7a. CJ and Todd's sale email and the receipt in the Family Vault. The
-     family's own confirmation is reg-pay's email, so none is sent from here. */
-  const receipt = await recordDayCampCreditBooking({
-    holdId,
-    familyId: user.familyId,
-    buyerName: user.displayName,
-    studentName: childName,
-    days: booked.map((b) => ({ name: b.name, date: b.date })),
-    creditsLeft,
-  });
+  /* 7a. The receipt in the Family Vault. reg-pay has already emailed the
+     office list (CJ and Todd among them) and the family about this order, so
+     nothing is sent from here; the receipt is filed now rather than at the
+     next sync so the line below can say it is there. */
+  const receipt = await fileReceiptForHold(holdId);
+  const receiptFiled = Boolean(receipt && (receipt.filed.length || receipt.alreadyFiled));
 
   /* 7. Tell the family's guardians, in-app: their own action, confirmed. */
   try {
@@ -290,7 +277,7 @@ export async function bookWithCreditsAction(
           user_id: p.id,
           type: "announcement",
           title: `${childName} is booked`,
-          body: `${childName} is booked into ${summary}. ${creditsLeft} credit${creditsLeft === 1 ? "" : "s"} left.${receipt?.filed || receipt?.alreadyRecorded ? " Your receipt is in your Family Vault." : ""}`,
+          body: `${childName} is booked into ${summary}. ${creditsLeft} credit${creditsLeft === 1 ? "" : "s"} left.${receiptFiled ? " Your receipt is in your Family Vault." : ""}`,
           url: "/day-camps",
         }))
       );

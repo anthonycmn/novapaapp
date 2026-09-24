@@ -10,20 +10,22 @@ import { renderTextPdf, type PdfLine } from "./pdf";
  * purchased inside of the parent portal and send to Todd and CJ and then
  * provide a receipt in the parent's Family Vault."
  *
- * Three things are bought in the portal itself - a store order (spirit
- * buttons, star pages, lessons), a coaching package, and day camp days paid
- * for with credits the family already holds. Each has its own path to "paid";
- * all three end here, so the receipt, the sale email and the family's copy
- * read the same whichever door the money came through.
+ * Two things are bought in the portal itself - a store order (spirit
+ * buttons, star pages, lessons) and a coaching package. Each has its own path
+ * to "paid"; both end here, so the receipt, the sale email and the family's
+ * copy read the same whichever door the money came through.
  *
- * Paid day camp days and packs are NOT in this list: they are bought on
- * novapa.org's checkout, which sends its own receipt, and the portal never
- * sees the payment.
+ * Day camps are the third kind. CJ, 24 Sep 2026: "cover the novapa.org day
+ * camp purchases too." Days, packs and credit bookings all become an order on
+ * novapa.org's checkout (the portal's own credit booking included), and the
+ * website already emails the office and the family about each one, so a day
+ * camp order is filed here with notify off: the vault receipt is the only
+ * thing that was missing. See registration-orders.ts.
  *
  * Pure: builds words and bytes, sends nothing. `record.ts` does the sending.
  */
 
-export type PurchaseKind = "store" | "coaching" | "day_camp_credits";
+export type PurchaseKind = "store" | "coaching" | "day_camp";
 
 export interface PurchaseLine {
   description: string;
@@ -34,7 +36,7 @@ export interface PurchaseLine {
 
 export interface PortalPurchase {
   kind: PurchaseKind;
-  /** NPA-…, COACH-…, or the day camp hold id. Also the idempotency key. */
+  /** NPA-…, COACH-…, or REG-<novapa.org order number>. Also the idempotency key. */
   reference: string;
   /** Hub family id - whose vault the receipt goes in. */
   familyId: string;
@@ -58,7 +60,7 @@ export interface PortalPurchase {
 const KIND_LABEL: Record<PurchaseKind, string> = {
   store: "Store order",
   coaching: "Coaching package",
-  day_camp_credits: "Day camp booking",
+  day_camp: "Day camp registration",
 };
 
 /** "Sep 24, 2026, 2:05 PM" in Eastern time - the house clock. */
@@ -79,8 +81,13 @@ function lineTotal(line: PurchaseLine): number {
   return line.unitCents * line.quantity;
 }
 
+/** True for a day camp order settled with credits (or a 100% coupon): no money moved. */
+function isNoCharge(purchase: PortalPurchase): boolean {
+  return purchase.kind === "day_camp" && purchase.totalCents === 0;
+}
+
 function amountText(purchase: PortalPurchase, cents: number): string {
-  return purchase.kind === "day_camp_credits" ? "credit" : formatCents(cents);
+  return isNoCharge(purchase) ? "credit" : formatCents(cents);
 }
 
 /** The vault's name for it. Carries the reference so a retry can find it. */
@@ -129,7 +136,7 @@ export function renderReceiptPdf(purchase: PortalPurchase): Buffer {
 
   lines.push({ text: "Total paid", size: 11, bold: true, gapBefore: 12, rule: false });
   lines.push({
-    text: purchase.kind === "day_camp_credits" ? "$0.00" : formatCents(purchase.totalCents),
+    text: formatCents(purchase.totalCents),
     size: 11,
     bold: true,
     right: true,
@@ -162,7 +169,7 @@ function itemList(purchase: PortalPurchase): string[] {
 }
 
 function totalText(purchase: PortalPurchase): string {
-  return purchase.kind === "day_camp_credits"
+  return isNoCharge(purchase)
     ? purchase.paidWith
     : formatCents(purchase.totalCents);
 }

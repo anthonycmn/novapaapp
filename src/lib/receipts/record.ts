@@ -22,6 +22,7 @@ import {
 
 /**
  * File the receipt, tell CJ and Todd, and (for the store) tell the family.
+ * Day camp orders from novapa.org come through registration-orders.ts.
  *
  * ---------------------------------------------------------------------------
  * CALLED AFTER THE MONEY MOVED, SO IT NEVER THROWS
@@ -174,7 +175,7 @@ export async function recordPortalPurchase(
 
 /* ── the three doors ─────────────────────────────────────────────────── */
 
-async function familyContact(
+export async function familyContact(
   familyId: string,
   preferredName: string | null
 ): Promise<{ familyName: string | null; email: string | null; buyerName: string | null }> {
@@ -281,42 +282,6 @@ export async function recordCoachingPurchasePaid(
     }, { notify: options.notify });
   } catch (error) {
     console.error(`receipts: coaching ${reference} not recorded`, error);
-    return null;
-  }
-}
-
-/** Day camp days booked with credits the family already held. */
-export async function recordDayCampCreditBooking(input: {
-  holdId: string;
-  familyId: string;
-  buyerName: string | null;
-  studentName: string;
-  days: { name: string; date: string }[];
-  creditsLeft: number;
-  mockActorId?: string;
-}): Promise<RecordResult | null> {
-  try {
-    const contact = await familyContact(input.familyId, input.buyerName);
-    const used = input.days.length;
-    return await recordPortalPurchase(
-      {
-        kind: "day_camp_credits",
-        reference: input.holdId,
-        familyId: input.familyId,
-        familyName: contact.familyName,
-        buyerName: contact.buyerName,
-        familyEmail: contact.email,
-        studentNames: [input.studentName],
-        lines: input.days.map((day) => ({ description: `${day.name} - ${day.date}`, quantity: 1, unitCents: 0 })),
-        totalCents: 0,
-        paidAt: new Date().toISOString(),
-        paidWith: `${used} day camp credit${used === 1 ? "" : "s"} (${input.creditsLeft} left)`,
-        paymentRef: null,
-      },
-      { mockActorId: input.mockActorId }
-    );
-  } catch (error) {
-    console.error(`receipts: day camp booking ${input.holdId} not recorded`, error);
     return null;
   }
 }

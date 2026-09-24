@@ -6,6 +6,7 @@ import {
 } from "@/lib/api/registration";
 import { provisionNewWebsiteAccounts } from "@/lib/api/registration/provision";
 import { jobActorId } from "@/lib/jobs/actor";
+import { fileDayCampOrderReceipts } from "@/lib/receipts/registration-orders";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 
 /**
@@ -25,6 +26,10 @@ import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
  *      has never seen (see provision.ts for the collision guard).
  *   2. the ordinary snapshot sync, which then has somebody to attach every
  *      new enrollment to.
+ *   3. day camp receipts (24 Sep 2026): a novapa.org day camp order from the
+ *      last few days that has no receipt in its family's vault gets one. After
+ *      step 1, so a first-time family has a vault to file into. Never fails
+ *      the sync; see src/lib/receipts/registration-orders.ts.
  */
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -52,6 +57,7 @@ export async function POST(request: NextRequest) {
     const provision = await provisionNewWebsiteAccounts();
     const snapshot = await registration.fetchSnapshot();
     const run = await provider.syncRegistration(actorId!, snapshot, "scheduled");
+    const receipts = await fileDayCampOrderReceipts();
     return NextResponse.json({
       ok: true,
       provision: {
@@ -63,6 +69,13 @@ export async function POST(request: NextRequest) {
       status: run.status,
       counts: run.counts,
       issues: run.issues.length,
+      dayCampReceipts: {
+        filed: receipts.filed,
+        alreadyFiled: receipts.alreadyFiled,
+        noFamily: receipts.noFamily,
+        ambiguous: receipts.ambiguous,
+        failed: receipts.failed,
+      },
     });
   } catch (error) {
     const message =
