@@ -2232,8 +2232,20 @@ class SupabaseDataProvider {
         });
       }
     }
+    /*
+     * A WRITE THAT FAILS IS A ROW FOR A HUMAN, NOT A NUMBER THAT LIES.
+     *
+     * The counts used to be the plan's, whatever the database did with it.
+     * From Sep 20 to 21, 2026 every run reported five enrollments created
+     * and one updated while writing nothing: the rows already existed on a
+     * duplicate student, the unique index on (external_source, external_id)
+     * refused the insert, and nobody could tell from the run. Now a refused
+     * write is a conflict issue naming the row and the reason, and the counts
+     * say what actually landed.
+     */
+    let created = 0;
     for (const create of plan.creates) {
-      await this.db.from("enrollments").insert({
+      const { error: insertError } = await this.db.from("enrollments").insert({
         student_id: create.studentId,
         class_id: create.classId ?? null,
         production_id: create.productionId ?? null,
@@ -2248,7 +2260,17 @@ class SupabaseDataProvider {
         session_starts_on: create.sessionStartsOn ?? null,
         session_ends_on: create.sessionEndsOn ?? null,
       });
+      if (insertError) {
+        plan.issues.push({
+          kind: "conflict",
+          externalId: create.externalId,
+          message: `Registration ${create.externalId} should enroll student ${create.studentId} but the row could not be written: ${insertError.message}. If the line item is already enrolled on another student, that student is a duplicate to merge.`,
+        });
+      } else {
+        created += 1;
+      }
     }
+    let updated = 0;
     for (const update of plan.updates) {
       const patch: Record<string, unknown> = {};
       if (update.balanceCents !== undefined) patch.balance_cents = update.balanceCents;
@@ -2272,9 +2294,21 @@ class SupabaseDataProvider {
         patch.source = "registration_portal";
       }
       if (Object.keys(patch).length) {
-        await this.db.from("enrollments").update(patch).eq("id", update.enrollmentId);
+        const { error: updateError } = await this.db
+          .from("enrollments").update(patch).eq("id", update.enrollmentId);
+        if (updateError) {
+          plan.issues.push({
+            kind: "conflict",
+            externalId: update.externalId,
+            message: `Enrollment ${update.enrollmentId} could not be updated: ${updateError.message}`,
+          });
+        } else {
+          updated += 1;
+        }
       }
     }
+    plan.counts.enrollmentsCreated = created;
+    plan.counts.enrollmentsUpdated = updated;
 
     const { data: run, error } = await this.db
       .from("registration_sync_runs")
