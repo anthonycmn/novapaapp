@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getServiceClient, getWebsiteReadClient } from "../supabase/client";
+import { realFamilyName } from "./family-name";
 
 /**
  * Provision hub records for website families the app has never seen.
@@ -39,9 +40,15 @@ const splitName = (full: string) => {
   return { first: parts[0], last: parts.slice(1).join(" ") };
 };
 
-function familyNameFor(parentName: string | undefined, email: string): string {
+/**
+ * The parent's surname first, as always; then the children's, via the shared
+ * rule (24 Sep 2026), before the email address it used to fall back to.
+ */
+function familyNameFor(parentName: string | undefined, email: string, camperNames: string[]): string {
   const last = parentName ? splitName(parentName).last : "";
   if (last) return `${last} Family`;
+  const fromRecords = realFamilyName({ parentNames: [parentName], studentLastNames: [], camperNames });
+  if (fromRecords) return fromRecords;
   if (parentName) return `${parentName} Family`;
   return `${email.split("@")[0]} Family`;
 }
@@ -192,7 +199,10 @@ export async function provisionNewWebsiteAccounts(): Promise<ProvisionResult> {
         continue;
       }
       familyId = randomUUID();
-      newFamilies.push({ id: familyId, name: familyNameFor(parentName, email) });
+      newFamilies.push({
+        id: familyId,
+        name: familyNameFor(parentName, email, campers.map((c) => str(c.name) ?? "")),
+      });
       result.familiesCreated++;
     }
 
