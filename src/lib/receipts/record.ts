@@ -129,7 +129,7 @@ async function send(to: string, message: { subject: string; text: string; html: 
  */
 export async function recordPortalPurchase(
   purchase: PortalPurchase,
-  options: { mockActorId?: string } = {}
+  options: { mockActorId?: string; notify?: boolean } = {}
 ): Promise<RecordResult> {
   const result: RecordResult = { filed: false, alreadyRecorded: false, emailsSent: 0, emailsAttempted: 0 };
 
@@ -148,6 +148,9 @@ export async function recordPortalPurchase(
   } catch (error) {
     console.error(`receipts: filing ${purchase.reference} in the vault failed`, error);
   }
+
+  // A backfill files the receipt and tells nobody: the sale is days old.
+  if (options.notify === false) return result;
 
   const sends: Promise<boolean>[] = [];
   const sale = saleConfirmationForOffice(purchase);
@@ -194,7 +197,7 @@ async function familyContact(
 /** A store order Stripe (or the mock processor) just marked paid. */
 export async function recordStoreOrderPaid(
   order: ButtonOrder,
-  options: { mockActorId?: string; buyerEmail?: string } = {}
+  options: { mockActorId?: string; buyerEmail?: string; notify?: boolean } = {}
 ): Promise<RecordResult | null> {
   try {
     const contact = await familyContact(order.familyId, order.placedByName || null);
@@ -223,7 +226,7 @@ export async function recordStoreOrderPaid(
         paidWith: "Card (Stripe)",
         paymentRef: order.paymentRef || null,
       },
-      { mockActorId: options.mockActorId }
+      { mockActorId: options.mockActorId, notify: options.notify }
     );
   } catch (error) {
     console.error(`receipts: store order ${order.reference} not recorded`, error);
@@ -232,7 +235,10 @@ export async function recordStoreOrderPaid(
 }
 
 /** A coaching package the webhook just credited. Reads the purchase row itself. */
-export async function recordCoachingPurchasePaid(reference: string): Promise<RecordResult | null> {
+export async function recordCoachingPurchasePaid(
+  reference: string,
+  options: { notify?: boolean } = {}
+): Promise<RecordResult | null> {
   if (!isSupabaseMode()) return null;
   try {
     const { data, error } = await getPortalReadClient()
@@ -272,7 +278,7 @@ export async function recordCoachingPurchasePaid(reference: string): Promise<Rec
       paidAt: row.paid_at ?? new Date().toISOString(),
       paidWith: "Card (Stripe)",
       paymentRef: row.payment_ref,
-    });
+    }, { notify: options.notify });
   } catch (error) {
     console.error(`receipts: coaching ${reference} not recorded`, error);
     return null;
