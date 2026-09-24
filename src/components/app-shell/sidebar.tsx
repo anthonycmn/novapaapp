@@ -139,7 +139,7 @@ export function Sidebar({
                 >
                   <Icon aria-hidden size={15} className="shrink-0" />
                   <span className="flex-1 truncate">{label}</span>
-                  {/* The mark itself — the count was computed and read to
+                  {/* The mark itself - the count was computed and read to
                       screen readers from day one, but no pixel was ever
                       drawn (Sep 5 2026 audit). Gold, like everything that
                       asks for attention here. */}
@@ -161,8 +161,8 @@ export function Sidebar({
       <div className="border-t p-2">
         {/* Nothing staff-facing here at all, including the way out to the
             staff portal (Tony, 17 Aug 2026: "remove the staff portal link
-            too"). Staff reach their own tools the way they always did — by
-            going to the staff portal — and this sidebar is now purely a
+            too"). Staff reach their own tools the way they always did - by
+            going to the staff portal - and this sidebar is now purely a
             parent's. */}
         <a
           href={org.ticketsUrl}

@@ -82,9 +82,24 @@ export interface SyncIssue {
     | "unmatched_participant"
     | "unknown_offering"
     | "conflict"
-    | "parse_error";
+    // The source says this registration is child A's, and an enrollment
+    // already carries it for child B. Reported, never retried: the write
+    // can only ever throw 23505 on enrollments_external_idx, whether it is
+    // an insert (create) or a stamp onto a row we would otherwise adopt.
+    | "wrong_child"
+    | "parse_error"
+    /**
+     * One issue per run standing in for every Sawyer-era row that names a
+     * program the app does not carry (completed 2026 summer programs, the
+     * NYC trip, free-text Sawyer prose). Never backfilled (Jason, Aug 14
+     * 2026), so it is a count for the record, not work for a person, and it
+     * does not make the run "partial". See syncStatusFor in reconcile.ts.
+     */
+    | "legacy_unmapped";
   message: string;
   externalId?: string;
+  /** legacy_unmapped only: how many rows this one issue stands for. */
+  count?: number;
 }
 
 export interface SyncRun {

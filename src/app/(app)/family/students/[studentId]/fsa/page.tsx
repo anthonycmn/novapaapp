@@ -77,7 +77,7 @@ export default async function FsaPage({
                   Dependent Care FSA only covers care for children under{" "}
                   {FSA_AGE_LIMIT}. If {statement.studentName.split(" ")[0]} turned{" "}
                   {FSA_AGE_LIMIT} during the year, some earlier months may still
-                  qualify — ask your FSA administrator, and we can produce a
+                  qualify - ask your FSA administrator, and we can produce a
                   statement for a shorter period.
                 </p>
               </div>
@@ -91,7 +91,7 @@ export default async function FsaPage({
               <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
               <div>
                 <p className="font-medium text-destructive">
-                  Not ready to submit — missing provider tax details
+                  Not ready to submit - missing provider tax details
                 </p>
                 <p className="text-muted-foreground">
                   An FSA administrator will reject a claim without the

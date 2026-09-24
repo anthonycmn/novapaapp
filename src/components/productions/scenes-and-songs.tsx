@@ -164,7 +164,7 @@ export function ScenesAndSongs({
 
       <div className="px-4 pt-3 text-[12px] leading-relaxed text-muted-foreground">
         Rehearsals run in <strong className="text-foreground">character blocks</strong>, not
-        scene order — when your child is called, everything they own is worked in
+        scene order - when your child is called, everything they own is worked in
         that call. For what a given call works, see the page range on that
         entry in the schedule.
         {chosen && (
@@ -179,7 +179,7 @@ export function ScenesAndSongs({
       </div>
 
       {/* The compact answer first: which scenes, which numbers. The full
-          breakdown is reference material and goes behind a disclosure — a
+          breakdown is reference material and goes behind a disclosure - a
           parent asking "what is my child in" should not have to read a
           spreadsheet to find out. */}
       <ul className="divide-y">
@@ -231,7 +231,7 @@ export function ScenesAndSongs({
                 <td className="px-2 py-1.5">{scene.numbers}</td>
                 <td className="px-2 py-1.5 text-muted-foreground">{scene.characters}</td>
                 {/* The worked-on dates used to sit here, copied from the
-                    workbook. They went stale the moment the schedule moved —
+                    workbook. They went stale the moment the schedule moved -
                     9/5 and 10/15 were still listed after those calls were
                     gone. What a call works now lives on the call itself, as
                     the page range the calendar states, which cannot drift
@@ -264,8 +264,8 @@ export function ScenesAndSongs({
                 {number.isCut ? "CUT" : number.numberNo}
               </span>
               <span className="min-w-0">
-                {/* The row's name carries its own running number — "10.
-                    Johanna (Anthony)" — and that number already has a column
+                {/* The row's name carries its own running number - "10.
+                    Johanna (Anthony)" - and that number already has a column
                     of its own to the left, so printing it twice would read as
                     a mistake. */}
                 <span className={number.isCut ? "line-through" : "font-medium"}>

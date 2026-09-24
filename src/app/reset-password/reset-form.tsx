@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { readResetLink, spentLinkPlan } from "@/lib/auth/reset-link";
 import { PasswordField } from "@/components/auth/password-field";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,14 +45,28 @@ import { cn } from "@/lib/utils";
  * same family.
  */
 
-type Status = "checking" | "ready" | "saving" | "invalid" | "done";
+type Status = "checking" | "ready" | "saving" | "invalid" | "signedIn" | "done";
 
-export function ResetPasswordForm() {
+export function ResetPasswordForm({ signedIn = false }: { signedIn?: boolean }) {
+  const router = useRouter();
   const [status, setStatus] = useState<Status>("checking");
   const [error, setError] = useState<string | null>(null);
   const [client, setClient] = useState<SupabaseClient | null>(null);
   /** The unspent token from a scanner-proof link. Null on the stock link. */
   const [tokenHash, setTokenHash] = useState<string | null>(null);
+
+  /**
+   * A link that cannot be spent has two endings, and which one depends on
+   * something the client cannot see. Both places that reach that conclusion
+   * (this load, and a failed verifyOtp on Save) go through here.
+   */
+  const settleSpent = () =>
+    setStatus(spentLinkPlan(signedIn).kind === "already_signed_in" ? "signedIn" : "invalid");
+
+  // Already signed in and the link is done: they are where they wanted to be.
+  useEffect(() => {
+    if (status === "signedIn") router.replace("/dashboard");
+  }, [status, router]);
 
   useEffect(() => {
     const supabase = createClient(
@@ -66,22 +82,23 @@ export function ResetPasswordForm() {
     );
     setClient(supabase);
 
+    const plan = readResetLink({
+      search: window.location.search,
+      hash: window.location.hash,
+      signedIn,
+    });
+
     // The scanner-proof link: nothing to check yet, and nothing to spend.
     // The token is verified when they press Save, not before.
-    const query = new URLSearchParams(window.location.search);
-    const unspent = query.get("token_hash");
-    if (unspent && query.get("type") === "recovery") {
-      setTokenHash(unspent);
+    if (plan.kind === "unspent") {
+      setTokenHash(plan.tokenHash);
       setStatus("ready");
       window.history.replaceState(null, "", window.location.pathname);
       return;
     }
 
-    // An expired or already-used link comes back with the failure in the hash
-    // rather than a token, so check that before waiting on a session.
-    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-    if (hash.get("error") || hash.get("error_description")) {
-      setStatus("invalid");
+    if (plan.kind === "spent" || plan.kind === "already_signed_in") {
+      setStatus(plan.kind === "already_signed_in" ? "signedIn" : "invalid");
       return;
     }
 
@@ -107,12 +124,13 @@ export function ResetPasswordForm() {
       }
       // Give detectSessionInUrl a beat to finish before calling it a dud.
       window.setTimeout(() => {
-        if (!settled) setStatus("invalid");
+        if (!settled) settleSpent();
       }, 2000);
     });
 
     return () => sub.subscription.unsubscribe();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signedIn]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -136,7 +154,9 @@ export function ResetPasswordForm() {
         token_hash: tokenHash,
       });
       if (verifyError) {
-        setStatus("invalid");
+        // The one-time token is spent. If it was spent by this browser a
+        // moment ago, they are already signed in and nothing is wrong.
+        settleSpent();
         return;
       }
       setTokenHash(null);
@@ -149,12 +169,12 @@ export function ResetPasswordForm() {
       // a failure to fix — it means the one they typed already works.
       if (/different from the old password/i.test(updateError.message)) {
         setError(
-          "That is already the password on your account — you can sign in with it right now."
+          "That is already the password on your account - you can sign in with it right now."
         );
         return;
       }
       setError(
-        "We couldn't save that password. Your link may have expired — request a new one below."
+        "We couldn't save that password. Your link may have expired - request a new one below."
       );
       return;
     }
@@ -169,6 +189,28 @@ export function ResetPasswordForm() {
           <CardTitle as="h2">Checking your link…</CardTitle>
           <CardDescription>One moment.</CardDescription>
         </CardHeader>
+      </Card>
+    );
+  }
+
+  // The link is spent because it already worked. The redirect above is
+  // running; this is what they see for the moment before it lands, and what
+  // they see for good if the navigation is slow or scripted routing fails.
+  if (status === "signedIn") {
+    return (
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle as="h2">You&apos;re already signed in</CardTitle>
+          <CardDescription>
+            That link has done its job, which is why it only works once. Taking
+            you to your dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/dashboard" className={cn(buttonVariants(), "w-full")}>
+            Go to my dashboard
+          </Link>
+        </CardContent>
       </Card>
     );
   }
@@ -219,7 +261,7 @@ export function ResetPasswordForm() {
       <CardHeader>
         <CardTitle as="h2">Choose a new password</CardTitle>
         <CardDescription>
-          Pick something you&apos;ll remember — you&apos;ll use it every time
+          Pick something you&apos;ll remember - you&apos;ll use it every time
           you open the portal. It stays visible while you type so you can
           check it; tap Hide if someone is looking over your shoulder.
         </CardDescription>

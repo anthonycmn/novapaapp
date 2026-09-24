@@ -29,7 +29,7 @@ export default async function QuestionQueuePage() {
       {open.length === 0 ? (
         <Card>
           <CardContent className="p-10 text-center text-sm text-muted-foreground">
-            Inbox zero — every family question has an answer. 🎉
+            Inbox zero - every family question has an answer. 🎉
           </CardContent>
         </Card>
       ) : (

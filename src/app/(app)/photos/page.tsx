@@ -87,7 +87,7 @@ export default async function PhotosPage() {
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
             Photo matching is on for{" "}
             {optedIn.map((s) => s.preferredName ?? s.firstName).join(" and ")}. We
-            haven&apos;t found any photos yet — we&apos;ll let you know as soon
+            haven&apos;t found any photos yet - we&apos;ll let you know as soon
             as we do.
           </CardContent>
         </Card>

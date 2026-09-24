@@ -41,7 +41,7 @@ export default async function AppLayout({
      until the form is signed rather than until the page is visited. */
   const navAlerts = await getNavAlerts(user);
   /* Hub 0063. Null for every real parent, which is all but a handful of
-     sessions ever — the cost of asking is one signed-cookie check, cached for
+     sessions ever - the cost of asking is one signed-cookie check, cached for
      the request and shared with the guards. */
   const impersonation = await currentImpersonation();
 
@@ -53,7 +53,7 @@ export default async function AppLayout({
       navAlerts={navAlerts}
       signOutSlot={
         /* The client wrapper purges the service worker's page cache and the
-           push subscription before the cookie goes — see SignOutButton. */
+           push subscription before the cookie goes - see SignOutButton. */
         <SignOutButton action={signOut} />
       }
     >
@@ -61,18 +61,18 @@ export default async function AppLayout({
           group and cannot be scrolled away from. */}
       {impersonation && (
         <ImpersonationBanner
-          who={`${user.displayName}${user.family?.name ? ` — ${user.family.name}` : ""}`}
+          who={`${user.displayName}${user.family?.name ? ` - ${user.family.name}` : ""}`}
           actorEmail={impersonation.actorEmail}
         />
       )}
       {children}
       {/* Spot rides along on every signed-in page: a parent who cannot find
           something is, by definition, not on the page that would explain it.
-          It costs nothing to run — everything it knows ships in the bundle
+          It costs nothing to run - everything it knows ships in the bundle
           and is matched in the browser. */}
       <Spot />
       {/* Tony, 2026-09-05, reversing 2026-08-15: the portal now asks to go
-          on the home screen — push on iPhone only works installed. Signed-in
+          on the home screen - push on iPhone only works installed. Signed-in
           pages only: a login screen nagging to be installed is noise. */}
       <InstallPrompt />
       <PushSync />

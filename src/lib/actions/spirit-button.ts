@@ -45,13 +45,13 @@ export async function submitSpiritButtonAction(
   const role = String(formData.get("role") ?? "").trim();
 
   const outcome = await notifySubmission({
-    subject: `Spirit button — ${studentName} (${productionTitle})`,
+    subject: `Spirit button - ${studentName} (${productionTitle})`,
     category: "spirit_button_submission",
     lines: [
       `${quantity} × spirit button for ${studentName}`,
       "",
       `Show:      ${productionTitle}`,
-      `Performer: ${studentName}${role ? ` — ${role}` : ""}`,
+      `Performer: ${studentName}${role ? ` - ${role}` : ""}`,
       `Size:      ${size}"`,
       `Quantity:  ${quantity}`,
       `Price:     ${formatCents(SPIRIT_BUTTON_PRICE_CENTS)} each · ${formatCents(
@@ -61,7 +61,7 @@ export async function submitSpiritButtonAction(
       `Submitted by ${user.displayName}${user.family ? ` (${user.family.name})` : ""}`,
       `Reply to:  ${user.email}`,
       "",
-      "Not paid yet — the design is in the family's cart, and they were sent",
+      "Not paid yet - the design is in the family's cart, and they were sent",
       `to checkout. The order shows in the ${org.shortName} portal once Stripe`,
       "confirms the payment; if no order follows, this is a cart to chase.",
     ],
@@ -71,7 +71,7 @@ export async function submitSpiritButtonAction(
     ok: true,
     message: submissionMessage(
       outcome,
-      "Check out when you're ready — nothing is charged until then."
+      "Check out when you're ready - nothing is charged until then."
     ),
   };
 }

@@ -194,7 +194,7 @@ export function BookingForm({
       {punch && <PunchCard punch={punch} />}
 
       <p className="text-sm text-muted-foreground">
-        Each lesson is {sessionMinutes} minutes, on the hour — the rest of the
+        Each lesson is {sessionMinutes} minutes, on the hour - the rest of the
         hour is turnaround time. A crossed-out hour is already taken.
         {sessionsLeft >= 3 &&
           " Lessons hold the same day and time each week, so pick the slot your week can keep."}
@@ -252,7 +252,7 @@ export function BookingForm({
             {weekChoices.map((n) => (
               <option key={n} value={n}>
                 {n} week{n === 1 ? "" : "s"}
-                {n === sessionsLeft ? " — your whole punch card" : ""}
+                {n === sessionsLeft ? " - your whole punch card" : ""}
               </option>
             ))}
           </select>
@@ -283,7 +283,7 @@ export function BookingForm({
                   return (
                     <span
                       key={slot}
-                      aria-label={`${time} — already taken`}
+                      aria-label={`${time} - already taken`}
                       className="inline-flex items-center gap-1 rounded-full border border-dashed px-3 py-1.5 text-sm text-muted-foreground/70 line-through"
                     >
                       <span aria-hidden>✕</span>
@@ -342,7 +342,7 @@ export function BookingForm({
           : !chosen
             ? "Pick a time above"
             : effectiveWeeks > 1
-              ? `Book ${effectiveWeeks} weeks — ${formatSlot(chosen)}`
+              ? `Book ${effectiveWeeks} weeks - ${formatSlot(chosen)}`
               : `Book ${formatSlot(chosen)}`}
       </Button>
     </form>

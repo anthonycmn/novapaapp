@@ -114,7 +114,7 @@ export function CallResponse({
         onClick={() => setOpen(true)}
         title={
           current
-            ? `${studentName} — ${look?.label}${current.reason ? `: ${current.reason}` : ""}`
+            ? `${studentName} - ${look?.label}${current.reason ? `: ${current.reason}` : ""}`
             : `Set attendance for ${studentName}`
         }
         className={cn(

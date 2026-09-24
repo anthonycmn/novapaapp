@@ -25,7 +25,7 @@ export async function StayInLoopCard({ familyId }: { familyId: string }) {
       .select("family_id, last_fetched_at")
       .eq("family_id", familyId)
       .maybeSingle();
-    if (data?.last_fetched_at) return null; // a calendar app is polling — job done, card gone
+    if (data?.last_fetched_at) return null; // a calendar app is polling - job done, card gone
   } catch {
     return null;
   }
@@ -45,7 +45,7 @@ export async function StayInLoopCard({ familyId }: { familyId: string }) {
               <ArrowRight aria-hidden size={13} className="text-muted-foreground" />
             </span>
             <span className="block text-[12px] text-muted-foreground">
-              Subscribe once — every rehearsal and change appears in Apple,
+              Subscribe once - every rehearsal and change appears in Apple,
               Google, or Outlook by itself.
             </span>
           </span>

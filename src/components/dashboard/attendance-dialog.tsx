@@ -178,7 +178,7 @@ export function AttendanceDialog({
               rows={2}
               value={note}
               onChange={(e) => onNoteChange(e.target.value)}
-              placeholder="Anything staff should know — optional"
+              placeholder="Anything staff should know - optional"
               className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-[14px]"
             />
           </label>

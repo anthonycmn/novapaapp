@@ -83,7 +83,7 @@ export function InstallPrompt() {
             <p>Add NOVA PA to your home screen for one-tap access.</p>
           ) : (
             <p>
-              Install this app: tap <span className="font-semibold">Share</span> then{" "}
+              Add the NOVA PA Parent Portal to your home screen: tap <span className="font-semibold">Share</span> then{" "}
               <span className="font-semibold">Add to Home Screen</span>.
             </p>
           )}

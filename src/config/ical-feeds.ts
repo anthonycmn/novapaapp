@@ -21,6 +21,14 @@ export interface IcalFeed {
   productionId: string;
   /** Absolute https ICS URL, from the environment. */
   url?: string;
+  /**
+   * The staff portal OWNS this show's schedule (staff 0321): its Rehearsal
+   * Builder writes the calls and "Send to parents" writes calendar_events
+   * directly. The iCal sync must not touch the show, and the season-plan
+   * sync must go on treating it as owned rather than inventing rehearsals
+   * from the weekly pattern.
+   */
+  portalOwned?: boolean;
   /** Stripped off the front of every event title, e.g. "Sweeney Todd - ". */
   titlePrefix?: RegExp;
   /**
@@ -104,7 +112,7 @@ export const ICAL_FEEDS: IcalFeed[] = [
     locationRewrites: [
       {
         when: /^Rehearsal Space/i,
-        use: "Rehearsal Space, South Building, National Conference Center, 18945 Conference Center Drive, Leesburg VA 20175 — park in the south lot",
+        use: "Rehearsal Space, South Building, National Conference Center, 18945 Conference Center Drive, Leesburg VA 20175 - park in the south lot",
       },
     ],
   },

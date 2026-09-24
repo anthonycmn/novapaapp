@@ -11,7 +11,91 @@ import type {
   RegistrationSnapshot,
   RegistrationSource,
   SyncIssue,
+  SyncStatus,
 } from "./types";
+
+/**
+ * What a run's issues say about the run. "partial" means a person has
+ * something to look at. The legacy bucket is a count for the record, not
+ * work, so it does not qualify: from Sep 4 to Sep 20 2026 every run read
+ * "partial, 562 issues" on the strength of 556 Sawyer-era rows nobody was
+ * ever going to map, and the one real failure among them (a paying family's
+ * class order with no room in the app) went unnoticed for two days.
+ */
+export function syncStatusFor(issues: SyncIssue[]): Extract<SyncStatus, "success" | "partial"> {
+  return issues.some((issue) => issue.kind !== "legacy_unmapped") ? "partial" : "success";
+}
+
+const studentName = (s?: Student) => (s ? `${s.firstName} ${s.lastName}` : null);
+
+/**
+ * One sentence for a line item another enrollment already holds.
+ *
+ * Two paths reach it and both hit the same unique index
+ * (enrollments_external_idx), so they say the same thing:
+ *
+ *   create  the student has no enrollment for this target, and the insert
+ *           would throw 23505. Nothing is written.
+ *   adopt   the student HAS one, added by hand and never stamped, and the
+ *           stamp would throw 23505. The row still updates; only the link
+ *           to the line item is withheld.
+ *
+ * And two shapes need different sentences. A sibling's row is a wrong child.
+ * The same name twice is one child with two student rows, usually in two
+ * families, which is what the register's camper_id join exposed on 20 Sep
+ * 2026: four of Ryan Rodgers's registrations sat on a duplicate record with
+ * no guardian who could sign in, so his family saw one of five. Printing
+ * "is for Ryan Rodgers but is held for Ryan Rodgers" would tell nobody
+ * anything, so say which record.
+ */
+function wrongChildIssue(args: {
+  externalId: string;
+  offeringName: string;
+  studentId: string;
+  shouldBe?: Student;
+  heldBy?: Student;
+  heldEnrollmentId: string;
+  heldStudentId: string;
+  /** The adopt path's own row, when there is one. */
+  adoptedEnrollmentId?: string;
+}): SyncIssue {
+  const { shouldBe, heldBy } = args;
+  const sameChild =
+    !!heldBy &&
+    !!shouldBe &&
+    studentName(heldBy)?.toLowerCase() === studentName(shouldBe)?.toLowerCase();
+  const head =
+    `Registration ${args.externalId} ("${args.offeringName}") is for ` +
+    `${studentName(shouldBe) ?? "another student"}`;
+  const onRoster = args.adoptedEnrollmentId
+    ? `, whose enrollment ${args.adoptedEnrollmentId} is already on the roster`
+    : "";
+
+  if (sameChild) {
+    const otherFamily =
+      heldBy.familyId !== shouldBe.familyId ? ` in family ${heldBy.familyId}` : "";
+    return {
+      kind: "wrong_child",
+      externalId: args.externalId,
+      message:
+        `${head}, student ${args.studentId} in family ${shouldBe.familyId}${onRoster}, and ` +
+        `enrollment ${args.heldEnrollmentId} already carries it for a second record of the ` +
+        `same child, student ${args.heldStudentId}${otherFamily}. ` +
+        `Merge the duplicate student, then this registration places itself.`,
+    };
+  }
+
+  return {
+    kind: "wrong_child",
+    externalId: args.externalId,
+    message:
+      `${head}${onRoster}, ` +
+      `but enrollment ${args.heldEnrollmentId} already carries that registration for ` +
+      `${studentName(heldBy) ?? "a different student"}. ` +
+      `Nobody's roster changed${args.adoptedEnrollmentId ? " and the balance is still up to date" : ""}. ` +
+      `Move the enrollment to the right child, or delete it and let the next sync place it.`,
+  };
+}
 
 /**
  * Pure reconciliation: given what the app knows and what the registration
@@ -21,8 +105,9 @@ import type {
  *
  * Matching strategy, most to least reliable:
  *   account     → existing AccountLink, else case-insensitive guardian email
- *   participant → name + date of birth within the matched family, else name
- *   offering    → exact production/class title, else normalized title
+ *   participant → students.camper_id (the register's own id), else, only for
+ *                 a student that has no camper_id yet, name within the family
+ *   offering    → activity id, else normalized title
  *
  * Anything that fails to match becomes a SyncIssue rather than a guess.
  * Silent wrong matches are worse than a visible unmatched row.
@@ -37,6 +122,18 @@ export interface ReconcileInput {
   productions: Production[];
   classes: ClassOffering[];
   links: AccountLink[];
+  /**
+   * Student id → `students.camper_id`, the website's camper id that
+   * provisioning stamps on every student it creates from the register.
+   *
+   * This is THE join between a child here and a child there. A participant
+   * whose external id is a camper id resolves through it and nothing else:
+   * not the name, not the date of birth. Absent, every student is treated as
+   * unkeyed and the name fallback below is all that is left, which is how
+   * four children with a nickname or a changed legal name dropped off every
+   * sync run in September 2026.
+   */
+  studentCamperIds?: ReadonlyMap<string, string>;
   /**
    * Website activity ids the STAFF PORTAL publishes as coaching, from
    * `staff_portal.v_coaching_catalog`. Coaching is the portal's business and
@@ -120,6 +217,12 @@ export interface ReconcilePlan {
   updates: PlannedUpdate[];
   /** Links inferred by email that did not already exist. */
   autoLinks: AccountLink[];
+  /**
+   * `students.camper_id` to stamp on students that had none and were matched
+   * by name this run. Written once; from the next run on, the camper id is
+   * the join and the name no longer matters for that child.
+   */
+  studentLinks: { studentId: string; camperId: string }[];
   issues: SyncIssue[];
   counts: {
     accountsSeen: number;
@@ -143,6 +246,7 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     creates: [],
     updates: [],
     autoLinks: [],
+    studentLinks: [],
     issues: [],
     counts: {
       accountsSeen: snapshot.accounts.length,
@@ -192,6 +296,31 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
   /* ── 2. participants → students ─────────────────────────────────────── */
 
+  /*
+   * THE CAMPER ID IS THE JOIN. THE NAME IS NOT.
+   *
+   * A participant's external id is the register's camper id, and provisioning
+   * writes that same id onto `students.camper_id` when it creates the student.
+   * So the match is one equality, and a nickname ("Katy" for Katelyn, "Bree"
+   * for Logan), a changed legal name, or two children with the same name in
+   * one household cannot break it. Until Sep 20, 2026 this step compared
+   * names, and four children whose parents had typed the name they actually
+   * use were dropped from every sync run: no enrollment, no balance, nothing
+   * in the portal.
+   *
+   * The name still has one job. Forty-nine students predate the camper id and
+   * carry none, and for those alone a name match inside the linked family is
+   * accepted once and then STAMPED (plan.studentLinks), so the next run keys
+   * on the id like everyone else. A student that already carries a camper id
+   * is never name-matched to a different one; if the ids disagree, the
+   * register is right and the row is reported, not guessed at.
+   */
+  const camperIdOf = input.studentCamperIds ?? new Map<string, string>();
+  const studentByCamperId = new Map<string, string>();
+  for (const student of input.students) {
+    const camperId = camperIdOf.get(student.id);
+    if (camperId) studentByCamperId.set(camperId, student.id);
+  }
   const studentByParticipantId = new Map<string, string>();
   const studentsByFamily = new Map<string, Student[]>();
   for (const student of input.students) {
@@ -199,12 +328,23 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     list.push(student);
     studentsByFamily.set(student.familyId, list);
   }
+  // A camper id adopted by name this run is taken; a second participant
+  // cannot adopt the same unkeyed student.
+  const adoptedStudents = new Set<string>();
 
   for (const participant of snapshot.participants) {
+    const keyed = studentByCamperId.get(participant.externalId);
+    if (keyed) {
+      studentByParticipantId.set(participant.externalId, keyed);
+      continue;
+    }
+
     const familyId = familyByExternalId.get(participant.accountExternalId);
     if (!familyId) continue; // already reported as unmatched_account
 
-    const candidates = studentsByFamily.get(familyId) ?? [];
+    const candidates = (studentsByFamily.get(familyId) ?? []).filter(
+      (student) => !camperIdOf.get(student.id) && !adoptedStudents.has(student.id)
+    );
     const wantFirst = normalize(participant.firstName);
     const wantLast = normalize(participant.lastName);
 
@@ -223,11 +363,13 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
 
     if (match) {
       studentByParticipantId.set(participant.externalId, match.id);
+      adoptedStudents.add(match.id);
+      plan.studentLinks.push({ studentId: match.id, camperId: participant.externalId });
     } else {
       plan.issues.push({
         kind: "unmatched_participant",
         externalId: participant.externalId,
-        message: `Registered participant "${participant.firstName} ${participant.lastName}" has no matching student profile in this family.`,
+        message: `Registered participant "${participant.firstName} ${participant.lastName}" (camper ${participant.externalId}) has no student with that camper id, and no unkeyed student of that name in the linked family.`,
       });
     }
   }
@@ -366,9 +508,60 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
    */
   const plannedKeys = new Set<string>();
 
+  /*
+   * THE LEGACY SET IS A COUNT, NOT A TO-DO LIST.
+   *
+   * legacy_enrollments is the Sawyer and Regpack register as it stood at the
+   * cutover: 727 orders, most of them completed 2026 summer programs, and
+   * 526 of 816 rows with no activity_id at all, just Sawyer prose. Jason's
+   * call (Aug 14 2026) was never to backfill them; they are accurate records
+   * of what happened and matching them by text would invent rosters. A legacy
+   * row that points at a CURRENT program resolves by activity id above, so a
+   * legacy row that resolves to nothing is, by construction, one of these.
+   *
+   * Reporting each one as unknown_offering made every run "partial" with
+   * 556 identical items and hid the real one. So they are rolled into a
+   * single legacy_unmapped issue that names the programs and the count, and
+   * that kind does not count toward "partial" (syncStatusFor). Withdrawal of
+   * anything such a row placed earlier is unchanged.
+   */
+  const legacyUnmappedByName = new Map<string, number>();
+
+  /*
+   * A line item whose child the register itself does not know.
+   *
+   * The website snapshot keys a line item to a camper by name inside the
+   * order's family, and when that family has no such camper it makes up a
+   * participant id that no participant carries. Those used to fall through
+   * "reported above" without ever being reported: two DC Unifieds comps sat
+   * on no roster for weeks and no run ever said so. Now each such child is
+   * named once.
+   *
+   * Website line items only. A Sawyer-era row whose child name matches no
+   * camper is the same completed-program history the legacy bucket above
+   * stands for (122 of them on the first run that looked, Sep 20 2026), not
+   * a child a person can add to an account today.
+   */
+  const knownParticipants = new Set(snapshot.participants.map((p) => p.externalId));
+  const orphanedParticipants = new Set<string>();
+
   for (const external of snapshot.enrollments) {
     const studentId = studentByParticipantId.get(external.participantExternalId);
-    if (!studentId) continue; // reported above
+    if (!studentId) {
+      if (
+        !external.externalId.startsWith("legacy:") &&
+        !knownParticipants.has(external.participantExternalId) &&
+        !orphanedParticipants.has(external.participantExternalId)
+      ) {
+        orphanedParticipants.add(external.participantExternalId);
+        plan.issues.push({
+          kind: "unmatched_participant",
+          externalId: external.externalId,
+          message: `Line item ${external.externalId} ("${external.offeringName}") names a child the registration system has no camper record for under that account. Add the camper to the order's family in the registration system, or move the order to the family that has them.`,
+        });
+      }
+      continue; // otherwise reported above
+    }
 
     const offeringKey = normalize(external.offeringName);
     const activityId = external.offeringActivityId;
@@ -413,13 +606,21 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
         : undefined;
 
     if (!productionId && !classId && coachingActivityId == null) {
+      if (external.externalId.startsWith("legacy:")) {
+        legacyUnmappedByName.set(
+          external.offeringName,
+          (legacyUnmappedByName.get(external.offeringName) ?? 0) + 1
+        );
+        retract(external, undefined, `nothing ("${external.offeringName}")`);
+        continue;
+      }
       plan.issues.push({
         kind: "unknown_offering",
         externalId: external.externalId,
         message:
           external.offeringCategory === "coaching"
             ? `"${external.offeringName}" is coaching, but the staff portal's coaching catalog doesn't list it. Add it there (staff_portal.coaching_service_menu) and it will map on the next sync.`
-            : `"${external.offeringName}" doesn't match any production or class in the app. Add it, or map it manually.`,
+            : `"${external.offeringName}" doesn't match any production or class in the Parent Portal. Publish it from the staff portal (Offerings), or map it manually.`,
       });
       retract(external, undefined, `nothing ("${external.offeringName}")`);
       continue;
@@ -440,6 +641,43 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     const existing = existingByKey.get(`${studentId}::${targetKey}`);
 
     if (!existing && plannedKeys.has(`${studentId}::${targetKey}`)) continue;
+
+    // The external id is unique across enrollments (enrollments_external_idx on
+    // external_source, external_id). If another row already holds this one, the
+    // registration is on a different student than the source says. Creating
+    // would throw 23505 on every run, which is exactly what it did: 192 times
+    // in 24 hours through 18 Sep 2026 on legacy:778 and legacy:790, Kai
+    // Stuermann's Sweeney Todd and Hadestown registrations, both sitting on
+    // his sister Vanessa.
+    //
+    // Two shapes reach here, and the second is why this is not a one-off:
+    //
+    //   1. A sibling, from a Sawyer era row matched by name before the camper
+    //      id was the join (the Stuermanns).
+    //   2. One child entered twice, one student row keyed and one not. Making
+    //      camper_id the join on 20 Sep 2026 pointed the resolver at the keyed
+    //      row while the unkeyed row still held the line item, so three more
+    //      registrations began failing every fifteen minutes from 3:30 PM ET
+    //      that day: 9df1fd22, legacy:772 and legacy:699, all Ryan Rodgers.
+    //
+    // The insert can never win either way, and while it keeps failing the run
+    // reports "partial" forever, so a real problem in the issue list has
+    // nowhere to show. Say it instead, and name both children.
+    const heldElsewhere = existingByExternalId.get(external.externalId);
+    if (!existing && heldElsewhere && heldElsewhere.studentId !== studentId) {
+      plan.issues.push(
+        wrongChildIssue({
+          externalId: external.externalId,
+          offeringName: external.offeringName,
+          studentId,
+          shouldBe: input.students.find((s) => s.id === studentId),
+          heldBy: input.students.find((s) => s.id === heldElsewhere.studentId),
+          heldEnrollmentId: heldElsewhere.id,
+          heldStudentId: heldElsewhere.studentId,
+        })
+      );
+      continue;
+    }
 
     if (!existing) {
       plannedKeys.add(`${studentId}::${targetKey}`);
@@ -501,8 +739,45 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
      * first sync that recognises it, and never rewritten afterwards — the
      * line item a row was created from does not change.
      */
-    const stampExternalId =
+    const wantsStamp =
       !input.enrollmentExternalIds?.get(existing.id) && Boolean(external.externalId);
+    /*
+     * ...unless another enrollment already holds that external id.
+     *
+     * Same unique index as the create path above, reached the other way. The
+     * row exists, it is the right child's, and it has no line item yet, so
+     * every run tried to stamp it and the index refused: 97 PATCH conflicts in
+     * 24 hours on one enrollment, from 20 Sep 2026 at 3:30 PM ET, the first
+     * sync run after the camper id join shipped.
+     *
+     * Ryan Rodgers is two student rows, one keyed and one not. The unkeyed row
+     * holds the line item; the keyed row holds the enrollment the sync now
+     * resolves to. Neither the create guard nor this one can decide which row
+     * is the child, so both report and neither retries.
+     *
+     * Only the stamp is withheld. Balance, status, payment and category still
+     * update, because the enrollment itself is not in doubt and a family's
+     * balance should not go stale while a duplicate student row is sorted out.
+     */
+    const stampBlockedBy =
+      wantsStamp && heldElsewhere && heldElsewhere.id !== existing.id
+        ? heldElsewhere
+        : undefined;
+    const stampExternalId = wantsStamp && !stampBlockedBy;
+    if (stampBlockedBy) {
+      plan.issues.push(
+        wrongChildIssue({
+          externalId: external.externalId,
+          offeringName: external.offeringName,
+          studentId,
+          shouldBe: input.students.find((s) => s.id === studentId),
+          heldBy: input.students.find((s) => s.id === stampBlockedBy.studentId),
+          heldEnrollmentId: stampBlockedBy.id,
+          heldStudentId: stampBlockedBy.studentId,
+          adoptedEnrollmentId: existing.id,
+        })
+      );
+    }
     if (
       balanceChanged ||
       statusChanged ||
@@ -524,6 +799,20 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
       plan.counts.enrollmentsUpdated += 1;
       if (balanceChanged) plan.counts.balancesUpdated += 1;
     }
+  }
+
+  if (legacyUnmappedByName.size > 0) {
+    const rows = [...legacyUnmappedByName.values()].reduce((sum, n) => sum + n, 0);
+    const named = [...legacyUnmappedByName.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    const shown = named.slice(0, 8).map(([name, n]) => `${name} (${n})`).join("; ");
+    const more = named.length > 8 ? `; and ${named.length - 8} more` : "";
+    plan.issues.push({
+      kind: "legacy_unmapped",
+      externalId: "legacy:*",
+      count: rows,
+      message: `${rows} Sawyer-era registration${rows === 1 ? "" : "s"} name ${named.length} program${named.length === 1 ? "" : "s"} the app does not carry: ${shown}${more}. These are completed programs kept for the record and are never mapped by hand (Aug 14 2026). Nothing to do unless a current program is on this list.`,
+    });
   }
 
   return plan;

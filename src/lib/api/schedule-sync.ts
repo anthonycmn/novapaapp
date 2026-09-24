@@ -34,7 +34,7 @@ const PORTAL_TITLE_MAP: Record<string, string> = {
   "Sweeney Todd - Teen Conservatory": "Sweeney Todd: School Edition",
   "Hadestown - Teen Conservatory": "Hadestown: Teen Edition",
   "Broadway Bound Teens | Mean Girls": "Mean Girls",
-  "Dear Evan Hansen — Triple Threat Teen Intensive": "Dear Evan Hansen",
+  "Dear Evan Hansen - Triple Threat Teen Intensive": "Dear Evan Hansen",
   "Charlie and the Chocolate Factory (5-9)": "Charlie and the Chocolate Factory Jr.",
   "Charlie and the Chocolate Factory (9-12)": "Charlie and the Chocolate Factory Jr.",
   "Charlie and the Chocolate Factory (12-15)": "Charlie and the Chocolate Factory Jr.",
@@ -254,7 +254,7 @@ async function announceScheduleChanges(
       .map(
         (c) =>
           c.title +
-          " — " +
+          " - " +
           whenText(c.startsAt) +
           (c.kind === "canceled" ? " (canceled)" : "")
       )
@@ -454,7 +454,7 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
           ref,
           productionId: hubProdId,
           type: "rehearsal",
-          title: `${show} — ${String(slot.label)}`,
+          title: `${show} - ${String(slot.label)}`,
           startsAt: iso(d, String(slot.starts_at).slice(0, 5)),
           endsAt: iso(d, String(slot.ends_at).slice(0, 5)),
           location: "",
@@ -470,10 +470,10 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
         const base = { ref, productionId: hubProdId, location: "" };
         if (kind === "camp") {
           if (dow(d) === 0 || dow(d) === 6) continue;
-          desired.set(ref, { ...base, type: "workshop", title: `${show} — Camp Day`,
+          desired.set(ref, { ...base, type: "workshop", title: `${show} - Camp Day`,
             startsAt: iso(d, CAMP_HOURS[0]), endsAt: iso(d, CAMP_HOURS[1]) });
         } else if (kind === "tech") {
-          desired.set(ref, { ...base, type: "tech", title: `${show} — Tech (times TBA)`,
+          desired.set(ref, { ...base, type: "tech", title: `${show} - Tech (times TBA)`,
             startsAt: iso(d, TBA_TECH[0]), endsAt: iso(d, TBA_TECH[1]) });
         } else if (kind === "performance") {
           /*
@@ -484,13 +484,13 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
            */
           continue;
         } else if (kind === "audition") {
-          desired.set(ref, { ...base, type: "other", title: `${show} — Auditions (times TBA)`,
+          desired.set(ref, { ...base, type: "other", title: `${show} - Auditions (times TBA)`,
             startsAt: iso(d, "10:00"), endsAt: iso(d, "14:00") });
         } else if (kind === "rehearsal" && String(pp.production_type) !== "Mainstage") {
           continue; // range markers duplicate weekly patterns
         } else if (kind === "rehearsal" && String(pp.title) === "Mean Girls") {
           const times = TIME_OVERRIDES[String(se.starts_on)] ?? TBA_TECH;
-          desired.set(ref, { ...base, type: "rehearsal", title: `${show} — Rehearsal`,
+          desired.set(ref, { ...base, type: "rehearsal", title: `${show} - Rehearsal`,
             startsAt: iso(d, times[0]), endsAt: iso(d, times[1]) });
         }
       }
@@ -524,7 +524,7 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
               productionId: hubProdId,
               location: "",
               type: "performance",
-              title: `${show} — Performance`,
+              title: `${show} - Performance`,
               startsAt,
               /* Sixty minutes before curtain, derived so it follows the show. */
               endsAt: new Date(Date.parse(startsAt) + 2 * 60 * 60_000).toISOString(),

@@ -90,6 +90,12 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
     withCallTime: 0,
   };
 
+  // The staff portal writes this show's calendar_events itself (its Rehearsal
+  // Builder, staff 0321). Reading the Google feed here would put the same
+  // rehearsals on every family's calendar twice, from two sources.
+  if (feed.portalOwned) {
+    return { ...base, skipped: "portal-owned: the staff portal publishes this schedule" };
+  }
   if (!feed.url) {
     return { ...base, skipped: "no feed URL configured in the environment" };
   }
@@ -261,7 +267,7 @@ async function syncFeed(feed: IcalFeed): Promise<IcalFeedResult> {
           // "Pages 40 - 48 — Review Vocals", or whichever half exists. The
           // room and the leader stay out of the one-liner; they are on the
           // block itself.
-          const part = [block.pages, block.what ?? block.title].filter(Boolean).join(" — ");
+          const part = [block.pages, block.what ?? block.title].filter(Boolean).join(" - ");
           if (part && !works.includes(part)) works.push(part);
         }
         if (called.length > 0) row.called_note = called.join(" · ");

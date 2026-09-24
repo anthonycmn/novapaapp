@@ -153,5 +153,5 @@ export function describeRoles(assignment: StaffAssignment): string {
     .map(([offering, roles]) =>
       roles.length > 0 ? `${roles.join(" · ")} on ${offering}` : `Teaches ${offering}`
     )
-    .join(" — ");
+    .join(" - ");
 }

@@ -271,7 +271,7 @@ export function ScheduleRail({
                           <span className="opacity-80">{durationOf(event)}</span>
                         </p>
 
-                        {/* Only when it differs — see showableCallTime. */}
+                        {/* Only when it differs - see showableCallTime. */}
                         {event.callTime && event.callTime !== event.startsAt && (
                           <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] font-medium text-gold">
                             <Clock aria-hidden size={12} className="shrink-0" />
@@ -310,7 +310,7 @@ export function ScheduleRail({
                         )}
 
                         {/* The staff portal's run sheet for this call, when it
-                            has one — the same rooms, times and cast a director
+                            has one - the same rooms, times and cast a director
                             reads, with this family's children marked. CJ, 16
                             Sep 2026: the staff page is the authority. */}
                         {event.run && event.run.length > 0 && (
@@ -380,7 +380,7 @@ export function ScheduleRail({
                           </p>
                         )}
 
-                        {/* The director's full plan, in his own words — the
+                        {/* The director's full plan, in his own words - the
                             event description off the show calendar. Folded
                             behind a line so the rail stays scannable. */}
                         {event.details && <EventDetails details={event.details} />}
@@ -392,7 +392,7 @@ export function ScheduleRail({
                         )}
 
                         {/* THIS family's children on THIS call, each with the
-                            attendance chip from the dashboard — CJ, 5 Sep
+                            attendance chip from the dashboard - CJ, 5 Sep
                             2026: a parent must see per child what is coming,
                             what they'll be doing, and whether a conflict has
                             been submitted, and fix it from the same row. */}
@@ -414,7 +414,7 @@ export function ScheduleRail({
                                 isPast ? (
                                   <span key={kid.id} className="text-[11.5px] text-muted-foreground">
                                     {kid.name}
-                                    {kid.roleNames.length > 0 && ` — ${kid.roleNames.join(" / ")}`}
+                                    {kid.roleNames.length > 0 && ` - ${kid.roleNames.join(" / ")}`}
                                   </span>
                                 ) : (
                                   <span key={kid.id} className="inline-flex items-baseline gap-1.5">
@@ -452,7 +452,7 @@ export function ScheduleRail({
 
       {/* Only offered when there is something behind the fold. On a short list
           the box never fills, so a "show the whole thing" button would point at
-          nothing — and rows is the count AFTER the filter, so switching to
+          nothing - and rows is the count AFTER the filter, so switching to
           "My calls" takes the button away by itself. */}
       {rows.length > 12 && (
         <button
@@ -540,7 +540,7 @@ function SubscribeRow({ feedUrl }: { feedUrl: string }) {
           {copied ? "Copied" : "Copy link"}
         </button>
         {/* A one-off .ics file, for the parent who wants the dates without a
-            subscription — the route already serves it as an attachment. */}
+            subscription - the route already serves it as an attachment. */}
         <a
           href={feedUrl}
           className="inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-[12px] font-medium transition-colors hover:bg-muted"
@@ -551,7 +551,7 @@ function SubscribeRow({ feedUrl }: { feedUrl: string }) {
       </div>
       <p className="mt-1.5 text-[11.5px] leading-snug text-muted-foreground">
         Subscribe once and every change syncs itself. This link is private to
-        your family — anyone who has it can see your schedule, so please
+        your family - anyone who has it can see your schedule, so please
         don&apos;t post it anywhere public.
       </p>
     </div>

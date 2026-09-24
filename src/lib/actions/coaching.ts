@@ -110,7 +110,7 @@ export async function bookCoachingAction(
     action: "coaching.booked",
     summary:
       weeks > 1
-        ? `Booked a weekly coaching slot — ${weeks} lessons`
+        ? `Booked a weekly coaching slot - ${weeks} lessons`
         : "Booked a coaching session",
     studentId,
     detail: { coachStaffId, startsAt, sessionId: firstSessionId, weeks, sessionType },
@@ -232,7 +232,7 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
   await logActivity({
     user,
     action: "coaching.purchase_started",
-    summary: `Started a coaching package purchase — ${purchase.service} (${purchase.sessions} session${
+    summary: `Started a coaching package purchase - ${purchase.service} (${purchase.sessions} session${
       purchase.sessions === 1 ? "" : "s"
     }) for ${purchase.studentName}`,
     studentId,

@@ -109,7 +109,7 @@ export const classes: ClassOffering[] = [
   {
     id: "class-mtd2",
     programId: "prog-classes",
-    name: "Musical Theater Dance — Level 2",
+    name: "Musical Theater Dance - Level 2",
     dayOfWeek: 2,
     startTime: "17:00",
     endTime: "18:00",
@@ -119,7 +119,7 @@ export const classes: ClassOffering[] = [
   {
     id: "class-voice1",
     programId: "prog-classes",
-    name: "Vocal Technique — Beginners",
+    name: "Vocal Technique - Beginners",
     dayOfWeek: 4,
     startTime: "16:30",
     endTime: "17:30",
@@ -247,8 +247,8 @@ export const students: Student[] = [
     // granted through the explanation + reference-photo flow, never seeded on.
     consents: { photoUse: true, faceMatching: false, directoryVisible: true },
     resumeCredits: [
-      { id: "rc-1", category: "role", title: "Young Anna — Frozen Jr. (2025)", organization: "NOVA PA", year: "2025" },
-      { id: "rc-2", category: "training", title: "Ballet — 3 years", organization: "Fairfax Dance Academy" },
+      { id: "rc-1", category: "role", title: "Young Anna - Frozen Jr. (2025)", organization: "NOVA PA", year: "2025" },
+      { id: "rc-2", category: "training", title: "Ballet - 3 years", organization: "Fairfax Dance Academy" },
     ],
     vocalRange: "A3–D5",
     auditionSongUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -281,10 +281,10 @@ export const students: Student[] = [
     grade: "8",
     school: "Liberty MS",
     tshirtSize: "AM",
-    medicalFlags: "Asthma — inhaler in backpack",
+    medicalFlags: "Asthma - inhaler in backpack",
     consents: { photoUse: true, faceMatching: false, directoryVisible: true },
     resumeCredits: [
-      { id: "rc-3", category: "role", title: "Sebastian — The Little Mermaid Jr. (2024)", organization: "NOVA PA", year: "2024" },
+      { id: "rc-3", category: "role", title: "Sebastian - The Little Mermaid Jr. (2024)", organization: "NOVA PA", year: "2024" },
       { id: "rc-4", category: "special_skill", title: "Beatboxing" },
     ],
     vocalRange: "G2–E4",
@@ -321,7 +321,7 @@ export const students: Student[] = [
     allergies: "Tree nuts",
     consents: { photoUse: true, faceMatching: false, directoryVisible: true },
     resumeCredits: [
-      { id: "rc-5", category: "training", title: "Piano — 5 years" },
+      { id: "rc-5", category: "training", title: "Piano - 5 years" },
     ],
     vocalRange: "C4–G5",
     hasLogin: false,
@@ -357,7 +357,7 @@ export const enrollments: Enrollment[] = [
 
 export const casting: CastingAssignment[] = [
   { id: "cast-1", productionId: "prod-frozen", studentId: "stu-ava", characterName: "Young Elsa", isUnderstudy: false, rehearsalTrack: "Track A", publishedAt: "2026-09-10T22:00:00.000Z" },
-  { id: "cast-2", productionId: "prod-frozen", studentId: "stu-leo", characterName: "Ensemble — Snow Chorus", castGroup: "Ensemble", isUnderstudy: false, rehearsalTrack: "Track C", publishedAt: "2026-09-10T22:00:00.000Z" },
+  { id: "cast-2", productionId: "prod-frozen", studentId: "stu-leo", characterName: "Ensemble - Snow Chorus", castGroup: "Ensemble", isUnderstudy: false, rehearsalTrack: "Track C", publishedAt: "2026-09-10T22:00:00.000Z" },
   { id: "cast-3", productionId: "prod-frozen", studentId: "stu-chidi", characterName: "Kristoff", isUnderstudy: false, rehearsalTrack: "Track A", publishedAt: "2026-09-10T22:00:00.000Z" },
   { id: "cast-4", productionId: "prod-frozen", studentId: "stu-lien", characterName: "Anna", isUnderstudy: false, rehearsalTrack: "Track A", publishedAt: "2026-09-10T22:00:00.000Z" },
 ];
@@ -373,7 +373,7 @@ export const hopes: HopesEntry[] = [
     id: "hope-1",
     seasonId: "season-2627",
     author: "parent",
-    text: "We hope Ava gets a chance at a named role this year — she has been practicing every night. More than anything we want her confidence to keep growing.",
+    text: "We hope Ava gets a chance at a named role this year - she has been practicing every night. More than anything we want her confidence to keep growing.",
     visibleToStudent: false,
     createdAt: "2026-08-20T14:00:00.000Z",
     updatedAt: "2026-08-20T14:00:00.000Z",
@@ -556,7 +556,7 @@ export const products: Product[] = [
   {
     id: "prod-starpage-frozen",
     type: "star_page",
-    name: "Star page — Frozen Jr. playbill",
+    name: "Star page - Frozen Jr. playbill",
     description:
       "A congratulatory page in the show program. Add a photo and a message from the family.",
     basePriceCents: 3500,
@@ -638,7 +638,7 @@ export const buttonTemplates: ButtonTemplate[] = [
   {
     id: "tpl-frozen",
     productionId: "prod-frozen",
-    name: "Frozen Jr. — Snowflake frame",
+    name: "Frozen Jr. - Snowflake frame",
     accentColor: "#4f8fd6",
     seasonName: "2026–2027",
     isActive: true,
@@ -646,7 +646,7 @@ export const buttonTemplates: ButtonTemplate[] = [
   {
     id: "tpl-mermaid",
     productionId: "prod-mermaid",
-    name: "The Little Mermaid Jr. — Shell frame",
+    name: "The Little Mermaid Jr. - Shell frame",
     accentColor: "#2f8f7f",
     seasonName: "2026–2027",
     isActive: true,
@@ -661,7 +661,7 @@ export const healthForms: HealthForm[] = [
     studentId: "stu-ava",
     seasonId: "season-2526",
     answers: {
-      allergies: "Peanuts — carries EpiPen",
+      allergies: "Peanuts - carries EpiPen",
       medications: "None daily",
       medicationAuthorization: true,
       conditions: "None",
@@ -714,7 +714,7 @@ export const feedPosts: FeedPost[] = [
     authorStaffId: "staff-dana",
     authorName: "Dana Whitfield",
     title: "Welcome to the 2026–2027 season! 🎭",
-    body: "We are thrilled to kick off our 21st year. Frozen Jr. rehearsals begin the week of September 14 — watch this space for the full calendar, costume fitting signups, and volunteer opportunities. Let's make some magic together!",
+    body: "We are thrilled to kick off our 21st year. Frozen Jr. rehearsals begin the week of September 14 - watch this space for the full calendar, costume fitting signups, and volunteer opportunities. Let's make some magic together!",
     imageUrls: [],
     attachments: [],
     category: "general",
@@ -727,8 +727,8 @@ export const feedPosts: FeedPost[] = [
     id: "post-frozen-fitting",
     authorStaffId: "staff-jo",
     authorName: "Jo Castillo",
-    title: "Frozen Jr. — costume fittings next week",
-    body: "Fittings run Tuesday–Thursday, 5:00–7:30 PM in Studio B. Sign up for a 10-minute slot. Please arrive in a fitted t-shirt and leggings/shorts. Questions? Ask below — we answer every one.",
+    title: "Frozen Jr. - costume fittings next week",
+    body: "Fittings run Tuesday–Thursday, 5:00–7:30 PM in Studio B. Sign up for a 10-minute slot. Please arrive in a fitted t-shirt and leggings/shorts. Questions? Ask below - we answer every one.",
     imageUrls: [],
     attachments: [],
     category: "rehearsal",
@@ -743,7 +743,7 @@ export const feedPosts: FeedPost[] = [
     id: "post-sweeney-tracks",
     authorStaffId: "staff-marcus",
     authorName: "Colton Sorensen",
-    title: "Rehearsal tracks are live — start with the Ballad",
+    title: "Rehearsal tracks are live - start with the Ballad",
     body: "The MTI code is on the show page. Download the tracks to a phone before Monday rather than streaming in the room; the wifi in the South Building will not carry twenty devices.\n\nEverybody learns the Prologue first. Leads, your character block dates are on the show page too.",
     imageUrls: [],
     attachments: [],
@@ -773,7 +773,7 @@ export const postQuestions: PostQuestion[] = [
     postId: "post-frozen-fitting",
     askerUserId: "user-minh",
     askerName: "Minh Nguyen",
-    question: "Lily has a dance class Tuesday — is Thursday OK for leads?",
+    question: "Lily has a dance class Tuesday - is Thursday OK for leads?",
     isPublicFaq: false,
     createdAt: "2026-07-25T01:20:00.000Z",
   },
@@ -784,7 +784,7 @@ export const emailTemplates: EmailTemplate[] = [
     id: "tpl-audition-results",
     name: "Audition results",
     subject: "{{show_title}} casting is here, {{student_first}}! 🎉",
-    body: "Dear {{parent_first}},\n\nCasting for {{show_title}} has been posted! Log in to the family hub to see {{student_first}}'s role and the first rehearsal schedule.\n\nEvery role matters — we can't wait to see what this cast creates together.\n\nBreak a leg,\n{{sender_name}}",
+    body: "Dear {{parent_first}},\n\nCasting for {{show_title}} has been posted! Log in to the family hub to see {{student_first}}'s role and the first rehearsal schedule.\n\nEvery role matters - we can't wait to see what this cast creates together.\n\nBreak a leg,\n{{sender_name}}",
     category: "casting",
   },
   {
@@ -812,7 +812,7 @@ export const emailTemplates: EmailTemplate[] = [
     id: "tpl-show-week",
     name: "Show week logistics",
     subject: "Show week! Everything you need for {{show_title}}",
-    body: "It's here! 🎭\n\nCall times, drop-off, tickets, and flowers — everything for {{show_title}} show week is in the attached guide and on the family calendar. Call time for {{student_first}}: {{call_time}}.\n\nBreak legs everyone!\n{{sender_name}}",
+    body: "It's here! 🎭\n\nCall times, drop-off, tickets, and flowers - everything for {{show_title}} show week is in the attached guide and on the family calendar. Call time for {{student_first}}: {{call_time}}.\n\nBreak legs everyone!\n{{sender_name}}",
     category: "critical",
   },
 ];
@@ -827,7 +827,7 @@ const sweeneyEvents: CalendarEvent[] = [
   {
     id: "evt-sw-1",
     type: "rehearsal",
-    title: "Rehearsal — Rm A / Rm B",
+    title: "Rehearsal - Rm A / Rm B",
     startsAt: "2026-09-24T23:00:00.000Z",
     endsAt: "2026-09-25T01:00:00.000Z",
     location: "Rehearsal Space, South Building, National Conference Center",
@@ -853,7 +853,7 @@ const sweeneyEvents: CalendarEvent[] = [
     whatToBring: "Every costume piece and prop",
     productionId: "prod-sweeney",
     changedAt: "2026-08-16T12:00:00.000Z",
-    changeNote: "First call in the auditorium — not the rehearsal space",
+    changeNote: "First call in the auditorium - not the rehearsal space",
   },
   {
     id: "evt-sw-4",
@@ -891,7 +891,7 @@ export const events: CalendarEvent[] = [
   {
     id: "evt-1",
     type: "rehearsal",
-    title: "Frozen Jr. — Full Cast Rehearsal",
+    title: "Frozen Jr. - Full Cast Rehearsal",
     startsAt: "2026-07-28T22:30:00.000Z", // 6:30 PM ET
     endsAt: "2026-07-29T00:30:00.000Z",
     callTime: "2026-07-28T22:15:00.000Z",
@@ -906,7 +906,7 @@ export const events: CalendarEvent[] = [
   {
     id: "evt-2",
     type: "class",
-    title: "Musical Theater Dance — Level 2",
+    title: "Musical Theater Dance - Level 2",
     startsAt: "2026-07-28T21:00:00.000Z", // 5:00 PM ET Tuesday
     endsAt: "2026-07-28T22:00:00.000Z",
     location: "Studio A, Chantilly",
@@ -917,7 +917,7 @@ export const events: CalendarEvent[] = [
   {
     id: "evt-3",
     type: "class",
-    title: "Vocal Technique — Beginners",
+    title: "Vocal Technique - Beginners",
     startsAt: "2026-07-30T20:30:00.000Z", // 4:30 PM ET Thursday
     endsAt: "2026-07-30T21:30:00.000Z",
     location: "Studio B, Chantilly",
@@ -929,7 +929,7 @@ export const events: CalendarEvent[] = [
   {
     id: "evt-4",
     type: "rehearsal",
-    title: "Frozen Jr. — 'Let It Go' & Snow Chorus",
+    title: "Frozen Jr. - 'Let It Go' & Snow Chorus",
     startsAt: "2026-07-29T22:00:00.000Z", // 6:00 PM ET Wednesday
     endsAt: "2026-07-29T23:30:00.000Z",
     callTime: "2026-07-29T21:45:00.000Z",
@@ -942,7 +942,7 @@ export const events: CalendarEvent[] = [
   {
     id: "evt-5",
     type: "rehearsal",
-    title: "Frozen Jr. — 'Love Is an Open Door' (Anna/Hans)",
+    title: "Frozen Jr. - 'Love Is an Open Door' (Anna/Hans)",
     startsAt: "2026-07-31T22:00:00.000Z", // 6:00 PM ET Friday
     endsAt: "2026-07-31T23:00:00.000Z",
     callTime: "2026-07-31T21:50:00.000Z",

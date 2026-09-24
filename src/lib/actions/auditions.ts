@@ -117,7 +117,7 @@ export async function submitAuditionProfileAction(
   await logActivity({
     user,
     action: isUpdate ? "audition.profile_updated" : "audition.profile_submitted",
-    summary: `${isUpdate ? "Updated" : "Submitted"} an audition profile${production ? ` — ${production.title}` : ""}`,
+    summary: `${isUpdate ? "Updated" : "Submitted"} an audition profile${production ? ` - ${production.title}` : ""}`,
     studentId: parsed.data.studentId,
     detail: {
       productionId: parsed.data.productionId,

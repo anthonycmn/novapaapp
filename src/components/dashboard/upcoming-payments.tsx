@@ -81,7 +81,7 @@ export async function UpcomingPaymentsPanel({ familyId }: { familyId: string }) 
           </ul>
         )}
 
-        {/* The finish line, in the account page's own words — a family
+        {/* The finish line, in the account page's own words - a family
             comparing the two must find them agreeing to the letter. */}
         {finite && (
           <p className="mt-3 text-[12px] text-muted-foreground">
@@ -90,7 +90,7 @@ export async function UpcomingPaymentsPanel({ familyId }: { familyId: string }) 
         )}
         <p className="mt-1.5 text-[12px] text-muted-foreground">
           Charged automatically to your card on file. Update the card any time from your
-          registration account — the schedule above comes straight from it.
+          registration account - the schedule above comes straight from it.
         </p>
       </div>
     </Card>

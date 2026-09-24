@@ -32,11 +32,21 @@ export async function GET(
   }
 
   // Only follow app-internal paths — a stored URL must never become an
-  // open redirect.
+  // open redirect, and "//host" is another site to a browser.
+  const internal =
+    notification?.url &&
+    notification.url.startsWith("/") &&
+    !notification.url.startsWith("//") &&
+    !notification.url.startsWith("/\\");
+  // A notice with no page of its own (the "we emailed you this" copy points
+  // back at the list) opens on its own page, where the whole message is -
+  // Jeanette Ward, 22 Sep 2026: the list only ever showed the preview.
   const target =
-    notification?.url && notification.url.startsWith("/")
-      ? notification.url
-      : "/notifications";
+    notification && (!internal || notification.url === "/notifications")
+      ? `/notifications/${notification.id}`
+      : internal
+        ? (notification!.url as string)
+        : "/notifications";
 
   return NextResponse.redirect(new URL(target, request.nextUrl.origin));
 }

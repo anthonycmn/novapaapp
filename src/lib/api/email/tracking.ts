@@ -110,7 +110,7 @@ export function instrumentEmailBody(
   origin: string,
   category?: string,
   /* A plain-text send gets plain-text additions: no pixel (nothing renders
-     it), and the unsubscribe as a bare URL — the <a> version arrived as
+     it), and the unsubscribe as a bare URL - the <a> version arrived as
      literal markup in exactly the newsletters the link was added for
      (Sep 6 2026 review). Defaults to HTML, the shape every pre-existing
      caller assumed. */

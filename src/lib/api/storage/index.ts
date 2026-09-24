@@ -452,7 +452,7 @@ export function assertUploadAllowed(bucket: StorageBucket, dataUrl: string): voi
   }
   if (parsed.bytes.length > limits.maxBytes) {
     throw new UploadRejectedError(
-      `That ${limits.label} is ${(parsed.bytes.length / 1024 / 1024).toFixed(1)} MB — the limit is ${limits.maxBytes / 1024 / 1024} MB.`
+      `That ${limits.label} is ${(parsed.bytes.length / 1024 / 1024).toFixed(1)} MB - the limit is ${limits.maxBytes / 1024 / 1024} MB.`
     );
   }
 }

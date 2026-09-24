@@ -52,13 +52,22 @@ describe("family-facing staff contacts", () => {
   it("is exactly the five who answer for any show", () => {
     // CJ, 4 Sep 2026: "always include Katie Rivers, Jason Jones, Jen Travis,
     // Todd Cimino-Johnson, and Tony Cimino-Johnson."
+    //
+    // Jason's row became the office on 18 Sep 2026, two days after his last
+    // day, on CJ's word: "change jason@novapa.org to info@novapa.org". Five
+    // desks still, and the sign-in desk no longer depends on a contractor.
     expect(STAFF_CONTACTS.map((c) => c.email).sort()).toEqual([
       "cj@novapa.org",
-      "jason@novapa.org",
+      "info@novapa.org",
       "jen@novapa.org",
       "katie@novapa.org",
       "todd@novapa.org",
     ]);
+  });
+
+  it("no longer sends a locked-out family to a departed contractor", () => {
+    const emails = STAFF_CONTACTS.map((c) => c.email);
+    expect(emails).not.toContain("jason@novapa.org");
   });
 
   it("no longer carries one show's creative team", () => {

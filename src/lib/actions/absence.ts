@@ -184,7 +184,7 @@ export async function reportAbsenceAction(
   });
 
   /* Who runs this show or class, by the same route a message about it would
-     take — the class's teacher for a class, the director for a show. */
+     take - the class's teacher for a class, the director for a show. */
   const topics = await provider
     .listMessageTopicsForFamily(user.id, user.familyId)
     .catch(() => []);
@@ -203,13 +203,13 @@ export async function reportAbsenceAction(
   await logActivity({
     user,
     action: "absence.reported",
-    summary: `Reported an absence for ${childName} — ${showTitle}, ${dates}`,
+    summary: `Reported an absence for ${childName} - ${showTitle}, ${dates}`,
     studentId: parsed.data.studentId,
     detail: { reason: parsed.data.reason, reportId: report.id },
   });
 
   const outcome = await notifySubmission({
-    subject: `Absence — ${childName}, ${showTitle}`,
+    subject: `Absence - ${childName}, ${showTitle}`,
     category: "absence_report",
     includeAdmins: true,
     also: showTopic?.recipientEmail
@@ -248,7 +248,7 @@ export async function reportAbsenceAction(
     ok: true,
     message: submissionMessage(
       outcome,
-      "Thank you for telling us — the director knows to expect them back."
+      "Thank you for telling us - the director knows to expect them back."
     ),
   };
 }

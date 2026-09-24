@@ -125,7 +125,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
         const paid = input.paidByEnrollmentId?.[enrollment.id] ?? enrollment.amountPaidCents;
         const used = creditedDates.length;
         return {
-          description: `${production?.title ?? pack.name} — ${pack.credits} day camp credits`,
+          description: `${production?.title ?? pack.name} - ${pack.credits} day camp credits`,
           startDate: creditedDates[0] ?? input.periodStart,
           endDate: creditedDates[creditedDates.length - 1] ?? input.periodEnd,
           amountCents: paid ?? 0,
@@ -177,7 +177,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
         /** True when no payment record exists — reported, not silently zeroed. */
         amountUnknown: paid === undefined,
         datesApproximate,
-        note: credited ? "Paid with a Day Camp Pack credit — the amount is on the pack's line." : undefined,
+        note: credited ? "Paid with a Day Camp Pack credit - the amount is on the pack's line." : undefined,
       };
     });
 
@@ -208,7 +208,7 @@ export function buildFsaStatement(input: FsaInput): FsaStatement {
         ? `Dependent Care FSA covers children under ${FSA_AGE_LIMIT}. ${student.firstName} is ${ageAtPeriodEnd} at the end of this period.`
         : `A Dependent Care FSA reimburses care that lets a parent work, which means day camp. ${student.firstName} has no camp fees in this period` +
           (excludedCount > 0
-            ? ` — the ${excludedCount} other ${
+            ? ` - the ${excludedCount} other ${
                 excludedCount === 1 ? "enrollment is a class, lesson or performance" : "enrollments are classes, lessons or performances"
               }, which do not qualify at any age.`
             : "."),

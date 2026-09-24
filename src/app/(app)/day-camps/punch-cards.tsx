@@ -184,7 +184,7 @@ export function PunchCards({ board }: { board: PunchCardBoard }) {
                 ))}
               </ul>
               <p className="mt-3 text-[12.5px] text-muted-foreground">
-                {left} credit{left === 1 ? "" : "s"} will be left. Booked days are locked — to change one later, message the office.
+                {left} credit{left === 1 ? "" : "s"} will be left. Booked days are locked - to change one later, message the office.
               </p>
               <div className="mt-4 flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setConfirming(null)}>
@@ -255,7 +255,7 @@ function ChildCard({
                   ? packCredits > 0 && card.credits.day <= packCredits
                     ? `${card.credits.day} of ${packCredits} credit${packCredits === 1 ? "" : "s"} left`
                     : `${card.credits.day} credit${card.credits.day === 1 ? "" : "s"}`
-                  : "No credits — buy a pack below"}
+                  : "No credits - buy a pack below"}
               </Badge>
               {card.credits.snow > 0 && (
                 <Badge
@@ -277,7 +277,7 @@ function ChildCard({
           <p className="mt-1 text-muted-foreground">
             A punch card needs the child linked to their registration record.{" "}
             <Link href="/messages" className="underline">Message the office</Link> and we&apos;ll
-            connect them — usually the same day.
+            connect them - usually the same day.
           </p>
         </div>
       ) : (
@@ -465,7 +465,7 @@ function ChildCard({
             )}
           </div>
 
-          {/* Buy credits. One camper per pack — the registration system grants
+          {/* Buy credits. One camper per pack - the registration system grants
               them to the named camper and never shares between siblings. */}
           <div className="border-t px-4 py-3">
             <p className="text-[13px] font-medium">Buy more credits for {first}</p>
@@ -483,7 +483,7 @@ function ChildCard({
                   disabled={pending || !pack.bookable}
                   onClick={() => onBuyPack(pack.activityId)}
                 >
-                  {pack.name} — {formatCents(pack.cents)}
+                  {pack.name} - {formatCents(pack.cents)}
                   <span className="text-muted-foreground">
                     · {pack.credits} credits{picks.cart.size ? ` + ${picks.cart.size} day${picks.cart.size === 1 ? "" : "s"} in the cart` : ""}
                   </span>

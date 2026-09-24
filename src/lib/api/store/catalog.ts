@@ -106,7 +106,7 @@ export function priceFor(product: Product, optionValue?: string): number {
 export function describeCustomization(customization: Customization): string {
   switch (customization.kind) {
     case "spirit_button":
-      return `${customization.studentName}${customization.role ? ` — ${customization.role}` : ""} · ${customization.size}" ${customization.style}`;
+      return `${customization.studentName}${customization.role ? ` - ${customization.role}` : ""} · ${customization.size}" ${customization.style}`;
     case "star_page":
       return `${customization.studentName} · ${customization.pageSize}`;
     case "private_lesson":

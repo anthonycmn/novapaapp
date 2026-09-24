@@ -56,7 +56,7 @@ export function TipOfTheDay() {
           {quote.text}
           {quote.author && (
             <footer className="mt-1 text-[12px] text-tip-foreground/70">
-              — {quote.author}
+              - {quote.author}
             </footer>
           )}
         </blockquote>

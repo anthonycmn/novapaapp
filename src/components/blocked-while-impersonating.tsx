@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 
 const WHY: Record<string, string> = {
   document:
-    "Uploading and removing a family's own documents stays with them — a record that appears in their file should be one they put there.",
+    "Uploading and removing a family's own documents stays with them - a record that appears in their file should be one they put there.",
   pickup:
     "Who may collect a child is theirs to say. A change here has to be traceable to the parent who asked for it, not to whoever took the call.",
   health:

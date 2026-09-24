@@ -53,7 +53,7 @@ export async function NeedsAttentionPanel({
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13.5px] font-medium">
                     {alert.label}
-                    {alert.studentName ? ` — ${alert.studentName}` : ""}
+                    {alert.studentName ? ` - ${alert.studentName}` : ""}
                   </span>
                   <span className="block text-[12px] text-muted-foreground">{alert.why}</span>
                 </span>

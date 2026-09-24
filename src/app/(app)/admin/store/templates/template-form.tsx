@@ -66,7 +66,7 @@ export function TemplateForm({
   }
 
   /* The sample is drawn by the same renderer the parent form and print file
-     use, with a stand-in name — an admin approves the real geometry. */
+     use, with a stand-in name - an admin approves the real geometry. */
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -136,7 +136,7 @@ export function TemplateForm({
               ref={fileRef}
               id={`background-${production.id}`}
               type="file"
-              accept="image/*"
+              accept="image/*,.heic,.heif"
               onChange={onPickFile}
               className="sr-only"
             />

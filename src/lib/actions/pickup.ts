@@ -103,7 +103,7 @@ export async function createPickupRequestAction(
    * After the request is stored, so a mail failure cannot lose it.
    */
   const outcome = await notifySubmission({
-    subject: `${KIND_LABEL[parsed.data.kind]} — ${childName}`,
+    subject: `${KIND_LABEL[parsed.data.kind]} - ${childName}`,
     category: "pickup_request",
     includeAdmins: true,
     lines: [
@@ -178,7 +178,7 @@ export async function markArrivedAction(requestId: string): Promise<SubmissionSt
 
   if (result.alreadyArrived) {
     revalidatePath("/family/pickup");
-    return { ok: true, message: "Already told them — they know you're here." };
+    return { ok: true, message: "Already told them - they know you're here." };
   }
 
   const student = await provider.getStudent(user.id, result.request.studentId);
@@ -194,7 +194,7 @@ export async function markArrivedAction(requestId: string): Promise<SubmissionSt
   });
 
   const outcome = await notifySubmission({
-    subject: `HERE NOW — ${user.displayName} for ${childName}`,
+    subject: `HERE NOW - ${user.displayName} for ${childName}`,
     category: "pickup_arrival",
     only: ARRIVAL_RECIPIENTS.map((recipient) => recipient.email),
     includeAdmins: true,
@@ -218,7 +218,7 @@ export async function markArrivedAction(requestId: string): Promise<SubmissionSt
     message:
       outcome.delivered > 0
         ? "They know you're here. Someone is on their way."
-        : "Saved — but we could not reach anyone by email. Please call the front desk.",
+        : "Saved - but we could not reach anyone by email. Please call the front desk.",
   };
 }
 

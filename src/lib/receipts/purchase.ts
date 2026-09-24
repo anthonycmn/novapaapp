@@ -10,7 +10,7 @@ import { renderTextPdf, type PdfLine } from "./pdf";
  * purchased inside of the parent portal and send to Todd and CJ and then
  * provide a receipt in the parent's Family Vault."
  *
- * Three things are bought in the portal itself — a store order (spirit
+ * Three things are bought in the portal itself - a store order (spirit
  * buttons, star pages, lessons), a coaching package, and day camp days paid
  * for with credits the family already holds. Each has its own path to "paid";
  * all three end here, so the receipt, the sale email and the family's copy
@@ -36,7 +36,7 @@ export interface PortalPurchase {
   kind: PurchaseKind;
   /** NPA-…, COACH-…, or the day camp hold id. Also the idempotency key. */
   reference: string;
-  /** Hub family id — whose vault the receipt goes in. */
+  /** Hub family id - whose vault the receipt goes in. */
   familyId: string;
   familyName: string | null;
   /** Who pressed the button, when known. */
@@ -61,7 +61,7 @@ const KIND_LABEL: Record<PurchaseKind, string> = {
   day_camp_credits: "Day camp booking",
 };
 
-/** "Sep 24, 2026, 2:05 PM" in Eastern time — the house clock. */
+/** "Sep 24, 2026, 2:05 PM" in Eastern time - the house clock. */
 export function formatPaidAt(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -85,7 +85,7 @@ function amountText(purchase: PortalPurchase, cents: number): string {
 
 /** The vault's name for it. Carries the reference so a retry can find it. */
 export function receiptDocumentName(purchase: PortalPurchase): string {
-  return `Receipt — ${KIND_LABEL[purchase.kind]} ${purchase.reference}`;
+  return `Receipt - ${KIND_LABEL[purchase.kind]} ${purchase.reference}`;
 }
 
 /** Where the PDF lives in the family-documents bucket. Deterministic on purpose. */
@@ -108,7 +108,7 @@ export function renderReceiptPdf(purchase: PortalPurchase): Buffer {
   ];
   if (purchase.familyName || purchase.buyerName) {
     lines.push({
-      text: `Family: ${[purchase.familyName, purchase.buyerName].filter(Boolean).join(" — ")}`,
+      text: `Family: ${[purchase.familyName, purchase.buyerName].filter(Boolean).join(" - ")}`,
       size: 10,
     });
   }
@@ -157,7 +157,7 @@ export interface Message {
 function itemList(purchase: PortalPurchase): string[] {
   return purchase.lines.map((line) => {
     const qty = line.quantity > 1 ? `${line.quantity} × ` : "";
-    return `  ${qty}${line.description} — ${amountText(purchase, lineTotal(line))}`;
+    return `  ${qty}${line.description} - ${amountText(purchase, lineTotal(line))}`;
   });
 }
 
@@ -173,7 +173,7 @@ function totalText(purchase: PortalPurchase): string {
  */
 export function saleConfirmationForOffice(purchase: PortalPurchase): Message {
   const who = purchase.familyName ?? purchase.buyerName ?? "A family";
-  const subject = `Sale — ${KIND_LABEL[purchase.kind]} ${purchase.reference} · ${totalText(purchase)} (${who})`;
+  const subject = `Sale - ${KIND_LABEL[purchase.kind]} ${purchase.reference} · ${totalText(purchase)} (${who})`;
   const text = [
     `${who} bought this in the Parent Portal.`,
     "",
@@ -200,15 +200,15 @@ function greeting(name: string | null): string {
 /**
  * The family's confirmation. Only the store sends this one: coaching already
  * has its own receipt email (notices.ts), and a credits booking is confirmed
- * by the registration system's email — two confirmations of one purchase read
+ * by the registration system's email - two confirmations of one purchase read
  * like two charges.
  */
 export function purchaseConfirmationForFamily(purchase: PortalPurchase, vaultUrl: string): Message {
-  const subject = `Order confirmed — ${purchase.reference}`;
+  const subject = `Order confirmed - ${purchase.reference}`;
   const items = purchase.lines
     .map((line) => {
       const qty = line.quantity > 1 ? `${line.quantity} × ` : "";
-      return `${esc(qty + line.description)} — ${esc(amountText(purchase, lineTotal(line)))}`;
+      return `${esc(qty + line.description)} - ${esc(amountText(purchase, lineTotal(line)))}`;
     })
     .join("<br>");
 
@@ -216,7 +216,7 @@ export function purchaseConfirmationForFamily(purchase: PortalPurchase, vaultUrl
     preheader: `Your ${org.shortName} order ${purchase.reference} is paid.`,
     content: [
       section(
-        h2("Thank you — your order is confirmed") +
+        h2("Thank you - your order is confirmed") +
           p(esc(greeting(purchase.buyerName))) +
           p(`Your payment went through. Here is what you bought:`),
         { first: true }

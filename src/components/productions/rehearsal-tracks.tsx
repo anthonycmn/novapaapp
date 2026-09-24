@@ -72,7 +72,7 @@ export function RehearsalTracksHelp() {
             </div>
           ))}
           <p className="text-[11.5px] leading-relaxed text-muted-foreground sm:col-span-3">
-            Download before rehearsal — the wifi will not carry twenty devices.
+            Download before rehearsal - the wifi will not carry twenty devices.
             Students aged 13 and over can sign in with their own account;
             younger performers should use a parent&apos;s device. The code is
             licensed to our company for this production, so please keep it

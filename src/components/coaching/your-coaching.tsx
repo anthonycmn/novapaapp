@@ -63,7 +63,7 @@ export function YourCoaching({ summary }: { summary: CoachingSummary }) {
                 <span className="min-w-0 flex-1">
                   <span className="font-medium">{formatSlot(session.startsAt)}</span>
                   <span className="text-muted-foreground">
-                    {" — "}
+                    {" - "}
                     {session.studentName}
                     {session.coachName ? ` with ${session.coachName}` : ""}
                   </span>

@@ -126,14 +126,14 @@ export default async function StudentPage({
         <CardContent className="pt-0">
           {history.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No shows yet — the first one is always the most magical.
+              No shows yet - the first one is always the most magical.
             </p>
           ) : (
             <ol className="relative flex flex-col gap-3 border-l pl-4">
               {history.map((entry) => (
                 <li key={entry.id}>
                   <p className="font-medium">
-                    {entry.role} — {entry.productionTitle}
+                    {entry.role} - {entry.productionTitle}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {entry.year}
@@ -152,7 +152,7 @@ export default async function StudentPage({
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Hopes for this season</CardTitle>
             <CardDescription>
-              Private to your family and NOVA PA staff — never visible to other
+              Private to your family and NOVA PA staff - never visible to other
               families.
             </CardDescription>
           </CardHeader>

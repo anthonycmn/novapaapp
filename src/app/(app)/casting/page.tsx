@@ -38,7 +38,7 @@ export default async function CastingPage() {
         <EmptyState
           icon={<PartyPopper aria-hidden className="size-8" />}
           title="No casting news yet"
-          description="When casting is announced, your child's role appears here — you'll get a notification the moment it does."
+          description="When casting is announced, your child's role appears here - you'll get a notification the moment it does."
         />
       ) : (
         await Promise.all(
@@ -83,7 +83,7 @@ export default async function CastingPage() {
                     <span className="text-primary">{roleName}</span>
                   </CardTitle>
                   <CardDescription>
-                    {productionTitle}. Congratulations — every role makes the show.
+                    {productionTitle}. Congratulations - every role makes the show.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
@@ -95,7 +95,7 @@ export default async function CastingPage() {
                   />
 
                   {/* A shared part, and the nights that are theirs.
-                      Only drawn when the role is actually double cast — a part
+                      Only drawn when the role is actually double cast - a part
                       played the whole run carries no rows at all (hub 0052),
                       so this stays silent rather than telling every family
                       seven dates they already have on the calendar. */}
@@ -128,7 +128,7 @@ export default async function CastingPage() {
                         Exactly what {studentName.split(" ")[0]} is in
                       </h3>
                       <p className="mb-2 text-sm text-muted-foreground">
-                        From the production&apos;s script &amp; music breakdown —
+                        From the production&apos;s script &amp; music breakdown -
                         rehearsals for these will appear on your calendar.
                       </p>
                       <ul className="flex flex-col gap-1.5">
@@ -145,7 +145,7 @@ export default async function CastingPage() {
                             </span>
                             <span className="shrink-0 text-xs text-muted-foreground">
                               as {as}
-                              {isUnderstudy ? " — rehearse & be ready" : ""}
+                              {isUnderstudy ? " - rehearse & be ready" : ""}
                             </span>
                           </li>
                         ))}
@@ -154,18 +154,18 @@ export default async function CastingPage() {
                   )}
 
                   <div className="border-t pt-4">
-                    {/* Hub 0086 — CJ, 14 Sep 2026: the team releases the
+                    {/* Hub 0086 - CJ, 14 Sep 2026: the team releases the
                         rubrics; a family no longer opens that door itself. */}
                     {!feedbackReleased ? (
                       <p className="text-sm text-muted-foreground">
-                        Audition feedback — the same rubric the director, vocal director, and
-                        choreographer used, with the classes they recommend — is released by the
+                        Audition feedback - the same rubric the director, vocal director, and
+                        choreographer used, with the classes they recommend - is released by the
                         creative team once every rubric is in. You&apos;ll get a notification the
                         moment it&apos;s ready.
                       </p>
                     ) : feedback.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        Feedback requested ✓ — nothing has been submitted by
+                        Feedback requested ✓ - nothing has been submitted by
                         the team yet. Whatever they submit will appear here
                         automatically, no need to ask again.
                       </p>
@@ -177,7 +177,7 @@ export default async function CastingPage() {
                         {new Set(feedback.map((e) => e.discipline)).size < DISCIPLINES.length && (
                           <p className="rounded-lg bg-muted p-2 text-sm text-muted-foreground">
                             {new Set(feedback.map((e) => e.discipline)).size} of {DISCIPLINES.length} areas
-                            submitted so far — the rest appear as soon as the
+                            submitted so far - the rest appear as soon as the
                             team completes them.
                           </p>
                         )}
@@ -195,7 +195,7 @@ export default async function CastingPage() {
                               <p className="mb-2 text-sm font-semibold">
                                 {meta.label}{" "}
                                 <span className="font-normal text-muted-foreground">
-                                  — {evaluation.evaluatorName
+                                  - {evaluation.evaluatorName
                                     ? `${evaluation.evaluatorName}, ${title}`
                                     : title}
                                 </span>

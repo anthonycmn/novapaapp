@@ -60,7 +60,7 @@ export function buildFamilyIcs(
     `PRODID:-//${org.shortName}//Family Hub//EN`,
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
-    foldLine(`X-WR-CALNAME:${icsEscape(`${org.shortName} — ${options.familyName}`)}`),
+    foldLine(`X-WR-CALNAME:${icsEscape(`${org.shortName} - ${options.familyName}`)}`),
     `X-WR-TIMEZONE:${org.timeZone}`,
     // Without a stated cadence Apple Calendar refreshes subscribed feeds
     // weekly — a Tuesday rehearsal move reached some phones the following

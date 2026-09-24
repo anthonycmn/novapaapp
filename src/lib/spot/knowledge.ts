@@ -79,7 +79,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "absence",
     title: "Tell us your child will be away",
-    body: "Message the office and choose \"My child is unwell\" — it goes straight to our Director of Health & Safety. For a one-off late arrival or early collection, use the pickup and drop-off form instead.",
+    body: "Message the office and choose \"My child is unwell\" - it goes straight to our Director of Health & Safety. For a one-off late arrival or early collection, use the pickup and drop-off form instead.",
     links: [
       { label: "Message the office", href: "/messages/new" },
       { label: "Pickup & drop-off", href: "/family/pickup" },
@@ -104,7 +104,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "payment",
     title: "Balances and payment plans",
-    body: "Your outstanding balance is on the dashboard. For an invoice, a payment plan or financial aid, message the office and choose \"Billing or a payment plan\" — it reaches our CFO.",
+    body: "Your outstanding balance is on the dashboard. For an invoice, a payment plan or financial aid, message the office and choose \"Billing or a payment plan\" - it reaches our CFO.",
     links: [
       { label: "Dashboard", href: "/dashboard" },
       { label: "Message about billing", href: "/messages/new" },
@@ -163,7 +163,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "profile",
     title: "Update your family's details",
-    body: "You can edit your children's names, birthdays, schools, shirt sizes and photos, and your own contact details — and add another parent or guardian — on the family profile.",
+    body: "You can edit your children's names, birthdays, schools, shirt sizes and photos, and your own contact details - and add another parent or guardian - on the family profile.",
     links: [{ label: "Family profile", href: "/family" }],
     keywords: [
       "profile", "update", "edit", "change", "address", "phone", "email",
@@ -200,7 +200,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "message",
     title: "Message the office",
-    body: "Pick what your message is about and it goes straight to the person who handles it — registration to Jason, refunds to Todd, anything health-related to Katie. You will see who it reaches before you send.",
+    body: "Pick what your message is about and it goes straight to the person who handles it: registration to Jen, refunds to Todd, anything health related to Katie. You will see who it reaches before you send.",
     links: [{ label: "Message the office", href: "/messages/new" }],
     keywords: [
       "message", "contact", "email", "ask", "question", "reach", "talk", "speak",
@@ -214,7 +214,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
     // Truth-tracked by the feature switch (Sep 5 2026 audit): Spot was
     // promising galleries while /photos said "not yet available".
     body: isFeatureOpen("photos")
-      ? "Show galleries are on the photos page — we let you know when photos of your child are matched."
+      ? "Show galleries are on the photos page - we let you know when photos of your child are matched."
       : "Photos are still being set up. When they open you will see your child's show galleries on the photos page, and we will let you know.",
     links: [
       { label: "Photos", href: "/photos" },
@@ -226,7 +226,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "register",
     title: "Signing up for something new",
-    body: "What is open right now is on the dashboard, under \"Sign up for something\" — classes, camps and musicals, each linking straight to the booking page. Private lessons are booked in the portal.",
+    body: "What is open right now is on the dashboard, under \"Sign up for something\" - classes, camps and musicals, each linking straight to the booking page. Private lessons are booked in the portal.",
     links: [
       { label: "Dashboard", href: "/dashboard" },
       { label: "Private lessons", href: "/store/lessons" },
@@ -243,7 +243,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
     title: "Spirit buttons and star pages",
     body: isFeatureOpen("starPages")
       ? "Spirit buttons and playbill star pages are in the store, and your past orders are there too."
-      : "Spirit buttons are in the store now, and your past orders are there too. Playbill star pages are on the way — we will announce when they open.",
+      : "Spirit buttons are in the store now, and your past orders are there too. Playbill star pages are on the way - we will announce when they open.",
     links: [
       { label: "Spirit buttons", href: "/store/buttons" },
       ...(isFeatureOpen("starPages")
@@ -260,7 +260,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "notifications",
     title: "Notifications and what we send you",
-    body: "Everything we have told you is on the notifications page, and you can choose what we notify you about — including quiet hours — in notification settings.",
+    body: "Everything we have told you is on the notifications page, and you can choose what we notify you about - including quiet hours - in notification settings.",
     links: [
       { label: "Notifications", href: "/notifications" },
       { label: "Notification settings", href: "/notifications/settings" },
@@ -286,7 +286,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "feedback",
     title: "Telling us how it went",
-    body: "The feedback page is private — it goes to the office, not to the teaching artist, and it is how we find out what to change.",
+    body: "The feedback page is private - it goes to the office, not to the teaching artist, and it is how we find out what to change.",
     links: [{ label: "Give feedback", href: "/reviews" }],
     keywords: ["feedback", "review", "rate", "rating", "survey", "opinion", "suggestion"],
     phrases: ["leave feedback", "tell you what i think"],
@@ -294,7 +294,7 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
   {
     id: "tour",
     title: "Let me show you around",
-    body: "The tour walks through the dashboard, your calendar, the menu, your family profile, the store and where to find help — about a minute. It also lives at the bottom of the menu, under Show me around.",
+    body: "The tour walks through the dashboard, your calendar, the menu, your family profile, the store and where to find help - about a minute. It also lives at the bottom of the menu, under Show me around.",
     links: [{ label: "Show me around", href: "/dashboard?tour=1" }],
     // "start", "new" and "around" are deliberately absent: they appear in
     // questions about everything else ("when does the new class start").

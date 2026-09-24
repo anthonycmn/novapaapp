@@ -18,6 +18,6 @@ export async function POST() {
   return NextResponse.json({
     persistenceActive: await isPersistenceActive(),
     heartCount: post.reactionCounts.heart,
-    note: "POST again — heartCount must keep increasing across requests.",
+    note: "POST again - heartCount must keep increasing across requests.",
   });
 }

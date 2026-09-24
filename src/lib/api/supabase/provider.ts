@@ -103,7 +103,7 @@ import {
 } from "../messages/offering-topics";
 import type { DocumentCategory, FamilyDocument } from "../documents/types";
 import { getFaceMatchProvider } from "../photos/face-provider";
-import { reconcile } from "../registration/reconcile";
+import { reconcile, syncStatusFor } from "../registration/reconcile";
 import { fetchCoachingActivityIds } from "../registration/website";
 import type {
   AccountLink,
@@ -141,6 +141,7 @@ import {
   type UploadSource,
 } from "../storage";
 import { getPortalReadClient, getServiceClient, getWebsiteReadClient } from "./client";
+import { emailBodyToText, sendForNotice } from "@/lib/email/full-text";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
 import { runFromEvents, type ProductionRun } from "../productions/run";
@@ -513,17 +514,28 @@ class SupabaseDataProvider {
    */
   async listOpenOfferings(): Promise<OpenOffering[]> {
     try {
-      const { data, error } = await getWebsiteReadClient()
-        .from("activities")
-        .select("id, category, name, age_range, price_cents, open_spots, active, bookable, hidden")
-        .eq("active", true)
-        .eq("bookable", true)
-        .eq("hidden", false)
-        .range(0, 4999);
+      /*
+       * catalog_list() rather than a select on activities, because the seat
+       * count is the checkout's to compute and this app kept getting it wrong.
+       *
+       * Reading the table directly meant trusting activities.open_spots, and
+       * that column is maintained by hand: on 18 Sep 2026 it was correct on 54
+       * of 102 sellable rows, 29 rows claimed more places than the offering had
+       * seats, and it read 663 for a Frozen Jr production that had one. A
+       * family was being offered a show that was selling past its cast size.
+       *
+       * The function is what the public site's own Register buttons read. It
+       * returns `remaining` as capacity - sold - booked_offline - active
+       * unexpired holds, clamped at zero and null when the offering has no
+       * capacity, and its `bookable` also honours registration_opens_at and
+       * registration_closes_at, which the old select ignored entirely. Two
+       * readers, one answer, and no second opinion from this app.
+       */
+      const { data, error } = await getWebsiteReadClient().rpc("catalog_list");
       if (error) throw new Error(error.message);
       return (data ?? [])
-        .map((row) => offeringFromRow(row as Record<string, unknown>))
-        .filter((offering): offering is OpenOffering => offering !== null);
+        .map((row: unknown) => offeringFromRow(row as Record<string, unknown>))
+        .filter((offering: OpenOffering | null): offering is OpenOffering => offering !== null);
     } catch (error) {
       console.error("[catalog] could not read what's open:", error);
       return [];
@@ -644,6 +656,41 @@ class SupabaseDataProvider {
       .limit(200);
     if (error) throw new Error(`notifications lookup failed: ${error.message}`);
     return (data ?? []).map(mapNotification);
+  }
+
+  async getNotificationInFull(
+    actorId: string,
+    notificationId: string
+  ): Promise<{ notification: AppNotification; fullText: string } | null> {
+    await this.actor(actorId);
+    // Own rows only, by the filter: the service key reads everything.
+    const { data, error } = await this.db
+      .from("notifications")
+      .select("*")
+      .eq("id", notificationId)
+      .eq("user_id", actorId)
+      .maybeSingle();
+    if (error) throw new Error(`notification lookup failed: ${error.message}`);
+    if (!data) return null;
+    const notification = mapNotification(data);
+
+    // A "we emailed you this" notice holds only a preview; the email itself
+    // is in email_sends. Anything else is complete as written.
+    if (notification.type === "announcement") {
+      const from = new Date(Date.parse(notification.createdAt) - 10 * 60_000).toISOString();
+      const { data: sends } = await this.db
+        .from("email_sends")
+        .select("subject, body, sent_at")
+        .eq("subject", notification.title)
+        .gte("sent_at", from)
+        .lte("sent_at", notification.createdAt);
+      const send = sendForNotice(
+        notification,
+        (sends ?? []).map((s) => ({ subject: String(s.subject), body: String(s.body ?? ""), sentAt: s.sent_at as string | null }))
+      );
+      if (send) return { notification, fullText: emailBodyToText(send.body) };
+    }
+    return { notification, fullText: emailBodyToText(notification.body) };
   }
 
   async markNotificationRead(actorId: string, notificationId: string): Promise<void> {
@@ -863,7 +910,7 @@ class SupabaseDataProvider {
         const id = `lesson-${b.id}-${startsAt.slice(0, 10)}`;
         byEvent.set(id, {
           id, type: "class",
-          title: `${label} lesson — ${teacher?.full_name ?? "NOVA PA"}`,
+          title: `${label} lesson - ${teacher?.full_name ?? "NOVA PA"}`,
           startsAt,
           endsAt: new Date(startMs + Number(slot.duration_min) * 60_000).toISOString(),
           location: String(slot.location ?? ""),
@@ -1724,7 +1771,7 @@ class SupabaseDataProvider {
 
     const board = await this.boardFor(productionId);
     if (board.status !== "submitted") {
-      throw new Error("Cast the show first — understudies come after every role is filled");
+      throw new Error("Cast the show first - understudies come after every role is filled");
     }
     if (board.understudiesPublishedAt) {
       throw new Error("Understudies have already been published");
@@ -1746,7 +1793,7 @@ class SupabaseDataProvider {
       (entry) => entry.roleId === roleId && entry.studentId === studentId
     );
     if (holdsThisRole) {
-      throw new Error("They already play this role — pick a different understudy");
+      throw new Error("They already play this role - pick a different understudy");
     }
 
     // One understudy per lead, one lead per understudy: placing moves.
@@ -2144,6 +2191,12 @@ class SupabaseDataProvider {
       productions,
       classes,
       links: (linksRows ?? []).map((l) => this.mapAccountLink(l)),
+      // students.camper_id is the join to the register; the name is not.
+      studentCamperIds: new Map(
+        (studentsRows ?? [])
+          .filter((st) => st.camper_id)
+          .map((st) => [String(st.id), String(st.camper_id)])
+      ),
       coachingActivityIds,
       enrollmentExternalIds: new Map(
         (enrollmentsRows ?? [])
@@ -2161,6 +2214,23 @@ class SupabaseDataProvider {
         },
         { onConflict: "family_id,source", ignoreDuplicates: true }
       );
+    }
+    // A student matched by name because it had no camper id yet: stamp the
+    // id so the next run keys on it. The column is unique; a clash means two
+    // students claim one camper, and that is a row for a human, not a crash.
+    for (const link of plan.studentLinks) {
+      const { error: linkError } = await this.db
+        .from("students")
+        .update({ camper_id: link.camperId })
+        .eq("id", link.studentId)
+        .is("camper_id", null);
+      if (linkError) {
+        plan.issues.push({
+          kind: "conflict",
+          externalId: link.camperId,
+          message: `Student ${link.studentId} matched camper ${link.camperId} by name but the id could not be stamped: ${linkError.message}`,
+        });
+      }
     }
     for (const create of plan.creates) {
       await this.db.from("enrollments").insert({
@@ -2210,7 +2280,7 @@ class SupabaseDataProvider {
       .from("registration_sync_runs")
       .insert({
         source: snapshot.source, trigger,
-        status: plan.issues.length > 0 ? "partial" : "success",
+        status: syncStatusFor(plan.issues),
         started_at: startedAt, finished_at: new Date().toISOString(),
         counts: plan.counts, issues: plan.issues,
       })
@@ -2914,7 +2984,7 @@ class SupabaseDataProvider {
     const actor = await this.actor(actorId);
     const { data: current, error: readError } = await this.db
       .from("guardians")
-      .select("family_id")
+      .select("family_id, email")
       .eq("id", guardianId)
       .maybeSingle();
     if (readError) throw new Error(`guardian lookup failed: ${readError.message}`);
@@ -2925,7 +2995,16 @@ class SupabaseDataProvider {
     // the account belongs to, and must not be reachable from a family form.
     const row: Row = {};
     if (patch.fullName !== undefined) row.full_name = patch.fullName;
-    if (patch.email !== undefined) row.email = patch.email;
+    if (patch.email !== undefined) {
+      row.email = patch.email;
+      // The login is the auth user with this row's email. Change the email
+      // and the old link is a stranger's: one family's row pointed at a
+      // student's account for three weeks this way. Cleared here; the next
+      // sign-in by the new address re-links it (ensureParentProfile).
+      if (patch.email.trim().toLowerCase() !== String(current.email ?? "").trim().toLowerCase()) {
+        row.user_id = null;
+      }
+    }
     if (patch.phone !== undefined) row.phone = patch.phone;
     if (patch.relationship !== undefined) row.relationship = patch.relationship;
     if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl;
@@ -3231,7 +3310,9 @@ class SupabaseDataProvider {
       .replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ")
       .replace(/&amp;/g, "&")
-      .replace(/s+/g, " ")
+      // \s, not s: the bare "s+" turned every letter s into a space, so 905
+      // previews read "Hi Familie !" (found 23 Sep 2026).
+      .replace(/\s+/g, " ")
       .trim();
     return text.length > limit ? `${text.slice(0, limit - 1)}…` : text;
   }
@@ -4457,7 +4538,7 @@ class SupabaseDataProvider {
         quantity,
         unitPriceCents: BUTTON_PRICES_CENTS[design.size],
         productType: "spirit_button",
-        displayName: `${design.size}" spirit button — ${design.studentName}`,
+        displayName: `${design.size}" spirit button - ${design.studentName}`,
       }),
     });
     if (error) throw new Error(`add to cart failed: ${error.message}`);
@@ -4506,7 +4587,7 @@ class SupabaseDataProvider {
         productType: product.type,
         productId: product.id,
         optionValue: input.optionValue,
-        displayName: optionLabel ? `${product.name} — ${optionLabel}` : product.name,
+        displayName: optionLabel ? `${product.name} - ${optionLabel}` : product.name,
         customization: input.customization,
       }),
     });
@@ -4951,7 +5032,7 @@ class SupabaseDataProvider {
           // message riding a paperwork toggle.
           type: "pickup_decision",
           title: `Pick-up request ${decision.status}`,
-          body: `${student?.first_name ?? "Your student"}: ${decision.note ?? "See details in the app."}`,
+          body: `${student?.first_name ?? "Your student"}: ${decision.note ?? "See details in the Parent Portal."}`,
           url: "/family/pickup",
         }))
       );
@@ -6043,7 +6124,7 @@ class SupabaseDataProvider {
     if (error) {
       // The partial unique index rejects a second active booking.
       if (error.message.includes("lesson_slot_one_active_idx") || error.code === "23505") {
-        throw new Error("That time was just taken — pick another open slot");
+        throw new Error("That time was just taken - pick another open slot");
       }
       throw new Error(`booking failed: ${error.message}`);
     }
@@ -6502,7 +6583,7 @@ export function createSupabaseProvider(): DataProvider {
       if (typeof prop !== "string") return value;
       return () => {
         throw new Error(
-          `SupabaseDataProvider.${prop} is not ported yet — this screen still requires the mock backend (NEXT_PUBLIC_DATA_MODE=mock).`
+          `SupabaseDataProvider.${prop} is not ported yet - this screen still requires the mock backend (NEXT_PUBLIC_DATA_MODE=mock).`
         );
       };
     },

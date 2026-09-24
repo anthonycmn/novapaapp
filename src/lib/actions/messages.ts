@@ -70,7 +70,7 @@ export async function startThreadAction(
     detail: { threadId, topicId: parsed.data.topicId, recipientRole: parsed.data.recipientRole },
   });
   /* The staff being asked should feel the buzz now, not at the next cron
-     tick — a new thread wrote its notification rows already (hub 0068). */
+     tick - a new thread wrote its notification rows already (hub 0068). */
   await kickPushQueue();
   revalidatePath("/messages");
   redirect(`/messages/${threadId}`);

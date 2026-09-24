@@ -88,7 +88,7 @@ export default async function StarPagesPage({
       <>
         <SectionHeader
           as="h1"
-          title={`Star page — ${chosen.production.title}`}
+          title={`Star page - ${chosen.production.title}`}
           subtitle="A tribute printed in the playbill, in your own words"
           right={
             <Link

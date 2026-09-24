@@ -125,9 +125,9 @@ export default async function NotificationsPage({
                       className="mt-1.5 size-2 shrink-0 rounded-full bg-primary"
                     />
                   )}
-                  {/* The whole notification is a link to its destination —
+                  {/* The whole notification is a link to its destination -
                       a casting notice lands on /casting, a reply on the
-                      thread — and following it marks it read. */}
+                      thread - and following it marks it read. */}
                   <a
                     href={`/api/notifications/go/${notification.id}`}
                     className="min-w-0 flex-1 rounded-md hover:opacity-80"

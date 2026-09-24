@@ -71,7 +71,7 @@ export default async function RegistrationAdminPage() {
         <CardContent className="flex flex-col gap-1 pt-0 text-sm">
           <p>
             <span className="text-muted-foreground">Configured: </span>
-            {registrationProvider.isConfigured() ? "Yes" : "No — using mock data"}
+            {registrationProvider.isConfigured() ? "Yes" : "No - using mock data"}
           </p>
           <p>
             <span className="text-muted-foreground">Last sync: </span>

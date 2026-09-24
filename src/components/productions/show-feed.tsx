@@ -122,7 +122,7 @@ export async function ShowFeed({
               />
             ))}
             <p className="text-center text-[11.5px] text-muted-foreground">
-              Questions you ask here are private — only staff see them, unless
+              Questions you ask here are private - only staff see them, unless
               they publish the answer for everyone.
             </p>
           </>

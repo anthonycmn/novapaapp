@@ -69,7 +69,7 @@ function cardFor(
   studentId: string
 ): { card: PunchCard } | { error: string } {
   if (board.status !== "ok") {
-    return { error: "We can't reach the registration system right now. Nothing was booked — please try again in a minute." };
+    return { error: "We can't reach the registration system right now. Nothing was booked - please try again in a minute." };
   }
   const card = board.cards.find((c) => c.student.id === studentId);
   if (!card) return { error: "That student isn't in your family." };
@@ -106,7 +106,7 @@ function pickSessions(
     if (!session.bookable || (session.remaining != null && session.remaining <= 0)) {
       return { error: `${session.name} on ${day.label} is full.` };
     }
-    if (datesSeen.has(day.date)) return { error: `Pick one session per day — ${day.label} was chosen twice.` };
+    if (datesSeen.has(day.date)) return { error: `Pick one session per day - ${day.label} was chosen twice.` };
     datesSeen.add(day.date);
     picks.push({ day, session });
   }
@@ -188,7 +188,7 @@ export async function bookWithCreditsAction(
   }
   const holdId = (hold as { hold_id?: string } | null)?.hold_id;
   if (!holdId || !/^[0-9a-f-]{36}$/.test(holdId)) {
-    return { ok: false, message: "The registration system didn't give us a hold. Nothing was booked — please try again." };
+    return { ok: false, message: "The registration system didn't give us a hold. Nothing was booked - please try again." };
   }
 
   /* 4. The checkout's own endpoint, the $0 path. */
@@ -236,7 +236,7 @@ export async function bookWithCreditsAction(
       .maybeSingle();
     if (!order) {
       console.error("punch card: reg-pay did not confirm", { holdId, payError });
-      return { ok: false, message: "The registration system didn't confirm the booking. Nothing was charged and no credit was used — please try again, or message the office." };
+      return { ok: false, message: "The registration system didn't confirm the booking. Nothing was charged and no credit was used - please try again, or message the office." };
     }
     confirmed = true;
   }
@@ -324,13 +324,13 @@ function friendlyHoldError(message: string, picks: { day: PunchCardDay; session:
   if (soldOut) {
     const pick = picks.find((p) => p.session.activityId === Number(soldOut[1]));
     return pick
-      ? `${pick.session.name} on ${pick.day.label} just filled up. Nothing was booked — pick another day.`
-      : "One of those days just filled up. Nothing was booked — pick another day.";
+      ? `${pick.session.name} on ${pick.day.label} just filled up. Nothing was booked - pick another day.`
+      : "One of those days just filled up. Nothing was booked - pick another day.";
   }
   if (/GATED/.test(message)) return "Registration for that isn't open yet.";
   if (/unknown activity/.test(message)) return "One of those days is no longer on the calendar.";
   if (/not enough credits/.test(message)) return "Not enough credits for that many days.";
-  return "The registration system couldn't hold those days. Nothing was booked — please try again.";
+  return "The registration system couldn't hold those days. Nothing was booked - please try again.";
 }
 
 /**

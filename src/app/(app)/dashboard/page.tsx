@@ -250,7 +250,7 @@ export default async function DashboardPage({
               blurb: "What will be charged to your card, and on which day.",
               /* Top zone, right under the alerts: money is what a parent came
                  to check, and at phone width the right-hand stack rendered
-                 this panel sixteenth — below the store tiles and Meet the
+                 this panel sixteenth - below the store tiles and Meet the
                  team (Sep 6 2026 audit). The stat row already pays for this
                  same fetch, so the panel resolves with it. */
               zone: "top" as const,
@@ -406,7 +406,7 @@ export default async function DashboardPage({
             <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[14px] font-semibold">Spirit buttons</span>
-                {/* Said before the click, not after it — CJ, 4 Sep 2026 —
+                {/* Said before the click, not after it - CJ, 4 Sep 2026 -
                     and said by the feature switch, not a hardcoded pill: the
                     tile was still promising "coming soon" the day the store
                     opened (Sep 5 2026 audit). */}
@@ -486,7 +486,7 @@ export default async function DashboardPage({
                         <p className="truncate text-[13px] font-medium">
                           {student.preferredName ?? student.firstName} {student.lastName}
                         </p>
-                        {/* 916 of 943 students have no grade on file — a
+                        {/* 916 of 943 students have no grade on file - a
                             blank "Grade" line on nearly every card read as
                             broken (Sep 5 2026 audit). Say it or say nothing. */}
                         {student.grade && (
@@ -523,7 +523,7 @@ export default async function DashboardPage({
             },
             /* Streamed: the pills tell Stripe's truth (installments vs paid),
                and the card must not wait on Stripe to paint. The fallback is
-               the same card with the plan unknown — no pill says "Paid"
+               the same card with the plan unknown - no pill says "Paid"
                before it has been verified. */
             node: (
               <Suspense
@@ -592,7 +592,7 @@ export default async function DashboardPage({
                       </p>
                       <p className="mt-1.5 text-[12px] text-gold">
                         {nextCall
-                          ? `Next: ${formatEventTime(nextCall.startsAt)} — ${nextCall.title}`
+                          ? `Next: ${formatEventTime(nextCall.startsAt)} - ${nextCall.title}`
                           : "No calls on your calendar yet"}
                       </p>
                     </Link>
@@ -607,7 +607,7 @@ export default async function DashboardPage({
 
   return (
     <>
-      {/* Above everything, deliberately — the same place the staff portal puts
+      {/* Above everything, deliberately - the same place the staff portal puts
           "We Care". The first thing on the page should be the thing that
           outranks everything else on it. */}
       <MissionPlaque />
@@ -727,7 +727,7 @@ export default async function DashboardPage({
       <DashboardArranger tiles={tiles} saved={layout} />
 
       {/* The tour (0083): opens once per account on this page, and again
-          whenever ?tour=1 asks for it — the menu's "Show me around". The
+          whenever ?tour=1 asks for it - the menu's "Show me around". The
           dashboard is where it runs because the dashboard is what it points at. */}
       {user.familyId && (
         <PortalTour

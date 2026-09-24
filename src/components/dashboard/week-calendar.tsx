@@ -167,7 +167,7 @@ export function WeekCalendar({
       {total === 0 ? (
         <p className="px-4 py-8 text-center text-[13px] text-muted-foreground">
           {offset === 0
-            ? "Nothing on this week — enjoy the quiet before the next show week."
+            ? "Nothing on this week - enjoy the quiet before the next show week."
             : "Nothing scheduled that week."}
         </p>
       ) : (
@@ -278,7 +278,7 @@ function EventRow({
         </p>
       )}
 
-      {/* What is happening at rehearsal — the thing parents kept saying
+      {/* What is happening at rehearsal - the thing parents kept saying
           they could not see from here. Who is called, what is worked; the
           full plan follows below, outside the link. */}
       <EventNotes event={event} compact people={event.people} />

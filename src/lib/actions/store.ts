@@ -229,7 +229,7 @@ export async function checkoutAction(): Promise<void> {
   if (await refuseIfImpersonating("store"))
     redirect(
       `/store/cart?error=${encodeURIComponent(
-        "You're viewing this family's account as staff, so checkout is disabled — it would spend their money."
+        "You're viewing this family's account as staff, so checkout is disabled - it would spend their money."
       )}`
     );
 
@@ -256,7 +256,7 @@ export async function checkoutAction(): Promise<void> {
   await logActivity({
     user,
     action: "store.checkout_started",
-    summary: `Checked out the cart — order ${order.reference}, ${cart.length} item${
+    summary: `Checked out the cart - order ${order.reference}, ${cart.length} item${
       cart.length === 1 ? "" : "s"
     }`,
     detail: { reference: order.reference },

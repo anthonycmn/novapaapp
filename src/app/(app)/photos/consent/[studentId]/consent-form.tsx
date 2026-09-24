@@ -102,7 +102,7 @@ export function ConsentForm({
           ref={fileRef}
           id="reference-photos"
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
           multiple
           onChange={onPick}
           className="sr-only"

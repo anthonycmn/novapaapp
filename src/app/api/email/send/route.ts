@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
   }
   if (productionIds.length + classIds.length > MAX_AUDIENCE_SEGMENTS) {
     return NextResponse.json(
-      { error: `Too many segments — ${MAX_AUDIENCE_SEGMENTS} at most. Send to everyone instead.` },
+      { error: `Too many segments - ${MAX_AUDIENCE_SEGMENTS} at most. Send to everyone instead.` },
       { status: 400, headers: corsHeaders() }
     );
   }

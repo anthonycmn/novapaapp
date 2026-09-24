@@ -45,8 +45,8 @@ export function StudentForm({ student }: { student: Student }) {
       {/*
         The photo, which is no longer set here.
 
-        There were two ways to put a face on a child — an upload on this form
-        and the headshot link on the audition page — writing the same column, so
+        There were two ways to put a face on a child - an upload on this form
+        and the headshot link on the audition page - writing the same column, so
         whichever was saved last silently won and neither screen said so. Tony,
         3 Sep 2026: "yes remove the profile photo upload too." One place for it
         now; this shows what is there and where to change it.
@@ -60,7 +60,7 @@ export function StudentForm({ student }: { student: Student }) {
         <p className="text-[12.5px] text-muted-foreground">
           {student.headshotUrl
             ? "This is the photo staff see. "
-            : "No photo yet — it helps staff recognize your child at check-in. "}
+            : "No photo yet - it helps staff recognize your child at check-in. "}
           Set it as a link under{" "}
           <Link href="/auditions" className="text-primary underline-offset-4 hover:underline">
             Auditions
@@ -106,7 +106,7 @@ export function StudentForm({ student }: { student: Student }) {
           <FieldError message={state.errors?.dateOfBirth} />
           {age !== null && (
             <p className="text-[11.5px] text-muted-foreground">
-              Currently {age} years old — we work the age out from the birthday, so
+              Currently {age} years old - we work the age out from the birthday, so
               there is nothing else to keep up to date.
             </p>
           )}
@@ -117,7 +117,7 @@ export function StudentForm({ student }: { student: Student }) {
         <strong>Use their legal name here.</strong> Registration matches your
         child to their classes by this name, so a nickname in these two boxes can
         detach them from their enrollment. Put what they like to be called in
-        <em> preferred name</em> below — that is the name we use out loud, on the
+        <em> preferred name</em> below - that is the name we use out loud, on the
         roster and in the program.
       </p>
 
@@ -167,7 +167,7 @@ export function StudentForm({ student }: { student: Student }) {
           id="allergies"
           name="allergies"
           defaultValue={student.allergies ?? ""}
-          placeholder="e.g. Peanuts — EpiPen in bag"
+          placeholder="e.g. Peanuts - EpiPen in bag"
           className="min-h-16"
         />
         <p className="text-xs text-muted-foreground">
@@ -181,7 +181,7 @@ export function StudentForm({ student }: { student: Student }) {
           id="medicalFlags"
           name="medicalFlags"
           defaultValue={student.medicalFlags ?? ""}
-          placeholder="e.g. Asthma — inhaler in backpack"
+          placeholder="e.g. Asthma - inhaler in backpack"
           className="min-h-16"
         />
       </div>

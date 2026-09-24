@@ -42,7 +42,7 @@ export class MockSmugMugProvider implements SmugMugProvider {
       {
         id: "gal-frozen-dress",
         externalId: "SM-ALBUM-8f3a",
-        title: "Frozen Jr. — Dress Rehearsal",
+        title: "Frozen Jr. - Dress Rehearsal",
         productionId: "prod-frozen",
         photoCount: 6,
         url: "https://novapa.smugmug.com/Frozen-Jr-Dress-Rehearsal",
@@ -236,7 +236,7 @@ export class SmugMugApiProvider implements SmugMugProvider {
       if (batch.length < PAGE_SIZE) return out;
     }
     console.warn(
-      `SmugMug: stopped paging ${path} at ${MAX_PAGES * PAGE_SIZE} items — this is a guard, not a real limit.`
+      `SmugMug: stopped paging ${path} at ${MAX_PAGES * PAGE_SIZE} items - this is a guard, not a real limit.`
     );
     return out;
   }

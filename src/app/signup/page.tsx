@@ -42,7 +42,7 @@ export default async function SignupPage({
             <CardTitle as="h2">Check your email 📬</CardTitle>
             <CardDescription>
               We sent a confirmation link to <strong>{email}</strong>. Click it,
-              then come back and sign in — your family&apos;s schedule and shows
+              then come back and sign in - your family&apos;s schedule and shows
               will be waiting.
             </CardDescription>
           </CardHeader>
@@ -60,7 +60,7 @@ export default async function SignupPage({
           <CardHeader>
             <CardTitle as="h2">Create your account</CardTitle>
             <CardDescription>
-              Use the same email you registered with — that&apos;s how we find
+              Use the same email you registered with - that&apos;s how we find
               your family and your kids&apos; shows.
             </CardDescription>
           </CardHeader>

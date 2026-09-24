@@ -103,7 +103,7 @@ function GuardianRow({ guardian }: { guardian: Guardian }) {
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             onChange={onPickFile}
             className="sr-only"
             aria-label={`Photo of ${guardian.fullName || "this parent"}`}
@@ -247,7 +247,7 @@ function NewGuardianRow({ onDone }: { onDone: () => void }) {
       </div>
       <p className="text-[11.5px] leading-snug text-muted-foreground">
         Adding someone here records them as a guardian. It does not give them a
-        login — the front office sends an invitation separately.
+        login - the front office sends an invitation separately.
       </p>
     </form>
   );

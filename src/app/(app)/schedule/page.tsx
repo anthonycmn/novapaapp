@@ -74,7 +74,7 @@ export default async function SchedulePage() {
             <span className="font-medium text-destructive">
               {conflictCount} scheduling conflict{conflictCount === 1 ? "" : "s"}
             </span>{" "}
-            between your children — check the flagged events below.
+            between your children - check the flagged events below.
           </CardContent>
         </Card>
       )}

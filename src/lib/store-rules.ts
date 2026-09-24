@@ -37,6 +37,6 @@ export function assessPhotoQuality(
   return {
     quality: "low",
     dpi,
-    message: `This photo is too small for a ${size}" button (about ${dpi} DPI — we recommend ${required}px on the short side). It will look blurry when pressed. Try a larger photo, or choose a smaller button.`,
+    message: `This photo is too small for a ${size}" button (about ${dpi} DPI - we recommend ${required}px on the short side). It will look blurry when pressed. Try a larger photo, or choose a smaller button.`,
   };
 }

@@ -84,7 +84,7 @@ export default async function AuditionPage({
           <ArrowLeft aria-hidden size={14} /> All auditions
         </Link>
         <h1 className="mt-1 text-2xl font-semibold">
-          {displayName} — {production.title}
+          {displayName} - {production.title}
         </h1>
         <p className="text-muted-foreground">
           Everything on this page is for this show. You can come back and change
@@ -93,14 +93,14 @@ export default async function AuditionPage({
       </div>
 
       {/* Say plainly who reads it. A parent handing over video of their child
-          singing in a kitchen is owed that before they press the button — and
+          singing in a kitchen is owed that before they press the button - and
           now that the videos are the family's own links, it has to say who can
           open one, because that part is their decision rather than ours. */}
       <Card className="gold-band">
         <CardContent className="flex items-start gap-2 p-4 text-[13px]">
           <Eye aria-hidden className="mt-0.5 size-4 shrink-0" />
           <p>
-            This goes to the directing team for {production.title} — nobody
+            This goes to the directing team for {production.title} - nobody
             else. The videos and the resume are links you own: one is only as
             private as you have set it, so unlisted or link-only is worth a
             moment&apos;s thought.
@@ -130,7 +130,7 @@ export default async function AuditionPage({
           <CardDescription>
             The photo the team sees next to {displayName}&apos;s name, here and
             everywhere else in the portal. This one is {displayName}&apos;s
-            rather than this show&apos;s — change it here and it changes
+            rather than this show&apos;s - change it here and it changes
             everywhere, including next season.
           </CardDescription>
         </CardHeader>

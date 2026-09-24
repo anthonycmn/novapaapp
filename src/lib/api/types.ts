@@ -93,7 +93,7 @@ export interface StudentConsents {
 export interface ResumeCredit {
   id: string;
   category: "role" | "training" | "special_skill";
-  title: string; // "Annie — Annie Jr." / "Ballet — 4 years" / "Juggling"
+  title: string; // "Annie - Annie Jr." / "Ballet - 4 years" / "Juggling"
   organization?: string;
   year?: string;
   notes?: string;
@@ -149,7 +149,7 @@ export interface Program {
 export interface ClassOffering {
   id: string;
   programId: string;
-  name: string; // "Musical Theater Dance — Level 2"
+  name: string; // "Musical Theater Dance - Level 2"
   dayOfWeek: number; // 0=Sun
   startTime: string; // "16:30" local
   endTime: string;
@@ -424,7 +424,7 @@ export interface CalendarEvent {
   title: string;
   startsAt: string; // UTC
   endsAt: string; // UTC
-  callTime?: string; // UTC — arrive-by
+  callTime?: string; // UTC - arrive-by
   location: string;
   mapUrl?: string;
   whatToBring?: string;
@@ -609,7 +609,7 @@ export interface NotificationPrefs {
 /* ── Email (Phase 2, #1) ────────────────────────────────────────────────── */
 
 export type EmailCategory =
-  | "critical" // safety/logistics — cannot be opted out of
+  | "critical" // safety/logistics - cannot be opted out of
   | "casting"
   | "payment"
   | "newsletter"
@@ -668,7 +668,7 @@ export interface HealthForm {
   signedByName?: string;
   signedAt?: string;
   signedFromIp?: string;
-  expiresOn: string; // ISO date — end of season validity
+  expiresOn: string; // ISO date - end of season validity
   createdAt: string;
   updatedAt: string;
 }

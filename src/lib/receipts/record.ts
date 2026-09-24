@@ -139,7 +139,7 @@ export async function recordPortalPurchase(
       return result;
     }
   } catch (error) {
-    // Could not check — carry on. A rare duplicate beats a missing receipt.
+    // Could not check - carry on. A rare duplicate beats a missing receipt.
     console.error("receipts: could not check for an existing receipt", error);
   }
 
@@ -264,7 +264,7 @@ export async function recordCoachingPurchasePaid(reference: string): Promise<Rec
       familyEmail: contact.email,
       studentNames: studentName ? [studentName] : [],
       lines: [{
-        description: `${row.service} — ${row.sessions} session${row.sessions === 1 ? "" : "s"}`,
+        description: `${row.service} - ${row.sessions} session${row.sessions === 1 ? "" : "s"}`,
         quantity: 1,
         unitCents: row.amount_cents,
       }],
@@ -301,7 +301,7 @@ export async function recordDayCampCreditBooking(input: {
         buyerName: contact.buyerName,
         familyEmail: contact.email,
         studentNames: [input.studentName],
-        lines: input.days.map((day) => ({ description: `${day.name} — ${day.date}`, quantity: 1, unitCents: 0 })),
+        lines: input.days.map((day) => ({ description: `${day.name} - ${day.date}`, quantity: 1, unitCents: 0 })),
         totalCents: 0,
         paidAt: new Date().toISOString(),
         paidWith: `${used} day camp credit${used === 1 ? "" : "s"} (${input.creditsLeft} left)`,

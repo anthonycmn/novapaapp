@@ -88,7 +88,7 @@ export default async function UnsubscribePage({
           <h1 className="text-2xl font-semibold">You&apos;re unsubscribed</h1>
           <p className="max-w-sm text-muted-foreground">
             Your family won&apos;t receive {label} from us anymore. Anything
-            about your child&apos;s safety or schedule still comes through —
+            about your child&apos;s safety or schedule still comes through -
             that part isn&apos;t optional, and we keep it rare.
           </p>
           <form action={resubscribe}>
@@ -112,7 +112,7 @@ export default async function UnsubscribePage({
           <h1 className="text-2xl font-semibold">Unsubscribe from {label}?</h1>
           <p className="max-w-sm text-muted-foreground">
             This stops {label} for your whole family. Anything about your
-            child&apos;s safety or schedule still comes through — that part
+            child&apos;s safety or schedule still comes through - that part
             isn&apos;t optional, and we keep it rare.
           </p>
           <form action={unsubscribe}>

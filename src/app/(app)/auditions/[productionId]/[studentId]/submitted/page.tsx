@@ -65,7 +65,7 @@ export default async function AuditionSubmittedPage({
               {isUpdate ? "Your audition has been updated" : "Your audition has been submitted"}
             </h1>
             <p className="mt-1 text-muted-foreground">
-              {displayName} — {production.title}
+              {displayName} - {production.title}
             </p>
           </div>
 
@@ -92,7 +92,7 @@ export default async function AuditionSubmittedPage({
             <Mail aria-hidden className="mt-0.5 size-4 shrink-0" />
             {emailFailed ? (
               <span>
-                We could not email you a copy just now — that is a fault at our end, and
+                We could not email you a copy just now - that is a fault at our end, and
                 your audition is safely in. Please keep the code above; it is the whole
                 receipt, and quoting it is all we need if you ask us about this audition.
               </span>
@@ -100,7 +100,7 @@ export default async function AuditionSubmittedPage({
               <span>
                 We&apos;ve emailed a copy of this, with the code, to{" "}
                 <strong className="text-foreground">{user.email}</strong>. Keep it with your
-                records — if you ever need to ask about this audition, quote the code.
+                records - if you ever need to ask about this audition, quote the code.
               </span>
             )}
           </p>

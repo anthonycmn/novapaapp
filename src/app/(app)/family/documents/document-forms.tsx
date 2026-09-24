@@ -102,7 +102,7 @@ export function DocumentUploadForm({
         pathName="filePath"
         bucket="family-documents"
         label="File"
-        accept="application/pdf,image/jpeg,image/png,image/webp"
+        accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         hint="A PDF or a photo of the form, up to 20 MB."
         onUploaded={setUploaded}
       />

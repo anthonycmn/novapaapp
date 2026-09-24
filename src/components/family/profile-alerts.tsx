@@ -24,7 +24,7 @@ export function ProfileAlerts({ review }: { review: ProfileReview }) {
           <span>
             <span className="font-medium">This profile is complete.</span>{" "}
             <span className="text-muted-foreground">
-              Nothing outstanding — thank you, it genuinely makes show week easier.
+              Nothing outstanding - thank you, it genuinely makes show week easier.
             </span>
           </span>
         </p>

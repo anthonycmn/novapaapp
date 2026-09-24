@@ -49,5 +49,5 @@ export function describeAbsenceWindow(window: AbsenceWindow): string {
   if (from && to) return `${date}, ${from} – ${to}`;
   if (from) return `${date}, from ${from}`;
   if (to) return `${date}, until ${to}`;
-  return `${date} — the whole call`;
+  return `${date}: the whole call`;
 }

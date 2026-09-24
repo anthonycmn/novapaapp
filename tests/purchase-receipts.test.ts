@@ -78,7 +78,7 @@ describe("the family's confirmation", () => {
       { ...STORE, lines: [{ description: "<b>Sofia</b>", quantity: 1, unitCents: 4100 }] },
       "https://portal.novapa.org/family/documents"
     );
-    expect(message.subject).toBe("Order confirmed — NPA-1042");
+    expect(message.subject).toBe("Order confirmed - NPA-1042");
     expect(message.html).toContain("https://portal.novapa.org/family/documents");
     expect(message.html).not.toContain("<b>Sofia</b>");
     expect(message.text).toContain("Hi Maria,");

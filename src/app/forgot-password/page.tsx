@@ -83,7 +83,7 @@ export default async function ForgotPasswordPage({
                 {error === "code" && (
                   <p role="alert" className="text-sm text-destructive">
                     That code didn&apos;t match, or it has expired. Check the
-                    newest email — each new request replaces the last code.
+                    newest email - each new request replaces the last code.
                   </p>
                 )}
               </div>
@@ -105,7 +105,7 @@ export default async function ForgotPasswordPage({
             </form>
 
             {/*
-              We cannot say whether that address has an account — Supabase
+              We cannot say whether that address has an account - Supabase
               answers every request identically so nobody can discover which
               emails are registered, and we are not going to weaken that.
               What we CAN do is name the reason it is nearly always missing:
@@ -115,7 +115,7 @@ export default async function ForgotPasswordPage({
             <p className="rounded-md border border-amber-300/60 bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 dark:border-amber-600/60 dark:bg-secondary dark:text-amber-100">
               <strong className="font-semibold">Nothing after five minutes?</strong>{" "}
               Check spam first. Then: your account is probably under a
-              different email — plenty of families have two on file. Write to{" "}
+              different email - plenty of families have two on file. Write to{" "}
               <a
                 href={`mailto:${org.supportEmail}`}
                 className="font-semibold underline underline-offset-2"
@@ -146,7 +146,7 @@ export default async function ForgotPasswordPage({
             </CardTitle>
             <CardDescription>
               {existing
-                ? "We already have an account on that email from your registration — you just need a password on it. Send yourself a code below and pick one."
+                ? "We already have an account on that email from your registration - you just need a password on it. Send yourself a code below and pick one."
                 : "Enter the email on your family account and we'll send you a code to choose a new password."}
             </CardDescription>
           </CardHeader>

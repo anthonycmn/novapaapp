@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     default: org.appName,
     template: `%s · ${org.appName}`,
   },
-  description: `The family hub for ${org.name} — schedules, profiles, forms, photos, and news for ${org.programBrand} families.`,
+  description: `The family hub for ${org.name} - schedules, profiles, forms, photos, and news for ${org.programBrand} families.`,
   applicationName: org.appName,
   appleWebApp: {
     capable: true,
