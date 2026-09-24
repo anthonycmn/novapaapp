@@ -1,5 +1,6 @@
 import "server-only";
 import { org } from "@/config/org";
+import { PURCHASE_RECIPIENTS } from "@/config/submission-recipients";
 import { formatCents } from "@/lib/format";
 import { getEmailDeliveryProvider } from "@/lib/api/email";
 import { getPortalRpcClient, isSupabaseConfigured } from "../supabase/client";
@@ -257,12 +258,21 @@ export async function notifyCoachingPurchased(reference: string): Promise<Notify
       })
     );
   }
-  sends.push(
-    deliver(officeEmail(), saleForOffice(purchase, amount), {
-      category: "coaching-sold",
-      template: "coaching-sold",
-    })
-  );
+  /*
+   * CJ and Todd now hear about every portal sale from src/lib/receipts
+   * (24 Sep 2026). If the coaching office mailbox is one of theirs, this copy
+   * would be the same sale twice in one inbox; it still goes when the office
+   * is somebody else.
+   */
+  const office = officeEmail().toLowerCase();
+  if (!PURCHASE_RECIPIENTS.some((recipient) => recipient.email.toLowerCase() === office)) {
+    sends.push(
+      deliver(officeEmail(), saleForOffice(purchase, amount), {
+        category: "coaching-sold",
+        template: "coaching-sold",
+      })
+    );
+  }
 
   const results = await Promise.all(sends);
   return { sent: results.filter(Boolean).length, attempted: results.length };

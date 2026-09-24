@@ -1,5 +1,6 @@
 "use server";
 
+import { recordCoachingPurchasePaid } from "@/lib/receipts/record";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -286,6 +287,7 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
   // Stripe says the payment actually succeeded.
   if (checkout.simulated) {
     await completeCoachingPurchase(purchase.reference, checkout.paymentRef);
+    await recordCoachingPurchasePaid(purchase.reference);
   }
 
   redirect(checkout.url);

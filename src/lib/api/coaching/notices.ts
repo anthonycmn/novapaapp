@@ -444,7 +444,7 @@ export function receiptForFamily(
         "Pick your times in the portal — you will see each coach's open hours and can book straight into them."
       ) +
         button("Book a session", portalUrl) +
-        p("Keep this email for your records. Reply to it and it reaches us directly.") +
+        p("A receipt is saved in your Family Vault, under Financial / receipts. Reply to this email and it reaches us directly.") +
         p(esc(signOff))
     ),
   ].join("");
@@ -459,7 +459,7 @@ export function receiptForFamily(
     `You have ${sessionCount(purchase.sessionsLeft)} available to book.`,
     portalUrl,
     "",
-    "Keep this email for your records. Reply to it and it reaches us directly.",
+    "A receipt is saved in your Family Vault, under Financial / receipts. Reply to this email and it reaches us directly.",
     signOff,
   ].join("\n");
 

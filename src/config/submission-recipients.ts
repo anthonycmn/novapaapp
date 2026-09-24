@@ -76,6 +76,20 @@ export const HEALTH_FORM_RECIPIENTS: SubmissionRecipient[] = SUBMISSION_RECIPIEN
 );
 
 /**
+ * Who is told when anything is bought in the parent portal.
+ *
+ * CJ, 24 Sep 2026: "Provide confirmation sales emails when ANYTHING is
+ * purchased inside of the parent portal and send to Todd and CJ." The two who
+ * run the company, and only them — a sale is not a door to answer.
+ */
+export const PURCHASE_RECIPIENT_NAMES = ["Tony Cimino-Johnson", "Todd Cimino-Johnson"] as const;
+
+export const PURCHASE_RECIPIENTS: SubmissionRecipient[] = SUBMISSION_RECIPIENTS.filter(
+  (recipient) =>
+    (PURCHASE_RECIPIENT_NAMES as readonly string[]).includes(recipient.portalName)
+);
+
+/**
  * Fold several recipient lists into one, first mention winning.
  *
  * Pickup notifications go to a named list AND to whoever currently holds admin

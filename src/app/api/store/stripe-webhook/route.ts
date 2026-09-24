@@ -6,6 +6,7 @@ import {
   completeCoachingPurchase,
   isCoachingReference,
 } from "@/lib/api/coaching/shop";
+import { recordCoachingPurchasePaid, recordStoreOrderPaid } from "@/lib/receipts/record";
 
 /**
  * Stripe checkout webhook (#11). Marks an order paid once Stripe confirms.
@@ -104,6 +105,10 @@ export async function POST(request: NextRequest) {
      * reason for Stripe to redeliver a payment that succeeded.
      */
     if (!result.alreadyPaid) await notifyCoachingPurchased(reference);
+    // The sale email to CJ and Todd and the Family Vault receipt (24 Sep
+    // 2026). Not gated on alreadyPaid: it is idempotent on its own, so a
+    // retry after a first delivery that failed to file still files.
+    await recordCoachingPurchasePaid(reference);
 
     return NextResponse.json({
       received: true,
@@ -117,6 +122,11 @@ export async function POST(request: NextRequest) {
     // 200 so Stripe doesn't retry forever over an order we'll never find.
     return NextResponse.json({ received: true, warning: "Unknown order reference" });
   }
+
+  // CJ and Todd's sale email, the family's confirmation, and the receipt in
+  // the Family Vault. Once per order however often Stripe retries, and never
+  // able to fail this response — see src/lib/receipts/record.ts.
+  await recordStoreOrderPaid(order);
 
   return NextResponse.json({ received: true, order: order.reference });
 }

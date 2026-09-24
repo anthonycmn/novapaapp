@@ -14,6 +14,7 @@ import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import type { Customization } from "@/lib/api/store/catalog";
 import { assertUploadAllowed } from "@/lib/api/storage";
 import { logActivity } from "@/lib/activity";
+import { recordStoreOrderPaid } from "@/lib/receipts/record";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
 import { assessPhotoQuality } from "@/lib/store-rules";
@@ -293,7 +294,8 @@ export async function checkoutAction(): Promise<void> {
   // With the mock processor no real payment happens, so mark it paid here.
   // Stripe orders are marked paid by the webhook instead.
   if (checkout.simulated) {
-    await provider.markOrderPaid(order.reference, checkout.paymentRef);
+    const paid = await provider.markOrderPaid(order.reference, checkout.paymentRef);
+    if (paid) await recordStoreOrderPaid(paid, { mockActorId: user.id, buyerEmail: user.email });
   }
 
   redirect(checkout.url);
