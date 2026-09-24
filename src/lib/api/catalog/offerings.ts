@@ -34,7 +34,7 @@ export interface OpenOffering {
 /** How the four catalog categories read to a parent. */
 export const KIND_LABEL: Record<OfferingKind, string> = {
   class: "Classes",
-  camp: "Camps & musicals",
+  camp: "Broadway Bound Shows & camps",
   lesson: "Private lessons",
   show: "Shows",
 };
