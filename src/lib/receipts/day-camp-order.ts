@@ -51,6 +51,12 @@ export function formatCampDate(isoDate: string): string {
   });
 }
 
+/** Does "Ages 5–9 Day Camp · Jan 18, 2027" already say "Mon, Jan 18, 2027"? */
+export function nameHasDate(name: string, formatted: string): boolean {
+  const monthDay = formatted.replace(/^[A-Za-z]+, /, "").replace(/, \d{4}$/, ""); // "Jan 18"
+  return name.includes(monthDay);
+}
+
 export function receiptReference(order: WebsiteOrderRow): string {
   return order.order_no != null ? `REG-${order.order_no}` : `REG-${order.id.slice(0, 8)}`;
 }
@@ -72,15 +78,19 @@ export function dayCampPurchaseFromOrder(input: {
   const { order, items, activities } = input;
   const free = isFreeOrder(order);
 
-  const lines: PurchaseLine[] = items.map((item) => {
+  // In date order, packs first: the order the family will live them in.
+  const when = (item: WebsiteOrderItemRow) => activities.get(item.activity_id ?? 0)?.startsOn ?? "";
+  const sorted = [...items].sort((a, b) => when(a).localeCompare(when(b)));
+
+  const lines: PurchaseLine[] = sorted.map((item) => {
     const id = item.activity_id ?? 0;
     const pack = isDayCampPack(id) ? DAY_CAMP_PACKS[id] : null;
     const facts = activities.get(id);
-    const what = pack
-      ? pack.name
-      : [facts?.name ?? "Day camp", facts?.startsOn ? formatCampDate(facts.startsOn) : null]
-          .filter(Boolean)
-          .join(", ");
+    const name = facts?.name?.trim() || "Day camp";
+    const date = facts?.startsOn ? formatCampDate(facts.startsOn) : null;
+    // Many catalog names already carry their date ("Ages 5–9 Day Camp · Jan
+    // 18, 2027"); printing it again read as two dates on one line.
+    const what = pack ? pack.name : date && !nameHasDate(name, date) ? `${name}, ${date}` : name;
     return {
       description: item.camper_name ? `${what} - ${item.camper_name}` : what,
       quantity: 1,

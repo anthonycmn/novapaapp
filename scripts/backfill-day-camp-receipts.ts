@@ -4,6 +4,7 @@
  *
  *   npx tsx --tsconfig scripts/tsconfig.json scripts/backfill-day-camp-receipts.ts          # list only
  *   npx tsx --tsconfig scripts/tsconfig.json scripts/backfill-day-camp-receipts.ts --file   # file in the vault
+ *   ... --refile   rewrite the PDFs already filed (a layout fix), same path and vault row
  *
  * Vault only: the website emailed the office and the family when each order
  * was placed. Re-runnable; a receipt already in the vault is skipped.
@@ -17,7 +18,12 @@ process.env.NEXT_PUBLIC_DATA_MODE = "supabase";
 
 async function main() {
   const { fileDayCampOrderReceipts } = await import("../src/lib/receipts/registration-orders");
-  const run = await fileDayCampOrderReceipts({ since: "2026-01-01T00:00:00Z", dryRun: !process.argv.includes("--file") });
+  const refile = process.argv.includes("--refile");
+  const run = await fileDayCampOrderReceipts({
+    since: "2026-01-01T00:00:00Z",
+    dryRun: !refile && !process.argv.includes("--file"),
+    refile,
+  });
   console.log(JSON.stringify(run, null, 2));
 }
 

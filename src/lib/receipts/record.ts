@@ -173,6 +173,28 @@ export async function recordPortalPurchase(
   return result;
 }
 
+/**
+ * Replace a filed receipt's PDF in place: same path, same vault row, new
+ * bytes. For correcting how a receipt reads, never for a new purchase.
+ */
+export async function refileReceipt(purchase: PortalPurchase): Promise<boolean> {
+  if (!isSupabaseMode()) return false;
+  const pdf = renderReceiptPdf(purchase);
+  const stored = await getStorageProvider().upload(
+    "family-documents",
+    receiptStoragePath(purchase),
+    `data:application/pdf;base64,${pdf.toString("base64")}`
+  );
+  const { data, error } = await getServiceClient()
+    .from("family_documents")
+    .update({ size_bytes: stored.sizeBytes, name: receiptDocumentName(purchase) })
+    .eq("family_id", purchase.familyId)
+    .eq("storage_path", receiptStoragePath(purchase))
+    .select("id");
+  if (error) throw new Error(`receipt row update failed: ${error.message}`);
+  return Boolean(data?.length);
+}
+
 /* ── the three doors ─────────────────────────────────────────────────── */
 
 export async function familyContact(

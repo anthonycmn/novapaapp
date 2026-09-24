@@ -142,6 +142,27 @@ describe("a novapa.org day camp order", () => {
     expect(isDayCampItem({ camper_name: "A", unit_price_cents: 30000, activity_id: 555 }, activities)).toBe(false);
   });
 
+  it("does not print a date the camp's name already carries", () => {
+    const receipt = dayCampPurchaseFromOrder({
+      order: paid,
+      items: [
+        { camper_name: "Mable Bay", unit_price_cents: 6980, activity_id: 777 },
+        { camper_name: "Mable Bay", unit_price_cents: 6980, activity_id: 1962598 },
+      ],
+      activities: new Map([
+        ...activities,
+        [777, { name: "Ages 5–9 Day Camp · Jan 18, 2027", offeringKind: "day_camp", startsOn: "2027-01-18" }],
+      ]),
+      familyId: "fam-9",
+      familyName: null,
+      creditsRedeemed: null,
+    });
+    expect(receipt.lines.map((l) => l.description)).toEqual([
+      "Heroes & Villains, Mon, Sep 21, 2026 - Mable Bay",
+      "Ages 5–9 Day Camp · Jan 18, 2027 - Mable Bay",
+    ]);
+  });
+
   it("reads the date without a time zone moving it a day", () => {
     expect(formatCampDate("2026-10-12")).toBe("Mon, Oct 12, 2026");
   });

@@ -10,7 +10,7 @@ import {
   type WebsiteOrderItemRow,
   type WebsiteOrderRow,
 } from "./day-camp-order";
-import { recordPortalPurchase } from "./record";
+import { recordPortalPurchase, refileReceipt } from "./record";
 
 /**
  * Receipts for day camp orders placed on novapa.org.
@@ -90,7 +90,7 @@ async function creditsRedeemed(paymentIntent: string): Promise<number | null> {
  * with everything empty and the reason logged.
  */
 export async function fileDayCampOrderReceipts(
-  options: { since?: string; orderIds?: string[]; dryRun?: boolean } = {}
+  options: { since?: string; orderIds?: string[]; dryRun?: boolean; refile?: boolean } = {}
 ): Promise<DayCampReceiptRun> {
   const run: DayCampReceiptRun = { orders: 0, filed: [], alreadyFiled: 0, noFamily: [], ambiguous: [], failed: [] };
   if (!isSupabaseConfigured() || (process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") !== "supabase") return run;
@@ -151,6 +151,11 @@ export async function fileDayCampOrderReceipts(
         });
         if (options.dryRun) {
           run.filed.push(`${reference} (dry run: ${family.name ?? family.id}, ${purchase.paidWith}, ${purchase.lines.length} line${purchase.lines.length === 1 ? "" : "s"})`);
+          continue;
+        }
+        if (options.refile) {
+          if (await refileReceipt(purchase)) run.filed.push(reference);
+          else run.failed.push(reference);
           continue;
         }
         const result = await recordPortalPurchase(purchase, { notify: false });
