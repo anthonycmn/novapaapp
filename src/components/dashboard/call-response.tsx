@@ -104,6 +104,19 @@ export function CallResponse({
     });
   }
 
+  /*
+   * The note used to ride along only when an answer was pressed, and pressing
+   * an answer closes the box. So "pick Partial, then Add note, then type" -
+   * the order anybody does it in - dropped the note on the floor. A Frozen
+   * parent, 27 Sep 2026: "I'm unable to add a note and save it." Now the note
+   * has its own Save, and closing the box keeps what was typed.
+   */
+  const noteChanged = current !== null && note.trim() !== (current.reason ?? "");
+  function close() {
+    if (noteChanged) save(current!.status);
+    else setOpen(false);
+  }
+
   const look = current ? LOOK[current.status] : null;
 
   return (
@@ -145,7 +158,8 @@ export function CallResponse({
           onShowNote={() => setShowNote(true)}
           onPick={(status) => save(status)}
           onClear={() => save("clear")}
-          onClose={() => setOpen(false)}
+          onSaveNote={noteChanged ? () => save(current!.status) : undefined}
+          onClose={close}
         />
       )}
     </>

@@ -64,9 +64,12 @@ export function AttendanceDialog({
   onShowNote,
   onPick,
   onClear,
+  onSaveNote,
   onClose,
   conflictsClosedFor,
 }: {
+  /** Set when an answer is on file and the note differs from the saved one. */
+  onSaveNote?: () => void;
   studentName: string;
   eventTitle: string;
   eventWhen: string;
@@ -171,17 +174,33 @@ export function AttendanceDialog({
         </div>
 
         {showNote ? (
-          <label className="mt-3 block">
-            <span className="text-[12.5px] font-medium text-muted-foreground">Note</span>
-            <textarea
-              autoFocus
-              rows={2}
-              value={note}
-              onChange={(e) => onNoteChange(e.target.value)}
-              placeholder="Anything staff should know - optional"
-              className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-[14px]"
-            />
-          </label>
+          <div className="mt-3">
+            <label className="block">
+              <span className="text-[12.5px] font-medium text-muted-foreground">Note</span>
+              <textarea
+                autoFocus
+                rows={2}
+                value={note}
+                onChange={(e) => onNoteChange(e.target.value)}
+                placeholder="Anything staff should know - optional"
+                className="mt-1 w-full rounded-md border bg-background px-2 py-1.5 text-[14px]"
+              />
+            </label>
+            {current ? (
+              <button
+                type="button"
+                onClick={onSaveNote}
+                disabled={!onSaveNote}
+                className="mt-2 inline-flex h-10 w-full items-center justify-center rounded-lg bg-primary px-3 text-[14px] font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {onSaveNote ? "Save note" : "Note saved"}
+              </button>
+            ) : (
+              <p className="mt-1 text-[12.5px] text-muted-foreground">
+                Pick an answer above and the note goes with it.
+              </p>
+            )}
+          </div>
         ) : (
           <button
             type="button"

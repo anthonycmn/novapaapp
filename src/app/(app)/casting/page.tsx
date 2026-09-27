@@ -58,7 +58,12 @@ export default async function CastingPage() {
               user.id,
               confirmation.studentId
             );
-            const productionId = assignment[0]?.productionId;
+            // The production THIS confirmation is for, not the child's first
+            // casting. A Frozen parent, 27 Sep 2026: their daughter is in
+            // Sweeney Todd too, and the Frozen card listed Sweeney's scenes.
+            const productionId = assignment.find(
+              (a) => a.id === confirmation.assignmentId
+            )?.productionId;
             const scenes = productionId
               ? await provider.getStudentSceneBreakdown(
                   user.id,
