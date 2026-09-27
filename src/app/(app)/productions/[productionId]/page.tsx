@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { BookMarked, Ticket } from "lucide-react";
+import { BookMarked, CalendarX2, Ticket } from "lucide-react";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
 import type { CalendarEvent, FamilyCalendarEvent } from "@/lib/api/types";
@@ -261,6 +262,29 @@ export default async function ProductionPage({
           nothing to report here. */}
       {production.conflictsClosedAt && user.familyId && (
         <ConflictsClosedBanner productionTitles={[production.title]} />
+      )}
+
+      {/* The way in to the conflict form, for a family with a child on this
+          show's calls. CJ, 27 Sep 2026: a Frozen parent could not find it,
+          because until now it was only a chip under each rehearsal. */}
+      {!production.conflictsClosedAt && user.familyId && upcoming.some((e) => mine.has(e.id)) && (
+        <Link
+          href={`/productions/${production.id}/conflicts`}
+          className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3 transition-colors hover:bg-primary/10"
+        >
+          <span className="flex items-center gap-2.5">
+            <CalendarX2 aria-hidden size={18} className="shrink-0 text-primary" />
+            <span>
+              <span className="block text-sm font-semibold">Submit conflicts</span>
+              <span className="block text-[13px] text-muted-foreground">
+                Mark any rehearsal your child will miss or only make part of, with a note.
+              </span>
+            </span>
+          </span>
+          <span aria-hidden className="text-primary">
+            →
+          </span>
+        </Link>
       )}
 
       {/* The stat row, the same shape as the staff portal's show page - but

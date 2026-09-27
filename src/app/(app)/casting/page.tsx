@@ -71,6 +71,11 @@ export default async function CastingPage() {
                   productionId
                 )
               : [];
+            // Open conflicts get a way in from here too: the casting card is
+            // where a parent lands first once a role is announced.
+            const conflictsOpen = productionId
+              ? !(await provider.getProduction(productionId))?.conflictsClosedAt
+              : false;
             const recommendations =
               feedbackReleased && productionId
                 ? await provider.getGrowthRecommendations(
@@ -125,6 +130,15 @@ export default async function CastingPage() {
                         ))}
                       </ul>
                     </div>
+                  )}
+
+                  {conflictsOpen && (
+                    <Link
+                      href={`/productions/${productionId}/conflicts`}
+                      className="inline-flex h-10 items-center self-start rounded-lg border border-primary/40 px-3 text-sm font-semibold text-primary hover:bg-primary/5"
+                    >
+                      Submit conflicts for {productionTitle} →
+                    </Link>
                   )}
 
                   {scenes.length > 0 && (
