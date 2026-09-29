@@ -168,6 +168,9 @@ type Row = Record<string, unknown>;
  */
 const s = optionalText;
 
+/** A value a uuid column will take. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The default chair for each rubric — hub 0075. */
 const EVALUATOR_ROLE_FOR: Record<Discipline, string> = {
   acting: "director",
@@ -5520,7 +5523,11 @@ class SupabaseDataProvider {
       .insert({
         family_id: actor.familyId,
         recipient_role: recipientRole,
-        route_id: topic?.routeId ?? null,
+        // route_id is a uuid pointing into the contact tree. A family's own
+        // show or class is "offering:/productions/…", which Postgres refuses,
+        // so every message to a director failed until 29 Sep 2026. Those
+        // threads keep who and what in route_topic and recipient_*.
+        route_id: topic?.routeId && UUID_RE.test(topic.routeId) ? topic.routeId : null,
         route_topic: topic?.topic ?? null,
         recipient_staff_id: topic?.staffId ?? null,
         recipient_name: topic?.recipientName ?? null,
