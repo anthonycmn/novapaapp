@@ -3,11 +3,11 @@ import * as seed from "@/lib/api/mock/seed-data";
 import { describe, expect, it } from "vitest";
 
 /**
- * The Stuermann case, 18 Sep 2026.
+ * The 18 Sep 2026 case (legacy:778 / legacy:790), with made-up names.
  *
- * Two registrations bought for Kai sat on his sister Vanessa's enrollments,
- * carrying his line items (legacy:778 Sweeney Todd, legacy:790 Hadestown).
- * Every 15 minutes the sync resolved Kai, found no enrollment of his, and
+ * Two registrations bought for one child sat on another student row's
+ * enrollments, carrying that child's line items (Sweeney Todd, Hadestown).
+ * Every 15 minutes the sync resolved the child, found no enrollment, and
  * tried to create one, and the unique index on (external_source, external_id)
  * threw 23505: 192 failures in 24 hours, forever, and a run that could never
  * report anything but "partial".
@@ -18,41 +18,41 @@ import { describe, expect, it } from "vitest";
 describe("a registration another child's enrollment already holds", () => {
   const production = seed.productions[0];
   const family = seed.families[0];
-  const vanessa = { ...seed.students[0], id: "stu-vanessa", familyId: family.id, firstName: "Vanessa", lastName: "Stuermann" };
-  const kai = { ...seed.students[0], id: "stu-kai", familyId: family.id, firstName: "Kai", lastName: "Stuermann" };
+  const morgan = { ...seed.students[0], id: "stu-morgan", familyId: family.id, firstName: "Morgan", lastName: "Sample" };
+  const jordan = { ...seed.students[0], id: "stu-jordan", familyId: family.id, firstName: "Jordan", lastName: "Sample" };
 
   const base = {
     families: [family],
     guardians: [{ ...seed.guardians[0], email: "p@example.com", familyId: family.id }],
-    students: [vanessa, kai],
+    students: [morgan, jordan],
     productions: seed.productions,
     classes: seed.classes,
     links: [],
     enrollments: [
       {
         ...seed.enrollments[0],
-        id: "enr-vanessa",
-        studentId: vanessa.id,
+        id: "enr-morgan",
+        studentId: morgan.id,
         productionId: production.id,
         classId: undefined,
         status: "enrolled" as const,
         balanceCents: 0,
       },
     ],
-    // The row was made by the sync from Kai's line item, and put on Vanessa.
-    enrollmentExternalIds: new Map([["enr-vanessa", "legacy:778"]]),
+    // The row was made by the sync from Jordan's line item, and put on Morgan.
+    enrollmentExternalIds: new Map([["enr-morgan", "legacy:778"]]),
   };
 
   const snapshot = {
     accounts: [{ externalId: "acct-1", source: "website" as const, guardianName: "P", email: "p@example.com" }],
     participants: [
-      { externalId: "part-kai", accountExternalId: "acct-1", firstName: "Kai", lastName: "Stuermann" },
+      { externalId: "part-jordan", accountExternalId: "acct-1", firstName: "Jordan", lastName: "Sample" },
     ],
     enrollments: [
       {
         externalId: "legacy:778",
         source: "website" as const,
-        participantExternalId: "part-kai",
+        participantExternalId: "part-jordan",
         accountExternalId: "acct-1",
         offeringName: production.title,
         offeringCategory: "camp",
@@ -77,9 +77,9 @@ describe("a registration another child's enrollment already holds", () => {
     const issue = plan.issues.find((i) => i.kind === "wrong_child");
     expect(issue).toBeDefined();
     expect(issue?.externalId).toBe("legacy:778");
-    expect(issue?.message).toContain("Kai Stuermann");
-    expect(issue?.message).toContain("Vanessa Stuermann");
-    expect(issue?.message).toContain("enr-vanessa");
+    expect(issue?.message).toContain("Jordan Sample");
+    expect(issue?.message).toContain("Morgan Sample");
+    expect(issue?.message).toContain("enr-morgan");
   });
 
   it("names the records, not the name, when one child has two student rows", () => {
@@ -88,8 +88,8 @@ describe("a registration another child's enrollment already holds", () => {
     // The duplicate lives in a second family, which is why the register's
     // account resolves to one record and the enrollments sit on the other.
     const otherFamily = { ...family, id: "fam-rodgers-2" };
-    const ryanA = { ...vanessa, id: "stu-ryan-a", familyId: family.id, firstName: "Ryan", lastName: "Rodgers" };
-    const ryanB = { ...vanessa, id: "stu-ryan-b", familyId: otherFamily.id, firstName: "Ryan", lastName: "Rodgers" };
+    const ryanA = { ...morgan, id: "stu-ryan-a", familyId: family.id, firstName: "Ryan", lastName: "Rodgers" };
+    const ryanB = { ...morgan, id: "stu-ryan-b", familyId: otherFamily.id, firstName: "Ryan", lastName: "Rodgers" };
     const plan = reconcile({
       ...base,
       families: [family, otherFamily],
@@ -100,7 +100,7 @@ describe("a registration another child's enrollment already holds", () => {
       snapshot: {
         ...snapshot,
         participants: [
-          { externalId: "part-kai", accountExternalId: "acct-1", firstName: "Ryan", lastName: "Rodgers" },
+          { externalId: "part-jordan", accountExternalId: "acct-1", firstName: "Ryan", lastName: "Rodgers" },
         ],
       },
     });
@@ -119,7 +119,7 @@ describe("a registration another child's enrollment already holds", () => {
       enrollmentExternalIds: new Map(),
       snapshot,
     });
-    expect(plan.creates.find((c) => c.externalId === "legacy:778")?.studentId).toBe(kai.id);
+    expect(plan.creates.find((c) => c.externalId === "legacy:778")?.studentId).toBe(jordan.id);
     expect(plan.issues.find((i) => i.kind === "wrong_child")).toBeUndefined();
   });
 });

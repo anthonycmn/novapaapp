@@ -107,7 +107,7 @@ end $$;
 -- camper rows, because the org moved registration systems and both survived:
 -- Aubry Travis and Ryan Rodgers each exist once from regpack and once from
 -- sawyer, Elyse Rath twice from regpack, and Kai Stuermann is "Kai Stuermann"
--- in one and "Vanessa (Kai)  Stuermann" in the other.
+-- in one and an older name, with "(Kai)" in it, in the other.
 --
 -- Which of the two is the right one is not a coin toss: only one of them is
 -- carrying live registrations, and that is the row the roster resolves through

@@ -647,13 +647,13 @@ export function reconcile(input: ReconcileInput): ReconcilePlan {
     // registration is on a different student than the source says. Creating
     // would throw 23505 on every run, which is exactly what it did: 192 times
     // in 24 hours through 18 Sep 2026 on legacy:778 and legacy:790, Kai
-    // Stuermann's Sweeney Todd and Hadestown registrations, both sitting on
-    // his sister Vanessa.
+    // Stuermann's Sweeney Todd and Hadestown registrations, both sitting on a
+    // second student row for Kai under an old name.
     //
     // Two shapes reach here, and the second is why this is not a one-off:
     //
-    //   1. A sibling, from a Sawyer era row matched by name before the camper
-    //      id was the join (the Stuermanns).
+    //   1. A second row for the same child, from a Sawyer era row matched by
+    //      name before the camper id was the join (the Stuermanns).
     //   2. One child entered twice, one student row keyed and one not. Making
     //      camper_id the join on 20 Sep 2026 pointed the resolver at the keyed
     //      row while the unkeyed row still held the line item, so three more
