@@ -137,12 +137,20 @@ export default async function LoginPage({
                     to start a new one.
                   </p>
                 )}
-                <a
-                  href="/forgot-password"
-                  className="self-start text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
-                >
-                  Forgot your password?
-                </a>
+                <div className="flex flex-wrap justify-between gap-2">
+                  <a
+                    href={`/login/code${email ? `?email=${encodeURIComponent(email)}` : ""}`}
+                    className="text-sm text-primary underline-offset-4 hover:underline"
+                  >
+                    Email me a code instead
+                  </a>
+                  <a
+                    href="/forgot-password"
+                    className="text-sm text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
+                  >
+                    Forgot your password?
+                  </a>
+                </div>
               </div>
             )}
             <Button type="submit" className="w-full">
