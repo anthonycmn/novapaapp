@@ -5,6 +5,14 @@ import { getWebsiteAnonClient } from "@/lib/api/supabase/client";
 import { TERMS_VERSION } from "./terms";
 
 /**
+ * Where the front door's checkout calls go. FRONT_DOOR_PAY_URL is its own
+ * setting, set only on preview deploys for the practice run (a test-mode
+ * website preview), so it can never collide with the day-camp punch card's
+ * REGISTRATION_PAY_URL. Unset, it is the same address the website uses.
+ */
+const payUrl = () => process.env.FRONT_DOOR_PAY_URL || registration.regPayUrl;
+
+/**
  * The server half of /register (CJ, 30 Sep 2026): registration inside the
  * parent portal, in novapa.org's look, replacing novapa.org/register.
  *
@@ -173,7 +181,7 @@ export async function checkoutPart(input: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), registration.regPayTimeoutMs);
   try {
-    const res = await fetch(registration.regPayUrl, {
+    const res = await fetch(payUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -212,7 +220,7 @@ export async function joinWaitlist(input: {
   if (!EMAIL.test(input.email.trim()) || !input.camperName.trim()) {
     return { ok: false, message: "Add the student's name and your email." };
   }
-  const url = registration.regPayUrl.replace(/reg-pay$/, "reg-waitlist");
+  const url = payUrl().replace(/reg-pay$/, "reg-waitlist");
   try {
     const res = await fetch(url, {
       method: "POST",
