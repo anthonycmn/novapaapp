@@ -7,6 +7,7 @@ import { resolveSubscribedAudience } from "@/lib/email/opt-outs";
 import type { EmailCategory } from "@/lib/api/types";
 import { corsHeaders, userFromBearer } from "@/lib/auth/portal-bridge";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { sendAdminCopy } from "@/lib/email/audit";
 
 /**
  * Send a family email — the staff portal's door into the same pipeline the
@@ -203,6 +204,7 @@ export async function POST(request: NextRequest) {
   const origin = `https://${request.headers.get("host") ?? "portal.novapa.org"}`;
 
   let delivered = 0;
+  const deliveredTo: string[] = [];
   for (const recipient of recipients) {
     const context = {
       parent_first: recipient.displayName.split(" ")[0],
@@ -222,8 +224,27 @@ export async function POST(request: NextRequest) {
       subject: resolveMergeFields(send.subject, context),
       ...outgoingBody(send.body, instrumented),
       category: send.category,
+      audit: { kind: mode === "test" ? "family_email_test" : "family_email", batchId: send.id, sentBy: user.email ?? user.displayName },
+      adminCopy: mode !== "test",
     });
-    if (result.ok) delivered += 1;
+    if (result.ok) {
+      delivered += 1;
+      deliveredTo.push(recipient.email);
+    }
+  }
+
+  if (mode !== "test" && deliveredTo.length) {
+    const copyContext = {
+      parent_first: "[parent's first name]",
+      sender_name: user.displayName,
+      show_title: production?.title,
+    };
+    await sendAdminCopy({
+      subject: resolveMergeFields(send.subject, copyContext),
+      ...outgoingBody(send.body, resolveMergeFields(send.body, copyContext)),
+      recipients: deliveredTo,
+      kind: `family email · ${send.category}`,
+    });
   }
 
   return NextResponse.json(

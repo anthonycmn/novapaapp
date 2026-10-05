@@ -11,6 +11,7 @@ import { resolveSubscribedAudience } from "@/lib/email/opt-outs";
 import type { EmailCategory } from "@/lib/api/types";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import type { FamilyFormState } from "./family";
+import { sendAdminCopy } from "@/lib/email/audit";
 
 const emailSchema = z.object({
   templateId: z.string().optional(),
@@ -73,6 +74,7 @@ export async function sendEmailAction(
     const origin =
       headerList.get("origin") ?? `https://${headerList.get("host") ?? "localhost:3000"}`;
 
+    const deliveredTo: string[] = [];
     for (const recipient of recipients) {
       const context = {
         parent_first: recipient.displayName.split(" ")[0],
@@ -89,11 +91,28 @@ export async function sendEmailAction(
         send.category,
         looksLikeHtml(send.body)
       );
-      await delivery.send({
+      const outcome = await delivery.send({
         to: recipient.email,
         subject: resolveMergeFields(send.subject, context),
         ...outgoingBody(send.body, instrumented),
         category: send.category,
+        audit: { kind: mode === "test" ? "family_email_test" : "family_email", batchId: send.id, sentBy: user.email ?? user.displayName },
+        adminCopy: mode !== "test",
+      });
+      if (outcome.ok) deliveredTo.push(recipient.email);
+    }
+
+    if (mode !== "test" && deliveredTo.length) {
+      const copyContext = {
+        parent_first: "[parent's first name]",
+        sender_name: user.displayName,
+        show_title: production?.title,
+      };
+      await sendAdminCopy({
+        subject: resolveMergeFields(send.subject, copyContext),
+        ...outgoingBody(send.body, resolveMergeFields(send.body, copyContext)),
+        recipients: deliveredTo,
+        kind: `family email · ${send.category}`,
       });
     }
   }
