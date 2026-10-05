@@ -60,6 +60,14 @@ function PunchCard({ punch }: { punch: PunchCounts }) {
   );
 }
 
+/** One lesson length this coach offers, what is left of it, and its times. */
+export interface LengthOption {
+  minutes: number;
+  /** Sessions left to book at this length, across the family's packs. */
+  left: number;
+  slots: SlotOffer[];
+}
+
 /** "acting" -> "Acting"; "musical theatre acting" -> "Musical theatre acting". */
 function lessonLabel(type: string): string {
   return type.charAt(0).toUpperCase() + type.slice(1);
@@ -85,10 +93,9 @@ function lessonLabel(type: string): string {
 export function BookingForm({
   coachStaffId,
   coachName,
-  sessionMinutes,
   students,
-  slots,
-  sessionsLeft,
+  lengths,
+  initialMinutes,
   lessonTypes,
   initialType,
   initialStudentId,
@@ -96,10 +103,15 @@ export function BookingForm({
 }: {
   coachStaffId: string;
   coachName: string;
-  sessionMinutes: number;
   students: BookableStudent[];
-  slots: SlotOffer[];
-  sessionsLeft: number;
+  /**
+   * The lengths this coach offers (portal 0337), each with the family's
+   * balance at that length and the times it fits. A 30-minute lesson draws
+   * only on a 30-minute pack, so the balance is per length.
+   */
+  lengths: LengthOption[];
+  /** Preselected length, e.g. the pack just bought. */
+  initialMinutes?: number;
   /** The kinds of lesson this coach offers, from their roster row. */
   lessonTypes: string[];
   /** Preselected lesson type, e.g. carried through checkout's return URL. */
@@ -123,6 +135,20 @@ export function BookingForm({
       ? initialType
       : (lessonTypes[0] ?? "")
   );
+
+  // Only lengths with lessons left can be booked. With two, the family picks.
+  const bookable = lengths.filter((option) => option.left > 0);
+  const [minutes, setMinutes] = useState(
+    (bookable.find((o) => o.minutes === initialMinutes) ??
+      bookable.find((o) => o.minutes === 50) ??
+      bookable[0] ??
+      lengths[0])?.minutes ?? 50
+  );
+  const current = bookable.find((o) => o.minutes === minutes) ??
+    bookable[0] ?? { minutes, left: 0, slots: [] };
+  const sessionMinutes = current.minutes;
+  const sessionsLeft = current.left;
+  const slots = current.slots;
 
   // At least three in a row on a package; a one- or two-lesson balance books
   // what it has. The default is the whole balance: a punch card is for
@@ -190,6 +216,7 @@ export function BookingForm({
       <input type="hidden" name="coachStaffId" value={coachStaffId} />
       <input type="hidden" name="startsAt" value={chosen} />
       <input type="hidden" name="weeks" value={effectiveWeeks} />
+      <input type="hidden" name="minutes" value={sessionMinutes} />
 
       {punch && <PunchCard punch={punch} />}
 
@@ -199,6 +226,33 @@ export function BookingForm({
         {sessionsLeft >= 3 &&
           " Lessons hold the same day and time each week, so pick the slot your week can keep."}
       </p>
+
+      {bookable.length > 1 && (
+        <fieldset className="flex flex-col gap-1 text-sm">
+          <legend className="mb-1 font-medium">How long is each lesson?</legend>
+          <div className="flex flex-wrap gap-1.5">
+            {bookable.map((option) => (
+              <button
+                key={option.minutes}
+                type="button"
+                aria-pressed={option.minutes === sessionMinutes}
+                onClick={() => {
+                  setMinutes(option.minutes);
+                  setChosen("");
+                  setWeeks(Math.min(option.left, 12));
+                }}
+                className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                  option.minutes === sessionMinutes
+                    ? "border-transparent bg-primary font-medium text-primary-foreground"
+                    : "hover:bg-accent"
+                }`}
+              >
+                {option.minutes} minutes · {option.left} left
+              </button>
+            ))}
+          </div>
+        </fieldset>
+      )}
 
       {students.length > 1 && (
         <label className="flex flex-col gap-1 text-sm">

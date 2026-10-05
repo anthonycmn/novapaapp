@@ -41,10 +41,11 @@ export default async function CoachPage({
     type?: string;
     error?: string;
     student?: string;
+    len?: string;
   }>;
 }) {
   const { slug } = await params;
-  const { bought, type, error, student } = await searchParams;
+  const { bought, type, error, student, len } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
@@ -53,9 +54,12 @@ export default async function CoachPage({
   const coach = await getCoachBySlug(slug, profiles);
   if (!coach) notFound();
 
-  const [summary, slots, students, offers, scheduleLines] = await Promise.all([
+  // A coach may offer 30 minutes, 50, or both (portal 0337). Each length
+  // fits the coach's hours differently, so each gets its own grid.
+  const lengths = coach.sessionLengths;
+  const [summary, slotGrids, students, allOffers, scheduleLines] = await Promise.all([
     user.familyId ? getCoachingSummary(user.familyId) : Promise.resolve(null),
-    getSlotGrid(coach),
+    Promise.all(lengths.map((minutes) => getSlotGrid(coach, undefined, minutes))),
     user.familyId
       ? provider.getStudentsForFamily(user.id, user.familyId)
       : Promise.resolve([]),
@@ -70,12 +74,48 @@ export default async function CoachPage({
     : undefined;
   const schedule = scheduleLines[coach.staffId] ?? [];
 
-  const purchased = (summary?.packages ?? []).reduce(
+  // Only what can be spent with THIS coach counts here: a 30-minute pack is
+  // no use with a coach who teaches only fifties. Packs sold before 0337
+  // carry no length and were all fifties.
+  const lengthOf = (minutes: unknown) => (Number(minutes) === 30 ? 30 : 50);
+  const offers = allOffers.filter((offer) => lengths.includes(offer.minutes));
+  const packages = (summary?.packages ?? []).filter((pkg) =>
+    lengths.includes(lengthOf(pkg.minutes))
+  );
+  const lengthOptions = lengths.map((minutes, i) => ({
+    minutes,
+    left: packages
+      .filter((pkg) => lengthOf(pkg.minutes) === minutes)
+      .reduce((total, pkg) => total + Math.max(0, Number(pkg.remaining) || 0), 0),
+    slots: slotGrids[i] ?? [],
+  }));
+  const initialMinutes = lengths.find((m) => String(m) === len);
+
+  const purchased = packages.reduce(
     (total, pkg) => total + (Number(pkg.purchased) || 0),
     0
   );
-  const sessionsLeft = summary?.sessionsLeft ?? 0;
-  const scheduled = summary?.upcoming.length ?? 0;
+  const sessionsLeft = lengthOptions.reduce((total, option) => total + option.left, 0);
+  const scheduled = (summary?.upcoming ?? []).filter((session) =>
+    lengths.includes(lengthOf(session.durationMin))
+  ).length;
+
+  const buy = (
+    <BuySessions
+      offers={offers}
+      lengths={lengths}
+      initialMinutes={initialMinutes}
+      students={students.map((s) => ({
+        id: s.id,
+        name: s.preferredName || s.firstName,
+      }))}
+      initialStudentId={initialStudentId}
+      error={error}
+      paymentsConfigured={getPaymentProvider().isConfigured()}
+      lessonTypes={coach.disciplines}
+      returnTo={`/coaches/${slug}`}
+    />
+  );
   const punch =
     purchased > 0
       ? {
@@ -190,32 +230,30 @@ export default async function CoachPage({
             </p>
           )}
 
-          {sessionsLeft === 0 && (
-            <BuySessions
-              offers={offers}
-              students={students.map((s) => ({
-                id: s.id,
-                name: s.preferredName || s.firstName,
-              }))}
-              initialStudentId={initialStudentId}
-              error={error}
-              paymentsConfigured={getPaymentProvider().isConfigured()}
-              lessonTypes={coach.disciplines}
-              returnTo={`/coaches/${slug}`}
-            />
-          )}
+          {/* With nothing left, buying IS the next step. With lessons still
+              on the card it is tucked away, but still there — so a family
+              holding fifties can add a pack of thirties without waiting. */}
+          {sessionsLeft === 0
+            ? buy
+            : offers.length > 0 && (
+                <details className="rounded-lg border bg-card p-3">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Buy more lessons
+                  </summary>
+                  <div className="mt-3">{buy}</div>
+                </details>
+              )}
 
           <BookingForm
             coachStaffId={coach.staffId}
             coachName={coach.name}
-            sessionMinutes={coach.sessionMinutes}
             students={students.map((s) => ({
               id: s.id,
               name: s.preferredName || s.firstName,
             }))}
             initialStudentId={initialStudentId}
-            slots={slots}
-            sessionsLeft={sessionsLeft}
+            lengths={lengthOptions}
+            initialMinutes={initialMinutes}
             lessonTypes={coach.disciplines}
             initialType={type}
             punch={punch}

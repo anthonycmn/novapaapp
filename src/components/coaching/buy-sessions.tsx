@@ -29,8 +29,14 @@ export function BuySessions({
   lessonTypes = [],
   returnTo,
   initialStudentId,
+  lengths = [50],
+  initialMinutes,
 }: {
   offers: CoachingPackageOffer[];
+  /** The lengths this coach offers. With two, the family picks one first. */
+  lengths?: number[];
+  /** Preselected length, e.g. carried back through checkout. */
+  initialMinutes?: number;
   students: BookableStudent[];
   error?: string;
   /** False when no Stripe key is set — see the guard in buyCoachingAction. */
@@ -53,6 +59,14 @@ export function BuySessions({
   );
   const [chosen, setChosen] = useState("");
   const [lessonType, setLessonType] = useState(lessonTypes[0] ?? "");
+  const [minutes, setMinutes] = useState(
+    initialMinutes && lengths.includes(initialMinutes)
+      ? initialMinutes
+      : lengths.includes(50)
+        ? 50
+        : (lengths[0] ?? 50)
+  );
+  const shown = offers.filter((offer) => offer.minutes === minutes);
 
   if (offers.length === 0 || students.length === 0) return null;
 
@@ -105,6 +119,7 @@ export function BuySessions({
           )}
 
           <input type="hidden" name="menuId" value={chosen} />
+          <input type="hidden" name="minutes" value={minutes} />
           {returnTo && <input type="hidden" name="returnTo" value={returnTo} />}
 
           {lessonTypes.length > 1 && (
@@ -128,9 +143,35 @@ export function BuySessions({
             <input type="hidden" name="sessionType" value={lessonTypes[0]} />
           )}
 
+          {lengths.length > 1 && (
+            <fieldset className="flex flex-col gap-1 text-sm">
+              <legend className="mb-1 font-medium">How long is each lesson?</legend>
+              <div className="flex gap-1.5">
+                {lengths.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    aria-pressed={m === minutes}
+                    onClick={() => {
+                      setMinutes(m);
+                      setChosen("");
+                    }}
+                    className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                      m === minutes
+                        ? "border-transparent bg-primary font-medium text-primary-foreground"
+                        : "hover:bg-accent"
+                    }`}
+                  >
+                    {m} minutes
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
           <fieldset className="flex flex-col gap-1.5">
             <legend className="sr-only">Choose a package</legend>
-            {offers.map((offer) => {
+            {shown.map((offer) => {
               const selected = offer.menuId === chosen;
               const each = Math.round(offer.priceCents / offer.sessions);
               return (
@@ -146,7 +187,8 @@ export function BuySessions({
                   <span className="min-w-0">
                     <span className="block text-sm font-medium">{offer.service}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {offer.sessions} session{offer.sessions === 1 ? "" : "s"}
+                      {offer.sessions} session{offer.sessions === 1 ? "" : "s"} ·{" "}
+                      {offer.minutes} min
                       {offer.sessions > 1 && ` · ${formatCents(each)} each`}
                     </span>
                   </span>
