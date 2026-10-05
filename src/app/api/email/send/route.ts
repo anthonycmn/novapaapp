@@ -65,6 +65,8 @@ export async function POST(request: NextRequest) {
     mode?: string;
     /** ISO instant to deliver at instead of now — the staff portal's Schedule field. */
     scheduledFor?: unknown;
+    /** "Also send to students" — copies students with an email on file (hub 0095). */
+    includeStudents?: unknown;
   };
   try {
     input = await request.json();
@@ -115,6 +117,8 @@ export async function POST(request: NextRequest) {
   const audience = {
     ...(productionIds.length ? { productionIds } : {}),
     ...(classIds.length ? { classIds } : {}),
+    // Stored with the send, so a scheduled one copies students too.
+    ...(input.includeStudents === true ? { includeStudents: true } : {}),
   };
 
   /*
@@ -248,7 +252,13 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { sendId: send.id, recipients: recipients.length, delivered, mode },
+    {
+      sendId: send.id,
+      recipients: recipients.length,
+      students: recipients.filter((r) => r.role === "student").length,
+      delivered,
+      mode,
+    },
     { headers: corsHeaders() }
   );
 }

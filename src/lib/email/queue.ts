@@ -136,7 +136,8 @@ export async function runEmailQueue(
     try {
       const recipients = keepSubscribed(
         await provider.resolveAudience(actorId, send.audience),
-        optedOutByCategory.get(send.category) ?? new Set<string>()
+        optedOutByCategory.get(send.category) ?? new Set<string>(),
+        send.category
       );
       let delivered = 0;
       const deliveredTo: string[] = [];
@@ -186,7 +187,12 @@ export async function runEmailQueue(
       // The portal copy is written once the mail is actually out, so a
       // scheduled send never announces itself before it exists.
       if (delivered > 0) {
-        await provider.notifyEmailRecipients?.(recipients, send.subject, send.body);
+        // Parents only: a student copy has no portal login to notify.
+        await provider.notifyEmailRecipients?.(
+          recipients.filter((r) => r.role !== "student"),
+          send.subject,
+          send.body
+        );
       }
       result.delivered += delivered;
     } catch (error) {

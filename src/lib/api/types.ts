@@ -15,6 +15,11 @@ export interface User {
   familyId?: string;
   /** Set for staff/admin: their staff profile. */
   staffId?: string;
+  /**
+   * Email recipients only: a student copy (role "student", id = the student's
+   * id) whose address was unsubscribed from newsletters and fundraising.
+   */
+  emailOptedOut?: boolean;
   createdAt: string;
 }
 
@@ -122,6 +127,11 @@ export interface Student {
   danceExperience?: string;
   auditionSongUrl?: string;
   auditionAudioUrl?: string;
+  /**
+   * The student's own address, given by a parent on the student's page. Staff
+   * emails sent with "Also send to students" copy it. Not a login.
+   */
+  email?: string;
   consents: StudentConsents;
   /** Whether the student (13+) has their own login sub-profile. */
   hasLogin: boolean;
@@ -503,6 +513,11 @@ export interface FeedAudience {
    * an individualized send; production-wide was the narrowest a mail could go.
    */
   familyIds?: string[];
+  /**
+   * Also copy every student in the audience who has an email on file (CJ,
+   * 5 Oct 2026, from Jen Travis). Emails only — a feed post ignores it.
+   */
+  includeStudents?: boolean;
 }
 
 /**
