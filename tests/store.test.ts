@@ -269,3 +269,41 @@ describe("cutout designer: the press file rides the line (hub 0066)", () => {
     expect(reloaded.backgroundImageUrl).toBe(backgroundImageUrl);
   });
 });
+
+describe("backing out of Stripe keeps the basket (5 Oct 2026)", () => {
+  it("puts an unpaid order's lines back in an empty cart, once", async () => {
+    const { resumeAbandonedCheckout } = await import("@/lib/api/store/resume-checkout");
+    await provider.addToCart("user-sofia", design({ printImageUrl: "data:image/jpeg;base64,BBBB" }), 2);
+    const order = await provider.createOrder("user-sofia", "pending");
+    expect(await provider.getCart("user-sofia")).toHaveLength(0);
+
+    const first = await resumeAbandonedCheckout(provider, "user-sofia", order.familyId, order.reference);
+    expect(first.restored).toBe(true);
+    expect(first.cart).toHaveLength(1);
+    expect(first.cart[0].quantity).toBe(2);
+
+    // A refresh of the same cancel URL must not add the lines a second time.
+    const again = await resumeAbandonedCheckout(provider, "user-sofia", order.familyId, order.reference);
+    expect(again.restored).toBe(false);
+    expect(again.cart).toHaveLength(1);
+  });
+
+  it("never copies a PAID order back - that would be a second set of buttons", async () => {
+    const { resumeAbandonedCheckout } = await import("@/lib/api/store/resume-checkout");
+    await provider.addToCart("user-sofia", design(), 1);
+    const order = await provider.createOrder("user-sofia", "pending");
+    await provider.markOrderPaid(order.reference, "cs_test");
+    const result = await resumeAbandonedCheckout(provider, "user-sofia", order.familyId, order.reference);
+    expect(result.restored).toBe(false);
+    expect(result.cart).toHaveLength(0);
+  });
+
+  it("restores nothing for a reference that isn't one of the family's orders", async () => {
+    const { resumeAbandonedCheckout } = await import("@/lib/api/store/resume-checkout");
+    await provider.addToCart("user-sofia", design(), 1);
+    const order = await provider.createOrder("user-sofia", "pending");
+    const result = await resumeAbandonedCheckout(provider, "user-sofia", order.familyId, "NPA-0000");
+    expect(result.restored).toBe(false);
+    expect(result.cart).toHaveLength(0);
+  });
+});

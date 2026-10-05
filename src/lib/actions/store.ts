@@ -279,7 +279,9 @@ export async function checkoutAction(): Promise<void> {
         quantity: item.quantity,
       })),
       successUrl: `${origin}/store/orders?placed=${order.reference}`,
-      cancelUrl: `${origin}/store/cart`,
+      // The reference lets the cart put this basket back if the family
+      // backs out of Stripe - createOrder above has already emptied it.
+      cancelUrl: `${origin}/store/cart?returned=${encodeURIComponent(order.reference)}`,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
