@@ -42,11 +42,20 @@ describe("the Resend adapter", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("https://api.resend.com/emails");
-    const body = JSON.parse(String(init.body)) as { headers?: Record<string, string> };
-    expect(body.headers).toEqual(AUTO_RESPONDER_SUPPRESSION_HEADERS);
-    expect(body.headers).toMatchObject({ Precedence: "bulk", "Auto-Submitted": "auto-generated" });
+    // The message, then the office's separate copy (staff portal 0338) —
+    // both carry the headers, since an auto-responder can answer either.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const bodies = fetchMock.mock.calls.map((call) => {
+      const [url, init] = call as unknown as [string, RequestInit];
+      expect(url).toBe("https://api.resend.com/emails");
+      return JSON.parse(String(init.body)) as { to: string | string[]; subject: string; headers?: Record<string, string> };
+    });
+    for (const body of bodies) {
+      expect(body.headers).toEqual(AUTO_RESPONDER_SUPPRESSION_HEADERS);
+      expect(body.headers).toMatchObject({ Precedence: "bulk", "Auto-Submitted": "auto-generated" });
+    }
+    expect(bodies[0].to).toBe("cj@novapa.org");
+    expect(bodies[1].to).toBe("info@novapa.org");
+    expect(bodies[1].subject).toBe("[Copy] Health form signed — Test Student");
   });
 });

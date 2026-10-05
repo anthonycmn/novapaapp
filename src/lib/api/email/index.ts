@@ -24,6 +24,17 @@ export interface OutgoingEmail {
   category: string;
   /** Where a reply should land. Falls back to the org support mailbox. */
   replyTo?: string;
+  /**
+   * For the email audit (staff portal 0338). Every real send is recorded
+   * whether or not this is given; it only says what sent it and which press
+   * of Send it belongs to.
+   */
+  audit?: { kind?: string; batchId?: string; sentBy?: string };
+  /**
+   * false for a test to yourself, or anything carrying a sign-in code. The
+   * office gets a copy of everything else — CJ, 5 Oct 2026.
+   */
+  adminCopy?: boolean;
 }
 
 export interface EmailDeliveryProvider {
@@ -94,7 +105,20 @@ class UnconfiguredEmailProvider implements EmailDeliveryProvider {
 class ResendEmailProvider implements EmailDeliveryProvider {
   constructor(private apiKey: string) {}
 
+  /**
+   * Audited (staff portal 0338): a ledger row before the send, the Resend id
+   * on it after, an open pixel and tracked links in between — and the office
+   * copy, unless the caller is sending a batch (it sends one copy for the
+   * lot) or said not to. A text-only email is given the plainest HTML twin so
+   * it can carry the pixel; the text still goes as the text part.
+   */
   async send(email: OutgoingEmail): Promise<{ id: string; ok: boolean }> {
+    const audit = await import("@/lib/email/audit");
+    const ledgerId = await audit.openLedger(email.to, email.subject, email.category, email.audit);
+    const html = ledgerId
+      ? audit.instrumentForAudit(email.html ?? audit.textAsHtml(email.text), ledgerId)
+      : email.html;
+
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -106,18 +130,37 @@ class ResendEmailProvider implements EmailDeliveryProvider {
         to: email.to,
         subject: email.subject,
         text: email.text,
-        ...(email.html ? { html: email.html } : {}),
+        ...(html ? { html } : {}),
         reply_to: email.replyTo ?? org.supportEmail,
         headers: AUTO_RESPONDER_SUPPRESSION_HEADERS,
-        tags: [{ name: "category", value: email.category }],
+        tags: [
+          { name: "category", value: email.category },
+          { name: "app", value: "parent" },
+        ],
       }),
     });
     if (!response.ok) {
       const detail = await response.text();
       console.error(`Resend send failed (${response.status}): ${detail}`);
+      await audit.stampLedger(ledgerId, { error: `${response.status}: ${detail.slice(0, 400)}` });
       return { id: "", ok: false };
     }
     const data = (await response.json()) as { id: string };
+    await audit.stampLedger(ledgerId, { resend_id: data.id, sent_at: new Date().toISOString() });
+
+    if (
+      email.adminCopy !== false &&
+      !email.audit?.batchId &&
+      email.to.trim().toLowerCase() !== audit.adminCopyTo()
+    ) {
+      await audit.sendAdminCopy({
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+        recipients: [email.to],
+        kind: email.audit?.kind ?? email.category,
+      });
+    }
     return { id: data.id, ok: true };
   }
 }
