@@ -63,10 +63,39 @@ export async function POST(request: NextRequest) {
 
   const event = JSON.parse(rawBody) as {
     type: string;
-    data: { object: { id: string; client_reference_id?: string; metadata?: Record<string, string> } };
+    data: {
+      object: {
+        id: string;
+        client_reference_id?: string;
+        metadata?: Record<string, string>;
+        payment_status?: "paid" | "unpaid" | "no_payment_required";
+      };
+    };
   };
 
-  if (event.type !== "checkout.session.completed") {
+  /*
+   * Only money that has actually arrived marks anything paid (5 Oct 2026,
+   * checking CJ's "ensure that you can pay for spirit buttons and money is
+   * processed").
+   *
+   * Checkout sessions here name no payment_method_types, so Stripe offers
+   * whatever the dashboard has switched on - and for a delayed method (a US
+   * bank debit, say) "checkout.session.completed" arrives with
+   * payment_status "unpaid": the family has AUTHORISED a payment that can
+   * still fail days later. Marking that paid sent the sale email and put the
+   * buttons in the queue for money that might never land. Such a session now
+   * waits for "checkout.session.async_payment_succeeded", which carries the
+   * same session object and so runs the same code below. Every card payment
+   * so far (NPA-1045/1046/1049) completed as "paid" and is unaffected.
+   *
+   * A missing payment_status is treated as paid only so that a hand-built
+   * test event keeps working; Stripe always sends the field.
+   */
+  const settled =
+    event.type === "checkout.session.async_payment_succeeded" ||
+    (event.type === "checkout.session.completed" &&
+      event.data.object.payment_status !== "unpaid");
+  if (!settled) {
     // Acknowledge everything else so Stripe stops retrying.
     return NextResponse.json({ received: true });
   }

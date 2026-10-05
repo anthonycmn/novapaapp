@@ -9,6 +9,7 @@ import { formatCents } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CartItems } from "./cart-items";
+import { resumeAbandonedCheckout } from "@/lib/api/store/resume-checkout";
 import { currentImpersonation } from "@/lib/auth/impersonation";
 import { BlockedWhileImpersonating } from "@/components/blocked-while-impersonating";
 
@@ -17,15 +18,18 @@ export const metadata = { title: "Cart" };
 export default async function CartPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; returned?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, returned } = await searchParams;
   const user = await getSessionUser();
   if (!user) redirect("/login");
 
   const provider = getProvider();
-  const [cart, templates, productions] = await Promise.all([
-    provider.getCart(user.id),
+  /* ?returned=NPA-xxxx is Stripe's cancel_url (5 Oct 2026): a family who
+     backed out of paying gets their basket back instead of an empty cart and
+     a button to design all over again - see resume-checkout.ts. */
+  const [{ cart, restored }, templates, productions] = await Promise.all([
+    resumeAbandonedCheckout(provider, user.id, user.familyId, returned),
     provider.getButtonTemplates(),
     provider.getProductions(),
   ]);
@@ -51,6 +55,15 @@ export default async function CartPage({
       {error && (
         <Card className="border-destructive/50">
           <CardContent className="p-4 text-sm">{error}</CardContent>
+        </Card>
+      )}
+
+      {restored && (
+        <Card>
+          <CardContent className="p-4 text-sm">
+            Your payment wasn&apos;t finished, so nothing was charged. Your
+            design is still here - check out whenever you&apos;re ready.
+          </CardContent>
         </Card>
       )}
 
