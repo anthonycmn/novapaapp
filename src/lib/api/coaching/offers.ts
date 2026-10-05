@@ -15,6 +15,8 @@ export interface CoachingPackageOffer {
   service: string;
   category?: string;
   sessions: number;
+  /** How long each session is: 30 or 50 (portal 0337). */
+  minutes: number;
   priceCents: number;
 }
 
@@ -71,6 +73,8 @@ export function offerFromRow(row: Record<string, unknown>): CoachingPackageOffer
       : "Coaching sessions",
     category: typeof row.category === "string" ? row.category : undefined,
     sessions: Math.trunc(sessions),
+    // A row from before 0337 has no length; every pack then was a fifty.
+    minutes: Number(row.minutes) === 30 ? 30 : 50,
     priceCents: Math.round(price * 100),
   };
 }

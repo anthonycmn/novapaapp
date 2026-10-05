@@ -36,6 +36,8 @@ export interface CoachingPackage {
   studentId?: string;
   purchased: number;
   remaining: number;
+  /** Length of each session in this package; 50 for anything sold before 0337. */
+  minutes?: number;
 }
 
 /** A session the family has coming up. */
@@ -98,7 +100,12 @@ export async function getCoachingSummary(
  * Hourly rather than every 50 minutes, so each lesson leaves transition time
  * before the next student.
  */
-export async function getSlotGrid(coach: Coach, now = new Date()): Promise<SlotOffer[]> {
+export async function getSlotGrid(
+  coach: Coach,
+  now = new Date(),
+  /** The lesson length to fit into the coach's hours; their standard length if omitted. */
+  minutes = coach.sessionMinutes
+): Promise<SlotOffer[]> {
   if (!isSupabaseConfigured()) return [];
   try {
     const portal = getPortalReadClient();
@@ -129,7 +136,7 @@ export async function getSlotGrid(coach: Coach, now = new Date()): Promise<SlotO
       windows,
       taken,
       {
-        sessionMinutes: coach.sessionMinutes,
+        sessionMinutes: minutes,
         noticeHours: coach.noticeHours,
         horizonDays: coach.horizonDays,
       },
@@ -236,6 +243,8 @@ export async function bookCoachingSession(input: {
   notes?: string;
   /** Which kind of lesson — validated in 0275 against the coach's disciplines. */
   sessionType?: string;
+  /** 30 or 50 — must be a length the coach offers, and draws on a pack of that length (0337). */
+  minutes?: number;
 }): Promise<BookingResult> {
   if (!isSupabaseConfigured()) {
     return { ok: false, error: "Booking is not available just now." };
@@ -248,6 +257,7 @@ export async function bookCoachingSession(input: {
       p_starts_at: input.startsAt,
       p_notes: input.notes ?? null,
       p_session_type: input.sessionType ?? null,
+      ...(input.minutes ? { p_minutes: input.minutes } : {}),
     });
     if (error) return describe(error);
     return { ok: true, sessionId: String(data) };
@@ -276,6 +286,7 @@ export async function bookCoachingSeries(input: {
   count: number;
   sessionType?: string;
   notes?: string;
+  minutes?: number;
 }): Promise<SeriesResult> {
   if (!isSupabaseConfigured()) {
     return { ok: false, error: "Booking is not available just now." };
@@ -291,6 +302,7 @@ export async function bookCoachingSeries(input: {
         p_count: input.count,
         p_session_type: input.sessionType ?? null,
         p_notes: input.notes ?? null,
+        ...(input.minutes ? { p_minutes: input.minutes } : {}),
       }
     );
     if (error) return describe(error);
