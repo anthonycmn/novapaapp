@@ -1,5 +1,6 @@
 import {
   HandHeart,
+  MicVocal,
   Bell,
   BookOpen,
   CalendarDays,
@@ -79,6 +80,9 @@ export const FAMILY_SECTIONS: NavSection[] = [
   // them, and the days already bought — locked, because "if they purchased a
   // specific day, show that and do not let them change".
   { href: "/day-camps", Icon: Ticket, label: "Day camp punch card", description: "Your camp days, credits to spend, and dates to add", group: "On stage" },
+  // CJ, 8 Oct 2026: Performance Events. Built in the staff portal, signed
+  // up for here (hub 0097).
+  { href: "/family/events", Icon: MicVocal, label: "Perform", description: "Showcases and cabarets your student can sign up for", group: "On stage" },
   { href: "/photos", Icon: Images, label: "Photos", description: "Galleries, and photos of your child", group: "On stage" },
   { href: "/family", Icon: Users, label: "Family profile", description: "Guardians, address, emergency contacts", group: "Your family" },
   { href: "/family/documents", Icon: FileSignature, label: "Document vault", description: "Waivers, forms, and receipts", group: "Your family" },

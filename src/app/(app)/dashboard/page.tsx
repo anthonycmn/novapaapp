@@ -21,6 +21,7 @@ import { PanelSkeleton } from "@/components/dashboard/panel-skeleton";
 import { StayInLoopCard } from "@/components/dashboard/stay-in-loop";
 import { MobileNumberCard } from "@/components/dashboard/mobile-number-card";
 import { PunchCardCard } from "@/components/dashboard/punch-card-card";
+import { PerformanceEventsCard } from "@/components/dashboard/performance-events-card";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
@@ -316,6 +317,21 @@ export default async function DashboardPage({
             node: (
               <Suspense fallback={null}>
                 <StayInLoopCard familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+          {
+            def: {
+              key: "performance-events",
+              title: "Sign up to perform",
+              blurb: "Open showcases your student can perform in, and invitations to answer.",
+              zone: "right" as const,
+            },
+            /* Only while an event is open for one of the family's students,
+               an act is in, or another family has invited them. */
+            node: (
+              <Suspense fallback={null}>
+                <PerformanceEventsCard />
               </Suspense>
             ),
           },
