@@ -310,6 +310,21 @@ class SupabaseDataProvider {
     return getServiceClient();
   }
 
+  /** Every row, not the first 1000 — PostgREST caps a single response there
+   *  and says nothing. The query must be ordered so the pages don't overlap. */
+  private async readAll(
+    page: (from: number, to: number) => PromiseLike<{ data: Row[] | null; error: { message: string } | null }>
+  ): Promise<Row[]> {
+    const all: Row[] = [];
+    const size = 1000;
+    for (let from = 0; ; from += size) {
+      const { data, error } = await page(from, from + size - 1);
+      if (error) throw new Error(error.message);
+      all.push(...(data ?? []));
+      if (!data || data.length < size) return all;
+    }
+  }
+
   /** Load + assert the acting user, mirroring the mock's getActor(). */
   private async actor(actorId: string): Promise<User> {
     const { data, error } = await this.db
@@ -5880,12 +5895,16 @@ class SupabaseDataProvider {
     const cutoff =
       olderThanMs <= 0 ? Number.POSITIVE_INFINITY : Date.now() - olderThanMs;
 
-    const [{ data: confirmations }, { data: students }, { data: assignments }, { data: parents }] =
+    const [{ data: confirmations }, students, { data: assignments }, parents] =
       await Promise.all([
         this.db.from("casting_confirmations").select("*").is("name_correct", null),
-        this.db.from("students").select("id, first_name, preferred_name"),
+        this.readAll((from, to) =>
+          this.db.from("students").select("id, first_name, preferred_name").order("id").range(from, to)
+        ),
         this.db.from("casting_assignments").select("id, character_name"),
-        this.db.from("profiles").select("id, family_id").eq("role", "parent"),
+        this.readAll((from, to) =>
+          this.db.from("profiles").select("id, family_id").eq("role", "parent").order("id").range(from, to)
+        ),
       ]);
 
     let reminded = 0;
@@ -5937,18 +5956,26 @@ class SupabaseDataProvider {
     const DAY = 24 * 60 * 60 * 1000;
 
     const [
-      { data: events }, { data: enrollments }, { data: students },
+      events, enrollments, students,
       { data: cast }, { data: roles }, { data: scenes },
-      { data: parents }, { data: notices },
+      parents,
     ] = await Promise.all([
-      this.db.from("calendar_events").select("*").in("type", ["rehearsal", "tech", "performance"]),
-      this.db.from("enrollments").select("*").eq("status", "enrolled"),
-      this.db.from("students").select("id, family_id, first_name, preferred_name"),
+      this.readAll((from, to) =>
+        this.db.from("calendar_events").select("*")
+          .in("type", ["rehearsal", "tech", "performance"]).order("id").range(from, to)
+      ),
+      this.readAll((from, to) =>
+        this.db.from("enrollments").select("*").eq("status", "enrolled").order("id").range(from, to)
+      ),
+      this.readAll((from, to) =>
+        this.db.from("students").select("id, family_id, first_name, preferred_name").order("id").range(from, to)
+      ),
       this.db.from("casting_assignments").select("*").not("published_at", "is", null),
       this.db.from("show_roles").select("*"),
       this.db.from("show_scenes").select("*"),
-      this.db.from("profiles").select("id, family_id").eq("role", "parent"),
-      this.db.from("event_notices").select("*"),
+      this.readAll((from, to) =>
+        this.db.from("profiles").select("id, family_id").eq("role", "parent").order("id").range(from, to)
+      ),
     ]);
 
     const heldRoleIds = (studentId: string, productionId: string): Set<string> => {
@@ -5986,10 +6013,23 @@ class SupabaseDataProvider {
           ((sc.role_ids ?? []) as string[]).some((rid) => held.has(rid))
       );
     };
-    const alreadySent = (eventKey: string, familyId: string, kind: string) =>
-      (notices ?? []).some(
-        (n) => n.event_key === eventKey && n.family_id === familyId && n.kind === kind
-      );
+    // Claim the notice BEFORE sending it: the insert that wins is the one that
+    // notifies. This used to read every event_notices row and check in memory,
+    // but PostgREST hands back only the first 1000 — once the table passed
+    // that (6 Oct 2026, 7 pm) the job stopped seeing what it had sent and
+    // re-sent every thank-you and reminder hourly: 48+ copies per family
+    // before Katie Rivers caught it on 7 Oct.
+    const claim = async (eventKey: string, familyId: string, kind: string) => {
+      const { data, error } = await this.db
+        .from("event_notices")
+        .upsert(
+          { event_key: eventKey, family_id: familyId, kind },
+          { onConflict: "event_key,family_id,kind", ignoreDuplicates: true }
+        )
+        .select("event_key");
+      if (error) throw new Error(`event_notices: ${error.message}`);
+      return (data ?? []).length > 0;
+    };
     const whenText = (ms: number) =>
       new Date(ms).toLocaleString("en-US", {
         weekday: "long", hour: "numeric", minute: "2-digit",
@@ -6015,7 +6055,7 @@ class SupabaseDataProvider {
 
       for (const [familyId, familyNames] of namesByFamily) {
         const kind = dueReminder ? "reminder" : "thanks";
-        if (alreadySent(String(event.id), familyId, kind)) continue;
+        if (!(await claim(String(event.id), familyId, kind))) continue;
 
         const names = familyNames.join(" & ");
         const familyParents = (parents ?? []).filter((pr) => pr.family_id === familyId);
@@ -6037,9 +6077,6 @@ class SupabaseDataProvider {
             }))
           );
         }
-        await this.db.from("event_notices").insert({
-          event_key: String(event.id), family_id: familyId, kind,
-        });
         if (kind === "reminder") reminders += 1;
         else thanks += 1;
       }
@@ -6059,7 +6096,7 @@ class SupabaseDataProvider {
       if (!(startMs > now && startMs <= now + DAY)) continue;
 
       const eventKey = `lesson-${booking.id}-${new Date(startMs).toISOString().slice(0, 10)}`;
-      if (alreadySent(eventKey, String(booking.family_id), "reminder")) continue;
+      if (!(await claim(eventKey, String(booking.family_id), "reminder"))) continue;
 
       const student = (students ?? []).find((st) => st.id === booking.student_id);
       const teacher = (staff ?? []).find((t) => t.id === slot.teacherStaffId);
@@ -6079,9 +6116,6 @@ class SupabaseDataProvider {
           }))
         );
       }
-      await this.db.from("event_notices").insert({
-        event_key: eventKey, family_id: booking.family_id, kind: "reminder",
-      });
       reminders += 1;
     }
     return { reminders, thanks };
