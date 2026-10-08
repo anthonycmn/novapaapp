@@ -283,7 +283,14 @@ export async function signInWithLoginLink(formData: FormData): Promise<void> {
   const spent = token ? await spendLoginLink(token) : null;
   if (!spent) redirect("/login?error=link-expired");
 
-  const linked = await ensureParentProfile(spent.userId, spent.email);
+  let linked = await ensureParentProfile(spent.userId, spent.email);
+  if (!linked) {
+    // A family who just paid through the front door may have pressed the
+    // button before the provisioning its checkout started had finished
+    // (CJ, 30 Sep 2026). Run it now, once, rather than send them away.
+    const { provisionNow } = await import("@/lib/registration/front-door");
+    if (await provisionNow()) linked = await ensureParentProfile(spent.userId, spent.email);
+  }
   if (!linked) {
     redirect(`/login?error=no-family&email=${encodeURIComponent(spent.email)}`);
   }
@@ -310,6 +317,84 @@ export async function signInWithLoginLink(formData: FormData): Promise<void> {
   // The link is spent. Offer a password now, while they are in, so the next
   // visit does not need the office again.
   redirect("/family/password?welcome=1");
+}
+
+/**
+ * Sign in with a code by email, no password (CJ, 30 Sep 2026: "email code,
+ * password optional"). The same code the novapa.org checkout has always sent,
+ * from the same Supabase template, read and typed rather than clicked — mail
+ * scanners press links (reset-code.ts), they cannot type a number.
+ *
+ * shouldCreateUser false: only an address that already has a sign-in account
+ * gets a code. Front-door checkouts make that account the moment they pay
+ * (lib/registration/front-door.ts). Like the reset, the page says "check
+ * your email" whether or not the address exists.
+ */
+export async function requestSignInCode(formData: FormData): Promise<void> {
+  if (!isSupabaseMode()) redirect("/login");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const nextRaw = String(formData.get("next") ?? "");
+  const next = /^\/[a-zA-Z0-9/_-]*$/.test(nextRaw) ? `&next=${encodeURIComponent(nextRaw)}` : "";
+  if (!email) redirect("/login/code?error=missing-email");
+  const { createClient } = await import("@supabase/supabase-js");
+  const anon = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+  await anon.auth.signInWithOtp({ email, options: { shouldCreateUser: false } }).catch(() => undefined);
+  await logActivity({ actorEmail: email, action: "auth.code_requested", summary: "Asked for a sign-in code" });
+  redirect(`/login/code?sent=1&email=${encodeURIComponent(email)}${next}`);
+}
+
+export async function signInWithCode(formData: FormData): Promise<void> {
+  if (!isSupabaseMode()) redirect("/login");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const { normalizeResetCode } = await import("./reset-code");
+  const code = normalizeResetCode(String(formData.get("code") ?? ""));
+  const nextRaw = String(formData.get("next") ?? "");
+  const nextPath = /^\/[a-zA-Z0-9/_-]*$/.test(nextRaw) ? nextRaw : "/dashboard";
+  const back = `/login/code?sent=1&email=${encodeURIComponent(email)}`;
+  if (!email) redirect("/login/code?error=missing-email");
+  if (!code) redirect(`${back}&error=code`);
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const anon = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+  const { data, error } = await anon.auth.verifyOtp({ email, token: code, type: "email" });
+  if (error || !data.user) redirect(`${back}&error=code`);
+  await anon.auth.signOut().catch(() => undefined);
+
+  let linked = await ensureParentProfile(data.user.id, email);
+  if (!linked) {
+    const { provisionNow } = await import("@/lib/registration/front-door");
+    if (await provisionNow()) linked = await ensureParentProfile(data.user.id, email);
+  }
+  if (!linked) redirect(`/login?error=no-family&email=${encodeURIComponent(email)}`);
+
+  const signedIn = await getProvider().getUserById(data.user.id).catch(() => null);
+  const family =
+    signedIn?.familyId
+      ? await getProvider().getFamily(signedIn.id, signedIn.familyId).catch(() => null)
+      : null;
+  await logActivity({
+    user: signedIn ? { ...signedIn, family: family ?? undefined } : null,
+    actorEmail: email,
+    action: "auth.signed_in_by_code",
+    summary: "Signed in with a code by email",
+  });
+  const jar = await cookies();
+  jar.set(sessionCookieName, signSession(data.user.id), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+  });
+  redirect(nextPath);
 }
 
 /**
