@@ -40,8 +40,13 @@ export interface Coach {
   acceptingNew: boolean;
   /** Internal routing list: voice, acting, dance, audition. */
   disciplines: string[];
-  /** How the coach's diary is offered — see `generateSlots`. */
+  /** The coach's standard length — fifty when they offer it. */
   sessionMinutes: number;
+  /**
+   * Every length the coach offers, shortest first: [50], [30] or [30, 50]
+   * (portal 0337). With two, the family chooses.
+   */
+  sessionLengths: number[];
   noticeHours: number;
   horizonDays: number;
   /** The bio half — photograph, paragraph, specialties, credits. */
@@ -59,6 +64,7 @@ export interface PortalCoachRow {
   sort_order?: unknown;
   disciplines?: unknown;
   session_minutes?: unknown;
+  session_lengths?: unknown;
   notice_hours?: unknown;
   horizon_days?: unknown;
 }
@@ -74,6 +80,17 @@ const str = (v: unknown): string | undefined =>
 /** A positive whole number from the view, or the coach-wide default. */
 const int = (v: unknown, fallback: number): number =>
   typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.trunc(v) : fallback;
+
+/**
+ * The lengths a coach offers, or their single standard length when the view
+ * predates 0337. Only 30 and 50 are real lessons; anything else is dropped.
+ */
+export const lengthsOf = (v: unknown, fallback: number): number[] => {
+  const list = Array.isArray(v)
+    ? [...new Set((v as unknown[]).map(Number).filter((n) => n === 30 || n === 50))]
+    : [];
+  return list.length ? list.sort((a, b) => a - b) : [fallback];
+};
 
 /**
  * Join the portal's offered coaches to the hub's published bios.
@@ -117,6 +134,7 @@ export function assembleCoaches(
             )
           : [],
         sessionMinutes: int(row.session_minutes, 50),
+        sessionLengths: lengthsOf(row.session_lengths, int(row.session_minutes, 50)),
         // Notice may legitimately be zero, so it cannot use the positive-only
         // reader: a coach happy to be booked an hour from now is allowed.
         noticeHours:

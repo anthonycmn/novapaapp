@@ -27,6 +27,7 @@ export const STUDENT_PROFILE_FIELDS = [
   "vocalRange",
   "danceExperience",
   "auditionSongUrl",
+  "email",
 ] as const;
 
 /**
@@ -70,6 +71,17 @@ const studentProfileSchema = z.object({
   auditionSongUrl: z
     .string()
     .url("Enter a full URL (YouTube, Drive, or Dropbox)")
+    .optional()
+    .or(z.literal("")),
+  /*
+   * The student's own email (CJ, 5 Oct 2026). Optional; "" clears it. Staff
+   * emails copy it only when the sender ticks "Also send to students".
+   */
+  email: z
+    .string()
+    .trim()
+    .email("Enter an email address like name@example.com")
+    .max(254)
     .optional()
     .or(z.literal("")),
 });

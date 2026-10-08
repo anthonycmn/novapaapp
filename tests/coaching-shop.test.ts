@@ -95,3 +95,15 @@ describe("offerFromRow", () => {
     expect(offerFromRow(row({ service: "   " }))!.service).toBe("Coaching sessions");
   });
 });
+
+describe("offerFromRow — lesson length (portal 0337)", () => {
+  it("reads a thirty-minute pack as thirty", () => {
+    expect(offerFromRow(row({ minutes: 30, price: "180.00" }))!.minutes).toBe(30);
+  });
+
+  it("reads a fifty, and a row from before 0337, as fifty", () => {
+    expect(offerFromRow(row({ minutes: 50 }))!.minutes).toBe(50);
+    expect(offerFromRow(row())!.minutes).toBe(50);
+    expect(offerFromRow(row({ minutes: null }))!.minutes).toBe(50);
+  });
+});

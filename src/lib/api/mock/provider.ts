@@ -140,6 +140,7 @@ import {
   type LessonSlot,
 } from "../lessons/types";
 import * as seed from "./seed-data";
+import { studentRecipients } from "@/lib/email/student-recipients";
 
 /**
  * In-memory mock backend. Enforces the same authorization rules the
@@ -1182,11 +1183,20 @@ export class MockDataProvider implements DataProvider {
   async resolveAudience(actorId: string, audience: FeedAudience): Promise<User[]> {
     const actor = getActor(actorId);
     if (!isStaffish(actor)) throw new AccessDeniedError("Staff only");
-    return deepClone(
-      store.users.filter(
-        (user) => user.role === "parent" && this.audienceMatchesUser(audience, user)
-      )
+    const parents = store.users.filter(
+      (user) => user.role === "parent" && this.audienceMatchesUser(audience, user)
     );
+    const copies = studentRecipients(
+      audience,
+      store.students,
+      store.enrollments.filter((e) => e.status === "enrolled"),
+      {
+        classes: new Map(store.classes.map((c) => [c.id, c.programId ?? null])),
+        productions: new Map(store.productions.map((p) => [p.id, p.programId ?? null])),
+      },
+      parents
+    );
+    return deepClone([...parents, ...copies]);
   }
 
   async sendEmail(
@@ -1241,12 +1251,13 @@ export class MockDataProvider implements DataProvider {
 
   /** "We emailed you this" — written when the mail is actually out. */
   notifyEmailRecipients(
-    recipients: Array<{ id: string }>,
+    recipients: Array<{ id: string; role?: string }>,
     subject: string,
     body: string
   ): number {
     let sent = 0;
     for (const recipient of recipients) {
+      if (recipient.role === "student") continue;
       if (!this.prefAllows(recipient.id, "announcement")) continue;
       store.notifications.push({
         id: nextId("ntf"),

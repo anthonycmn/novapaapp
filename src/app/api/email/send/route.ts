@@ -7,6 +7,7 @@ import { resolveSubscribedAudience } from "@/lib/email/opt-outs";
 import type { EmailCategory } from "@/lib/api/types";
 import { corsHeaders, userFromBearer } from "@/lib/auth/portal-bridge";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
+import { sendAdminCopy } from "@/lib/email/audit";
 
 /**
  * Send a family email — the staff portal's door into the same pipeline the
@@ -64,6 +65,8 @@ export async function POST(request: NextRequest) {
     mode?: string;
     /** ISO instant to deliver at instead of now — the staff portal's Schedule field. */
     scheduledFor?: unknown;
+    /** "Also send to students" — copies students with an email on file (hub 0095). */
+    includeStudents?: unknown;
   };
   try {
     input = await request.json();
@@ -114,6 +117,8 @@ export async function POST(request: NextRequest) {
   const audience = {
     ...(productionIds.length ? { productionIds } : {}),
     ...(classIds.length ? { classIds } : {}),
+    // Stored with the send, so a scheduled one copies students too.
+    ...(input.includeStudents === true ? { includeStudents: true } : {}),
   };
 
   /*
@@ -203,6 +208,7 @@ export async function POST(request: NextRequest) {
   const origin = `https://${request.headers.get("host") ?? "portal.novapa.org"}`;
 
   let delivered = 0;
+  const deliveredTo: string[] = [];
   for (const recipient of recipients) {
     const context = {
       parent_first: recipient.displayName.split(" ")[0],
@@ -222,12 +228,37 @@ export async function POST(request: NextRequest) {
       subject: resolveMergeFields(send.subject, context),
       ...outgoingBody(send.body, instrumented),
       category: send.category,
+      audit: { kind: mode === "test" ? "family_email_test" : "family_email", batchId: send.id, sentBy: user.email ?? user.displayName },
+      adminCopy: mode !== "test",
     });
-    if (result.ok) delivered += 1;
+    if (result.ok) {
+      delivered += 1;
+      deliveredTo.push(recipient.email);
+    }
+  }
+
+  if (mode !== "test" && deliveredTo.length) {
+    const copyContext = {
+      parent_first: "[parent's first name]",
+      sender_name: user.displayName,
+      show_title: production?.title,
+    };
+    await sendAdminCopy({
+      subject: resolveMergeFields(send.subject, copyContext),
+      ...outgoingBody(send.body, resolveMergeFields(send.body, copyContext)),
+      recipients: deliveredTo,
+      kind: `family email · ${send.category}`,
+    });
   }
 
   return NextResponse.json(
-    { sendId: send.id, recipients: recipients.length, delivered, mode },
+    {
+      sendId: send.id,
+      recipients: recipients.length,
+      students: recipients.filter((r) => r.role === "student").length,
+      delivered,
+      mode,
+    },
     { headers: corsHeaders() }
   );
 }

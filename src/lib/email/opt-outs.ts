@@ -46,13 +46,22 @@ export async function setEmailOptOut(
   return !error;
 }
 
-/** Keep every recipient whose family has not opted out of this category. */
-export function keepSubscribed<T extends { familyId?: string | null }>(
-  recipients: T[],
-  optedOut: Set<string>
-): T[] {
-  if (optedOut.size === 0) return recipients;
-  return recipients.filter((r) => !r.familyId || !optedOut.has(r.familyId));
+/**
+ * Keep every recipient whose family has not opted out of this category.
+ *
+ * With a category, a student copy whose own address was unsubscribed
+ * (students.email_opted_out) is dropped too — for newsletters and fundraising
+ * only, the same categories a family can leave.
+ */
+export function keepSubscribed<
+  T extends { familyId?: string | null; emailOptedOut?: boolean },
+>(recipients: T[], optedOut: Set<string>, category?: string): T[] {
+  const studentOptOutsApply = Boolean(category && OPT_OUT_CATEGORIES.has(category));
+  return recipients.filter((r) => {
+    if (r.familyId && optedOut.has(r.familyId)) return false;
+    if (studentOptOutsApply && r.emailOptedOut) return false;
+    return true;
+  });
 }
 
 /**
@@ -64,7 +73,7 @@ export function keepSubscribed<T extends { familyId?: string | null }>(
  * independent, so they run together.
  */
 export async function resolveSubscribedAudience<
-  R extends { familyId?: string | null },
+  R extends { familyId?: string | null; emailOptedOut?: boolean },
   A,
 >(
   provider: { resolveAudience(actorId: string, audience: A): Promise<R[]> },
@@ -76,5 +85,5 @@ export async function resolveSubscribedAudience<
     provider.resolveAudience(actorId, audience),
     getOptedOutFamilies(category),
   ]);
-  return keepSubscribed(recipients, optedOut);
+  return keepSubscribed(recipients, optedOut, category);
 }

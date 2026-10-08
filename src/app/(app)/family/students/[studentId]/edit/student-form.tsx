@@ -162,6 +162,24 @@ export function StudentForm({ student }: { student: Student }) {
       </div>
 
       <div className="flex flex-col gap-1.5">
+        <Label htmlFor="email">Student&apos;s email (optional)</Label>
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="off"
+          defaultValue={student.email ?? ""}
+          placeholder="name@example.com"
+        />
+        <FieldError message={state.errors?.email} />
+        <p className="text-xs text-muted-foreground">
+          Add it and your student also gets the emails NOVA PA staff send to their
+          shows and classes. You still get every email too. Leave it blank to keep
+          email to parents only.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="allergies">Allergies</Label>
         <Textarea
           id="allergies"
