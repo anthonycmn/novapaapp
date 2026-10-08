@@ -89,4 +89,3 @@ export interface PerformanceRepo {
   paidActIds(actIds: string[]): Promise<Set<string>>;
 }
 
-export const FEE_LINE_PREFIX = "performance-act:";

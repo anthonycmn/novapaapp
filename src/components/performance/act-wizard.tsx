@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Check, ChevronLeft, ChevronRight, Music, Paperclip, Trash2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -103,6 +103,10 @@ export function ActWizard(props: WizardProps) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pending, start] = useTransition();
+  // The status the chip shows: what Submit just returned, until the server
+  // refresh brings the same answer back as a prop.
+  const [statusNow, setStatusNow] = useState(act.status);
+  useEffect(() => setStatusNow(act.status), [act.status]);
   const index = steps.indexOf(step);
   const base = `/family/events/${event.id}/act/${act.id}`;
 
@@ -110,7 +114,11 @@ export function ActWizard(props: WizardProps) {
     setError("");
     setNotice("");
     setStep(next);
-    router.replace(`${base}?step=${next}`, { scroll: false });
+    // The address bar only. router.replace would be a server navigation, and
+    // the route's loading boundary can unmount the wizard mid-step: whatever
+    // the parent typed in that moment was lost, and a save pressed during it
+    // could hang (found in the 8 Oct 2026 phone walkthrough).
+    window.history.replaceState(null, "", `${base}?step=${next}`);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -146,7 +154,7 @@ export function ActWizard(props: WizardProps) {
         </Link>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold sm:text-2xl">{act.title || "New act"}</h1>
-          <ActStatusChip status={act.status} />
+          <ActStatusChip status={statusNow} />
         </div>
         {event.signupClosesAt && (
           <p className="text-sm text-muted-foreground">You can make changes until {formatEastern(event.signupClosesAt)}.</p>
@@ -195,7 +203,7 @@ export function ActWizard(props: WizardProps) {
           {step === "tech" && <TechStep {...shared} />}
           {step === "program" && <ProgramStep {...shared} />}
           {step === "rehearsals" && <RehearsalsStep {...shared} />}
-          {step === "review" && <ReviewStep {...shared} go={go} steps={steps} />}
+          {step === "review" && <ReviewStep {...shared} go={go} steps={steps} onSubmitted={(s) => setStatusNow(s as PerformanceAct["status"])} />}
 
           {notice && <p className="text-sm text-emerald-700 dark:text-emerald-400" role="status">{notice}</p>}
           {error && (
@@ -987,7 +995,7 @@ function RehearsalsStep({ event, act, run, pending, next }: StepProps) {
 
 /* ── h. review and submit ─────────────────────────────────────────────────── */
 
-function ReviewStep({ event, act, problem, termsMd5, run, pending, go, steps }: StepProps & { go: (s: WizardStep) => void; steps: WizardStep[] }) {
+function ReviewStep({ event, act, problem, termsMd5, run, pending, go, steps, onSubmitted }: StepProps & { go: (s: WizardStep) => void; steps: WizardStep[]; onSubmitted: (status: string) => void }) {
   const router = useRouter();
   const [submitted, setSubmitted] = useState<string | null>(null);
   const termsCurrent = Boolean(act.termsAcceptedAt) && act.termsMd5 === termsMd5;
@@ -1081,7 +1089,10 @@ function ReviewStep({ event, act, problem, termsMd5, run, pending, go, steps }: 
         onClick={() =>
           run(async () => {
             const r = await submitActAction(act.id);
-            if (r.ok) setSubmitted(r.status ?? "submitted");
+            if (r.ok) {
+              setSubmitted(r.status ?? "submitted");
+              onSubmitted(r.status ?? "submitted");
+            }
             return r;
           })
         }

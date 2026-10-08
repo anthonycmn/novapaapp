@@ -119,7 +119,6 @@ export default async function PerformanceEventPage({ params }: { params: Promise
               </span>
             )}
           </div>
-          <RichText body={event.description} />
         </div>
       </Card>
 
@@ -180,9 +179,12 @@ export default async function PerformanceEventPage({ params }: { params: Promise
 
       <Card>
         <CardHeader>
-          <CardTitle>What to know</CardTitle>
+          <CardTitle>About this event</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
+          {/* Below the family's own cards on purpose: on a phone the invitation
+              and the acts are what a parent came back for. */}
+          <RichText body={event.description} />
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
             <Info label="Act types">{event.actTypes.map((t) => ACT_TYPE_LABELS[t]).join(", ")}</Info>
             <Info label="Formats">{event.actFormats.map((f) => ACT_FORMAT_LABELS[f]).join(", ")}</Info>

@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { SessionUser } from "@/lib/api/types";
 import { AccessDeniedError } from "@/lib/api/provider";
-import { FEE_LINE_PREFIX, type PerformanceRepo, type StudentRecord } from "./repo";
+import { type PerformanceRepo, type StudentRecord } from "./repo";
 import {
   actEditable,
   actProblem,
@@ -192,7 +192,8 @@ export class PerformanceService {
       if (!eligible.length && !involved) continue;
       cards.push({ event, eligibleStudentIds: eligible, open: signupOpen(event), myActs: await this.decorate(mine) });
     }
-    return cards.sort((a, b) => (a.event.startsAt ?? "").localeCompare(b.event.startsAt ?? ""));
+    // Open sign-ups first, then by date.
+    return cards.sort((a, b) => Number(b.open) - Number(a.open) || (a.event.startsAt ?? "").localeCompare(b.event.startsAt ?? ""));
   }
 
   async getEventPage(user: SessionUser, eventId: string): Promise<EventPage | null> {
@@ -733,7 +734,7 @@ export class PerformanceService {
   }
 
   /** The cart line for a participation fee: the existing store checkout and receipts. */
-  async feeCartLine(user: SessionUser, actId: string): Promise<{ productId: string; note: string; studentName: string } | null> {
+  async feeCartLine(user: SessionUser, actId: string): Promise<{ productId: string; note: string; actId: string } | null> {
     const familyId = this.familyOf(user);
     const act = await this.repo.getAct(actId);
     if (!act || act.familyId !== familyId || act.feeCents <= 0) return null;
@@ -741,11 +742,9 @@ export class PerformanceService {
     const productId = await this.repo.feeProductId(act.eventId);
     if (!productId) return null;
     const lead = act.performers.find((p) => p.kind === "own");
-    return {
-      productId,
-      note: `${FEE_LINE_PREFIX}${actId}`,
-      studentName: lead?.programName ?? lead?.legalName ?? "Performer",
-    };
+    // What the cart and the receipt show the family; the act id rides separately.
+    const who = lead?.programName ?? lead?.legalName ?? "Performer";
+    return { productId, actId, note: `${who} · ${act.title ?? "Act"}` };
   }
 
   /** Accepted acts and required rehearsals, for the family's iCal feed. */

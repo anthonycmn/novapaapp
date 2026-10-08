@@ -168,6 +168,7 @@ create table if not exists family_hub.performance_acts (
   terms_accepted_at  timestamptz,
   terms_md5          text,          -- the terms text the family actually accepted
   submitted_at       timestamptz,
+  last_submitted_at  timestamptz,   -- every press of Submit; the staff portal's new-submission badge
   status_changed_at  timestamptz,
   withdrawn_at       timestamptz,
   fee_cents          int not null default 0,
@@ -576,6 +577,7 @@ begin
   update family_hub.performance_acts
      set status = next_status,
          submitted_at = coalesce(submitted_at, now()),
+         last_submitted_at = now(),
          submitted_by = coalesce(p_actor, submitted_by, auth.uid()),
          status_changed_at = now(),
          family_note = case when a.status = 'needs_changes' then null else family_note end,
@@ -685,7 +687,9 @@ begin
 end $fn$;
 
 /* Create or update an event, its eligibility list and its rehearsals, in one
-   call. p is the event as the Events page holds it. Returns the id. */
+   call. p is the event as the Events page holds it. Only the keys present
+   change: a key left out keeps its value, an empty string clears it.
+   Returns the id. */
 create or replace function family_hub.pe_staff_save_event(p jsonb)
 returns uuid
 language plpgsql volatile security definer
@@ -693,7 +697,8 @@ set search_path to 'family_hub', 'public'
 as $fn$
 declare
   v_id uuid := nullif(p ->> 'id', '')::uuid;
-  t text;
+  v_fee int;
+  v_title text;
 begin
   perform family_hub.pe_require_events_staff();
   if v_id is null then
@@ -704,40 +709,40 @@ begin
   end if;
 
   update family_hub.performance_events set
-    title                  = coalesce(nullif(btrim(p ->> 'title'), ''), title),
-    subtitle               = nullif(btrim(p ->> 'subtitle'), ''),
-    description            = nullif(p ->> 'description', ''),
-    poster_path            = nullif(p ->> 'poster_path', ''),
-    starts_at              = nullif(p ->> 'starts_at', '')::timestamptz,
-    call_at                = nullif(p ->> 'call_at', '')::timestamptz,
-    ends_at                = nullif(p ->> 'ends_at', '')::timestamptz,
-    venue_name             = nullif(btrim(p ->> 'venue_name'), ''),
-    venue_address          = nullif(btrim(p ->> 'venue_address'), ''),
-    signup_opens_at        = nullif(p ->> 'signup_opens_at', '')::timestamptz,
-    signup_closes_at       = nullif(p ->> 'signup_closes_at', '')::timestamptz,
-    audience               = coalesce(nullif(p ->> 'audience', ''), 'all'),
-    min_age                = nullif(p ->> 'min_age', '')::int,
-    max_age                = nullif(p ->> 'max_age', '')::int,
-    min_grade              = nullif(p ->> 'min_grade', '')::int,
-    max_grade              = nullif(p ->> 'max_grade', '')::int,
-    act_types              = coalesce((select array_agg(x) from jsonb_array_elements_text(p -> 'act_types') x), act_types),
-    act_formats            = coalesce((select array_agg(x) from jsonb_array_elements_text(p -> 'act_formats') x), act_formats),
-    max_acts               = nullif(p ->> 'max_acts', '')::int,
-    max_acts_per_student   = nullif(p ->> 'max_acts_per_student', '')::int,
-    max_minutes_per_act    = nullif(p ->> 'max_minutes_per_act', '')::numeric,
-    max_performers_per_act = nullif(p ->> 'max_performers_per_act', '')::int,
-    req_video              = coalesce(nullif(p ->> 'req_video', ''), req_video),
-    req_headshot           = coalesce(nullif(p ->> 'req_headshot', ''), req_headshot),
-    req_track              = coalesce(nullif(p ->> 'req_track', ''), req_track),
-    req_sheet_music        = coalesce(nullif(p ->> 'req_sheet_music', ''), req_sheet_music),
-    req_bio                = coalesce(nullif(p ->> 'req_bio', ''), req_bio),
-    bio_max_chars          = coalesce(nullif(p ->> 'bio_max_chars', '')::int, bio_max_chars),
-    selection_mode         = coalesce(nullif(p ->> 'selection_mode', ''), selection_mode),
-    allow_guests           = coalesce((p ->> 'allow_guests')::boolean, allow_guests),
-    fee_cents              = coalesce(nullif(p ->> 'fee_cents', '')::int, 0),
-    terms_body             = nullif(p ->> 'terms_body', ''),
-    alert_recipients       = coalesce((select array_agg(lower(btrim(x))) from jsonb_array_elements_text(p -> 'alert_recipients') x
-                                        where btrim(x) ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'), array['cj@novapa.org'])
+    title                  = case when p ? 'title' then coalesce(nullif(btrim(p ->> 'title'), ''), title) else title end,
+    subtitle               = case when p ? 'subtitle' then nullif(btrim(p ->> 'subtitle'), '') else subtitle end,
+    description            = case when p ? 'description' then nullif(p ->> 'description', '') else description end,
+    poster_path            = case when p ? 'poster_path' then nullif(p ->> 'poster_path', '') else poster_path end,
+    starts_at              = case when p ? 'starts_at' then nullif(p ->> 'starts_at', '')::timestamptz else starts_at end,
+    call_at                = case when p ? 'call_at' then nullif(p ->> 'call_at', '')::timestamptz else call_at end,
+    ends_at                = case when p ? 'ends_at' then nullif(p ->> 'ends_at', '')::timestamptz else ends_at end,
+    venue_name             = case when p ? 'venue_name' then nullif(btrim(p ->> 'venue_name'), '') else venue_name end,
+    venue_address          = case when p ? 'venue_address' then nullif(btrim(p ->> 'venue_address'), '') else venue_address end,
+    signup_opens_at        = case when p ? 'signup_opens_at' then nullif(p ->> 'signup_opens_at', '')::timestamptz else signup_opens_at end,
+    signup_closes_at       = case when p ? 'signup_closes_at' then nullif(p ->> 'signup_closes_at', '')::timestamptz else signup_closes_at end,
+    audience               = case when p ? 'audience' then coalesce(nullif(p ->> 'audience', ''), 'all') else audience end,
+    min_age                = case when p ? 'min_age' then nullif(p ->> 'min_age', '')::int else min_age end,
+    max_age                = case when p ? 'max_age' then nullif(p ->> 'max_age', '')::int else max_age end,
+    min_grade              = case when p ? 'min_grade' then nullif(p ->> 'min_grade', '')::int else min_grade end,
+    max_grade              = case when p ? 'max_grade' then nullif(p ->> 'max_grade', '')::int else max_grade end,
+    act_types              = case when p ? 'act_types' then coalesce((select array_agg(x) from jsonb_array_elements_text(p -> 'act_types') x), act_types) else act_types end,
+    act_formats            = case when p ? 'act_formats' then coalesce((select array_agg(x) from jsonb_array_elements_text(p -> 'act_formats') x), act_formats) else act_formats end,
+    max_acts               = case when p ? 'max_acts' then nullif(p ->> 'max_acts', '')::int else max_acts end,
+    max_acts_per_student   = case when p ? 'max_acts_per_student' then nullif(p ->> 'max_acts_per_student', '')::int else max_acts_per_student end,
+    max_minutes_per_act    = case when p ? 'max_minutes_per_act' then nullif(p ->> 'max_minutes_per_act', '')::numeric else max_minutes_per_act end,
+    max_performers_per_act = case when p ? 'max_performers_per_act' then nullif(p ->> 'max_performers_per_act', '')::int else max_performers_per_act end,
+    req_video              = case when p ? 'req_video' then coalesce(nullif(p ->> 'req_video', ''), req_video) else req_video end,
+    req_headshot           = case when p ? 'req_headshot' then coalesce(nullif(p ->> 'req_headshot', ''), req_headshot) else req_headshot end,
+    req_track              = case when p ? 'req_track' then coalesce(nullif(p ->> 'req_track', ''), req_track) else req_track end,
+    req_sheet_music        = case when p ? 'req_sheet_music' then coalesce(nullif(p ->> 'req_sheet_music', ''), req_sheet_music) else req_sheet_music end,
+    req_bio                = case when p ? 'req_bio' then coalesce(nullif(p ->> 'req_bio', ''), req_bio) else req_bio end,
+    bio_max_chars          = case when p ? 'bio_max_chars' then coalesce(nullif(p ->> 'bio_max_chars', '')::int, bio_max_chars) else bio_max_chars end,
+    selection_mode         = case when p ? 'selection_mode' then coalesce(nullif(p ->> 'selection_mode', ''), selection_mode) else selection_mode end,
+    allow_guests           = case when p ? 'allow_guests' then coalesce((p ->> 'allow_guests')::boolean, allow_guests) else allow_guests end,
+    fee_cents              = case when p ? 'fee_cents' then coalesce(nullif(p ->> 'fee_cents', '')::int, 0) else fee_cents end,
+    terms_body             = case when p ? 'terms_body' then nullif(p ->> 'terms_body', '') else terms_body end,
+    alert_recipients       = case when p ? 'alert_recipients' then coalesce((select array_agg(lower(btrim(x))) from jsonb_array_elements_text(p -> 'alert_recipients') x
+                                        where btrim(x) ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'), array['cj@novapa.org']) else alert_recipients end
   where id = v_id;
 
   if p ? 'eligibility' then
@@ -764,6 +769,25 @@ begin
     on conflict (id) do update set
       on_date = excluded.on_date, starts_at = excluded.starts_at, ends_at = excluded.ends_at,
       place = excluded.place, required = excluded.required, notes = excluded.notes, sort = excluded.sort;
+  end if;
+
+  -- A participation fee is paid through the ordinary store: one hidden
+  -- products row per event (type 'other' never lists in the storefront),
+  -- which the Parent Portal puts in the family's cart with the act id on the
+  -- line. Checkout, the webhook, the receipt to cj@ + todd@ and the vault PDF
+  -- are the store's own. No fee, no active row.
+  select fee_cents, title into v_fee, v_title from family_hub.performance_events where id = v_id;
+  if v_fee > 0 then
+    update family_hub.products
+       set name = left('Participation fee: ' || v_title, 120), base_price_cents = v_fee, is_active = true
+     where config ->> 'performanceEventId' = v_id::text;
+    if not found then
+      insert into family_hub.products (type, name, description, base_price_cents, config, is_active)
+      values ('other', left('Participation fee: ' || v_title, 120), 'Performance event participation fee, one per act',
+              v_fee, jsonb_build_object('performanceEventId', v_id::text), true);
+    end if;
+  else
+    update family_hub.products set is_active = false where config ->> 'performanceEventId' = v_id::text;
   end if;
   return v_id;
 end $fn$;
@@ -924,6 +948,53 @@ begin
   get diagnostics n = row_count;
   return n;
 end $fn$;
+
+/* Who "Email performers" reaches: the guardians on file for every family with
+   a student on the chosen acts (submitting family and confirmed invitees),
+   guest performers' guardians when they gave an email, and, when asked, the
+   students' own addresses (hub 0095) unless that student unsubscribed. The
+   staff portal's send-event-email function calls this with the sender's own
+   token, so it is a Chief or an Admin or it is nothing. */
+create or replace function family_hub.pe_staff_recipients(
+  p_event uuid, p_statuses text[], p_include_students boolean default false)
+returns table (r_email text, r_kind text)
+language plpgsql stable security definer
+set search_path to 'family_hub', 'public'
+as $fn$
+begin
+  perform family_hub.pe_require_events_staff();
+  return query
+  with acts as (
+    select a.id, a.family_id from family_hub.performance_acts a
+     where a.event_id = p_event and a.status = any (p_statuses)
+  ), fams as (
+    select family_id from acts
+    union
+    select p.family_id from family_hub.performance_act_performers p join acts on acts.id = p.act_id
+     where p.family_id is not null and p.invite_status = 'confirmed'
+  ), fam_addr as (
+    select distinct lower(btrim(g.email)) as e from family_hub.guardians g join fams on fams.family_id = g.family_id
+     where g.email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+  ), guest_addr as (
+    select distinct lower(btrim(p.guest_guardian_contact)) as e
+      from family_hub.performance_act_performers p join acts on acts.id = p.act_id
+     where p.kind = 'guest' and btrim(coalesce(p.guest_guardian_contact, '')) ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+  ), student_addr as (
+    select distinct lower(s.email) as e
+      from family_hub.performance_act_performers p join acts on acts.id = p.act_id
+      join family_hub.students s on s.id = p.student_id
+     where p_include_students and p.invite_status = 'confirmed'
+       and s.email is not null and not s.email_opted_out
+  )
+  select e, 'family'::text from fam_addr
+  union
+  select e, 'guest'::text from guest_addr where e not in (select e from fam_addr)
+  union
+  select e, 'student'::text from student_addr where e not in (select e from fam_addr);
+end $fn$;
+
+revoke all on function family_hub.pe_staff_recipients(uuid, text[], boolean) from public, anon;
+grant execute on function family_hub.pe_staff_recipients(uuid, text[], boolean) to authenticated;
 
 revoke all on function family_hub.pe_staff_save_event(jsonb), family_hub.pe_staff_set_status(uuid, text),
   family_hub.pe_staff_notify_families(uuid), family_hub.pe_staff_review(uuid[], text, text),

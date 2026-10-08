@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { mockReset, mockSetSignupClose } from "@/lib/performance/repo-mock";
+import { mockReset, mockSetSignupClose, mockState } from "@/lib/performance/repo-mock";
 
 /**
  * Mock mode only: move an event's sign-up deadline, or reset the demo
@@ -9,6 +9,7 @@ import { mockReset, mockSetSignupClose } from "@/lib/performance/repo-mock";
  *   /api/performance/mock?close=<eventId>          closes it now
  *   /api/performance/mock?open=<eventId>           reopens it for 10 days
  *   /api/performance/mock?reset=1
+ *   /api/performance/mock?event=<eventId>&reqVideo=off|optional|required
  */
 export async function GET(request: Request) {
   if ((process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") === "supabase") {
@@ -18,6 +19,13 @@ export async function GET(request: Request) {
   if (url.searchParams.get("reset")) {
     mockReset();
     return NextResponse.json({ ok: true, reset: true });
+  }
+  const reqVideo = url.searchParams.get("reqVideo");
+  if (reqVideo && ["off", "optional", "required"].includes(reqVideo)) {
+    const e = mockState().events.find((x) => x.id === url.searchParams.get("event"));
+    if (!e) return NextResponse.json({ ok: false }, { status: 404 });
+    e.reqVideo = reqVideo as typeof e.reqVideo;
+    return NextResponse.json({ ok: true, reqVideo });
   }
   const close = url.searchParams.get("close");
   const open = url.searchParams.get("open");

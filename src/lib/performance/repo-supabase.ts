@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServiceClient } from "@/lib/api/supabase/client";
-import { FEE_LINE_PREFIX, type NewPerformer, type PerformanceRepo, type StudentRecord } from "./repo";
+import { type NewPerformer, type PerformanceRepo, type StudentRecord } from "./repo";
 import type {
   ActPerformer,
   PerformanceAct,
@@ -471,15 +471,16 @@ export class SupabasePerformanceRepo implements PerformanceRepo {
 
   async paidActIds(actIds: string[]) {
     if (!actIds.length) return new Set<string>();
-    const notes = actIds.map((id) => `${FEE_LINE_PREFIX}${id}`);
+    // A paid order line naming the act: the store webhook already marked the
+    // order paid, filed the receipt and told the office.
     const { data } = await this.db
       .from("button_order_items")
       .select("customization, button_orders!inner(paid_at)")
-      .in("customization->>note", notes)
+      .in("customization->>performanceActId", actIds)
       .not("button_orders.paid_at", "is", null);
     return new Set(
       ((data ?? []) as Row[])
-        .map((r) => String((r.customization as Row | null)?.note ?? "").slice(FEE_LINE_PREFIX.length))
+        .map((r) => String((r.customization as Row | null)?.performanceActId ?? ""))
         .filter(Boolean)
     );
   }

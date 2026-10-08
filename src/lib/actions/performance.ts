@@ -254,7 +254,7 @@ export async function addFeeToCartAction(actId: string): Promise<PerformanceActi
     await getProvider().addCatalogItemToCart(user.id, {
       productId: line.productId,
       quantity: 1,
-      customization: { kind: "simple", note: line.note },
+      customization: { kind: "simple", note: line.note, performanceActId: line.actId },
     });
     revalidatePath("/store/cart");
     return { ok: true };

@@ -95,6 +95,8 @@ export interface LessonCustomization {
 export interface SimpleCustomization {
   kind: "simple";
   note?: string;
+  /** A performance event participation fee: the act it pays for (hub 0097). */
+  performanceActId?: string;
 }
 
 export type Customization =
