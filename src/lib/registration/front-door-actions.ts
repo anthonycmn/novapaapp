@@ -3,6 +3,7 @@
 import { registration } from "@/config/registration";
 import { getWebsiteAnonClient } from "@/lib/api/supabase/client";
 import { TERMS_VERSION } from "./terms";
+import { logActivity } from "@/lib/activity";
 
 /**
  * Where the front door's checkout calls go. FRONT_DOOR_PAY_URL is its own
@@ -120,11 +121,13 @@ export async function holdCart(email: string, lines: CartLine[]): Promise<{ ok: 
       });
       if (error) return { ok: false, message: friendly(error.message) };
       const d = data as { class: { hold_id: string; expires_at: string }; other: { hold_id: string } };
+      await logActivity({ actorEmail: address, action: "front_door.held", summary: `Held ${lines.length} spot${lines.length === 1 ? "" : "s"} at the front door`, detail: { holds: [d.class.hold_id, d.other.hold_id] } });
       return { ok: true, holds: { classHold: d.class.hold_id, otherHold: d.other.hold_id, expiresAt: d.class.expires_at } };
     }
     const { data, error } = await db.rpc("acquire_hold_guest", { p_items: classes.length ? classes : others, p_email: address });
     if (error) return { ok: false, message: friendly(error.message) };
     const d = data as { hold_id: string; expires_at: string };
+    await logActivity({ actorEmail: address, action: "front_door.held", summary: `Held ${lines.length} spot${lines.length === 1 ? "" : "s"} at the front door`, detail: { holds: [d.hold_id] } });
     return {
       ok: true,
       holds: {
@@ -193,6 +196,15 @@ export async function checkoutPart(input: {
       const code = typeof j?.error === "string" ? j.error : `HTTP ${res.status}`;
       return { ok: false, error: code, message: friendly(code) };
     }
+    if (!input.quote) {
+      // A quote is a read; only the call that charges or confirms is a play.
+      await logActivity({
+        actorEmail: f.email.trim().toLowerCase(),
+        action: "front_door.checkout",
+        summary: j.enrolled === true || j.confirmed === true ? "Checked out at the front door" : "Started paying at the front door",
+        detail: { holdId: input.holdId, cartId: input.cartId, plan: input.plan, free: j.free === true, enrolled: j.enrolled === true },
+      });
+    }
     return {
       ok: true,
       pricing: j.pricing as PartPricing | undefined,
@@ -236,6 +248,14 @@ export async function joinWaitlist(input: {
     const j = (await res.json().catch(() => null)) as { ok?: boolean; already?: boolean; open?: boolean } | null;
     if (j?.open) return { ok: true, open: true, message: "A spot just opened up — add it to your cart now." };
     if (res.ok && j?.ok) {
+      if (!j.already) {
+        await logActivity({
+          actorEmail: input.email.trim().toLowerCase(),
+          action: "front_door.waitlist_joined",
+          summary: `Joined a waitlist for ${input.camperName.trim()}`,
+          detail: { activityId: input.activityId },
+        });
+      }
       return {
         ok: true,
         message: j.already ? "You're already on the waitlist. We'll email you if a spot opens." : "You're on the waitlist. We'll email you if a spot opens.",

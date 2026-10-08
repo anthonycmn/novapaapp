@@ -6,6 +6,7 @@ import { provisionNewWebsiteAccounts } from "@/lib/api/registration/provision";
 import { jobActorId } from "@/lib/jobs/actor";
 import { issueLoginLink } from "@/lib/auth/login-links";
 import { getEmailDeliveryProvider } from "@/lib/api/email";
+import { logActivity } from "@/lib/activity";
 import { button, callout, esc, h2, p, renderEmailShell, section } from "@/lib/email/template";
 
 /**
@@ -133,6 +134,12 @@ export async function welcomeFamily(input: {
       });
     welcomeSent = sent.ok;
   }
+  await logActivity({
+    actorEmail: email,
+    action: "front_door.welcomed",
+    summary: welcomeSent ? "Paid at the front door and was sent the welcome email" : "Paid at the front door and opened the receipt",
+    detail: { cartId: input.cartId, welcomeSent },
+  });
   return { receiptUrl: receipt.url, welcomeSent };
 }
 
