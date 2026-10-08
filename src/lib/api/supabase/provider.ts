@@ -53,7 +53,9 @@ import type {
   RunBlock,
   CallResponseRecord,
   LoanedScript,
+  VolunteerClaimInput,
   VolunteerSheet,
+  VolunteerVerdict,
   ProductionStaffMember,
 } from "../types";
 import {
@@ -6353,24 +6355,23 @@ class SupabaseDataProvider {
       );
   }
 
-  /* ---- volunteer sign-ups (0048) ---------------------------------------- */
+  /* ---- volunteer sign-ups (0048, 0096) ---------------------------------- */
 
   async getVolunteerSheets(actorId: string): Promise<VolunteerSheet[]> {
     const actor = await this.actor(actorId);
     if (!actor.familyId) return [];
 
     /*
-     * Only the shows this family is actually on. A published sheet is readable
-     * by any signed-in family — that is what lets a parent see whether a shift
-     * still needs them — but showing every show's strike night to a family
-     * whose child is in none of them is noise, not access.
+     * The shows this family is actually on, plus every sheet with no show at
+     * all (0096 — the potluck is for everybody). A published sheet is readable
+     * by any signed-in family, but strike night for a show a family has never
+     * heard of is noise, not access.
      *
      * "Actually on" means ENROLLED, not cast. This used to resolve through
      * casting_confirmations, which sounded stricter and was actually a wall:
      * on the day of the Sep 5 2026 audit exactly one of thirty-three shows
-     * had a published cast, so every other family saw "Nothing to sign up
-     * for yet" no matter what sheets were live. A parent can carry chairs
-     * before their child has a role.
+     * had a published cast. A parent can carry chairs before their child has
+     * a role.
      */
     const { data: enrolledRows } = await this.db
       .from("enrollments")
@@ -6385,64 +6386,95 @@ class SupabaseDataProvider {
           .filter((id): id is string => Boolean(id))
       ),
     ];
-    if (!productionIds.length) return [];
 
-    const { data: slots, error } = await this.db
+    let q = this.db
       .from("v_volunteer_slots")
       .select("*")
-      .in("production_id", productionIds)
-      .not("published_at", "is", null)
-      .order("on_date", { ascending: true })
-      .order("sort_order", { ascending: true });
+      .not("published_at", "is", null);
+    q = productionIds.length
+      ? q.or(`production_id.is.null,production_id.in.(${productionIds.join(",")})`)
+      : q.is("production_id", null);
+    const { data: slots, error } = await q
+      .order("on_date", { ascending: true, nullsFirst: false })
+      .order("sort_order", { ascending: true })
+      .order("starts_at", { ascending: true, nullsFirst: false });
     if (error) throw new Error(`volunteer lookup failed: ${error.message}`);
 
-    const slotIds = (slots ?? []).map((s) => s.slot_id);
-    // Names only. The phone number and the note belong to the family that
-    // wrote them and to staff — this list exists so a parent can see whether
-    // the shift is already covered, not who to ring about it.
+    // Hide a sheet once everything on it is over — a sign-up sheet for last
+    // month's strike is clutter. A slot with no time never expires on its own.
+    const now = Date.now();
+    const live = (slots ?? []).filter(
+      (s) => !s.counts_from || new Date(s.ends_at ?? s.counts_from).getTime() > now - 12 * 3600_000
+    );
+
+    const slotIds = live.map((s) => s.slot_id);
+    // Names and what is being brought. The phone number, the note and the
+    // badge belong to the family that wrote them and to staff.
+    type Row = {
+      id: string;
+      slot_id: string;
+      family_id: string;
+      volunteer_name: string;
+      bringing: string | null;
+      badge_ok: boolean;
+      badge_name: string | null;
+    };
     const { data: signups } = slotIds.length
       ? await this.db
           .from("volunteer_signups")
-          .select("id, slot_id, family_id, volunteer_name")
+          .select("id, slot_id, family_id, volunteer_name, bringing, badge_ok, badge_name")
           .in("slot_id", slotIds)
-      : { data: [] as Array<{ id: string; slot_id: string; family_id: string; volunteer_name: string }> };
+          .order("created_at", { ascending: true })
+      : { data: [] as Row[] };
+
+    const showIds = [...new Set(live.map((s) => s.production_id).filter(Boolean))] as string[];
+    const { data: shows } = showIds.length
+      ? await this.db.from("productions").select("id, title").in("id", showIds)
+      : { data: [] as Array<{ id: string; title: string }> };
+    const showTitle = new Map((shows ?? []).map((p) => [p.id, p.title as string]));
 
     const sheets = new Map<string, VolunteerSheet>();
-    for (const s of slots ?? []) {
+    for (const s of live) {
       if (!sheets.has(s.event_id)) {
         sheets.set(s.event_id, {
           id: s.event_id,
           title: s.event_title,
+          details: s.event_details ?? null,
+          productionTitle: s.production_id ? (showTitle.get(s.production_id) ?? null) : null,
           onDate: s.on_date,
           location: s.location,
           slots: [],
         });
       }
-      const mine = (signups ?? []).find(
-        (g) => g.slot_id === s.slot_id && g.family_id === actor.familyId
-      );
+      const on = ((signups ?? []) as Row[]).filter((g) => g.slot_id === s.slot_id);
+      const mine = on.find((g) => g.family_id === actor.familyId);
       sheets.get(s.event_id)!.slots.push({
         id: s.slot_id,
         title: s.slot_title,
+        kind: s.kind,
         startsAt: s.starts_at,
         endsAt: s.ends_at,
         notes: s.notes,
         capacity: s.capacity,
         taken: s.taken,
         placesLeft: s.places_left,
-        volunteers: (signups ?? [])
-          .filter((g) => g.slot_id === s.slot_id)
-          .map((g) => g.volunteer_name),
-        mySignupId: mine?.id ?? null,
+        countsFrom: s.counts_from,
+        volunteers: on.map((g) => ({ name: g.volunteer_name, bringing: g.bringing })),
+        mine: mine
+          ? {
+              signupId: mine.id,
+              volunteerName: mine.volunteer_name,
+              bringing: mine.bringing,
+              badgeOk: mine.badge_ok,
+              badgeName: mine.badge_name,
+            }
+          : null,
       });
     }
     return [...sheets.values()];
   }
 
-  async claimVolunteerSlot(
-    actorId: string,
-    input: { slotId: string; volunteerName: string; phone?: string; note?: string }
-  ): Promise<{ ok: boolean; message?: string }> {
+  async claimVolunteerSlot(actorId: string, input: VolunteerClaimInput): Promise<VolunteerVerdict> {
     const actor = await this.actor(actorId);
     if (!actor.familyId) return { ok: false, message: "Only a family can sign up." };
 
@@ -6454,22 +6486,40 @@ class SupabaseDataProvider {
       p_phone: input.phone ?? null,
       p_note: input.note ?? null,
       p_family_id: actor.familyId,
+      p_bringing: input.bringing ?? null,
+      p_badge_ok: input.badgeOk ?? false,
+      p_badge_name: input.badgeName ?? null,
     });
     if (error) throw new Error(`volunteer sign-up failed: ${error.message}`);
-    return (data ?? { ok: false }) as { ok: boolean; message?: string };
+    return (data ?? { ok: false }) as VolunteerVerdict;
   }
 
-  async releaseVolunteerSlot(actorId: string, signupId: string): Promise<void> {
+  /**
+   * Giving back and moving are RPCs, not a delete and an update, because the
+   * 24-hour line is the database's to hold (0096). A refusal comes back as a
+   * sentence for the parent.
+   */
+  async releaseVolunteerSlot(actorId: string, signupId: string): Promise<VolunteerVerdict> {
     const actor = await this.actor(actorId);
-    if (!actor.familyId) throw new Error("Only a family can give up a slot.");
-    // Scoped by family_id as well as id: giving back a place is only ever
-    // giving back your own.
-    const { error } = await this.db
-      .from("volunteer_signups")
-      .delete()
-      .eq("id", signupId)
-      .eq("family_id", actor.familyId);
+    if (!actor.familyId) return { ok: false, message: "Only a family can give up a slot." };
+    const { data, error } = await this.db.rpc("release_volunteer_signup", {
+      p_signup_id: signupId,
+      p_family_id: actor.familyId,
+    });
     if (error) throw new Error(`could not give up that slot: ${error.message}`);
+    return (data ?? { ok: false }) as VolunteerVerdict;
+  }
+
+  async moveVolunteerSlot(actorId: string, signupId: string, toSlotId: string): Promise<VolunteerVerdict> {
+    const actor = await this.actor(actorId);
+    if (!actor.familyId) return { ok: false, message: "Only a family can move a slot." };
+    const { data, error } = await this.db.rpc("move_volunteer_signup", {
+      p_signup_id: signupId,
+      p_to_slot_id: toSlotId,
+      p_family_id: actor.familyId,
+    });
+    if (error) throw new Error(`could not move that slot: ${error.message}`);
+    return (data ?? { ok: false }) as VolunteerVerdict;
   }
 
   /* ---- answering a call: attending / conflict (0049) --------------------- */

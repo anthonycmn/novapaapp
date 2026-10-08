@@ -45,7 +45,9 @@ import type {
   User,
   CallResponseRecord,
   LoanedScript,
+  VolunteerClaimInput,
   VolunteerSheet,
+  VolunteerVerdict,
 } from "./types";
 import type { UploadSource } from "./storage";
 import type { OpenOffering } from "./catalog/offerings";
@@ -442,16 +444,15 @@ export interface DataProvider {
     }
   ): Promise<{ ok: boolean; message?: string }>;
 
-  /* volunteer sign-ups (hub 0048) */
-  /** Published sheets for the shows this family is actually on. */
+  /* volunteer sign-ups (hub 0048, 0096) */
+  /** Published sheets for the shows this family is on, and every all-family sheet. */
   getVolunteerSheets(actorId: string): Promise<VolunteerSheet[]>;
   /** Take a place. Capacity is checked under a row lock, so this can refuse. */
-  claimVolunteerSlot(
-    actorId: string,
-    input: { slotId: string; volunteerName: string; phone?: string; note?: string }
-  ): Promise<{ ok: boolean; message?: string }>;
-  /** Give back a place — only ever your own. */
-  releaseVolunteerSlot(actorId: string, signupId: string): Promise<void>;
+  claimVolunteerSlot(actorId: string, input: VolunteerClaimInput): Promise<VolunteerVerdict>;
+  /** Give back a place — only your own, and only until 24 hours before. */
+  releaseVolunteerSlot(actorId: string, signupId: string): Promise<VolunteerVerdict>;
+  /** Move a place to another slot — same 24-hour line on both ends. */
+  moveVolunteerSlot(actorId: string, signupId: string, toSlotId: string): Promise<VolunteerVerdict>;
 
   /* early pickup / late drop-off (#10) */
   getPickupRequestsForFamily(actorId: string, familyId: string): Promise<PickupRequest[]>;
