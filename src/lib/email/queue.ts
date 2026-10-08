@@ -29,6 +29,7 @@ import { getEmailDeliveryProvider, resolveMergeFields } from "@/lib/api/email";
 import { instrumentEmailBody } from "@/lib/api/email/tracking";
 import { getOptedOutFamilies, keepSubscribed } from "@/lib/email/opt-outs";
 import type { EmailSend, FeedAudience, User } from "@/lib/api/types";
+import { sendAdminCopy } from "@/lib/email/audit";
 
 export interface QueueProvider {
   /** Sends that are due: scheduled_for <= now and sent_at is null. */
@@ -135,9 +136,11 @@ export async function runEmailQueue(
     try {
       const recipients = keepSubscribed(
         await provider.resolveAudience(actorId, send.audience),
-        optedOutByCategory.get(send.category) ?? new Set<string>()
+        optedOutByCategory.get(send.category) ?? new Set<string>(),
+        send.category
       );
       let delivered = 0;
+      const deliveredTo: string[] = [];
 
       for (const recipient of recipients) {
         const context = {
@@ -159,15 +162,37 @@ export async function runEmailQueue(
           subject: resolveMergeFields(send.subject, context),
           ...outgoingBody(send.body, instrumented),
           category: send.category,
+          audit: { kind: "family_email", batchId: send.id, sentBy: send.createdByName ?? undefined },
         });
-        if (outcome.ok) delivered += 1;
+        if (outcome.ok) {
+          delivered += 1;
+          deliveredTo.push(recipient.email);
+        }
+      }
+
+      if (deliveredTo.length) {
+        const copyContext = {
+          parent_first: "[parent's first name]",
+          sender_name: send.createdByName,
+        };
+        await sendAdminCopy({
+          subject: resolveMergeFields(send.subject, copyContext),
+          ...outgoingBody(send.body, resolveMergeFields(send.body, copyContext)),
+          recipients: deliveredTo,
+          kind: `scheduled family email · ${send.category}`,
+        });
       }
 
       await provider.recordSendStats(send.id, delivered);
       // The portal copy is written once the mail is actually out, so a
       // scheduled send never announces itself before it exists.
       if (delivered > 0) {
-        await provider.notifyEmailRecipients?.(recipients, send.subject, send.body);
+        // Parents only: a student copy has no portal login to notify.
+        await provider.notifyEmailRecipients?.(
+          recipients.filter((r) => r.role !== "student"),
+          send.subject,
+          send.body
+        );
       }
       result.delivered += delivered;
     } catch (error) {

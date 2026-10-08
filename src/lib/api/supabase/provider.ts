@@ -145,6 +145,7 @@ import { emailBodyToText, sendForNotice } from "@/lib/email/full-text";
 import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
 import { runFromEvents, type ProductionRun } from "../productions/run";
+import { studentRecipients } from "@/lib/email/student-recipients";
 
 /**
  * Supabase adapter for the shared novapa-deh project (`public` schema).
@@ -232,6 +233,7 @@ function mapStudent(row: Row): Student {
     danceExperience: s(row.dance_experience),
     auditionSongUrl: s(row.audition_song_url),
     auditionAudioUrl: s(row.audition_audio_url),
+    email: s(row.email),
     consents: {
       photoUse: Boolean(row.consent_photo_use),
       faceMatching: Boolean(row.consent_face_matching),
@@ -3371,10 +3373,52 @@ class SupabaseDataProvider {
       .map(mapUser);
   }
 
+  /**
+   * The parents, plus — when the sender ticked "Also send to students" — every
+   * student in the audience with an address of their own (hub 0095).
+   */
+  private async audienceRecipients(audience: FeedAudience): Promise<User[]> {
+    const parents = await this.audienceParents(audience);
+    if (!audience.includeStudents) return parents;
+    const [{ data: students }, { data: enrollments }, { data: classes }, { data: productions }] =
+      await Promise.all([
+        this.db.from("students")
+          .select("id, family_id, first_name, last_name, preferred_name, email, email_opted_out, created_at")
+          .not("email", "is", null),
+        this.db.from("enrollments").select("student_id, production_id, class_id").eq("status", "enrolled"),
+        this.db.from("classes").select("id, program_id"),
+        this.db.from("productions").select("id, program_id"),
+      ]);
+    const copies = studentRecipients(
+      audience,
+      (students ?? []).map((row) => ({
+        id: String(row.id),
+        familyId: String(row.family_id),
+        firstName: String(row.first_name ?? ""),
+        lastName: String(row.last_name ?? ""),
+        preferredName: s(row.preferred_name),
+        email: s(row.email),
+        emailOptedOut: Boolean(row.email_opted_out),
+        createdAt: String(row.created_at),
+      })),
+      (enrollments ?? []).map((row) => ({
+        studentId: String(row.student_id),
+        productionId: row.production_id ? String(row.production_id) : null,
+        classId: row.class_id ? String(row.class_id) : null,
+      })),
+      {
+        classes: new Map((classes ?? []).map((c) => [String(c.id), c.program_id ? String(c.program_id) : null])),
+        productions: new Map((productions ?? []).map((p) => [String(p.id), p.program_id ? String(p.program_id) : null])),
+      },
+      parents
+    );
+    return [...parents, ...copies];
+  }
+
   async resolveAudience(actorId: string, audience: FeedAudience): Promise<User[]> {
     const actor = await this.actor(actorId);
     if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
-    return this.audienceParents(audience);
+    return this.audienceRecipients(audience);
   }
 
   async getEmailTemplates(actorId: string): Promise<EmailTemplate[]> {
@@ -3430,8 +3474,9 @@ class SupabaseDataProvider {
     const recipients = input.testToSelf
       ? [actor]
       : keepSubscribed(
-          await this.audienceParents(input.audience as FeedAudience),
-          await getOptedOutFamilies(input.category)
+          await this.audienceRecipients(input.audience as FeedAudience),
+          await getOptedOutFamilies(input.category),
+          input.category
         );
 
     const { data, error } = await this.db
@@ -3475,11 +3520,13 @@ class SupabaseDataProvider {
    * their filters put it somewhere they never look.
    */
   async notifyEmailRecipients(
-    recipients: Array<{ id: string }>,
+    recipients: Array<{ id: string; role?: string }>,
     subject: string,
     body: string
   ): Promise<number> {
-    return this.notifyFamilies(recipients, {
+    // A student copy has no login, so nothing to notify — and its id is a
+    // student's, which notifications.user_id would refuse.
+    return this.notifyFamilies(recipients.filter((r) => r.role !== "student"), {
       // announcement, not broadcast: broadcast is the dashboard's red
       // emergency band ("a closure, a venue move, a canceled night"), and a
       // newsletter echo was lighting it on 800 dashboards (Sep 5 2026 audit).
@@ -3736,7 +3783,7 @@ class SupabaseDataProvider {
       ["resumeCredits", "resume_credits"], ["vocalRange", "vocal_range"],
       ["danceExperience", "dance_experience"],
       ["auditionSongUrl", "audition_song_url"], ["auditionAudioUrl", "audition_audio_url"],
-      ["hasLogin", "has_login"],
+      ["email", "email"], ["hasLogin", "has_login"],
     ];
     /*
      * nullIfBlank: an emptied box still clears the value, but it clears it to

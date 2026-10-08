@@ -2,15 +2,16 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { icalOwnedProductionIds } from "@/lib/ical/feeds";
 import { getPortalReadClient, getServiceClient } from "./supabase/client";
-import { fetchPublishedRuns, runOpeningOn, type PublishedRun } from "./curtains-source";
 
 /**
- * The schedule bridge: mirrors the STAFF PORTAL's season plan into
- * family-hub calendar events, continuously.
+ * The schedule bridge: mirrors the STAFF PORTAL's CLASS schedule into
+ * family-hub calendar events, continuously, and the show staffing into
+ * production_staff.
  *
- * When Tony updates the Teen Conservatory calendar (or any show's
- * schedule) in the portal, the next sync:
- *   - creates events for new rehearsals/tech/performances/camp days
+ * Shows are not written here since 7 Oct 2026 — the Rehearsal Builder is the
+ * only source of a show's family calendar (CJ: "the schedule builder must be
+ * the authority for all shows"). For classes, the next sync:
+ *   - creates events for new class meetings
  *   - updates events whose time/label moved, stamping changed_at and a
  *     change note so families see the "Updated" badge
  *   - removes FUTURE events the portal no longer has (past events are
@@ -49,22 +50,6 @@ const PORTAL_TITLE_MAP: Record<string, string> = {
   "Trolls, Jr. (tech)": "Trolls Jr.",
 };
 
-/** Mean Girls summer-intensive times, from the portal's rehearsal_pattern text. */
-const TIME_OVERRIDES: Record<string, [string, string]> = {
-  "2027-06-14": ["16:00", "21:00"],
-  "2027-06-17": ["09:00", "16:00"],
-  "2027-06-21": ["09:00", "16:00"],
-};
-
-const CAMP_HOURS: [string, string] = ["08:30", "16:15"];
-const TBA_TECH: [string, string] = ["17:00", "20:00"];
-const TBA_PERF: [string, string] = ["19:00", "21:00"];
-
-/** An hour before curtain, as an instant rather than a wall-clock string. */
-const CALL_MINUTES_BEFORE = 60;
-function callFor(startsAt: string): string {
-  return new Date(Date.parse(startsAt) - CALL_MINUTES_BEFORE * 60_000).toISOString();
-}
 const CLASS_SEASON = { from: "2026-09-14", to: "2027-06-09" };
 
 /* ── Eastern-time helpers ──────────────────────────────────────────────── */
@@ -93,7 +78,6 @@ function* days(from: string, to: string): Generator<string> {
   }
 }
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
-const shortName = (hubTitle: string) => hubTitle.split("|").pop()!.trim();
 /** timestamptz values compare reliably as epochs, never as strings. */
 const sameInstant = (a: unknown, b: unknown) => Date.parse(String(a)) === Date.parse(String(b));
 
@@ -384,13 +368,11 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     { data: hubProds },
     { data: hubClasses },
     { data: portalProds, error: portalError },
-    { data: slots },
     { data: seasonEvents },
   ] = await Promise.all([
     hub.from("productions").select("id, title"),
     hub.from("classes").select("id, name, day_of_week, start_time, end_time, location"),
     portal.from("productions").select("id, title, starts_on, ends_on, production_type"),
-    portal.from("production_schedule").select("id, production_id, label, day_of_week, starts_at, ends_at, effective_from, effective_to"),
     portal.from("season_events").select("id, kind, title, starts_on, ends_on, production_id"),
   ]);
   if (portalError) throw new Error(`portal read failed: ${portalError.message}`);
@@ -398,22 +380,6 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
   const portalByTitle = new Map((portalProds ?? []).map((p) => [String(p.title), p as Row]));
   const breaks = (seasonEvents ?? []).filter((e) => String(e.kind) === "break");
 
-  /*
-   * Curtain times, read from novapa.org — CJ, 4 Sep 2026: "I dont want you to
-   * invent anything - I want it to pull the information from novapa.org."
-   *
-   * Fetched once for the whole run, and parsed per production against that
-   * production's own opening year (see below), because the website writes
-   * "Jan 22" without a year.
-   */
-  const publishedByYear = new Map<number, PublishedRun[]>();
-  const publishedFor = async (year: number): Promise<PublishedRun[]> => {
-    const cached = publishedByYear.get(year);
-    if (cached) return cached;
-    const runs = await fetchPublishedRuns(year);
-    publishedByYear.set(year, runs);
-    return runs;
-  };
   const inBreak = (d: string) =>
     breaks.some((b) => d >= String(b.starts_on) && d <= String(b.ends_on));
 
@@ -434,106 +400,23 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
     const portalTitle = PORTAL_TITLE_MAP[String(hp.title)];
     const pp = portalTitle ? portalByTitle.get(portalTitle) : undefined;
     if (!pp) continue;
-    const show = shortName(String(hp.title));
     const hubProdId = String(hp.id);
     hubProdsByPortalId.set(String(pp.id), [
       ...(hubProdsByPortalId.get(String(pp.id)) ?? []),
       hubProdId,
     ]);
 
-    // Curriculum deliberately does NOT sync (Tony, 2026-08-15): it lives in
-    // the STAFF PORTAL only — the family hub never carries or serves it.
-
-    for (const slot of (slots ?? []).filter((s) => s.production_id === pp.id)) {
-      const from = [String(slot.effective_from), String(pp.starts_on ?? ""), today]
-        .filter(Boolean).sort().pop()!;
-      for (const d of days(from, String(slot.effective_to))) {
-        if (dow(d) !== Number(slot.day_of_week) || inBreak(d)) continue;
-        const ref = `ps:${slot.id}:${d}:${hubProdId}`;
-        desired.set(ref, {
-          ref,
-          productionId: hubProdId,
-          type: "rehearsal",
-          title: `${show} - ${String(slot.label)}`,
-          startsAt: iso(d, String(slot.starts_at).slice(0, 5)),
-          endsAt: iso(d, String(slot.ends_at).slice(0, 5)),
-          location: "",
-        });
-      }
-    }
-
-    for (const se of (seasonEvents ?? []).filter((s) => s.production_id === pp.id)) {
-      const kind = String(se.kind);
-      for (const d of days(String(se.starts_on), String(se.ends_on))) {
-        if (d < today) continue;
-        const ref = `se:${se.id}:${d}:${hubProdId}`;
-        const base = { ref, productionId: hubProdId, location: "" };
-        if (kind === "camp") {
-          if (dow(d) === 0 || dow(d) === 6) continue;
-          desired.set(ref, { ...base, type: "workshop", title: `${show} - Camp Day`,
-            startsAt: iso(d, CAMP_HOURS[0]), endsAt: iso(d, CAMP_HOURS[1]) });
-        } else if (kind === "tech") {
-          desired.set(ref, { ...base, type: "tech", title: `${show} - Tech (times TBA)`,
-            startsAt: iso(d, TBA_TECH[0]), endsAt: iso(d, TBA_TECH[1]) });
-        } else if (kind === "performance") {
-          /*
-           * Handled below, from the published times, rather than one-per-day at
-           * a hard-coded hour. Skipped here so a day in the range that has no
-           * curtain on it — the Sunday of a Friday/Saturday run — stops
-           * appearing on a family's calendar as a show.
-           */
-          continue;
-        } else if (kind === "audition") {
-          desired.set(ref, { ...base, type: "other", title: `${show} - Auditions (times TBA)`,
-            startsAt: iso(d, "10:00"), endsAt: iso(d, "14:00") });
-        } else if (kind === "rehearsal" && String(pp.production_type) !== "Mainstage") {
-          continue; // range markers duplicate weekly patterns
-        } else if (kind === "rehearsal" && String(pp.title) === "Mean Girls") {
-          const times = TIME_OVERRIDES[String(se.starts_on)] ?? TBA_TECH;
-          desired.set(ref, { ...base, type: "rehearsal", title: `${show} - Rehearsal`,
-            startsAt: iso(d, times[0]), endsAt: iso(d, times[1]) });
-        }
-      }
-
-      /*
-       * The performances, as novapa.org publishes them.
-       *
-       * Matched on the day the run opens — the one fact the website and the
-       * portal already agree on — and parsed against that opening date's year,
-       * because the site writes "Jan 22" with no year on it.
-       *
-       * No match, or a row that would not parse, means NOTHING is written for
-       * this show. That is deliberate: the previous behaviour invented three
-       * nights at 7pm and got Frozen KIDS wrong in a way nobody could see. A
-       * missing performance is a visible problem; a confident wrong curtain is
-       * not, and it is the one that puts a family outside a locked building.
-       */
-      if (kind === "performance") {
-        const opensOn = String(se.starts_on);
-        const published = runOpeningOn(
-          await publishedFor(Number(opensOn.slice(0, 4))),
-          opensOn
-        );
-        if (published) {
-          for (const curtain of published.curtains) {
-            if (curtain.date < today) continue;
-            const perfRef = `se:${se.id}:${curtain.date}T${curtain.time}:${hubProdId}`;
-            const startsAt = iso(curtain.date, curtain.time);
-            desired.set(perfRef, {
-              ref: perfRef,
-              productionId: hubProdId,
-              location: "",
-              type: "performance",
-              title: `${show} - Performance`,
-              startsAt,
-              /* Sixty minutes before curtain, derived so it follows the show. */
-              endsAt: new Date(Date.parse(startsAt) + 2 * 60 * 60_000).toISOString(),
-              callTime: callFor(startsAt),
-            });
-          }
-        }
-      }
-    }
+    /*
+     * SHOWS ARE THE REHEARSAL BUILDER'S — CJ, 7 Oct 2026: "I need the
+     * schedule builder to be the authority for all shows in the calendar."
+     * This job used to invent a show's family calendar from the portal's
+     * weekly pattern, season dates at placeholder hours ("Tech (times TBA)"
+     * 5–8 pm, Mean Girls' guessed summer hours) and curtains scraped from
+     * novapa.org. It writes no show rows now. Every show date reaches
+     * families only through the builder's Send to parents (external_source
+     * 'builder'), which also clears the rows this job wrote before. The loop
+     * stays for one reason: the staff mirror below needs the show mapping.
+     */
   }
 
   for (const c of hubClasses ?? []) {
@@ -662,6 +545,10 @@ export async function syncPortalSchedule(): Promise<ScheduleSyncResult> {
   const nowIso = new Date().toISOString();
   const stale = existing.filter(
     (e) =>
+      // A show row this job wrote before 7 Oct 2026 is left where it is:
+      // removing it would tell its families "canceled" about a rehearsal
+      // that is happening. The builder's Send replaces it.
+      !e.production_id &&
       e.external_ref &&
       String(e.external_source ?? "staff_portal") === "staff_portal" &&
       !desired.has(String(e.external_ref)) &&

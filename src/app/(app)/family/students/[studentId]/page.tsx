@@ -200,6 +200,12 @@ export default async function StudentPage({
               <dd>{student.school}</dd>
             </>
           )}
+          {student.email && (
+            <>
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="break-all">{student.email}</dd>
+            </>
+          )}
           {student.tshirtSize && (
             <>
               <dt className="text-muted-foreground">T-shirt</dt>

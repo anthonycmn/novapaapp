@@ -58,6 +58,9 @@ export async function bookCoachingAction(
 
   const sessionType = String(formData.get("sessionType") ?? "").trim() || undefined;
   const notes = String(formData.get("notes") ?? "");
+  // 30 or 50; anything else is left to the coach's standard length.
+  const minutesRaw = Number(formData.get("minutes"));
+  const minutes = minutesRaw === 30 || minutesRaw === 50 ? minutesRaw : undefined;
 
   /*
    * weeks > 1 books a standing weekly slot — same day, same time — through
@@ -77,6 +80,7 @@ export async function bookCoachingAction(
           count: weeks,
           sessionType,
           notes,
+          minutes,
         })
       : await bookCoachingSession({
           familyId: user.familyId,
@@ -85,6 +89,7 @@ export async function bookCoachingAction(
           startsAt,
           sessionType,
           notes,
+          minutes,
         });
 
   if (!result.ok) {
@@ -113,7 +118,7 @@ export async function bookCoachingAction(
         ? `Booked a weekly coaching slot - ${weeks} lessons`
         : "Booked a coaching session",
     studentId,
-    detail: { coachStaffId, startsAt, sessionId: firstSessionId, weeks, sessionType },
+    detail: { coachStaffId, startsAt, sessionId: firstSessionId, weeks, sessionType, minutes },
   });
 
   // One email for the whole series: the coach's calendar already carries every
@@ -189,6 +194,9 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
   const typeParam = /^[a-z ]{1,40}$/i.test(boughtType)
     ? `&type=${encodeURIComponent(boughtType)}`
     : "";
+  // The length rides back too, so the scheduling form opens on the pack just bought.
+  const boughtLength = String(formData.get("minutes") ?? "");
+  const lengthParam = boughtLength === "30" || boughtLength === "50" ? `&len=${boughtLength}` : "";
 
   if (!menuId || !studentId) {
     redirect(`${returnTo}?error=` + encodeURIComponent("Pick a performer and a package."));
@@ -262,14 +270,14 @@ export async function buyCoachingAction(formData: FormData): Promise<void> {
       lines: [
         {
           name: purchase.service,
-          description: `${purchase.sessions} coaching session${
-            purchase.sessions === 1 ? "" : "s"
-          } for ${purchase.studentName}`,
+          description: `${purchase.sessions} ${
+            purchase.minutes ? `${purchase.minutes}-minute ` : ""
+          }coaching session${purchase.sessions === 1 ? "" : "s"} for ${purchase.studentName}`,
           unitAmountCents: purchase.amountCents,
           quantity: 1,
         },
       ],
-      successUrl: `${origin}${returnTo}?bought=${purchase.reference}${typeParam}`,
+      successUrl: `${origin}${returnTo}?bought=${purchase.reference}${typeParam}${lengthParam}`,
       cancelUrl: `${origin}${returnTo}`,
     });
   } catch (error) {

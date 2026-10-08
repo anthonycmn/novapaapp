@@ -28,15 +28,41 @@ const CATEGORY_LABEL: Record<string, string> = {
   fundraising: "fundraising emails",
 };
 
-async function familyIdForRecipient(recipientId: string): Promise<string | null> {
+/**
+ * Who the link was sent to: a parent (a profile — the opt-out is the
+ * family's) or a student copied on a staff email (hub 0095 — the opt-out is
+ * that one address, never the parents').
+ */
+type Recipient = { kind: "family"; familyId: string } | { kind: "student"; studentId: string };
+
+async function recipientFor(recipientId: string): Promise<Recipient | null> {
   if (!isSupabaseConfigured()) return null;
-  const { data } = await getServiceClient()
+  const db = getServiceClient();
+  const { data } = await db
     .from("profiles")
     .select("family_id")
     .eq("id", recipientId)
     .maybeSingle();
   const familyId = (data as { family_id?: string } | null)?.family_id;
-  return familyId ? String(familyId) : null;
+  if (familyId) return { kind: "family", familyId: String(familyId) };
+  const { data: student } = await db
+    .from("students")
+    .select("id")
+    .eq("id", recipientId)
+    .not("email", "is", null)
+    .maybeSingle();
+  return student ? { kind: "student", studentId: recipientId } : null;
+}
+
+async function setOptOut(recipient: Recipient, category: string, optedOut: boolean) {
+  if (recipient.kind === "family") {
+    await setEmailOptOut(recipient.familyId, category, optedOut);
+    return;
+  }
+  await getServiceClient()
+    .from("students")
+    .update({ email_opted_out: optedOut })
+    .eq("id", recipient.studentId);
 }
 
 export default async function UnsubscribePage({
@@ -49,16 +75,23 @@ export default async function UnsubscribePage({
   const { token } = await params;
   const { state } = await searchParams;
   const ref = decodeUnsubscribeToken(token);
-  const familyId = ref ? await familyIdForRecipient(ref.recipientId) : null;
-  const valid = Boolean(ref && familyId);
-  const label = ref ? (CATEGORY_LABEL[ref.category] ?? ref.category) : "";
+  const recipient = ref ? await recipientFor(ref.recipientId) : null;
+  const valid = Boolean(ref && recipient);
+  const isStudent = recipient?.kind === "student";
+  // A student's switch is one switch for both categories.
+  const label = isStudent
+    ? "newsletters and fundraising emails"
+    : ref
+      ? (CATEGORY_LABEL[ref.category] ?? ref.category)
+      : "";
+  const who = isStudent ? "You" : "Your family";
 
   async function unsubscribe() {
     "use server";
     const again = decodeUnsubscribeToken(token);
     if (!again) return;
-    const fid = await familyIdForRecipient(again.recipientId);
-    if (fid) await setEmailOptOut(fid, again.category, true);
+    const r = await recipientFor(again.recipientId);
+    if (r) await setOptOut(r, again.category, true);
     redirect(`/unsubscribe/${token}?state=done`);
   }
 
@@ -66,8 +99,8 @@ export default async function UnsubscribePage({
     "use server";
     const again = decodeUnsubscribeToken(token);
     if (!again) return;
-    const fid = await familyIdForRecipient(again.recipientId);
-    if (fid) await setEmailOptOut(fid, again.category, false);
+    const r = await recipientFor(again.recipientId);
+    if (r) await setOptOut(r, again.category, false);
     redirect(`/unsubscribe/${token}?state=back`);
   }
 
@@ -87,7 +120,7 @@ export default async function UnsubscribePage({
         <>
           <h1 className="text-2xl font-semibold">You&apos;re unsubscribed</h1>
           <p className="max-w-sm text-muted-foreground">
-            Your family won&apos;t receive {label} from us anymore. Anything
+            {who} won&apos;t receive {label} from us anymore. Anything
             about your child&apos;s safety or schedule still comes through -
             that part isn&apos;t optional, and we keep it rare.
           </p>
@@ -104,14 +137,16 @@ export default async function UnsubscribePage({
         <>
           <h1 className="text-2xl font-semibold">You&apos;re back on the list</h1>
           <p className="max-w-sm text-muted-foreground">
-            Your family will receive {label} from us again. Good to have you.
+            {who} will receive {label} from us again. Good to have you.
           </p>
         </>
       ) : (
         <>
           <h1 className="text-2xl font-semibold">Unsubscribe from {label}?</h1>
           <p className="max-w-sm text-muted-foreground">
-            This stops {label} for your whole family. Anything about your
+            {isStudent
+              ? <>This stops {label} to this address. Your parents still get them.</>
+              : <>This stops {label} for your whole family.</>} Anything about your
             child&apos;s safety or schedule still comes through - that part
             isn&apos;t optional, and we keep it rare.
           </p>

@@ -84,7 +84,14 @@ export const ICAL_FEEDS: IcalFeed[] = [
   {
     key: "sweeney_ics",
     productionId: "2f57e4a1-c61c-415e-b755-1212709ef141",
-    url: process.env.SWEENEY_ICS_URL,
+    /*
+     * No URL, and builder-owned — CJ, 27 Sep 2026: "i don't want google
+     * calendar connected at all", and 7 Oct 2026: the Rehearsal Builder is
+     * the authority for every show. This static entry is only the fallback
+     * when the feed table cannot be read; it used to carry SWEENEY_ICS_URL,
+     * so a failed read re-imported Google rows next to the builder's.
+     */
+    portalOwned: true,
     titlePrefix: /^Sweeney Todd\s*[-–—]\s*/i,
     /*
      * "Toby" shares no word with Tobias Ragg. "Passer-by" is not a role at all:

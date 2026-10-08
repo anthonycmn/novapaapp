@@ -39,6 +39,8 @@ export interface StartedPurchase {
   reference: string;
   service: string;
   sessions: number;
+  /** Length of each session — 30 or 50. Absent from a pre-0337 database. */
+  minutes?: number;
   amountCents: number;
   studentName: string;
 }
@@ -55,7 +57,7 @@ export async function getCoachingShop(): Promise<CoachingPackageOffer[]> {
   try {
     const { data, error } = await getPortalReadClient()
       .from("v_coaching_shop_public")
-      .select("menu_id, service, category, price, sessions")
+      .select("menu_id, service, category, price, sessions, minutes")
       .order("sessions");
     if (error) throw error;
     return (data ?? []).flatMap((row) => {

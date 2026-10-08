@@ -244,6 +244,8 @@ async function sendReport(result: SmokeResult): Promise<boolean> {
     subject,
     text,
     category: "reset-smoke",
+    // A health check every six hours, not a message to anybody (staff 0338).
+    adminCopy: false,
     replyTo: org.supportEmail,
   });
   return sent.ok;
