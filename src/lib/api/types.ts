@@ -930,33 +930,73 @@ export interface SessionUser extends User {
 }
 
 
-/* ---- volunteer sign-ups (hub 0048) --------------------------------------
- * A sheet is an event on a show — strike night, load-in, a concessions shift
- * — with slots under it. A slot is a time, a job, and how many people are
- * wanted. Built in the staff portal; taken here.
+/* ---- volunteer sign-ups (hub 0048, 0096) --------------------------------
+ * A sheet is a need for help — strike night, front of house, the potluck —
+ * with slots under it, on a show or (with no show) for every family. A slot
+ * is a kind of help, a time, and how many people are wanted. Built in the
+ * staff portal; taken, moved and given back here.
  */
+export type VolunteerKind =
+  | "front_of_house"
+  | "concessions"
+  | "backstage"
+  | "setup"
+  | "strike"
+  | "bring_food"
+  | "potluck"
+  | "supplies"
+  | "chaperone"
+  | "other";
+
 export interface VolunteerSlot {
   id: string;
   title: string;
+  kind: VolunteerKind;
   startsAt: string | null;
   endsAt: string | null;
   notes: string | null;
   capacity: number;
   taken: number;
   placesLeft: number;
-  /** First names on the sheet, so a parent can see whether it is covered. */
-  volunteers: string[];
-  /** Set when this family already has this slot — the id to give it back by. */
-  mySignupId: string | null;
+  /**
+   * When the 24-hour line is measured from (the slot's time, else its sheet's
+   * day). Null means no line.
+   */
+  countsFrom: string | null;
+  /** Who is on it, and what they are bringing on a food slot. */
+  volunteers: Array<{ name: string; bringing: string | null }>;
+  /** This family's own place on this slot, if it has one. */
+  mine: {
+    signupId: string;
+    volunteerName: string;
+    bringing: string | null;
+    badgeOk: boolean;
+    badgeName: string | null;
+  } | null;
 }
 
 export interface VolunteerSheet {
   id: string;
   title: string;
+  details: string | null;
+  /** The show it is for; null means every family. */
+  productionTitle: string | null;
   onDate: string | null;
   location: string | null;
   slots: VolunteerSlot[];
 }
+
+export interface VolunteerClaimInput {
+  slotId: string;
+  volunteerName: string;
+  phone?: string;
+  note?: string;
+  bringing?: string;
+  badgeOk?: boolean;
+  badgeName?: string;
+}
+
+export type VolunteerVerdict = { ok: boolean; message?: string; locked?: boolean };
 
 
 /* ---- answering a call (hub 0049) ----------------------------------------
