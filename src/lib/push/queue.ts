@@ -209,6 +209,29 @@ export async function drainPushQueue(): Promise<DrainResult> {
 }
 
 /**
+ * Drain until nothing is left to claim — for a send to every family at once.
+ *
+ * One drain takes BATCH rows; a broadcast writes one row per parent (800+),
+ * and leaving the rest to the 5-minute cron would ring the last family
+ * twenty minutes after the first. Rows held for quiet hours are never
+ * claimed, so the loop ends on them instead of spinning; the cap is a
+ * backstop, and the cron still mops up anything past it.
+ */
+export async function drainPushQueueUntilDone(maxRuns = 10): Promise<DrainResult> {
+  const total: DrainResult = { claimed: 0, sent: 0, deferred: 0, prunedSubscriptions: 0 };
+  for (let run = 0; run < maxRuns; run++) {
+    const result = await drainPushQueue();
+    total.claimed += result.claimed;
+    total.sent += result.sent;
+    total.deferred = result.deferred;
+    total.prunedSubscriptions += result.prunedSubscriptions;
+    if (result.skipped) return { ...total, skipped: result.skipped };
+    if (result.claimed === 0) break;
+  }
+  return total;
+}
+
+/**
  * Fire the drain from a server action whose author is waiting on the other
  * end — a staff reply, a feed post. Failures are swallowed: the action
  * already succeeded, the row is in the center, and the 5-minute cron will

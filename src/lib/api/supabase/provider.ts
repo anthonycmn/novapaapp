@@ -3249,13 +3249,14 @@ class SupabaseDataProvider {
       const enabled = (pref?.enabled ?? {}) as Record<string, boolean>;
       return enabled[input.type] !== false;
     });
-    if (allowed.length) {
-      await this.db.from("notifications").insert(
-        allowed.map((user) => ({
-          user_id: user.id, type: input.type, title: input.title,
-          body: input.body, url: input.url ?? null,
-        }))
-      );
+    // Every parent is 800+ rows; chunked like the schedule bridge's inserts.
+    const rows = allowed.map((user) => ({
+      user_id: user.id, type: input.type, title: input.title,
+      body: input.body, url: input.url ?? null,
+    }));
+    for (let i = 0; i < rows.length; i += 400) {
+      const { error } = await this.db.from("notifications").insert(rows.slice(i, i + 400));
+      if (error) throw new Error(`broadcast insert failed: ${error.message}`);
     }
     return { recipients: allowed.length };
   }
