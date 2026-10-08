@@ -107,7 +107,12 @@ async function fileReceipt(purchase: PortalPurchase, mockActorId?: string): Prom
   return true;
 }
 
-async function send(to: string, message: { subject: string; text: string; html: string }, category: string) {
+async function send(
+  to: string,
+  message: { subject: string; text: string; html: string },
+  category: string,
+  adminCopy = false
+) {
   try {
     const result = await getEmailDeliveryProvider().send({
       to,
@@ -116,6 +121,7 @@ async function send(to: string, message: { subject: string; text: string; html: 
       ...(message.html ? { html: message.html } : {}),
       category,
       replyTo: org.supportEmail,
+      adminCopy,
     });
     return result.ok;
   } catch (error) {
@@ -163,7 +169,9 @@ export async function recordPortalPurchase(
       send(
         purchase.familyEmail,
         purchaseConfirmationForFamily(purchase, `${portalUrl()}/family/documents`),
-        "portal-order-confirmed"
+        "portal-order-confirmed",
+        // The office sees what the family got when something is bought (CJ, 8 Oct 2026).
+        true
       )
     );
   }

@@ -86,6 +86,8 @@ async function deliver(
   options: {
     category: string;
     template: string;
+    /** The office's [Copy] of a purchase receipt (CJ, 8 Oct 2026). */
+    adminCopy?: boolean;
     clientId?: string | null;
     sessionId?: string | null;
   }
@@ -102,6 +104,7 @@ async function deliver(
       ...(message.html ? { html: message.html } : {}),
       category: options.category,
       replyTo: officeEmail(),
+      adminCopy: options.adminCopy,
     });
     ok = receipt.ok;
     providerId = receipt.id;
@@ -253,6 +256,7 @@ export async function notifyCoachingPurchased(reference: string): Promise<Notify
     sends.push(
       deliver(purchase.familyEmail, receiptForFamily(purchase, `${url}/coaches`, amount), {
         category: "coaching-receipt",
+        adminCopy: true,
         template: "coaching-receipt",
         clientId: purchase.clientId,
       })
