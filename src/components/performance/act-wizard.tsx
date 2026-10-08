@@ -108,17 +108,17 @@ export function ActWizard(props: WizardProps) {
   const [statusNow, setStatusNow] = useState(act.status);
   useEffect(() => setStatusNow(act.status), [act.status]);
   const index = steps.indexOf(step);
-  const base = `/family/events/${event.id}/act/${act.id}`;
 
   function go(next: WizardStep) {
     setError("");
     setNotice("");
+    // The step lives in this component only. Both ways of putting it in the
+    // address bar broke on a phone (8 Oct 2026 walkthrough): router.replace is
+    // a server navigation whose loading boundary unmounted the wizard and lost
+    // what the parent had typed, and history.replaceState followed by
+    // router.refresh made Next hard-reload the page on every step. Resuming
+    // comes from the saved act.step instead, and ?step= still opens a step.
     setStep(next);
-    // The address bar only. router.replace would be a server navigation, and
-    // the route's loading boundary can unmount the wizard mid-step: whatever
-    // the parent typed in that moment was lost, and a save pressed during it
-    // could hang (found in the 8 Oct 2026 phone walkthrough).
-    window.history.replaceState(null, "", `${base}?step=${next}`);
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
