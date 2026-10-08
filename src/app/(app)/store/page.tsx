@@ -5,7 +5,6 @@ import { getProvider } from "@/lib/api";
 import { getSessionUser } from "@/lib/auth/session";
 import { formatCents } from "@/lib/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CatalogItemForm } from "./catalog/catalog-form";
 import { ButtonDesigner } from "./designer";
 import { NotYetAvailable } from "@/components/not-yet-available";
 import { isFeatureOpen } from "@/lib/feature-availability";
@@ -18,18 +17,19 @@ export default async function StorePage() {
   if (!user) redirect("/login");
 
   const provider = getProvider();
-  const [templates, productions, cart, products, staff] = await Promise.all([
+  const [templates, productions, cart, products] = await Promise.all([
     provider.getButtonTemplates(),
     provider.getProductions(),
     provider.getCart(user.id),
     provider.getProducts(),
-    provider.getStaffProfiles(),
   ]);
   const students = user.familyId
     ? await provider.getStudentsForFamily(user.id, user.familyId)
     : [];
   // Show-week keepsakes live together on this page; coaching is separate.
-  const starPages = products.filter((product) => product.type === "star_page");
+  const starPages = products.filter(
+    (product) => product.type === "star_page" && product.artworkUrl
+  );
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -91,30 +91,33 @@ export default async function StorePage() {
         </Card>
       )}
 
-      {/* Star pages - same switch, same reason. */}
+      {/* Star pages - same switch, same reason. One door to the designer, which
+          shows a family only their own shows (it used to list a form for every
+          show's star page here, other families' shows included). */}
       {!isFeatureOpen("starPages") ? (
         <NotYetAvailable feature="starPages" />
-      ) : (
-        <>
-        {starPages.map((product) => (
-          <Card key={product.id}>
-            <CardHeader className="pb-2">
-              <CardTitle as="h2" className="flex items-center gap-2 text-base">
-                <span aria-hidden>⭐</span>
-                {product.name}
-              </CardTitle>
-              <CardDescription>{product.description}</CardDescription>
-              <p className="text-sm font-medium">
-                From {formatCents(product.basePriceCents)}
-              </p>
-            </CardHeader>
-            <CardContent>
-              <CatalogItemForm product={product} students={students} staff={staff} />
-            </CardContent>
-          </Card>
-        ))}
-        </>
-      )}
+      ) : starPages.length > 0 ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle as="h2" className="flex items-center gap-2 text-base">
+              <span aria-hidden>⭐</span>
+              Star pages
+            </CardTitle>
+            <CardDescription>
+              A tribute in the playbill: add a photo and your words, and see the
+              page before you buy. From {formatCents(Math.min(...starPages.map((p) => p.basePriceCents)))}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href="/store/star-pages"
+              className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Make a star page
+            </Link>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex flex-col items-center gap-2 text-sm font-medium">
         <Link

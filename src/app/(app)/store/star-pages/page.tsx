@@ -50,8 +50,14 @@ export default async function StarPagesPage({
       : Promise.resolve([]),
   ]);
 
+  /* On sale once the office has uploaded the show's graphic (CJ, 8 Oct 2026)
+     - without it there is nothing to draw the family's page on. */
   const starPages = products.filter(
-    (product) => product.type === "star_page" && product.isActive && product.productionId
+    (product) =>
+      product.type === "star_page" &&
+      product.isActive &&
+      product.productionId &&
+      product.artworkUrl
   );
   const byProduction = new Map(starPages.map((product) => [product.productionId!, product]));
 
@@ -89,7 +95,7 @@ export default async function StarPagesPage({
         <SectionHeader
           as="h1"
           title={`Star page - ${chosen.production.title}`}
-          subtitle="A tribute printed in the playbill, in your own words"
+          subtitle="A tribute printed in the playbill - add a photo and your words, and see the page"
           right={
             <Link
               href="/store/star-pages"
@@ -120,8 +126,8 @@ export default async function StarPagesPage({
       {offered.length === 0 ? (
         <Card>
           <p className="p-10 text-center text-[13px] text-muted-foreground">
-            No playbills are taking star pages yet. They open as each show goes
-            into production.
+            Your show&apos;s playbill is not taking star pages yet. They open as
+            each show&apos;s playbill artwork is ready.
           </p>
         </Card>
       ) : (

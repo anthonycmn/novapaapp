@@ -4752,6 +4752,7 @@ export class MockDataProvider implements DataProvider {
       optionValue?: string;
       quantity: number;
       customization: Customization;
+      printImageUrl?: string;
     }
   ): Promise<CartItem[]> {
     const actor = getActor(actorId);
@@ -4786,8 +4787,22 @@ export class MockDataProvider implements DataProvider {
       optionValue: input.optionValue,
       displayName: optionLabel ? `${product.name} - ${optionLabel}` : product.name,
       customization: deepClone(input.customization),
+      printImageUrl: input.printImageUrl,
     });
     return deepClone(cart);
+  }
+
+  async setStarPageArtwork(
+    actorId: string,
+    productId: string,
+    artworkUrl: string | undefined
+  ): Promise<Product> {
+    const actor = getActor(actorId);
+    if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
+    const product = store.products.find((p) => p.id === productId);
+    if (!product || product.type !== "star_page") throw new Error("That star page was not found");
+    product.artworkUrl = artworkUrl;
+    return deepClone(product);
   }
 
   async reorder(actorId: string, orderId: string): Promise<CartItem[]> {

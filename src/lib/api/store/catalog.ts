@@ -41,6 +41,12 @@ export interface Product {
   messageMaxLength?: number;
   /** Lessons: which staff can teach it, for the preference dropdown. */
   staffIds?: string[];
+  /**
+   * Star pages: the show's graphic (data URL) every family's page is drawn on.
+   * Lives in products.config.artworkUrl - no column of its own. A star page
+   * with no artwork is not offered to families yet (CJ, 8 Oct 2026).
+   */
+  artworkUrl?: string;
   isActive: boolean;
   /** Sort order in the storefront. */
   sortOrder: number;

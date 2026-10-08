@@ -22,7 +22,10 @@ export const FEATURE_AVAILABILITY = {
   /* CJ, 5 Sep 2026: "Turn spirit buttons on" — opened the same day the cutout
      designer landed (hub 0066). */
   spiritButtons: true,
-  starPages: false,
+  /* CJ, 8 Oct 2026: "Please make star pages available now ... I want them to
+     be available for purchase." Each show goes on sale when its graphic is
+     uploaded at /admin/store/star-pages. */
+  starPages: true,
   /* CJ, 4 Sep 2026: "when I click photos tab in the nav menu - it should not be
      available yet." */
   photos: false,

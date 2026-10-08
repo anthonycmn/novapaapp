@@ -4406,6 +4406,7 @@ class SupabaseDataProvider {
       requiresMessage: Boolean(config.requiresMessage),
       messageLabel: config.messageLabel as string | undefined,
       messageMaxLength: config.messageMaxLength as number | undefined,
+      artworkUrl: (config.artworkUrl as string | undefined) || undefined,
       isActive: Boolean(row.is_active),
     } as Product;
   }
@@ -4556,6 +4557,7 @@ class SupabaseDataProvider {
       optionValue?: string;
       quantity: number;
       customization: Customization;
+      printImageUrl?: string;
     }
   ): Promise<CartItem[]> {
     const actor = await this.actor(actorId);
@@ -4593,10 +4595,35 @@ class SupabaseDataProvider {
         optionValue: input.optionValue,
         displayName: optionLabel ? `${product.name} - ${optionLabel}` : product.name,
         customization: input.customization,
+        printImageUrl: input.printImageUrl,
       }),
     });
     if (error) throw new Error(`add to cart failed: ${error.message}`);
     return this.getCart(actorId);
+  }
+
+  async setStarPageArtwork(
+    actorId: string,
+    productId: string,
+    artworkUrl: string | undefined
+  ): Promise<Product> {
+    const actor = await this.actor(actorId);
+    if (actor.role !== "admin" && actor.role !== "super_admin") {
+      throw new AccessDeniedError("Admin only");
+    }
+    const { data: row, error: readErr } = await this.db
+      .from("products").select("*").eq("id", productId).maybeSingle();
+    if (readErr || !row) throw new Error("That star page was not found");
+    if (row.type !== "star_page") throw new Error("Not a star page");
+
+    const config = { ...((row.config ?? {}) as Record<string, unknown>) };
+    if (artworkUrl) config.artworkUrl = artworkUrl;
+    else delete config.artworkUrl;
+
+    const { data, error } = await this.db
+      .from("products").update({ config }).eq("id", productId).select().single();
+    if (error) throw new Error(`star page artwork save failed: ${error.message}`);
+    return this.mapProduct(data);
   }
 
   async updateCartItem(actorId: string, itemId: string, quantity: number): Promise<CartItem[]> {

@@ -133,17 +133,22 @@ export async function addCatalogItemAction(
   if (!product) return { ok: false, errors: { _form: "That product isn't available" } };
 
   let customization: Customization;
+  /* Star pages: the page drawn at 300 DPI in the parent's browser, exactly as
+     previewed - what the playbill designer receives (CJ, 8 Oct 2026). */
+  let printDataUrl: string | undefined;
 
   if (product.type === "star_page") {
     const message = String(formData.get("message") ?? "").trim();
     const photoDataUrl = String(formData.get("photoDataUrl") ?? "");
+    printDataUrl = String(formData.get("printDataUrl") ?? "") || undefined;
     if (!message) return { ok: false, errors: { message: "Add your message" } };
     if (product.requiresPhoto && !photoDataUrl) {
       return { ok: false, errors: { photoDataUrl: "Choose a photo" } };
     }
-    if (photoDataUrl) {
+    if (photoDataUrl || printDataUrl) {
       try {
-        assertUploadAllowed("button-photos", photoDataUrl);
+        if (photoDataUrl) assertUploadAllowed("button-photos", photoDataUrl);
+        if (printDataUrl) assertUploadAllowed("button-photos", printDataUrl);
       } catch (error) {
         return {
           ok: false,
@@ -180,6 +185,7 @@ export async function addCatalogItemAction(
       optionValue,
       quantity,
       customization,
+      printImageUrl: printDataUrl,
     });
   } catch (error) {
     return {

@@ -1,13 +1,19 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
-import { Check, Upload } from "lucide-react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { Check, Loader2, Upload } from "lucide-react";
 import { submitStarPageAction } from "@/lib/actions/star-page";
 import type { SubmissionState } from "@/lib/actions/spirit-button";
 import { priceFor, type Product } from "@/lib/api/store/catalog";
 import type { Production, Student } from "@/lib/api/types";
 import { formatCents } from "@/lib/format";
 import { readImageFile, ImageRejectedError, type PickedImage } from "@/lib/platform/image-picker";
+import {
+  renderStarPage,
+  renderStarPagePrintFile,
+  starPageSize,
+  type StarPageSpec,
+} from "@/lib/store/star-page-artwork";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,20 +22,21 @@ import { FieldError } from "@/components/forms/field-error";
 
 const initialState: SubmissionState = { ok: false };
 
-/** Rough page proportions, so the preview looks like the space they're buying. */
-const ASPECT: Record<string, string> = {
-  quarter: "aspect-[4/3]",
-  half: "aspect-[4/5]",
-  full: "aspect-[3/4]",
-};
+/** Screen preview resolution; the print file is drawn at 300 DPI. */
+const PREVIEW_PX_PER_INCH = 110;
 
 /**
- * Design one star page, and see it laid out as you type.
+ * Design one star page on the show's graphic, and see it as it will print.
  *
- * The message is rendered with whitespace preserved and never reformatted,
- * because it is submitted as written (Tony, 17 Aug 2026) — if a parent puts
- * their line breaks somewhere deliberate, the preview has to honor them or
- * the preview is lying.
+ * CJ, 8 Oct 2026: "I will upload the graphic and then they can upload the
+ * photo and text and it will show them what it will look like. I want them to
+ * be available for purchase." The preview is drawn by lib/store/star-page-
+ * artwork, the same renderer that makes the print file on add-to-cart, so the
+ * page the family approves is the page the playbill receives.
+ *
+ * The message is never reformatted, because it is submitted as written (Tony,
+ * 17 Aug 2026) - if a parent puts their line breaks somewhere deliberate, the
+ * preview has to honor them or the preview is lying.
  */
 export function StarPageForm({
   product,
@@ -50,12 +57,44 @@ export function StarPageForm({
   );
   const [message, setMessage] = useState("");
   const [signature, setSignature] = useState("");
+  const [preview, setPreview] = useState("");
+  const [drawing, setDrawing] = useState(false);
+  const [drawError, setDrawError] = useState<string | null>(null);
 
   const boundAction = submitStarPageAction.bind(null, production.title);
   const [state, formAction, pending] = useActionState(boundAction, initialState);
 
   const maxLength = product.messageMaxLength ?? 600;
   const priceCents = priceFor(product, optionValue);
+  const size = starPageSize(optionValue);
+
+  const spec: StarPageSpec = {
+    artworkUrl: product.artworkUrl,
+    photoUrl: photo?.dataUrl,
+    studentName,
+    message,
+    signature,
+    pageSize: optionValue,
+  };
+
+  /* Redraw as they type. Debounced a touch so a fast typist is not redrawing
+     a full canvas on every keystroke. */
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const canvas = await renderStarPage(spec, PREVIEW_PX_PER_INCH);
+        if (!cancelled) setPreview(canvas.toDataURL("image/jpeg", 0.85));
+      } catch {
+        if (!cancelled) setPreview("");
+      }
+    }, 120);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.artworkUrl, photo, studentName, message, signature, optionValue]);
 
   async function onPickFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -71,27 +110,54 @@ export function StarPageForm({
     }
   }
 
+  /* Draw the print file from exactly what the preview shows, then submit. */
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setDrawError(null);
+    setDrawing(true);
+    try {
+      formData.set("printDataUrl", await renderStarPagePrintFile(spec));
+    } catch {
+      setDrawing(false);
+      setDrawError("We could not draw the page in this browser. Please try again.");
+      return;
+    }
+    setDrawing(false);
+    startTransition(() => formAction(formData));
+  }
+
   if (state.ok) {
     return (
       <div className="rounded-lg border border-primary/30 bg-card p-6 text-center shadow-[var(--shadow-card)]">
         <Check aria-hidden className="mx-auto size-7 text-primary" />
-        <h2 className="mt-2 text-[17px] font-semibold">Star page submitted</h2>
+        <h2 className="mt-2 text-[17px] font-semibold">It&apos;s in your cart</h2>
         <p className="mx-auto mt-1 max-w-md text-[13px] text-muted-foreground">
           {state.message ??
-            "Your tribute is saved and the front office has it. Nothing has been charged."}
+            "Your star page is designed and waiting in your cart. Nothing is charged until you check out."}
         </p>
-        <a
-          href={`/store/star-pages?show=${production.id}`}
-          className="mt-4 inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Submit another
-        </a>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <a
+            href="/store/cart"
+            className="inline-flex items-center rounded-md bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Go to checkout
+          </a>
+          <a
+            href={`/store/star-pages?show=${production.id}`}
+            className="inline-flex items-center rounded-md border px-3 py-1.5 text-[13px] font-medium transition-colors hover:bg-muted"
+          >
+            Make another
+          </a>
+        </div>
       </div>
     );
   }
 
+  const busy = pending || drawing;
+
   return (
-    <form action={formAction} className="grid gap-4 lg:grid-cols-2">
+    <form onSubmit={onSubmit} className="grid gap-4 lg:grid-cols-2">
       <input type="hidden" name="productId" value={product.id} />
       <input type="hidden" name="optionValue" value={optionValue} />
       <input type="hidden" name="quantity" value={1} />
@@ -99,40 +165,31 @@ export function StarPageForm({
       <input type="hidden" name="photoWidth" value={photo?.width ?? 0} />
       <input type="hidden" name="photoHeight" value={photo?.height ?? 0} />
 
-      {/* ---- The page as it will read ---- */}
-      <div className="flex flex-col gap-2">
+      {/* ---- The page as it will print ---- */}
+      <div className="flex flex-col gap-2 lg:sticky lg:top-4 lg:self-start">
         <div
-          className={`mx-auto w-full max-w-sm overflow-hidden rounded-lg border bg-card p-5 shadow-[var(--shadow-card)] ${
-            ASPECT[optionValue] ?? "aspect-[4/3]"
-          }`}
+          className="mx-auto w-full"
+          style={{
+            maxWidth: size.width >= size.height ? "26rem" : `${(size.width / size.height) * 30}rem`,
+            aspectRatio: `${size.width} / ${size.height}`,
+          }}
         >
-          <div className="flex h-full flex-col items-center gap-2 overflow-hidden text-center">
-            {photo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={photo.dataUrl}
-                alt=""
-                className="max-h-[45%] w-auto rounded-md object-contain"
-              />
-            ) : (
-              <div className="flex h-[45%] w-full items-center justify-center rounded-md border border-dashed text-[12px] text-muted-foreground">
-                Your photo
-              </div>
-            )}
-            <p className="text-[15px] font-semibold leading-tight">
-              {studentName || "Your performer"}
-            </p>
-            {/* Whitespace preserved: their line breaks are their line breaks. */}
-            <p className="min-h-0 flex-1 overflow-hidden whitespace-pre-wrap text-[12px] leading-snug text-muted-foreground">
-              {message || "Your message will appear here, exactly as you write it."}
-            </p>
-            {signature && (
-              <p className="text-[12px] font-medium italic">{signature}</p>
-            )}
-          </div>
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={preview}
+              alt="Preview of your star page"
+              className="size-full select-none rounded-md border object-contain shadow-[var(--shadow-card)]"
+            />
+          ) : (
+            <div className="flex size-full items-center justify-center rounded-md border bg-muted">
+              <Loader2 aria-hidden className="size-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
         </div>
         <p className="text-center text-[13px] text-muted-foreground">
           {product.options.find((option) => option.value === optionValue)?.label} ·{" "}
+          {size.width}&quot; × {size.height}&quot; ·{" "}
           <span className="font-medium text-foreground">{formatCents(priceCents)}</span>
         </p>
       </div>
@@ -239,7 +296,7 @@ export function StarPageForm({
           />
           <p className="text-[12px] text-muted-foreground">
             {message.length}/{maxLength} characters. We print it as you type it -
-            spelling, line breaks and all - so give it a read before you send.
+            spelling, line breaks and all - so give it a read before you add it.
           </p>
           <FieldError message={state.errors?.message} />
         </div>
@@ -256,15 +313,16 @@ export function StarPageForm({
           />
         </div>
 
+        {drawError && <FieldError message={drawError} />}
         <FieldError message={state.errors?._form} />
 
-        <Button type="submit" disabled={pending || !message.trim() || !photo}>
-          {pending ? "Submitting…" : `Submit this star page · ${formatCents(priceCents)}`}
+        <Button type="submit" disabled={busy || !message.trim() || !photo || !studentName.trim()}>
+          {busy ? "Adding…" : `Add to cart · ${formatCents(priceCents)}`}
         </Button>
         <p className="text-[12px] leading-relaxed text-muted-foreground">
-          Submitting sends your tribute to the NOVA PA team - it does not charge
-          you. We are not taking payment online yet, so the front office will
-          confirm the total with you.
+          Adding to the cart does not charge you - you&apos;ll see the total and
+          pay by card at checkout. The preview is exactly what goes in the
+          playbill.
         </p>
       </div>
     </form>

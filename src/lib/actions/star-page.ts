@@ -1,9 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { org } from "@/config/org";
 import { getProvider } from "@/lib/api";
+import { assertUploadAllowed } from "@/lib/api/storage";
 import { priceFor } from "@/lib/api/store/catalog";
-import { getSessionUser } from "@/lib/auth/session";
+import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { formatCents } from "@/lib/format";
 import { notifySubmission, submissionMessage } from "./notify-submission";
 import { addCatalogItemAction } from "./store";
@@ -19,8 +21,11 @@ import { isFeatureOpen, FEATURE_COPY } from "@/lib/feature-availability";
  * capitalisation fixes — whoever lays out the playbill sees exactly what the
  * parent typed, because a tribute is theirs and not ours to edit.
  *
- * Like spirit buttons, this stores first and notifies second, and takes no
- * payment.
+ * Like spirit buttons, this stores first and notifies second. ON SALE as of
+ * 8 Oct 2026 (CJ: "I want them to be available for purchase"): the page goes
+ * into the family's cart, drawn on the show's graphic at print resolution,
+ * and is paid through checkoutAction and the Stripe webhook like every other
+ * store order.
  */
 export async function submitStarPageAction(
   productionTitle: string,
@@ -70,13 +75,69 @@ export async function submitStarPageAction(
       `Submitted by ${user.displayName}${user.family ? ` (${user.family.name})` : ""}`,
       `Reply to:  ${user.email}`,
       "",
-      "Not paid - the store does not take payment yet. The full design, photo",
-      `included, is in the family's cart in the ${org.shortName} portal.`,
+      "Not paid yet - the page is in the family's cart, and they were sent",
+      `to checkout. The order, with the print-ready page, shows in the ${org.shortName}`,
+      "portal once Stripe confirms the payment; if no order follows, this is a",
+      "cart to chase.",
     ],
   });
 
   return {
     ok: true,
-    message: submissionMessage(outcome, "We'll confirm the total with you."),
+    message: submissionMessage(
+      outcome,
+      "Check out when you're ready - nothing is charged until then."
+    ),
   };
+}
+
+/**
+ * The graphic a show's star pages are drawn on: 1600 px is not enough for a
+ * 300 DPI full page (1500 × 2400), so the budget is larger than a button
+ * background's, and still a single data URI on the product row.
+ */
+export async function saveStarPageArtworkAction(
+  _prev: FamilyFormState,
+  formData: FormData
+): Promise<FamilyFormState> {
+  const user = await getSessionUser();
+  if (!user || !hasRoleAtLeast(user, "admin")) {
+    return { ok: false, errors: { _form: "Admin only" } };
+  }
+
+  const productId = String(formData.get("productId") ?? "");
+  const artworkDataUrl = String(formData.get("artworkDataUrl") ?? "");
+  const remove = formData.get("removeArtwork") === "true";
+  if (!productId) return { ok: false, errors: { _form: "Pick a show" } };
+  if (!remove && !artworkDataUrl) {
+    return { ok: false, errors: { artworkDataUrl: "Upload the graphic first" } };
+  }
+
+  if (artworkDataUrl) {
+    try {
+      assertUploadAllowed("button-photos", artworkDataUrl);
+    } catch (error) {
+      return {
+        ok: false,
+        errors: { artworkDataUrl: error instanceof Error ? error.message : "Bad image" },
+      };
+    }
+  }
+
+  try {
+    await getProvider().setStarPageArtwork(
+      user.id,
+      productId,
+      remove ? undefined : artworkDataUrl
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      errors: { _form: error instanceof Error ? error.message : String(error) },
+    };
+  }
+
+  revalidatePath("/admin/store/star-pages");
+  revalidatePath("/store/star-pages");
+  return { ok: true };
 }

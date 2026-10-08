@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AlertTriangle, Download, Palette, Printer } from "lucide-react";
+import { AlertTriangle, Download, Palette, Printer, Star } from "lucide-react";
 import { getProvider } from "@/lib/api";
 import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import { describeCustomization } from "@/lib/api/store/catalog";
@@ -76,6 +76,13 @@ export default async function StoreAdminPage({
           >
             <Palette aria-hidden className="size-4" />
             Button artwork
+          </Link>
+          <Link
+            href="/admin/store/star-pages"
+            className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
+          >
+            <Star aria-hidden className="size-4" />
+            Star page artwork
           </Link>
           <a
             href={`/api/store/manifest${query}`}
@@ -188,6 +195,21 @@ export default async function StoreAdminPage({
                           ×{item.quantity} ·{" "}
                           {describeCustomization(item.customization ?? { kind: "simple" })}
                         </p>
+                        {/* Star pages carry the page drawn at 300 DPI, as the
+                            family previewed it - this file goes to the playbill. */}
+                        {item.printImageUrl && (
+                          <a
+                            href={item.printImageUrl}
+                            download={printFileName(
+                              order.reference,
+                              `star-page-${item.customization && "studentName" in item.customization ? item.customization.studentName : ""}`
+                            )}
+                            className="mt-1 inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:underline"
+                          >
+                            <Download aria-hidden className="size-3" />
+                            Print file
+                          </a>
+                        )}
                       </div>
                     )
                   )}

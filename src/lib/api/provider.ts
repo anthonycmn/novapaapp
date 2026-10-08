@@ -1020,8 +1020,20 @@ export interface DataProvider {
       optionValue?: string;
       quantity: number;
       customization: Customization;
+      /** Star pages: the flattened 300 DPI page, drawn as the family previewed it. */
+      printImageUrl?: string;
     }
   ): Promise<CartItem[]>;
+  /**
+   * Admin only: give a show's star page its graphic (CJ, 8 Oct 2026). Merged
+   * into products.config.artworkUrl; undefined removes it, which takes the
+   * show's star pages off sale for families until a new graphic goes up.
+   */
+  setStarPageArtwork(
+    actorId: string,
+    productId: string,
+    artworkUrl: string | undefined
+  ): Promise<Product>;
 
   /* bug reports (hub 0081) */
   /**
