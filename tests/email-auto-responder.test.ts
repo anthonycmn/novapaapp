@@ -39,6 +39,7 @@ describe("the Resend adapter", () => {
       subject: "Health form signed — Test Student",
       text: "signed",
       category: "health_form_submitted",
+      adminCopy: true,
     });
 
     expect(result.ok).toBe(true);
@@ -57,5 +58,20 @@ describe("the Resend adapter", () => {
     expect(bodies[0].to).toBe("cj@novapa.org");
     expect(bodies[1].to).toBe("info@novapa.org");
     expect(bodies[1].subject).toBe("[Copy] Health form signed — Test Student");
+  });
+
+  it("sends the office no copy unless asked (CJ, 8 Oct 2026)", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ id: "em_1" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getEmailDeliveryProvider } = await import("@/lib/api/email");
+    await getEmailDeliveryProvider().send({
+      to: "parent@example.com",
+      subject: "Reminder: the health form is still needed",
+      text: "reminder",
+      category: "critical",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

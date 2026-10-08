@@ -31,8 +31,11 @@ export interface OutgoingEmail {
    */
   audit?: { kind?: string; batchId?: string; sentBy?: string };
   /**
-   * false for a test to yourself, or anything carrying a sign-in code. The
-   * office gets a copy of everything else — CJ, 5 Oct 2026.
+   * true to send the office its own copy of this one message. Default false —
+   * CJ, 8 Oct 2026: a copy of every reminder and notice was three or four
+   * extra emails per send. Only a press of Send in the family emailer gets a
+   * copy, one for the whole batch, sent by the caller with sendAdminCopy()
+   * and listing everyone it reached.
    */
   adminCopy?: boolean;
 }
@@ -149,7 +152,7 @@ class ResendEmailProvider implements EmailDeliveryProvider {
     await audit.stampLedger(ledgerId, { resend_id: data.id, sent_at: new Date().toISOString() });
 
     if (
-      email.adminCopy !== false &&
+      email.adminCopy === true &&
       !email.audit?.batchId &&
       email.to.trim().toLowerCase() !== audit.adminCopyTo()
     ) {

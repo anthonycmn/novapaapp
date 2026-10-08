@@ -216,10 +216,10 @@ export async function sendAdminCopy(copy: {
   const n = copy.recipients.length;
   if (!apiKey || !n) return;
   try {
-    const who =
-      n <= 5
-        ? copy.recipients.join(", ")
-        : `${n} recipients (${copy.recipients.slice(0, 3).join(", ")} and ${n - 3} more)`;
+    // The one email the office gets for a group send, so it names everyone it
+    // reached — the whole list, not "three and twenty more" (CJ, 8 Oct 2026).
+    const who = n === 1 ? copy.recipients[0] : `${n} recipients`;
+    const list = n === 1 ? "" : copy.recipients.join(", ");
     const when = new Date().toLocaleString("en-US", {
       timeZone: "America/New_York",
       dateStyle: "medium",
@@ -230,7 +230,8 @@ export async function sendAdminCopy(copy: {
       `border:1px solid #E8B84B;border-radius:6px;padding:10px 14px;margin:0 0 16px 0;color:#3C4657">` +
       `<strong>Office copy</strong> — sent to ${escapeHtml(who)} on ${escapeHtml(when)}` +
       `${copy.kind ? ` · ${escapeHtml(copy.kind.replace(/[_-]/g, " "))}` : ""}. ` +
-      `Opens, clicks and bounces are on the staff portal's Email audit page.</div>`;
+      `Opens, clicks and bounces are on the staff portal's Email audit page.` +
+      `${list ? `<div style="margin-top:6px"><strong>Sent to:</strong> ${escapeHtml(list)}</div>` : ""}</div>`;
     const body = copy.html ?? textAsHtml(copy.text);
     const html = /<body[^>]*>/i.test(body)
       ? body.replace(/<body[^>]*>/i, (b) => b + strip)
@@ -242,7 +243,7 @@ export async function sendAdminCopy(copy: {
         from: process.env.EMAIL_FROM_ADDRESS ?? "NoVAPA <onboarding@resend.dev>",
         to: adminCopyTo(),
         subject: `[Copy] ${copy.subject}`,
-        text: `Office copy — sent to ${who} on ${when}.\n\n${copy.text}`,
+        text: `Office copy — sent to ${who} on ${when}.${list ? `\nSent to: ${list}` : ""}\n\n${copy.text}`,
         html,
         headers: AUTO_RESPONDER_SUPPRESSION_HEADERS,
         tags: [{ name: "app", value: "parent-copy" }],
