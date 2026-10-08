@@ -57,6 +57,7 @@ import type {
   CallResponseRecord,
   LoanedScript,
   VolunteerSheet,
+  VolunteerVerdict,
 } from "../types";
 import { BUTTON_PRICES_CENTS } from "../types";
 import type {
@@ -4838,12 +4839,16 @@ export class MockDataProvider implements DataProvider {
     return [];
   }
 
-  async claimVolunteerSlot(): Promise<{ ok: boolean; message?: string }> {
+  async claimVolunteerSlot(): Promise<VolunteerVerdict> {
     return { ok: false, message: "Volunteer sign-ups need the live backend." };
   }
 
-  async releaseVolunteerSlot(): Promise<void> {
-    throw new Error("Volunteer sign-ups need the live backend.");
+  async releaseVolunteerSlot(): Promise<VolunteerVerdict> {
+    return { ok: false, message: "Volunteer sign-ups need the live backend." };
+  }
+
+  async moveVolunteerSlot(): Promise<VolunteerVerdict> {
+    return { ok: false, message: "Volunteer sign-ups need the live backend." };
   }
 
   /* ---- answering a call (hub 0049) --------------------------------------
