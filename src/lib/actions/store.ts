@@ -14,6 +14,7 @@ import { isButtonLine, type OrderStatus } from "@/lib/api/types";
 import type { Customization } from "@/lib/api/store/catalog";
 import { assertUploadAllowed } from "@/lib/api/storage";
 import { logActivity } from "@/lib/activity";
+import { getEncore } from "@/lib/encore";
 import { recordStoreOrderPaid } from "@/lib/receipts/record";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { refuseIfImpersonating } from "@/lib/auth/impersonation";
@@ -256,8 +257,16 @@ export async function checkoutAction(): Promise<void> {
     headerList.get("origin") ??
     `https://${headerList.get("host") ?? "localhost:3000"}`;
 
+  /* Encore Points (hub 0098): an open spirit button or star page voucher pays
+     for one matching line. Those lines go in at $0 and the voucher is spent
+     on this order before any card is involved, so it cannot be spent twice. */
+  const encore = getEncore();
+  const voucherPlan = await encore.planVouchers(user, cart).catch(() => ({ lines: {} as Record<string, string> }));
+  const pointsLines = Object.keys(voucherPlan.lines).length ? voucherPlan.lines : undefined;
+
   // Reserve the order first so the payment reference always has a home.
-  const order = await provider.createOrder(user.id, "pending");
+  const order = await provider.createOrder(user.id, "pending", pointsLines ? { pointsLines } : undefined);
+  if (pointsLines) await encore.useVouchers(user, voucherPlan, order.reference);
 
   await logActivity({
     user,
@@ -268,6 +277,14 @@ export async function checkoutAction(): Promise<void> {
     detail: { reference: order.reference },
   });
 
+  /* Everything in the cart was paid with points: Stripe will not open a $0
+     session, and nothing is owed, so the order is paid here. */
+  if (order.subtotalCents === 0) {
+    const paid = await provider.markOrderPaid(order.reference, "encore_points");
+    if (paid) await recordStoreOrderPaid(paid, { mockActorId: user.id, buyerEmail: user.email });
+    redirect(`/store/orders?placed=${order.reference}`);
+  }
+
   // Guarded the same way as buyCoachingAction, 11 Sep 2026: a Stripe refusal
   // must come back as a sentence on the cart, not the generic crash page.
   let checkout;
@@ -275,7 +292,8 @@ export async function checkoutAction(): Promise<void> {
     checkout = await payments.createCheckout({
       orderReference: order.reference,
       customerEmail: user.email,
-      lines: cart.map((item) => ({
+      // Lines paid with points are not sent to the card processor.
+      lines: cart.filter((item) => !voucherPlan.lines[item.id]).map((item) => ({
         // Buttons get a descriptive line; catalog products already carry a
         // display name that includes the chosen option.
         name: isButtonLine(item)

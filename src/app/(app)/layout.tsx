@@ -7,6 +7,7 @@ import { Spot } from "@/components/spot/spot";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { currentImpersonation } from "@/lib/auth/impersonation";
 import { getNavAlerts } from "@/lib/nav-alerts";
+import { getEncore } from "@/lib/encore";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
 import { PushSync } from "@/components/pwa/push-sync";
 import { SignOutButton } from "@/components/app-shell/sign-out-button";
@@ -44,6 +45,9 @@ export default async function AppLayout({
      sessions ever - the cost of asking is one signed-cookie check, cached for
      the request and shared with the guards. */
   const impersonation = await currentImpersonation();
+  /* Hub 0098. Encore Points stays out of the menu until CJ launches it in the
+     staff portal (or puts this family on the preview list). */
+  const openGates = (await getEncore().isOpen(user)) ? ["encore"] : [];
 
   return (
     <AppShell
@@ -51,6 +55,7 @@ export default async function AppLayout({
       roleLabel={user.family?.name ?? ROLE_LABEL[user.role] ?? user.role}
       unreadCount={unreadCount}
       navAlerts={navAlerts}
+      openGates={openGates}
       signOutSlot={
         /* The client wrapper purges the service worker's page cache and the
            push subscription before the cookie goes - see SignOutButton. */

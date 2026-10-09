@@ -4748,10 +4748,19 @@ class SupabaseDataProvider {
     await this.db.from("cart_items").delete().eq("user_id", actorId);
   }
 
-  async createOrder(actorId: string, paymentRef: string): Promise<ButtonOrder> {
+  async createOrder(
+    actorId: string,
+    paymentRef: string,
+    options: { pointsLines?: Record<string, string> } = {}
+  ): Promise<ButtonOrder> {
     const actor = await this.actor(actorId);
     if (!actor.familyId) throw new AccessDeniedError("Only families can order buttons");
-    const cart = await this.getCart(actorId);
+    const cart = (await this.getCart(actorId)).map((item) => {
+      const voucher = options.pointsLines?.[item.id];
+      // Paid with Encore Points (hub 0098): the line rides at $0. The voucher
+      // row records the order reference it was spent on.
+      return voucher ? { ...item, unitPriceCents: 0 } : item;
+    });
     if (cart.length === 0) throw new Error("Cart is empty");
 
     const subtotalCents = cart.reduce(

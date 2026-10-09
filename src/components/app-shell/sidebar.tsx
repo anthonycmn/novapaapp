@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Compass, LayoutDashboard, Ticket } from "lucide-react";
 import { org } from "@/config/org";
-import { FAMILY_SECTIONS, groupSections } from "@/config/navigation";
+import { FAMILY_SECTIONS, groupSections, visibleSections } from "@/config/navigation";
 import { Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Avatar } from "@/components/ui/avatar";
@@ -32,6 +32,7 @@ export function Sidebar({
   onNavigate,
   navAlerts,
   signOutSlot,
+  openGates = [],
 }: {
   displayName: string;
   roleLabel: string;
@@ -49,6 +50,8 @@ export function Sidebar({
    */
   navAlerts?: NavAlerts;
   signOutSlot?: React.ReactNode;
+  /** Gated menu items this family may see, e.g. "encore" once CJ launches it. */
+  openGates?: readonly string[];
 }) {
   const pathname = usePathname();
   /*
@@ -61,7 +64,7 @@ export function Sidebar({
    * no other source, but they reach it from Our staff, where they are already
    * looking at profiles, rather than from a section of their own.
    */
-  const groups = groupSections(FAMILY_SECTIONS);
+  const groups = groupSections(visibleSections(FAMILY_SECTIONS, openGates));
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);

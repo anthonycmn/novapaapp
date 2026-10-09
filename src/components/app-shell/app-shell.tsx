@@ -23,6 +23,7 @@ export function AppShell({
   unreadCount,
   navAlerts,
   signOutSlot,
+  openGates,
   children,
 }: {
   displayName: string;
@@ -31,6 +32,8 @@ export function AppShell({
   /** href → how many things are waiting there. See lib/nav-alerts. */
   navAlerts?: NavAlerts;
   signOutSlot?: React.ReactNode;
+  /** Gated menu items this family may see. See NavSection.gate. */
+  openGates?: readonly string[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -79,6 +82,7 @@ export function AppShell({
       onNavigate={() => setOpen(false)}
       navAlerts={navAlerts}
       signOutSlot={signOutSlot}
+      openGates={openGates}
     />
   );
 

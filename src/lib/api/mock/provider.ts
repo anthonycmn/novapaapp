@@ -2067,13 +2067,20 @@ export class MockDataProvider implements DataProvider {
     store.carts.set(actorId, []);
   }
 
-  async createOrder(actorId: string, paymentRef: string): Promise<ButtonOrder> {
+  async createOrder(
+    actorId: string,
+    paymentRef: string,
+    options: { pointsLines?: Record<string, string> } = {}
+  ): Promise<ButtonOrder> {
     const actor = getActor(actorId);
     if (!actor.familyId) throw new AccessDeniedError("Only families can order buttons");
     const cart = this.cartFor(actorId);
     if (cart.length === 0) throw new Error("Cart is empty");
 
-    const items = cart.map((item) => ({ ...deepClone(item) }));
+    const items = cart.map((item) => {
+      const voucher = options.pointsLines?.[item.id];
+      return voucher ? { ...deepClone(item), unitPriceCents: 0 } : { ...deepClone(item) };
+    });
     const subtotalCents = items.reduce(
       (sum, item) => sum + item.unitPriceCents * item.quantity,
       0
