@@ -30,6 +30,18 @@ export interface PolicySection {
 
 export const POLICIES_URL = `${org.websiteUrl}/policies.html`;
 
+/** Where a family sends notice that they are dropping a weekly class. */
+export const CLASS_DROP_EMAIL = "katieh@novapa.org";
+
+/**
+ * CJ, 9 Oct 2026: "a family MUST GIVE 30 DAYS notice to katieh@novapa.org that
+ * they are dropping the class, and the card will be charged for the remaining
+ * 30 days. Make sure they know this. Do not allow them to just stop payments."
+ * The website's #classes clause binds; this is the sentence families see here.
+ */
+export const CLASS_DROP_POLICY =
+  `To drop a class, email ${CLASS_DROP_EMAIL} at least 30 days ahead. Your card is charged for the 30 days after we receive your notice, then billing stops on its own. Stopping or disputing a payment does not drop a class.`;
+
 /** Section One of the published page — the terms every registration accepts. */
 export const REGISTRATION_TERMS: PolicySection[] = [
   {
@@ -42,6 +54,11 @@ export const REGISTRATION_TERMS: PolicySection[] = [
     title: "Balance due date",
     summary:
       "The last day payment may be made. Unpaid balances stop participation until they are settled.",
+  },
+  {
+    anchor: "classes",
+    title: "Dropping a weekly class",
+    summary: `30 days' written notice to ${CLASS_DROP_EMAIL}; the card is charged for those 30 days, then billing stops. Stopping a payment does not drop a class.`,
   },
   {
     anchor: "refunds",

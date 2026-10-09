@@ -44,6 +44,36 @@ export async function fetchCoachingActivityIds(): Promise<Set<number>> {
 }
 
 /**
+ * Registrations the staff portal has recorded as dropped (portal 0357,
+ * `staff_portal.v_dropped_enrollments`), keyed the way the staff portal keys
+ * them: `order_item:<uuid>` or `legacy:<id>`.
+ *
+ * CJ, 9 Oct 2026: a family drops a class with 30 days' notice to Katie H.; the
+ * child leaves the current roster from the day the notice arrived. The order
+ * line stays in the website's book (the money history is real), so without
+ * this the sync would read it as enrolled and put the child straight back.
+ *
+ * Returns an empty set if the view is unreachable: the old behavior, which
+ * keeps the child enrolled rather than guessing.
+ */
+export async function fetchDroppedEnrollmentIds(): Promise<Set<string>> {
+  try {
+    const { data, error } = await getPortalReadClient()
+      .from("v_dropped_enrollments")
+      .select("enrollment_id");
+    if (error) throw error;
+    const ids = new Set<string>();
+    for (const row of data ?? []) {
+      const id = (row as { enrollment_id: unknown }).enrollment_id;
+      if (typeof id === "string") ids.add(id);
+    }
+    return ids;
+  } catch {
+    return new Set<string>();
+  }
+}
+
+/**
  * The REAL registration adapter: reads the org's own registration system
  * directly out of the shared novapa database (`public` schema — families,
  * campers, orders, order_items). This is the "registration data later"
@@ -100,7 +130,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
      * cannot be day camps (see reconcile), and the job still covers them.
      */
     const only = opts.familyExternalId;
-    const [familyRows, camperRows, itemRows, legacyRows, activityRows, showTitles] =
+    const [familyRows, camperRows, itemRows, legacyRows, activityRows, showTitles, dropped] =
       await Promise.all([
         this.selectAll("families", "id, email, parent_name, is_test", only ? { id: only } : undefined),
         this.selectAll("campers", "id, family_id, name, birthdate", only ? { family_id: only } : undefined),
@@ -118,6 +148,7 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
             ),
         this.selectAll("activities", "id, name, category, age_range, class_times, offering_kind"),
         fetchShowTitleMap(),
+        fetchDroppedEnrollmentIds(),
       ]);
     const activities = buildActivityMap(activityRows);
 
@@ -197,7 +228,10 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         // sync engine can flag it as an unmatched participant, not drop it.
         `unmatched:${familyId}:${normalize(camperName ?? "unknown")}`;
 
-      const status = /cancel|refund/i.test(str(order.status) ?? "")
+      // A drop recorded in the staff portal withdraws the child the same way a
+      // cancelled order does (0357).
+      const status =
+        /cancel|refund/i.test(str(order.status) ?? "") || dropped.has(`order_item:${id}`)
         ? ("cancelled" as const)
         : ("enrolled" as const);
 
@@ -286,8 +320,9 @@ export class WebsiteDbRegistrationProvider implements RegistrationProvider {
         sessionStartsOn: activity?.session?.startsOn,
         sessionEndsOn: activity?.session?.endsOn,
         // A legacy import carries no order status; the child attended, or is
-        // enrolled. Cancellations never made it into this table.
-        status: "enrolled",
+        // enrolled. Cancellations never made it into this table; a drop
+        // recorded in the staff portal (0357) is the one exception.
+        status: dropped.has(`legacy:${id}`) ? "cancelled" : "enrolled",
         balanceCents: 0,
         amountPaidCents: num(row.paid_cents),
         enrolledAt: str(row.imported_at) ?? new Date().toISOString(),
