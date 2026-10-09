@@ -3624,25 +3624,61 @@ class SupabaseDataProvider {
   }> {
     const actor = await this.actor(actorId);
     if (!this.isStaffish(actor)) throw new AccessDeniedError("Staff only");
-    const [{ data: send }, { data: opens }, { data: clicks }, { data: profiles }] =
+    const [{ data: send }, { data: opens }, { data: clicks }, { data: profiles }, { data: ledger }] =
       await Promise.all([
         this.db.from("email_sends").select("audience").eq("id", sendId).maybeSingle(),
         this.db.from("email_opens").select("*").eq("send_id", sendId),
         this.db.from("email_clicks").select("*").eq("send_id", sendId),
         this.db.from("profiles").select("*"),
+        // Where opens actually land (staff portal 0338, 0356). email_opens is
+        // only written by the desk pixel, which a plain-text send never
+        // carries, so every send read 0% opened until 9 Oct 2026. The ledger's
+        // audit pixel rides on every send, text or HTML.
+        getServiceClient()
+          .schema("staff_portal")
+          .from("mail_messages")
+          .select("to_email, first_opened_at, first_clicked_at")
+          .eq("batch_id", sendId)
+          .in("kind", ["family_email", "family_email_test"])
+          .or("first_opened_at.not.is.null,first_clicked_at.not.is.null"),
       ]);
     const nameOf = (id: string) =>
       String((profiles ?? []).find((pr) => pr.id === id)?.display_name ?? "");
-    const openedIds = new Set((opens ?? []).map((o) => String(o.recipient_id)));
+    const idByEmail = new Map(
+      (profiles ?? [])
+        .filter((pr) => pr.email)
+        .map((pr) => [String(pr.email).toLowerCase(), String(pr.id)])
+    );
+
+    // One open per recipient, earliest wins. Three sources, because each
+    // covers what the others miss: the ledger (every send since 6 Oct 2026),
+    // the desk pixel (HTML sends), and a click, which proves the email was
+    // read even when the pixel was blocked or the send predates the ledger.
+    // A ledger address with no profile, such as a student's own email, is
+    // listed by its address.
+    const firstOpen = new Map<string, { recipientId: string; recipientName: string; at: string }>();
+    const note = (recipientId: string, recipientName: string, at: string) => {
+      const seen = firstOpen.get(recipientId);
+      if (!seen || at < seen.at) firstOpen.set(recipientId, { recipientId, recipientName, at });
+    };
+    for (const m of ledger ?? []) {
+      const email = String(m.to_email).toLowerCase();
+      const id = idByEmail.get(email);
+      note(id ?? `email:${email}`, id ? nameOf(id) : email, String(m.first_opened_at ?? m.first_clicked_at));
+    }
+    for (const o of opens ?? []) {
+      note(String(o.recipient_id), nameOf(String(o.recipient_id)), String(o.opened_at));
+    }
+    for (const c of clicks ?? []) {
+      note(String(c.recipient_id), nameOf(String(c.recipient_id)), String(c.clicked_at));
+    }
+    const allOpens = [...firstOpen.values()].sort((a, b) => a.at.localeCompare(b.at));
+    const openedIds = new Set(firstOpen.keys());
     const recipients = send
       ? await this.audienceParents((send.audience ?? {}) as FeedAudience)
       : [];
     return {
-      opens: (opens ?? []).map((o) => ({
-        recipientId: String(o.recipient_id),
-        recipientName: nameOf(String(o.recipient_id)),
-        at: String(o.opened_at),
-      })),
+      opens: allOpens,
       clicks: (clicks ?? []).map((c) => ({
         recipientId: String(c.recipient_id),
         recipientName: nameOf(String(c.recipient_id)),

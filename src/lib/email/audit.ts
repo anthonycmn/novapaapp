@@ -20,10 +20,11 @@ import { AUTO_RESPONDER_SUPPRESSION_HEADERS } from "@/lib/api/email";
  * it, and the staff portal's mail-webhook records delivery and bounces against
  * the Resend id stamped here.
  *
- * This sits UNDER the family email desk's own tracking (email_opens /
- * email_clicks, which feed the per-send counts), not in place of it: a family
- * link is wrapped twice and a click passes through both, each recording its
- * own thing.
+ * This sits UNDER the family email desk's own tracking, not in place of it: a
+ * family link is wrapped twice and a click passes through both, each recording
+ * its own thing. Opens are the exception: the desk's own pixel is HTML-only and
+ * staff write text, so the per-send open counts read THIS ledger (staff portal
+ * 0356, getEmailEngagement), keyed by batch_id = the send's id.
  *
  * The staff portal has the twin of this file (netlify/functions/_mailTracking.ts)
  * and the two sign links identically — both derive the key from the one
