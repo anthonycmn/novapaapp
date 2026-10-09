@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { BellRing } from "lucide-react";
-import { getServiceClient, isSupabaseConfigured } from "@/lib/api/supabase/client";
+import { pushReach } from "@/lib/push/broadcast";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { Card, CardContent } from "@/components/ui/card";
 import { PushComposer } from "./composer";
@@ -8,37 +8,15 @@ import { PushComposer } from "./composer";
 export const metadata = { title: "Push to all parents" };
 
 /**
- * Push to every parent (CJ, 8 Oct 2026).
- *
- * The two numbers on this page are the honest ones: every parent sees the
- * notice in their bell, but only the parents who turned push on for a
- * device get a phone that rings. Saying "sent to 823" and nothing else
- * would let CJ believe 823 phones lit up.
+ * Push to every parent (CJ, 8 Oct 2026). The staff portal has the same
+ * composer, through /api/push/broadcast (9 Oct 2026).
  */
-async function reach(): Promise<{ parents: number; devices: number; parentsWithPush: number } | null> {
-  if ((process.env.NEXT_PUBLIC_DATA_MODE ?? "mock") !== "supabase" || !isSupabaseConfigured()) {
-    return null;
-  }
-  const db = getServiceClient();
-  const [{ data: parents }, { data: subs }] = await Promise.all([
-    db.from("profiles").select("id").eq("role", "parent"),
-    db.from("push_subscriptions").select("user_id"),
-  ]);
-  const parentIds = new Set((parents ?? []).map((p: { id: string }) => p.id));
-  const parentSubs = (subs ?? []).filter((s: { user_id: string }) => parentIds.has(s.user_id));
-  return {
-    parents: parentIds.size,
-    devices: parentSubs.length,
-    parentsWithPush: new Set(parentSubs.map((s: { user_id: string }) => s.user_id)).size,
-  };
-}
-
 export default async function PushBroadcastPage() {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (!hasRoleAtLeast(user, "admin")) redirect("/admin");
 
-  const numbers = await reach();
+  const numbers = await pushReach();
 
   return (
     <div className="flex flex-col gap-4">
