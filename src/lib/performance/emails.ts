@@ -2,6 +2,7 @@ import "server-only";
 import { getEmailDeliveryProvider } from "@/lib/api/email";
 import { esc, h2, p, button, callout, renderEmailShell, section } from "@/lib/email/template";
 import { org } from "@/config/org";
+import { STAFF_PORTAL_URL } from "@/config/navigation";
 import { ACT_FORMAT_LABELS, ACT_STATUS_LABELS, ACT_TYPE_LABELS, type PerformanceAct, type PerformanceEvent } from "./types";
 import { formatEastern, formatRuntime, performerName } from "./rules";
 
@@ -110,7 +111,8 @@ export async function sendSubmissionEmails(input: {
     );
   }
 
-  const staffUrl = `${process.env.STAFF_PORTAL_URL ?? "https://staff.novapa.org"}/events/${event.id}`;
+  // The staff portal's real address, from the one place the hub keeps it.
+  const staffUrl = `${STAFF_PORTAL_URL}/events/${event.id}`;
   for (const to of event.alertRecipients) {
     const text = [
       `${input.resubmitted ? "Changes submitted" : "New act"} for ${event.title}`,
