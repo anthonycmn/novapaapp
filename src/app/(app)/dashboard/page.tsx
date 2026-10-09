@@ -22,6 +22,7 @@ import { StayInLoopCard } from "@/components/dashboard/stay-in-loop";
 import { MobileNumberCard } from "@/components/dashboard/mobile-number-card";
 import { PunchCardCard } from "@/components/dashboard/punch-card-card";
 import { PerformanceEventsCard } from "@/components/dashboard/performance-events-card";
+import { EncorePointsCard } from "@/components/dashboard/encore-points-card";
 import { formatEventTime } from "@/lib/format";
 import { EnrollmentsCard } from "@/components/dashboard/enrollments-card";
 import { MissionPlaque, TipOfTheDay } from "@/components/dashboard/mission-card";
@@ -317,6 +318,21 @@ export default async function DashboardPage({
             node: (
               <Suspense fallback={null}>
                 <StayInLoopCard familyId={user.familyId} />
+              </Suspense>
+            ),
+          },
+          {
+            def: {
+              key: "encore-points",
+              title: "Encore Points",
+              blurb: "Your points, your tier, and how close the next reward is.",
+              zone: "right" as const,
+            },
+            /* Hub 0098. Nothing at all until CJ launches the program in the
+               staff portal (or puts this family on the preview list). */
+            node: (
+              <Suspense fallback={null}>
+                <EncorePointsCard />
               </Suspense>
             ),
           },

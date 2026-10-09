@@ -520,7 +520,11 @@ export interface DataProvider {
   clearCart(actorId: string): Promise<void>;
 
   /** Turn the cart into an unpaid order. */
-  createOrder(actorId: string, paymentRef: string): Promise<ButtonOrder>;
+  /**
+   * pointsLines: cart item id → Encore Points voucher id (hub 0098). Those
+   * lines go into the order at $0, so the subtotal is the cash still owed.
+   */
+  createOrder(actorId: string, paymentRef: string, options?: { pointsLines?: Record<string, string> }): Promise<ButtonOrder>;
   /** Mark an order paid once the processor confirms. */
   markOrderPaid(orderReference: string, paymentRef: string): Promise<ButtonOrder | null>;
   getOrdersForFamily(actorId: string, familyId: string): Promise<ButtonOrder[]>;

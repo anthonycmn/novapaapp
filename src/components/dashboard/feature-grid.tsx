@@ -46,7 +46,7 @@ export function FeatureGrid({ isStaff }: { isStaff: boolean }) {
     <Card pad={false}>
       <SectionHeader title="Everything in the portal" inCard />
       <div className="flex flex-col gap-4 p-4">
-        <Grid items={FAMILY_SECTIONS} />
+        <Grid items={FAMILY_SECTIONS.filter((section) => !section.gate)} />
         {isStaff && (
           <div>
             <h3 className="mb-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-gold">

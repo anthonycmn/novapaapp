@@ -254,7 +254,7 @@ export async function recordStoreOrderPaid(
         lines,
         totalCents: order.subtotalCents,
         paidAt: order.paidAt ?? new Date().toISOString(),
-        paidWith: "Card (Stripe)",
+        paidWith: order.paymentRef === "encore_points" ? "Encore Points" : "Card (Stripe)",
         paymentRef: order.paymentRef || null,
       },
       { mockActorId: options.mockActorId, notify: options.notify }

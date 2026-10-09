@@ -1,5 +1,6 @@
 import {
   HandHeart,
+  Sparkles,
   MicVocal,
   Bell,
   BookOpen,
@@ -51,6 +52,11 @@ export interface NavSection {
    * registration system's account page.
    */
   external?: boolean;
+  /**
+   * Shown only while a feature is open for this family. "encore": Encore
+   * Points, hidden until CJ launches it in the staff portal (hub 0098).
+   */
+  gate?: "encore";
 }
 
 /*
@@ -98,6 +104,8 @@ export const FAMILY_SECTIONS: NavSection[] = [
   // they are published — hub 0048, 26 Aug 2026.
   { href: "/volunteers", Icon: HandHeart, label: "Volunteer", description: "Sign up to help: shows, food, potluck", group: "Your family" },
   { href: "/messages", Icon: MessagesSquare, label: "Message the office", description: "Admin or Health & Safety, privately", group: "Your family" },
+  // CJ, 9 Oct 2026: Encore Points. Hidden until he launches it (hub 0098).
+  { href: "/family/rewards", Icon: Sparkles, label: "Encore Points", description: "Your points, your tier, and rewards to redeem", group: "Store", gate: "encore" },
   { href: "/store/buttons", Icon: ShoppingBag, label: "Spirit buttons", description: "Pick a show, add a photo, see the button", group: "Store" },
   { href: "/store/star-pages", Icon: ShoppingBag, label: "Star pages", description: "Playbill tributes to your performer", group: "Store" },
   { href: "/store/lessons", Icon: GraduationCap, label: "Private lessons", description: "Voice, acting & dance coaching", group: "Store" },
@@ -139,6 +147,11 @@ export const STAFF_SECTIONS: NavSection[] = [
 export const STAFF_PORTAL_URL = "https://staffportal.northernvirginiaperformingarts.org";
 
 /** Section lists grouped for the sidebar, in declaration order. */
+/** The sections this family may see: gated ones only when their gate is open. */
+export function visibleSections(sections: NavSection[], openGates: readonly string[] = []): NavSection[] {
+  return sections.filter((section) => !section.gate || openGates.includes(section.gate));
+}
+
 export function groupSections(sections: NavSection[]): Array<[string, NavSection[]]> {
   const groups = new Map<string, NavSection[]>();
   for (const section of sections) {
