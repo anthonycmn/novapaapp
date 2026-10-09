@@ -1,4 +1,5 @@
 import { CalendarClock, ExternalLink } from "lucide-react";
+import { CLASS_DROP_POLICY } from "@/config/policies";
 import { registration } from "@/config/registration";
 import { fetchUpcomingPayments } from "@/lib/api/registration/billing";
 import type { ClassOffering, Enrollment, Production, Student } from "@/lib/api/types";
@@ -29,6 +30,8 @@ export async function UpcomingPaymentsPanel({ familyId }: { familyId: string }) 
   const last = upcoming[upcoming.length - 1];
   const finite = last.ends !== null && !last.renews;
   const asDate = (ms: number) => formatDate(new Date(ms).toISOString());
+  // A monthly class tuition: say how it ends before anyone asks (0357).
+  const monthlyClass = upcoming.some((p) => p.renews || /class|membership/i.test(p.desc ?? ""));
 
   return (
     <Card pad={false}>
@@ -92,6 +95,11 @@ export async function UpcomingPaymentsPanel({ familyId }: { familyId: string }) 
           Charged automatically to your card on file. Update the card any time from your
           registration account - the schedule above comes straight from it.
         </p>
+        {monthlyClass && (
+          <p className="mt-1.5 text-[12px] text-muted-foreground">
+            <span className="font-medium text-foreground">Dropping a class:</span> {CLASS_DROP_POLICY}
+          </p>
+        )}
       </div>
     </Card>
   );

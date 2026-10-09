@@ -117,6 +117,14 @@ export const SPOT_ANSWERS: SpotAnswer[] = [
     phrases: ["how much", "payment plan", "financial aid", "do i owe"],
   },
   {
+    id: "drop-class",
+    title: "Dropping a class",
+    body: "Email katieh@novapa.org at least 30 days ahead; your card is charged for the 30 days after your notice, then billing stops on its own. Stopping or disputing a payment does not drop a class.",
+    links: [{ label: "Email Katie", href: "mailto:katieh@novapa.org", external: true }],
+    keywords: ["drop", "quit", "unenroll", "unenrol"],
+    phrases: ["drop a class", "drop the class", "stop the class", "cancel the class", "cancel a class", "cancel class", "stop paying", "stop payments", "cancel my membership", "cancel membership"],
+  },
+  {
     id: "refund",
     title: "Refund requests",
     body: "Message the office and choose \"Refund request\". It goes to our CFO, who decides refunds.",
