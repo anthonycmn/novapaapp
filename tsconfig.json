@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -23,18 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next-mock/types/**/*.ts"
-  ],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   /*
    * `.claude` holds Claude Code worktrees — full copies of this repo living
    * inside it. Without this exclusion they get type-checked as part of the
@@ -47,8 +35,5 @@
    * It passed locally each time only because `incremental` let tsc skip
    * re-checking the file. A clean build is the honest one, so exclude it.
    */
-  "exclude": [
-    "node_modules",
-    ".claude"
-  ]
+  "exclude": ["node_modules", ".claude"]
 }
