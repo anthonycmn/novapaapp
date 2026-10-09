@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProvider } from "@/lib/api";
 import { buildFamilyIcs } from "@/lib/ical";
+import { getPerformance } from "@/lib/performance";
+import type { FamilyCalendarEvent } from "@/lib/api/types";
 
 /**
  * Tokenized iCal feed (#5): unique unguessable URL per family, no login
@@ -55,6 +57,30 @@ export async function GET(
   if (!actorId || !familyName) return new NextResponse("Not found", { status: 404 });
 
   const events = await provider.getFamilyCalendar(actorId, familyId);
+  // Performance Events (hub 0097): an accepted act puts the show and its
+  // required rehearsals on the family's calendar, the same feed as everything
+  // else. A failure here never takes the rest of the calendar down with it.
+  const performances = await getPerformance()
+    .calendarFor(familyId)
+    .catch((error) => {
+      console.error("[calendar] performance events skipped:", error);
+      return [];
+    });
+  events.push(
+    ...performances.map(
+      (p): FamilyCalendarEvent => ({
+        id: p.id,
+        type: p.type,
+        title: p.title,
+        startsAt: p.startsAt,
+        endsAt: p.endsAt,
+        callTime: p.callTime,
+        location: p.location,
+        studentIds: p.studentIds,
+        details: p.details,
+      })
+    )
+  );
   const ics = buildFamilyIcs(events, { familyName, studentNamesById });
 
   return new NextResponse(ics, {
