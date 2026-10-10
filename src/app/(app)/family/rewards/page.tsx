@@ -123,7 +123,7 @@ export default async function RewardsPage() {
         <p className="font-medium text-foreground">How it works</p>
         <ul className="mt-1 list-disc space-y-0.5 pl-5">
           <li>10 points per $1 as a Patron, 11 as a Director ($1,500+ a season), 12.5 as a Producer ($3,000+). Your tier holds through the next season.</li>
-          <li>Points post when a payment clears, including each monthly class payment. A refund removes the points it earned.</li>
+          <li>Points post when a payment clears, including each monthly class payment. A refund, chargeback or cancellation removes the points that payment earned; if they were already spent, your balance can dip below zero until new payments earn it back.</li>
           <li>Refer a family who is new to NOVA PA and earn {formatPoints(page.program.referralPoints)} points when they register.</li>
           <li>Points expire after 12 months with no earning or redeeming. They have no cash value and stay with your family account.</li>
         </ul>
