@@ -24,6 +24,7 @@
 
 import { BUTTON_FONTS, DEFAULT_BUTTON_FONT } from "@/lib/store/button-artwork";
 import { findPhotoFrames, textRegion, type Rect } from "@/lib/store/star-page-layout";
+import { dataUrlBytes } from "@/lib/platform/image-picker";
 
 export const STAR_PAGE_DPI = 300;
 
@@ -492,8 +493,28 @@ async function drawClassic(
   );
 }
 
-/** The file the playbill designer receives: 300 DPI JPEG, drawn as previewed. */
+/**
+ * The most the print file may weigh, decoded. It rides in the same server
+ * action as the family's photos, so it has a share of the 4 MB body cap rather
+ * than all of it (see STAR_PAGE_PHOTO_BUDGET and the star page budget test).
+ */
+export const STAR_PAGE_PRINT_MAX_BYTES = 1200 * 1024;
+
+/** Quality ladder for the print file, walked down until it fits. */
+const PRINT_QUALITY_STEPS = [0.9, 0.85, 0.8, 0.72, 0.65];
+
+/**
+ * The file the playbill designer receives: 300 DPI JPEG, drawn as previewed.
+ * Always 300 DPI - only the JPEG quality gives way, so the page stays print
+ * size. If even the lowest step is over budget it is returned anyway, and the
+ * form's own size check stops the post with a message rather than a crash.
+ */
 export async function renderStarPagePrintFile(spec: StarPageSpec): Promise<string> {
   const canvas = await renderStarPage(spec, STAR_PAGE_DPI);
-  return canvas.toDataURL("image/jpeg", 0.9);
+  let dataUrl = "";
+  for (const quality of PRINT_QUALITY_STEPS) {
+    dataUrl = canvas.toDataURL("image/jpeg", quality);
+    if (dataUrlBytes(dataUrl) <= STAR_PAGE_PRINT_MAX_BYTES) break;
+  }
+  return dataUrl;
 }
