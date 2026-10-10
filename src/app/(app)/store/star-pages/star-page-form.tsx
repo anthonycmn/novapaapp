@@ -7,7 +7,13 @@ import type { SubmissionState } from "@/lib/actions/spirit-button";
 import { priceFor, starPageArtworkFor, type Product } from "@/lib/api/store/catalog";
 import type { Production, Student } from "@/lib/api/types";
 import { formatCents } from "@/lib/format";
-import { readImageFile, ImageRejectedError, type PickedImage } from "@/lib/platform/image-picker";
+import {
+  readImageFile,
+  ImageRejectedError,
+  SERVER_ACTION_BODY_CAP_BYTES,
+  STAR_PAGE_PHOTO_BUDGET,
+  type PickedImage,
+} from "@/lib/platform/image-picker";
 import {
   DEFAULT_STAR_PAGE_COLOR,
   DEFAULT_STAR_PAGE_FONT,
@@ -29,6 +35,18 @@ const initialState: SubmissionState = { ok: false };
 
 /** Screen preview resolution; the print file is drawn at 300 DPI. */
 const PREVIEW_PX_PER_INCH = 110;
+
+/** Room left under the body cap for multipart boundaries and headers. */
+const BODY_HEADROOM_BYTES = 256 * 1024;
+
+/** Roughly what the form weighs on the wire: every field's text, summed. */
+function formBodyBytes(formData: FormData): number {
+  let bytes = 0;
+  formData.forEach((value, key) => {
+    bytes += key.length + (typeof value === "string" ? value.length : value.size);
+  });
+  return bytes;
+}
 
 /**
  * Design one star page on the show's graphic, and see it as it will print.
@@ -143,7 +161,7 @@ export function StarPageForm({
     if (!file) return;
     setPhotoError(null);
     try {
-      const picked = await readImageFile(file);
+      const picked = await readImageFile(file, STAR_PAGE_PHOTO_BUDGET);
       setPhotos((current) => {
         const next = [...current];
         next[index] = picked;
@@ -170,6 +188,14 @@ export function StarPageForm({
       return;
     }
     setDrawing(false);
+    /* A post over the server action cap never reaches the action: Next throws
+       and the parent lands on the error screen. Say so here instead. */
+    if (formBodyBytes(formData) > SERVER_ACTION_BODY_CAP_BYTES - BODY_HEADROOM_BYTES) {
+      setDrawError(
+        "Your photos are too large to send together. Please choose a smaller photo and try again."
+      );
+      return;
+    }
     startTransition(() => formAction(formData));
   }
 

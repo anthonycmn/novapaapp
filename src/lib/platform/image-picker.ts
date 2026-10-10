@@ -61,6 +61,26 @@ export const FUNCTION_BODY_CAP_BYTES = 6 * 1024 * 1024;
 export const BASE64_OVERHEAD = 4 / 3;
 
 /**
+ * The cap on a server action's request body - next.config.ts sets
+ * serverActions.bodySizeLimit to 4 MB, below the host's 6 MB. A form that posts
+ * through a server action has to fit THIS, not FUNCTION_BODY_CAP_BYTES. Past it,
+ * Next throws before the action runs and the page lands on the error screen.
+ */
+export const SERVER_ACTION_BODY_CAP_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Star page photos (Oct 2026: a family hit the error screen on add-to-cart
+ * three times). That form posts up to two photos AND the 300 DPI print file in
+ * one server action, and the default 3 MB-per-photo budget blew the 4 MB cap
+ * on its own. A photo fills at most a 5" x 8" page - 1500 x 2400 at 300 DPI -
+ * so 1800 px on the long edge still prints sharp.
+ */
+export const STAR_PAGE_PHOTO_BUDGET: ImageBudget = {
+  maxEdge: 1800,
+  maxBytes: 600 * 1024,
+};
+
+/**
  * What a face-matching upload gets instead of the defaults.
  *
  * That form posts up to MAX_REFERENCE_PHOTOS (4) photos in ONE request, so the
