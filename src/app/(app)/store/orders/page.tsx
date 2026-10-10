@@ -44,6 +44,19 @@ export default async function OrdersPage({
   ]);
   const templatesById = new Map(templates.map((t) => [t.id, t]));
 
+  /* What comes next depends on what they bought (CJ, 10 Oct 2026): buttons
+     are picked up at the front desk, a star page is printed in the playbill.
+     An order of star pages only must not promise them buttons. */
+  const placedOrder = placed ? orders.find((order) => order.reference === placed) : undefined;
+  const hasButtons = placedOrder?.items.some((item) => item.productType === "spirit_button") ?? true;
+  const hasStarPages = placedOrder?.items.some((item) => item.productType === "star_page") ?? false;
+  const nextStep =
+    hasButtons && hasStarPages
+      ? "We'll let you know as soon as your buttons are ready, and your star page goes to the playbill."
+      : hasStarPages
+        ? "Your star page goes to the playbill, exactly as you designed it."
+        : "We'll let you know as soon as your buttons are ready.";
+
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Your orders</h1>
@@ -53,7 +66,7 @@ export default async function OrdersPage({
           <CardContent className="p-4 text-sm">
             <p className="font-medium">Order {placed} placed - thank you! 🎉</p>
             <p className="text-muted-foreground">
-              We&apos;ll let you know as soon as your buttons are ready.
+              {nextStep}
             </p>
           </CardContent>
         </Card>

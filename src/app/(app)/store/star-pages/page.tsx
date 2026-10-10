@@ -121,7 +121,7 @@ export default async function StarPagesPage({
       <SectionHeader
         as="h1"
         title="Star pages"
-        subtitle="Quarter page $50 · half page $90 · full page $140"
+        subtitle="Quarter page $60 · half page $90 · full page $150"
       />
 
       {offered.length === 0 ? (

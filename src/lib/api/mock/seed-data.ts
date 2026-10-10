@@ -559,13 +559,13 @@ export const products: Product[] = [
     name: "Star page - Frozen Jr. playbill",
     description:
       "A congratulatory page in the show program. Add a photo and a message from the family.",
-    basePriceCents: 3500,
+    basePriceCents: 6000,
     productionId: "prod-frozen",
     optionLabel: "Page size",
     options: [
       { value: "quarter", label: "Quarter page", priceDeltaCents: 0, description: "Photo + short message" },
-      { value: "half", label: "Half page", priceDeltaCents: 2500, description: "Larger photo, longer message" },
-      { value: "full", label: "Full page", priceDeltaCents: 6500, description: "Full-page tribute" },
+      { value: "half", label: "Half page", priceDeltaCents: 3000, description: "Larger photo, longer message" },
+      { value: "full", label: "Full page", priceDeltaCents: 9000, description: "Full-page tribute" },
     ],
     requiresPhoto: true,
     requiresMessage: true,

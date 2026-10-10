@@ -238,8 +238,8 @@ describe("store catalog: star pages and lessons", () => {
 
   it("prices the chosen option from the catalog, not the client", async () => {
     const starPage = seed.products.find((p) => p.id === "prod-starpage-frozen")!;
-    expect(priceFor(starPage, "quarter")).toBe(3500);
-    expect(priceFor(starPage, "full")).toBe(10000);
+    expect(priceFor(starPage, "quarter")).toBe(6000);
+    expect(priceFor(starPage, "full")).toBe(15000);
 
     const cart = await provider.addCatalogItemToCart("user-sofia", {
       productId: "prod-starpage-frozen",
@@ -253,7 +253,7 @@ describe("store catalog: star pages and lessons", () => {
         signature: "Mom and Dad",
       },
     });
-    expect(cart[0].unitPriceCents).toBe(10000);
+    expect(cart[0].unitPriceCents).toBe(15000);
     expect(cart[0].displayName).toContain("Full page");
   });
 
