@@ -29,7 +29,7 @@ export interface Reward {
   sort: number;
 }
 
-export type LedgerKind = "earn" | "referral" | "redeem" | "refund" | "adjust" | "expire";
+export type LedgerKind = "earn" | "referral" | "redeem" | "refund" | "adjust" | "expire" | "reversal";
 
 export interface LedgerEntry {
   id: string;

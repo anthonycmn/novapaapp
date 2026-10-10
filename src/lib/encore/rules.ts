@@ -94,6 +94,7 @@ export function describeEntry(e: LedgerEntry): string {
   if (ref.startsWith("tix:")) return "Show tickets";
   if (e.kind === "referral") return "Referred a new family";
   if (e.kind === "expire") return "Points expired";
+  if (e.kind === "reversal") return "Refund or cancellation";
   if (e.kind === "adjust") return "Adjusted by the office";
   return "Points";
 }
