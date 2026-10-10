@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ButtonDesigner } from "./designer";
 import { NotYetAvailable } from "@/components/not-yet-available";
 import { isFeatureOpen } from "@/lib/feature-availability";
+import { starPageOnSale } from "@/lib/api/store/catalog";
 
 export const metadata = { title: "Spirit buttons & star pages" };
 
@@ -28,7 +29,7 @@ export default async function StorePage() {
     : [];
   // Show-week keepsakes live together on this page; coaching is separate.
   const starPages = products.filter(
-    (product) => product.type === "star_page" && product.artworkUrl
+    (product) => product.type === "star_page" && starPageOnSale(product)
   );
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);

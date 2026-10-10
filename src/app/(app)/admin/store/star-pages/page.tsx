@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getProvider } from "@/lib/api";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
 import { StarPageArtworkForm } from "./artwork-form";
+import { starPageOnSale } from "@/lib/api/store/catalog";
 
 export const metadata = { title: "Star page artwork" };
 
@@ -35,7 +36,8 @@ export default async function StarPageArtworkPage() {
     }))
     .sort((a, b) => {
       // Shows still waiting for a graphic first: that is the to-do list.
-      if (!!a.product.artworkUrl !== !!b.product.artworkUrl) return a.product.artworkUrl ? 1 : -1;
+      const aOn = starPageOnSale(a.product);
+      if (aOn !== starPageOnSale(b.product)) return aOn ? 1 : -1;
       return a.title.localeCompare(b.title);
     });
 
@@ -44,16 +46,17 @@ export default async function StarPageArtworkPage() {
       <div>
         <h1 className="text-2xl font-semibold">Star page artwork</h1>
         <p className="text-muted-foreground">
-          Upload each show&apos;s playbill graphic. Families in that show can then
-          add a photo and a message, see the finished page, and buy it. A show
-          with no graphic is not on sale.
+          Upload each show&apos;s graphic for the quarter, half and full page, with
+          the photo spaces drawn on as black boxes. Families in that show put their
+          photos in those boxes, choose a font and color for their words, see the
+          finished page, and buy it. Only sizes with a graphic are on sale.
         </p>
       </div>
 
       {rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">No shows sell star pages yet.</p>
       ) : (
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-3">
           {rows.map(({ product, title }) => (
             <StarPageArtworkForm key={product.id} product={product} title={title} />
           ))}

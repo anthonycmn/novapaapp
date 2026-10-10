@@ -4814,13 +4814,21 @@ export class MockDataProvider implements DataProvider {
   async setStarPageArtwork(
     actorId: string,
     productId: string,
-    artworkUrl: string | undefined
+    artworkUrl: string | undefined,
+    pageSize?: string
   ): Promise<Product> {
     const actor = getActor(actorId);
     if (!isAdmin(actor)) throw new AccessDeniedError("Admin only");
     const product = store.products.find((p) => p.id === productId);
     if (!product || product.type !== "star_page") throw new Error("That star page was not found");
-    product.artworkUrl = artworkUrl;
+    if (pageSize) {
+      const bySize = { ...(product.artworkBySize ?? {}) };
+      if (artworkUrl) bySize[pageSize] = artworkUrl;
+      else delete bySize[pageSize];
+      product.artworkBySize = bySize;
+    } else {
+      product.artworkUrl = artworkUrl;
+    }
     return deepClone(product);
   }
 

@@ -12,6 +12,7 @@ import { addCatalogItemAction } from "./store";
 import type { FamilyFormState } from "./family";
 import type { SubmissionState } from "./spirit-button";
 import { isFeatureOpen, FEATURE_COPY } from "@/lib/feature-availability";
+import { STAR_PAGE_FONTS, STAR_PAGE_SIZES } from "@/lib/store/star-page-artwork";
 
 /**
  * A family submits a star page for the playbill.
@@ -65,6 +66,8 @@ export async function submitStarPageAction(
       `Size:      ${option?.label ?? optionValue}`,
       `Price:     ${formatCents(priceCents)}`,
       `Photo:     ${formData.get("photoDataUrl") ? "attached to the design in the portal" : "none"}`,
+      ...(formData.get("photoDataUrl2") ? ["Photo 2:   attached to the design in the portal"] : []),
+      `Lettering: ${STAR_PAGE_FONTS.find((font) => font.value === formData.get("fontFamily"))?.label ?? "default"}, ${String(formData.get("textColor") || "default color")}`,
       "",
       "----- MESSAGE, EXACTLY AS THE FAMILY WROTE IT -----",
       message,
@@ -108,6 +111,12 @@ export async function saveStarPageArtworkAction(
   const productId = String(formData.get("productId") ?? "");
   const artworkDataUrl = String(formData.get("artworkDataUrl") ?? "");
   const remove = formData.get("removeArtwork") === "true";
+  /* One graphic per page size (CJ, 10 Oct 2026); blank = the older single
+     graphic every size used to share. */
+  const pageSize = String(formData.get("pageSize") ?? "") || undefined;
+  if (pageSize && !(STAR_PAGE_SIZES as readonly string[]).includes(pageSize)) {
+    return { ok: false, errors: { _form: "Unknown page size" } };
+  }
   if (!productId) return { ok: false, errors: { _form: "Pick a show" } };
   if (!remove && !artworkDataUrl) {
     return { ok: false, errors: { artworkDataUrl: "Upload the graphic first" } };
@@ -128,7 +137,8 @@ export async function saveStarPageArtworkAction(
     await getProvider().setStarPageArtwork(
       user.id,
       productId,
-      remove ? undefined : artworkDataUrl
+      remove ? undefined : artworkDataUrl,
+      pageSize
     );
   } catch (error) {
     return {

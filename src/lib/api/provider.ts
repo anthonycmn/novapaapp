@@ -1033,11 +1033,16 @@ export interface DataProvider {
    * Admin only: give a show's star page its graphic (CJ, 8 Oct 2026). Merged
    * into products.config.artworkUrl; undefined removes it, which takes the
    * show's star pages off sale for families until a new graphic goes up.
+   *
+   * With pageSize (CJ, 10 Oct 2026) it sets that size's own graphic in
+   * products.config.artworkBySize instead; only sizes with a graphic are
+   * offered to families.
    */
   setStarPageArtwork(
     actorId: string,
     productId: string,
-    artworkUrl: string | undefined
+    artworkUrl: string | undefined,
+    pageSize?: string
   ): Promise<Product>;
 
   /* bug reports (hub 0081) */

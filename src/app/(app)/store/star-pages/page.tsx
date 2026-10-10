@@ -9,6 +9,7 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { StarPageForm } from "./star-page-form";
 import { NotYetAvailable } from "@/components/not-yet-available";
 import { isFeatureOpen } from "@/lib/feature-availability";
+import { starPageOnSale } from "@/lib/api/store/catalog";
 
 export const metadata = { title: "Star pages" };
 
@@ -57,7 +58,7 @@ export default async function StarPagesPage({
       product.type === "star_page" &&
       product.isActive &&
       product.productionId &&
-      product.artworkUrl
+      starPageOnSale(product)
   );
   const byProduction = new Map(starPages.map((product) => [product.productionId!, product]));
 

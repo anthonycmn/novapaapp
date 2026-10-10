@@ -4489,6 +4489,7 @@ class SupabaseDataProvider {
       messageLabel: config.messageLabel as string | undefined,
       messageMaxLength: config.messageMaxLength as number | undefined,
       artworkUrl: (config.artworkUrl as string | undefined) || undefined,
+      artworkBySize: (config.artworkBySize as Product["artworkBySize"]) || undefined,
       isActive: Boolean(row.is_active),
     } as Product;
   }
@@ -4687,7 +4688,8 @@ class SupabaseDataProvider {
   async setStarPageArtwork(
     actorId: string,
     productId: string,
-    artworkUrl: string | undefined
+    artworkUrl: string | undefined,
+    pageSize?: string
   ): Promise<Product> {
     const actor = await this.actor(actorId);
     if (actor.role !== "admin" && actor.role !== "super_admin") {
@@ -4699,7 +4701,12 @@ class SupabaseDataProvider {
     if (row.type !== "star_page") throw new Error("Not a star page");
 
     const config = { ...((row.config ?? {}) as Record<string, unknown>) };
-    if (artworkUrl) config.artworkUrl = artworkUrl;
+    if (pageSize) {
+      const bySize = { ...((config.artworkBySize ?? {}) as Record<string, string>) };
+      if (artworkUrl) bySize[pageSize] = artworkUrl;
+      else delete bySize[pageSize];
+      config.artworkBySize = bySize;
+    } else if (artworkUrl) config.artworkUrl = artworkUrl;
     else delete config.artworkUrl;
 
     const { data, error } = await this.db

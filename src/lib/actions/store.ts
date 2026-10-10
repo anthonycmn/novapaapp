@@ -11,7 +11,8 @@ import {
   livePaymentsBlockedBecause,
 } from "@/lib/api/payments";
 import { isButtonLine, type OrderStatus } from "@/lib/api/types";
-import type { Customization } from "@/lib/api/store/catalog";
+import { starPageArtworkFor, type Customization } from "@/lib/api/store/catalog";
+import { STAR_PAGE_FONTS } from "@/lib/store/star-page-artwork";
 import { assertUploadAllowed } from "@/lib/api/storage";
 import { logActivity } from "@/lib/activity";
 import { getEncore } from "@/lib/encore";
@@ -141,14 +142,22 @@ export async function addCatalogItemAction(
   if (product.type === "star_page") {
     const message = String(formData.get("message") ?? "").trim();
     const photoDataUrl = String(formData.get("photoDataUrl") ?? "");
+    const photoDataUrl2 = String(formData.get("photoDataUrl2") ?? "");
     printDataUrl = String(formData.get("printDataUrl") ?? "") || undefined;
     if (!message) return { ok: false, errors: { message: "Add your message" } };
+    /* Only sizes the office has a graphic for are on sale (CJ, 10 Oct 2026). */
+    if (!starPageArtworkFor(product, optionValue ?? "")) {
+      return { ok: false, errors: { _form: "That page size is not open for this show yet" } };
+    }
+    const fontFamily = String(formData.get("fontFamily") ?? "");
+    const textColor = String(formData.get("textColor") ?? "");
     if (product.requiresPhoto && !photoDataUrl) {
       return { ok: false, errors: { photoDataUrl: "Choose a photo" } };
     }
-    if (photoDataUrl || printDataUrl) {
+    if (photoDataUrl || photoDataUrl2 || printDataUrl) {
       try {
         if (photoDataUrl) assertUploadAllowed("button-photos", photoDataUrl);
+        if (photoDataUrl2) assertUploadAllowed("button-photos", photoDataUrl2);
         if (printDataUrl) assertUploadAllowed("button-photos", printDataUrl);
       } catch (error) {
         return {
@@ -164,6 +173,11 @@ export async function addCatalogItemAction(
       photoUrl: photoDataUrl || undefined,
       photoWidth: Number(formData.get("photoWidth") ?? 0) || undefined,
       photoHeight: Number(formData.get("photoHeight") ?? 0) || undefined,
+      photoUrl2: photoDataUrl2 || undefined,
+      // Only the offered fonts and a plain #rrggbb are kept; anything else
+      // falls back to the renderer's defaults.
+      fontFamily: STAR_PAGE_FONTS.some((font) => font.value === fontFamily) ? fontFamily : undefined,
+      textColor: /^#[0-9a-f]{6}$/i.test(textColor) ? textColor : undefined,
       message,
       signature: String(formData.get("signature") ?? "").trim(),
     };

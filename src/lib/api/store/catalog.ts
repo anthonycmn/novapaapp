@@ -47,6 +47,13 @@ export interface Product {
    * with no artwork is not offered to families yet (CJ, 8 Oct 2026).
    */
   artworkUrl?: string;
+  /**
+   * Star pages: one graphic per page size - quarter, half, full (CJ, 10 Oct
+   * 2026) - each with its photo spaces drawn on it. products.config
+   * .artworkBySize. A size with neither its own graphic nor artworkUrl is not
+   * offered; see starPageArtworkFor.
+   */
+  artworkBySize?: Partial<Record<string, string>>;
   isActive: boolean;
   /** Sort order in the storefront. */
   sortOrder: number;
@@ -66,6 +73,19 @@ export interface ButtonCustomization {
   templateId: string;
 }
 
+/** The graphic a star page of this size is drawn on, if the show has one. */
+export function starPageArtworkFor(
+  product: Pick<Product, "artworkUrl" | "artworkBySize">,
+  pageSize: string
+): string | undefined {
+  return product.artworkBySize?.[pageSize] || product.artworkUrl || undefined;
+}
+
+/** A star page is on sale once any of its sizes has a graphic. */
+export function starPageOnSale(product: Pick<Product, "artworkUrl" | "artworkBySize">): boolean {
+  return Boolean(product.artworkUrl || Object.values(product.artworkBySize ?? {}).some(Boolean));
+}
+
 export interface StarPageCustomization {
   kind: "star_page";
   /** Whose page this is. */
@@ -75,6 +95,11 @@ export interface StarPageCustomization {
   photoUrl?: string;
   photoWidth?: number;
   photoHeight?: number;
+  /** The second photo, for a graphic with two photo spaces (the full page). */
+  photoUrl2?: string;
+  /** The family's lettering and color (CJ, 10 Oct 2026). */
+  fontFamily?: string;
+  textColor?: string;
   /** The congratulatory message printed in the playbill. */
   message: string;
   /** Who it's from — "Love, Mom and Dad". */
