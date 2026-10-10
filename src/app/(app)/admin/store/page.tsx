@@ -84,6 +84,13 @@ export default async function StoreAdminPage({
             <Star aria-hidden className="size-4" />
             Star page artwork
           </Link>
+          <Link
+            href="/admin/store/star-page-orders"
+            className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-accent"
+          >
+            <Star aria-hidden className="size-4" />
+            Star page orders
+          </Link>
           <a
             href={`/api/store/manifest${query}`}
             className="inline-flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-semibold hover:bg-accent"

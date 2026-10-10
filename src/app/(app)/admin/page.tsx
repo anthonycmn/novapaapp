@@ -138,6 +138,7 @@ export default async function AdminPage() {
           { href: "/admin/pickup", title: "🚗 Drop-off & pick-up", description: "Approvals and today's roster" },
           { href: "/admin/registration", title: "🔄 Registration sync", description: "Sync health and resync" },
           { href: "/admin/store", title: "🎟️ Button orders", description: "Queue, manifest, print sheet" },
+          { href: "/admin/store/star-page-orders", title: "🌟 Star page orders", description: "Pages, messages, playbill CSV" },
           { href: "/admin/photos", title: "📸 Photo ingestion", description: "Galleries and matching" },
           { href: "/admin/bugs", title: "🐛 Bug reports", description: "What families found broken" },
           ...(isAdmin
