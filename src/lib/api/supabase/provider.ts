@@ -148,6 +148,7 @@ import { offeringFromRow, type OpenOffering } from "../catalog/offerings";
 import { staffForFamily } from "../staff/for-family";
 import { runFromEvents, type ProductionRun } from "../productions/run";
 import { studentRecipients } from "@/lib/email/student-recipients";
+import { parentsInAudience, type AudienceTables } from "@/lib/notifications/audience-parents";
 
 /**
  * Supabase adapter for the shared novapa-deh project (`public` schema).
@@ -3344,50 +3345,31 @@ class SupabaseDataProvider {
 
   /** Parents whose family matches a post/email audience. */
   private async audienceParents(audience: FeedAudience): Promise<User[]> {
-    const [{ data: parents }, { data: students }, { data: enrollments },
-      { data: classes }, { data: productions }] = await Promise.all([
-      this.db.from("profiles").select("*").eq("role", "parent"),
-      this.db.from("students").select("id, family_id"),
-      this.db.from("enrollments").select("*").eq("status", "enrolled"),
-      this.db.from("classes").select("id, program_id"),
-      this.db.from("productions").select("id, program_id"),
-    ]);
-    const isEveryone =
-      !audience.productionIds?.length &&
-      !audience.classIds?.length &&
-      !audience.programIds?.length &&
-      !audience.familyIds?.length;
-    const classPrograms = new Map((classes ?? []).map((c) => [c.id, c.program_id]));
-    const productionPrograms = new Map((productions ?? []).map((pr) => [pr.id, pr.program_id]));
-
-    return (parents ?? [])
-      .filter((parent) => {
-        if (isEveryone) return true;
-        // A named family is addressed directly — it does not have to clear the
-        // enrollment test below, which is what makes a per-family send work
-        // even where enrollment is still reconciling from the website.
-        if (audience.familyIds?.length &&
-          parent.family_id &&
-          audience.familyIds.includes(String(parent.family_id))) return true;
-        const familyStudentIds = new Set(
-          (students ?? []).filter((st) => st.family_id === parent.family_id).map((st) => st.id)
-        );
-        return (enrollments ?? []).some((enrollment) => {
-          if (!familyStudentIds.has(enrollment.student_id)) return false;
-          if (enrollment.production_id &&
-            audience.productionIds?.includes(String(enrollment.production_id))) return true;
-          if (enrollment.class_id &&
-            audience.classIds?.includes(String(enrollment.class_id))) return true;
-          if (audience.programIds?.length) {
-            const programId = enrollment.class_id
-              ? classPrograms.get(enrollment.class_id)
-              : productionPrograms.get(enrollment.production_id);
-            if (programId && audience.programIds.includes(String(programId))) return true;
-          }
-          return false;
-        });
-      })
-      .map(mapUser);
+    // Paged: students passed 975 rows on 10 Oct 2026, and PostgREST's silent
+    // 1000-row cap would quietly drop whole families from every group send.
+    // The matching rule itself is lib/notifications/audience-parents.ts, so
+    // the push page's reach count and the send share it.
+    const [parents, students, enrollments, { data: classes }, { data: productions }] =
+      await Promise.all([
+        this.readAll((from, to) =>
+          this.db.from("profiles").select("*").eq("role", "parent").order("id").range(from, to)
+        ),
+        this.readAll((from, to) =>
+          this.db.from("students").select("id, family_id").order("id").range(from, to)
+        ),
+        this.readAll((from, to) =>
+          this.db.from("enrollments").select("student_id, production_id, class_id")
+            .eq("status", "enrolled").order("id").range(from, to)
+        ),
+        this.db.from("classes").select("id, program_id"),
+        this.db.from("productions").select("id, program_id"),
+      ]);
+    return parentsInAudience(audience, parents, {
+      students: students as AudienceTables["students"],
+      enrollments: enrollments as AudienceTables["enrollments"],
+      classes: (classes ?? []) as AudienceTables["classes"],
+      productions: (productions ?? []) as AudienceTables["productions"],
+    }).map(mapUser);
   }
 
   /**

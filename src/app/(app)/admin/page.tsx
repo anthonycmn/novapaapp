@@ -141,7 +141,7 @@ export default async function AdminPage() {
           { href: "/admin/photos", title: "📸 Photo ingestion", description: "Galleries and matching" },
           { href: "/admin/bugs", title: "🐛 Bug reports", description: "What families found broken" },
           ...(isAdmin
-            ? [{ href: "/admin/push", title: "🔔 Push to all parents", description: "Ring every family's phone" }]
+            ? [{ href: "/admin/push", title: "🔔 Push to parents", description: "Ring every family's phone, or just a show's or class's" }]
             : []),
           ...(isAdmin
             ? [{ href: "/admin/reviews", title: "⭐ All feedback", description: "Reviews, trends, follow-up" }]

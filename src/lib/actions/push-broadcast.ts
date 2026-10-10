@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getSessionUser, hasRoleAtLeast } from "@/lib/auth/session";
-import { broadcastPushToAllParents } from "@/lib/push/broadcast";
+import { broadcastPushToAllParents, cleanAudience } from "@/lib/push/broadcast";
 
 /**
  * A push notification to every parent, from /admin/push.
@@ -11,6 +11,15 @@ import { broadcastPushToAllParents } from "@/lib/push/broadcast";
  * push notification to all of the parents." The send itself lives in
  * lib/push/broadcast.ts, shared with the staff portal's door.
  */
+
+/** The composer's picks, as JSON in a hidden field. Unreadable = nobody picked. */
+function audienceFrom(formData: FormData) {
+  try {
+    return cleanAudience(JSON.parse(String(formData.get("audience") ?? "{}")));
+  } catch {
+    return {};
+  }
+}
 
 export type PushBroadcastState = {
   ok: boolean;
@@ -32,6 +41,7 @@ export async function sendPushToAllParentsAction(
     body: String(formData.get("body") ?? ""),
     url: String(formData.get("url") ?? ""),
     urgent: formData.get("urgent") === "on",
+    audience: audienceFrom(formData),
   });
   if (!result.ok) return result;
 
